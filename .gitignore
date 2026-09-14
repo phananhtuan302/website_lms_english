@@ -29,3 +29,10 @@ Desktop.ini
 
 # Test / coverage output
 coverage/
+
+# Playwright E2E (T-060) — generated auth sessions/reports, never committed
+e2e/.auth/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
