@@ -174,10 +174,25 @@ async function runAttempt(
   const detail = await apiRequest<AttemptDetail>(`/api/attempts/${join.attemptId}`, student.token);
   const questions = detail.sections[0].questions;
 
-  const wantedTexts: [string, string] = [correct[0] ? 'Right1' : 'Wrong1', correct[1] ? 'True' : 'False'];
-  for (const [index, question] of questions.entries()) {
-    const choice = question.choices.find((c) => c.text === wantedTexts[index]);
-    if (!choice) throw new Error(`Could not find choice "${wantedTexts[index]}" on question ${index}`);
+  // `generateVariantLayout()` (T-009) genuinely shuffles question order on every
+  // generation, so `questions[0]`/`questions[1]` cannot be assumed to be the
+  // multipleChoice/trueFalse question respectively (this was T-062's flakiness bug —
+  // matching by array position failed ~50% of the time). Identify each question by which
+  // choice SET it actually has instead, order-independent.
+  for (const question of questions) {
+    const choiceTexts = new Set(question.choices.map((c) => c.text));
+    let wantedText: string;
+    if (choiceTexts.has('Right1') && choiceTexts.has('Wrong1')) {
+      wantedText = correct[0] ? 'Right1' : 'Wrong1';
+    } else if (choiceTexts.has('True') && choiceTexts.has('False')) {
+      wantedText = correct[1] ? 'True' : 'False';
+    } else {
+      throw new Error(
+        `Question ${question.id} has unrecognized choices [${[...choiceTexts].join(', ')}] — expected the multipleChoice (Right1/Wrong1) or trueFalse (True/False) question authored by createTaggedTest.`,
+      );
+    }
+    const choice = question.choices.find((c) => c.text === wantedText);
+    if (!choice) throw new Error(`Could not find choice "${wantedText}" on question ${question.id}`);
     await apiRequest(`/api/attempts/${join.attemptId}/answers/${question.id}`, student.token, {
       method: 'PUT',
       body: { selectedChoiceId: choice.id },
