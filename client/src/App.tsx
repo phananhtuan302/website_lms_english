@@ -19,6 +19,7 @@ import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
 import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
+import TeacherReportsPage from './pages/TeacherReportsPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
@@ -65,6 +66,7 @@ function App() {
                 element={<TeacherLiveSessionPage />}
               />
               <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
+              <Route path="/teacher/reports" element={<TeacherReportsPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>

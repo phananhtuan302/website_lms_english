@@ -16,7 +16,8 @@
     "seed": "tsx prisma/seed.ts",
     "verify:realtime": "tsx scripts/verify-realtime.ts",
     "verify:live-dashboard": "tsx scripts/verify-live-dashboard.ts",
-    "verify:time-tracking": "tsx scripts/verify-time-tracking.ts"
+    "verify:time-tracking": "tsx scripts/verify-time-tracking.ts",
+    "verify:reporting": "tsx scripts/verify-reporting.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

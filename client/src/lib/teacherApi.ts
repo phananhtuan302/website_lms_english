@@ -22,6 +22,8 @@ import type {
   GenerateVariantsRequest,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
+  ReportGroupBy,
+  ReportResponseDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestSummaryDTO,
@@ -168,4 +170,12 @@ export const teacherApi = {
     apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards/${cardId}`, {
       method: 'DELETE',
     }),
+
+  // --- Reporting engine v1 (T-019) --------------------------------------------------
+  getReport: (params: { groupBy: ReportGroupBy; testId?: string | null; unitId?: string | null }) => {
+    const query = new URLSearchParams({ groupBy: params.groupBy });
+    if (params.testId) query.set('testId', params.testId);
+    if (params.unitId) query.set('unitId', params.unitId);
+    return apiRequest<ReportResponseDTO>(`${teacherBase}/reports?${query.toString()}`);
+  },
 };

@@ -14,6 +14,7 @@ import { attemptsRouter } from './routes/attempts.routes';
 import { curriculumRouter } from './routes/curriculum.routes';
 import { teacherFlashcardsRouter } from './routes/teacherFlashcards.routes';
 import { studentFlashcardsRouter } from './routes/studentFlashcards.routes';
+import { teacherReportsRouter } from './routes/teacherReports.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -74,6 +75,12 @@ app.use('/api/teacher', teacherFlashcardsRouter);
 // (T-024–T-027). See `studentFlashcards.routes.ts`'s module doc comment for why these
 // are NOT scoped under `/api/teacher` or ownership-checked per teacher.
 app.use('/api/flashcard-sets', studentFlashcardsRouter);
+
+// Teacher-only reporting engine v1 (T-019): multi-granularity aggregate stats
+// (test/unit/week/month/quarter/semester/year), all served by the single shared
+// `computeReport` engine in `lib/reporting.ts`. Same `/api/teacher` mount point as the
+// other teacher-only routers above.
+app.use('/api/teacher', teacherReportsRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

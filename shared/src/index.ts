@@ -600,3 +600,52 @@ export interface LiveStudentProgressDTO {
   totalQuestions: number;
   updatedAt: string;
 }
+
+// --- Reporting engine v1 (T-019) ----------------------------------------------------
+// Shared shapes for the multi-granularity reporting endpoint. See
+// `server/src/lib/reporting.ts` for the engine that produces these and PROJECT_PLAN.md
+// Assumption A5 / A11 for the timezone and "breakdown table" design conventions.
+
+/** Every filter dimension T-019 supports, all served by the same underlying engine
+ * (`computeReport` in `server/src/lib/reporting.ts`) rather than one-off queries per
+ * dimension. `week` is ISO-8601 (Monday–Sunday); `semester` buckets by the existing
+ * `AcademicPeriod` entity (T-018); all date/time bucketing uses the fixed
+ * `Asia/Ho_Chi_Minh` timezone (Assumption A5). */
+export type ReportGroupBy = 'test' | 'unit' | 'week' | 'month' | 'quarter' | 'semester' | 'year';
+
+/** One row of the report's breakdown table (Assumption A11 — `groupBy` returns a table
+ * with one row per bucket for that granularity, not a single filtered number). Only
+ * `submitted` attempts are counted, matching T-017's average-time convention.
+ * `periodStart`/`periodEnd` are `null` for the `test`/`unit` dimensions (no natural time
+ * range) and set to the bucket's UTC instant boundaries for every time-based dimension
+ * (`week`/`month`/`quarter`/`semester`/`year`) — `periodEnd` is exclusive. Averages are
+ * `null` (never `0`) when `attemptCount` is 0, same "don't fake a zero" convention as
+ * `TestSummaryDTO.averageTimeTakenSeconds`. */
+export interface ReportBucketDTO {
+  /** Stable id for the bucket: a test/unit/AcademicPeriod id, the literal `'untagged'` /
+   * `'unassigned'` pseudo-bucket, or a computed period key (e.g. `2026-09`, `2026-W37`,
+   * `2026-Q3`, `2026`). */
+  key: string;
+  /** Human-readable label for the report table (e.g. the test title, unit name,
+   * academic period name, or a formatted period like `Month 2026-09`). */
+  label: string;
+  attemptCount: number;
+  /** Average `Attempt.scorePercent`, rounded to 1 decimal place (same precision
+   * `attempts.routes.ts` stores it at). */
+  averageScorePercent: number | null;
+  /** Average `Attempt.timeTakenSeconds`, rounded to the nearest whole second (same
+   * convention as `TestSummaryDTO.averageTimeTakenSeconds`, T-017). */
+  averageTimeTakenSeconds: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+/** Response for `GET /api/teacher/reports`. `testId`/`unitId` echo back whichever
+ * optional narrowing filters were applied (both `null` if omitted) so the client can
+ * confirm what it asked for. */
+export interface ReportResponseDTO {
+  groupBy: ReportGroupBy;
+  testId: string | null;
+  unitId: string | null;
+  buckets: ReportBucketDTO[];
+}

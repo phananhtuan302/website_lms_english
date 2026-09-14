@@ -35,6 +35,12 @@ function TeacherDashboardPage() {
         >
           Manage flashcard sets &amp; vocabulary
         </Link>
+        <Link
+          to="/teacher/reports"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          View reports
+        </Link>
       </div>
 
       <div>
