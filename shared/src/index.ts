@@ -79,6 +79,19 @@ export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank' | 'essay
  * See `schema.prisma`'s `TestType` doc comment for what each value unlocks. */
 export type TestType = 'generic' | 'unitTest' | 'vocabularyCheck' | 'listeningTest' | 'mockTest';
 
+/** Human-readable label per `TestType` (T-045) — shared so every list that surfaces a
+ * test's type (teacher's "My tests", student's self-practice picker, ...) renders the
+ * same wording instead of each screen inventing its own copy. `generic` intentionally
+ * has no badge at any of those call sites (a plain test needs no extra label), but a
+ * label is still provided here for completeness/exhaustiveness of the `Record`. */
+export const TEST_TYPE_LABELS: Record<TestType, string> = {
+  generic: 'Test',
+  unitTest: 'Unit Test',
+  vocabularyCheck: 'Vocabulary Check',
+  listeningTest: 'Listening Test',
+  mockTest: 'Mock Test',
+};
+
 /** Speaking answers (T-052–T-056) are always graded on a fixed 0–100 point scale,
  * regardless of the question's `allowedResponseSeconds` — simpler than requiring a
  * per-question configurable max score like essay's `essayMaxScore`, and matches how the
@@ -559,6 +572,9 @@ export interface RecordTabSwitchResponse {
 export interface PracticeTestSummaryDTO {
   id: string;
   title: string;
+  /** T-045: lets the self-practice picker badge a Mock Test (or any other non-generic
+   * type) the same way the teacher's "My tests" list does, via `TEST_TYPE_LABELS`. */
+  testType: TestType;
 }
 
 // --- Teacher-controlled synchronized Listening playback (T-041) --------------------

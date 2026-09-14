@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { PracticeTestSummaryDTO } from '@platform/shared';
+import { TEST_TYPE_LABELS, type PracticeTestSummaryDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 
@@ -73,7 +73,14 @@ function StudentPracticeTestsPage() {
             key={test.id}
             className="flex items-center justify-between rounded-lg border border-primary-100 px-4 py-3 text-sm"
           >
-            <span className="font-medium text-base-black">{test.title}</span>
+            <span className="font-medium text-base-black">
+              {test.title}
+              {test.testType !== 'generic' && (
+                <span className="ml-2 rounded-full bg-primary-200 px-2 py-0.5 text-xs font-medium text-primary-800">
+                  {TEST_TYPE_LABELS[test.testType]}
+                </span>
+              )}
+            </span>
             <button
               type="button"
               onClick={() => handleStartPractice(test.id)}

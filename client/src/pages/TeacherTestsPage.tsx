@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { TestSummaryDTO } from '@platform/shared';
+import { TEST_TYPE_LABELS, type TestSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
@@ -114,6 +114,15 @@ function TeacherTestsPage() {
                       ·{' '}
                       <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
                         {test.unitName}
+                      </span>
+                    </>
+                  )}
+                  {test.testType !== 'generic' && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <span className="rounded-full bg-primary-200 px-2 py-0.5 font-medium text-primary-800">
+                        {TEST_TYPE_LABELS[test.testType]}
                       </span>
                     </>
                   )}

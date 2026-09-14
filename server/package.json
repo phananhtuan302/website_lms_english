@@ -22,7 +22,9 @@
     "verify:t039-t044": "tsx scripts/verify-t039-t044.ts",
     "verify:t036-t038": "tsx scripts/verify-t036-t038.ts",
     "verify:vocab-progress": "tsx scripts/verify-vocab-progress.ts",
-    "verify:grammar": "tsx scripts/verify-grammar.ts"
+    "verify:grammar": "tsx scripts/verify-grammar.ts",
+    "verify:t045": "tsx scripts/verify-t045.ts",
+    "verify:t045:db": "tsx scripts/verify-t045-db.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

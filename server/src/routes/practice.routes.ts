@@ -48,7 +48,7 @@ practiceRouter.get(
   asyncHandler(async (_req, res) => {
     const tests = await prisma.test.findMany({
       where: { testType: { notIn: ['unitTest', 'vocabularyCheck'] } },
-      select: { id: true, title: true },
+      select: { id: true, title: true, testType: true },
       orderBy: { title: 'asc' },
     });
     const response: PracticeTestSummaryDTO[] = tests;
