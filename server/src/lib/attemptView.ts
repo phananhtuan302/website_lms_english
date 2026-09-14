@@ -35,13 +35,21 @@ interface QuestionRow {
   prompt: string;
   order: number;
   acceptedAnswers: string[];
+  /** Only meaningful for `essay` (T-042) — see `Question.essayMaxScore`'s doc comment. */
+  essayMaxScore: number | null;
   choices: ChoiceRow[];
 }
 
+/** Reading (T-039) / Listening (T-040/T-041) content — see `Section`'s doc comment in
+ * schema.prisma. */
 interface SectionRow {
   id: string;
   title: string;
   order: number;
+  passageText: string | null;
+  passageImageUrl: string | null;
+  audioUrl: string | null;
+  maxPlayCount: number | null;
   questions: QuestionRow[];
 }
 
@@ -69,6 +77,10 @@ export function buildRuntimeSections(
       id: section.id,
       title: section.title,
       order: sectionIndex + 1,
+      passageText: section.passageText,
+      passageImageUrl: section.passageImageUrl,
+      audioUrl: section.audioUrl,
+      maxPlayCount: section.maxPlayCount,
       questions: sec.questionIds.map((questionId, questionIndex) => {
         const question = questionById.get(questionId);
         if (!question) {
@@ -90,6 +102,7 @@ export function buildRuntimeSections(
           prompt: question.prompt,
           order: questionIndex + 1,
           choices,
+          essayMaxScore: question.essayMaxScore,
         };
       }),
     };
@@ -106,10 +119,15 @@ export function flattenQuestionsInAuthoredOrder(test: NestedTestForAttempt): Que
 
 /** Builds the full per-question result-review rows: the answer key plus whatever the
  * student had stored for that question (or nulls/`isCorrect: null` if never graded —
- * see `AttemptResultQuestionDTO`'s doc comment in `@platform/shared`). */
+ * see `AttemptResultQuestionDTO`'s doc comment in `@platform/shared`). Also carries
+ * through the essay manual-grading fields (T-042) — `manualScore`/`manualComment` are
+ * `undefined`/`null` for a never-graded (or non-essay) answer. */
 export function buildResultQuestions(
   test: NestedTestForAttempt,
-  answers: Map<string, RawAnswer & { isCorrect: boolean | null }>,
+  answers: Map<
+    string,
+    RawAnswer & { isCorrect: boolean | null; manualScore?: number | null; manualComment?: string | null }
+  >,
 ): AttemptResultQuestionDTO[] {
   return flattenQuestionsInAuthoredOrder(test).map((question, index) => {
     const answer = answers.get(question.id);
@@ -123,6 +141,9 @@ export function buildResultQuestions(
       selectedChoiceId: answer?.selectedChoiceId ?? null,
       textAnswer: answer?.textAnswer ?? null,
       isCorrect: answer?.isCorrect ?? null,
+      essayMaxScore: question.essayMaxScore,
+      manualScore: answer?.manualScore ?? null,
+      manualComment: answer?.manualComment ?? null,
     };
   });
 }

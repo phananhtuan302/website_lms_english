@@ -72,6 +72,17 @@ export function teacherRoom(sessionId: string): string {
   return `teacher:${sessionId}`;
 }
 
+/** Room every student socket for a session joins (T-041), separate from `teacherRoom`
+ * above — a student must NEVER be in the teacher-monitor room (see this module's top doc
+ * comment on why `student:progress` is relayed teacher-ward only), but broadcasting a
+ * `teacher:playAudio` press to every joined student's own room is exactly what T-041's
+ * synchronized Listening playback needs, and leaks nothing student-to-student (every
+ * student in the room receives the identical `audio:play` payload — there's no
+ * per-student data in it to leak). */
+export function studentRoom(sessionId: string): string {
+  return `student:${sessionId}`;
+}
+
 /**
  * Marks a session closed (T-016): called from `teacherSessions.routes.ts` on BOTH paths
  * that stop a session accepting joins (explicit `POST /sessions/:sessionId/close`, and
@@ -225,7 +236,7 @@ export function attachSessionRealtime(io: SocketIOServer): void {
             test: { include: { sections: { include: { questions: { select: { id: true } } } } } },
           },
         })
-        .then((attempt) => {
+        .then(async (attempt) => {
           if (!attempt) {
             respond({ ok: false, error: 'You have not joined this session.' });
             return;
@@ -242,6 +253,13 @@ export function attachSessionRealtime(io: SocketIOServer): void {
             studentName: attempt.student.name,
             totalQuestions,
           };
+
+          // T-041: join this session's student-broadcast room so a `teacher:playAudio`
+          // press reaches this socket via `audio:play`. Harmless to join even for a
+          // `selfPractice` session (T-040) — nothing ever broadcasts into it there, since
+          // only a `live` session's owning teacher can emit `teacher:playAudio` (see that
+          // handler below).
+          await socket.join(studentRoom(sessionId));
 
           const map = getOrCreateSessionMap(sessionId);
           const existing = map.get(user.sub);
@@ -314,6 +332,61 @@ export function attachSessionRealtime(io: SocketIOServer): void {
         respond({ ok: true });
       },
     );
+
+    /** `teacher:playAudio({ sessionId, sectionId }, ack)` — T-041's synchronized
+     * in-class Listening playback. Verifies the calling teacher owns the session's test
+     * (identical ownership check to `teacher:join` above), looks up the section's
+     * `audioUrl` server-side (never trusts a client-supplied URL — same "server is the
+     * source of truth" convention as every REST route), and broadcasts `audio:play` to
+     * every student socket in this session's `studentRoom` — which is what makes
+     * playback start in sync on every joined student's screen at once. Students
+     * themselves have no `audio:play`-triggering event of their own; the take-test
+     * runtime (`TakeTestPage.tsx`) only ever LISTENS for this during a `live` session,
+     * never emits it — that asymmetry is what enforces "students cannot self-start /
+     * pause / seek during a live session" (T-041's acceptance criteria) without needing
+     * a separate permission check on the client. */
+    socket.on('teacher:playAudio', (payload: { sessionId?: string; sectionId?: string }, ack?: Ack) => {
+      const respond = isAck(ack) ? ack : () => undefined;
+      const { sessionId, sectionId } = payload ?? {};
+
+      if (user.role !== 'teacher') {
+        respond({ ok: false, error: 'Only teachers can control Listening playback.' });
+        return;
+      }
+      if (!sessionId || !sectionId) {
+        respond({ ok: false, error: 'sessionId and sectionId are required.' });
+        return;
+      }
+
+      prisma.testSession
+        .findUnique({ where: { id: sessionId }, include: { test: { select: { teacherId: true } } } })
+        .then(async (session) => {
+          if (!session || session.test.teacherId !== user.sub) {
+            respond({ ok: false, error: 'Session not found.' });
+            return;
+          }
+          const section = await prisma.section.findUnique({ where: { id: sectionId } });
+          if (!section || section.testId !== session.testId) {
+            respond({ ok: false, error: 'Section not found on this session’s test.' });
+            return;
+          }
+          if (!section.audioUrl) {
+            respond({ ok: false, error: 'This section has no audio to play.' });
+            return;
+          }
+
+          io.to(studentRoom(sessionId)).emit('audio:play', {
+            sectionId: section.id,
+            audioUrl: section.audioUrl,
+            playedAt: new Date().toISOString(),
+          });
+          respond({ ok: true });
+        })
+        .catch((err: unknown) => {
+          console.error('[socket.io] teacher:playAudio failed:', err);
+          respond({ ok: false, error: 'Failed to broadcast playback.' });
+        });
+    });
 
     socket.on('disconnect', (reason) => {
       // Deliberately a no-op beyond logging: the student's last-known progress stays in

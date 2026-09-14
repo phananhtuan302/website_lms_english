@@ -19,6 +19,7 @@ import type {
   AttemptResultDTO,
   AttemptSummaryDTO,
   CreateSessionResponse,
+  GradeEssayAnswerRequest,
   TestSessionDTO,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
@@ -45,6 +46,7 @@ function toSessionDTO(session: {
   testId: string;
   manualCode: string;
   status: string;
+  mode: string;
   createdAt: Date;
   closedAt: Date | null;
   joinToken: string;
@@ -54,6 +56,7 @@ function toSessionDTO(session: {
     testId: session.testId,
     manualCode: session.manualCode,
     status: session.status as TestSessionDTO['status'],
+    mode: session.mode as TestSessionDTO['mode'],
     createdAt: session.createdAt.toISOString(),
     closedAt: session.closedAt ? session.closedAt.toISOString() : null,
     joinUrl: buildJoinUrl(session.joinToken),
@@ -237,6 +240,7 @@ teacherSessionsRouter.get(
       startedAt: a.startedAt.toISOString(),
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
       timeTakenSeconds: a.timeTakenSeconds,
+      tabSwitchCount: a.tabSwitchCount,
     }));
     res.status(200).json(summaries);
   }),
@@ -266,7 +270,13 @@ teacherSessionsRouter.get(
     const answerMap = new Map(
       answers.map((a) => [
         a.questionId,
-        { selectedChoiceId: a.selectedChoiceId, textAnswer: a.textAnswer, isCorrect: a.isCorrect },
+        {
+          selectedChoiceId: a.selectedChoiceId,
+          textAnswer: a.textAnswer,
+          isCorrect: a.isCorrect,
+          manualScore: a.manualScore,
+          manualComment: a.manualComment,
+        },
       ]),
     );
 
@@ -283,8 +293,74 @@ teacherSessionsRouter.get(
       totalCount: attempt.totalCount,
       scorePercent: attempt.scorePercent,
       timeTakenSeconds: attempt.timeTakenSeconds,
+      tabSwitchCount: attempt.tabSwitchCount,
+      tabSwitchLog: attempt.tabSwitchLog,
       questions: buildResultQuestions(test, answerMap),
     };
     res.status(200).json(response);
+  }),
+);
+
+/** PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade — manual essay
+ * grading (T-042). Ownership is checked the same way as the attempt-detail GET above
+ * (via the attempt's test, 404 if not this teacher's). Only valid for an `essay`
+ * question that has actually been submitted (an in-progress attempt has nothing final
+ * to grade yet); `score` must be within `[0, essayMaxScore]`. */
+teacherSessionsRouter.patch(
+  '/attempts/:attemptId/answers/:questionId/grade',
+  asyncHandler(async (req, res) => {
+    const attempt = await prisma.attempt.findUnique({
+      where: { id: req.params.attemptId },
+      include: { test: { select: { teacherId: true } } },
+    });
+    if (!attempt || attempt.test.teacherId !== req.user!.sub) {
+      res.status(404).json({ error: 'Attempt not found.' });
+      return;
+    }
+    if (attempt.status !== 'submitted') {
+      res.status(409).json({ error: 'This attempt has not been submitted yet — nothing to grade.' });
+      return;
+    }
+
+    const question = await prisma.question.findUnique({ where: { id: req.params.questionId } });
+    if (!question) {
+      res.status(404).json({ error: 'Question not found.' });
+      return;
+    }
+    // Confirm this question actually belongs to the attempt's test (defense in depth —
+    // a mismatched id here should never silently grade the wrong question).
+    const section = await prisma.section.findUnique({ where: { id: question.sectionId } });
+    if (!section || section.testId !== attempt.testId) {
+      res.status(404).json({ error: 'Question not found on this attempt.' });
+      return;
+    }
+    if (question.type !== 'essay') {
+      res.status(400).json({ error: 'Only essay questions can be manually graded.' });
+      return;
+    }
+
+    const body = req.body as Partial<GradeEssayAnswerRequest>;
+    const maxScore = question.essayMaxScore ?? 0;
+    if (typeof body.score !== 'number' || Number.isNaN(body.score) || body.score < 0 || body.score > maxScore) {
+      res.status(400).json({ error: `score must be a number between 0 and ${maxScore}.` });
+      return;
+    }
+    if (body.comment !== undefined && body.comment !== null && typeof body.comment !== 'string') {
+      res.status(400).json({ error: 'comment must be a string or null.' });
+      return;
+    }
+
+    await prisma.answer.upsert({
+      where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+      create: {
+        attemptId: attempt.id,
+        questionId: question.id,
+        manualScore: body.score,
+        manualComment: body.comment ?? null,
+      },
+      update: { manualScore: body.score, manualComment: body.comment ?? null },
+    });
+
+    res.status(200).json({ questionId: question.id, manualScore: body.score, manualComment: body.comment ?? null });
   }),
 );

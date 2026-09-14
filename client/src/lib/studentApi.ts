@@ -11,6 +11,8 @@ import type {
   AttemptSummaryDTO,
   JoinSessionResponse,
   JoinTokenCheckResponse,
+  PracticeTestSummaryDTO,
+  RecordTabSwitchResponse,
   SaveAnswerRequest,
   SubmitAttemptResponse,
 } from '@platform/shared';
@@ -36,4 +38,13 @@ export const studentApi = {
   submitAttempt: (attemptId: string) =>
     apiRequest<SubmitAttemptResponse>(`/api/attempts/${attemptId}/submit`, { method: 'POST' }),
   getResult: (attemptId: string) => apiRequest<AttemptResultDTO>(`/api/attempts/${attemptId}/result`),
+
+  // --- Global tab-switch / exit detection (T-044) -----------------------------------
+  recordTabSwitch: (attemptId: string) =>
+    apiRequest<RecordTabSwitchResponse>(`/api/attempts/${attemptId}/tab-switch`, { method: 'POST' }),
+
+  // --- Home self-practice (T-040) ---------------------------------------------------
+  listPracticeTests: () => apiRequest<PracticeTestSummaryDTO[]>('/api/tests'),
+  startPractice: (testId: string) =>
+    apiRequest<JoinSessionResponse>(`/api/tests/${testId}/practice`, { method: 'POST' }),
 };

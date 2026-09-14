@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Socket } from 'socket.io-client';
 import type { CreateSessionResponse, LiveStudentProgressDTO, TestDetailDTO } from '@platform/shared';
@@ -41,6 +41,12 @@ function TeacherLiveSessionPage() {
   const [isClosed, setIsClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // T-041: same socket connection used for `teacher:join` below also carries this
+  // teacher's `teacher:playAudio` presses — kept in a ref so the Play button handler
+  // (outside the connection effect) can reach the live socket instance.
+  const socketRef = useRef<Socket | null>(null);
+  const [playbackStatus, setPlaybackStatus] = useState<Record<string, string>>({});
+
   // Session + test detail (T-016 needs the test title for the header; totalQuestions
   // for the percent-complete math travels with each `LiveStudentProgressDTO` instead,
   // computed server-side at `student:join` time — see that DTO's doc comment).
@@ -62,6 +68,7 @@ function TeacherLiveSessionPage() {
 
     let cancelled = false;
     const socket: Socket = createSessionSocket();
+    socketRef.current = socket;
 
     function join() {
       socket.emit('teacher:join', { sessionId }, (ack: TeacherJoinAck) => {
@@ -99,11 +106,33 @@ function TeacherLiveSessionPage() {
     return () => {
       cancelled = true;
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [sessionId]);
 
+  /** T-041: broadcasts a `teacher:playAudio` press for one Listening section to every
+   * joined student's screen (via the realtime relay already set up above). Students
+   * never get an equivalent "play" emit of their own during a live session — this
+   * button is the only way Listening audio starts playing for them (see
+   * `TakeTestPage.tsx`'s `audio:play` listener). */
+  function handlePlayAudio(sectionId: string) {
+    if (!sessionId) return;
+    setPlaybackStatus((prev) => ({ ...prev, [sectionId]: 'Playing…' }));
+    socketRef.current?.emit(
+      'teacher:playAudio',
+      { sessionId, sectionId },
+      (ack: { ok: boolean; error?: string }) => {
+        setPlaybackStatus((prev) => ({
+          ...prev,
+          [sectionId]: ack.ok ? 'Played for all connected students.' : (ack.error ?? 'Failed to play.'),
+        }));
+      },
+    );
+  }
+
   if (!sessionId) return null;
 
+  const listeningSections = test?.sections.filter((s) => s.audioUrl) ?? [];
   const rows = Object.values(students).sort((a, b) => a.studentName.localeCompare(b.studentName));
 
   return (
@@ -136,6 +165,39 @@ function TeacherLiveSessionPage() {
           This session is closed. The table below reflects the final state — no further live
           updates will appear.
         </p>
+      )}
+
+      {listeningSections.length > 0 && (
+        <section className="rounded-xl border border-primary-200 p-4">
+          <h2 className="text-lg font-bold text-base-black">Listening playback control</h2>
+          <p className="mt-1 text-sm text-base-black/60">
+            Students in this live session do not see a Play button of their own (T-041) — press
+            Play below to play a section's audio on every connected student's screen at once.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {listeningSections.map((section) => (
+              <li
+                key={section.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary-100 px-3 py-2 text-sm"
+              >
+                <span className="font-medium text-base-black">{section.title}</span>
+                <div className="flex items-center gap-3">
+                  {playbackStatus[section.id] && (
+                    <span className="text-xs text-base-black/60">{playbackStatus[section.id]}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handlePlayAudio(section.id)}
+                    disabled={isClosed}
+                    className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    ▶ Play for students
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {rows.length === 0 && !error && (

@@ -89,6 +89,7 @@ function TeacherSessionAttemptsPage() {
                 <th className="px-4 py-3">Score</th>
                 <th className="px-4 py-3">Time taken</th>
                 <th className="px-4 py-3">Started</th>
+                <th className="px-4 py-3">Flags</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -118,6 +119,15 @@ function TeacherSessionAttemptsPage() {
                   </td>
                   <td className="px-4 py-3 text-base-black/70">
                     {new Date(attempt.startedAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    {attempt.tabSwitchCount > 0 ? (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                        {attempt.tabSwitchCount} tab switch{attempt.tabSwitchCount === 1 ? '' : 'es'}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-base-black/40">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <Link

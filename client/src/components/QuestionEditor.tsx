@@ -32,6 +32,11 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
   const [acceptedAnswersText, setAcceptedAnswersText] = useState(
     question.acceptedAnswers.join(', '),
   );
+  // Essay max score (T-042) — defaults to 10 (matches the server's own default) when a
+  // question has none yet, e.g. right after switching TO essay from another type.
+  const [essayMaxScoreText, setEssayMaxScoreText] = useState(
+    String(question.essayMaxScore ?? 10),
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
 
   function currentBody(): UpdateQuestionRequest {
@@ -44,6 +49,10 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
           .map((a) => a.trim())
           .filter((a) => a.length > 0),
       };
+    }
+    if (type === 'essay') {
+      const parsed = Number(essayMaxScoreText);
+      return { type, prompt, essayMaxScore: Number.isFinite(parsed) && parsed > 0 ? parsed : 10 };
     }
     return { type, prompt, choices };
   }
@@ -73,18 +82,23 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
       ];
       setChoices(nextChoices);
     }
-    void save(
-      newType === 'fillBlank'
-        ? {
-            type: newType,
-            prompt,
-            acceptedAnswers: acceptedAnswersText
-              .split(',')
-              .map((a) => a.trim())
-              .filter(Boolean),
-          }
-        : { type: newType, prompt, choices: nextChoices },
-    );
+    if (newType === 'fillBlank') {
+      void save({
+        type: newType,
+        prompt,
+        acceptedAnswers: acceptedAnswersText
+          .split(',')
+          .map((a) => a.trim())
+          .filter(Boolean),
+      });
+      return;
+    }
+    if (newType === 'essay') {
+      const parsed = Number(essayMaxScoreText);
+      void save({ type: newType, prompt, essayMaxScore: Number.isFinite(parsed) && parsed > 0 ? parsed : 10 });
+      return;
+    }
+    void save({ type: newType, prompt, choices: nextChoices });
   }
 
   function updateChoiceText(choiceIndex: number, text: string) {
@@ -117,6 +131,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
     multipleChoice: 'Multiple choice',
     trueFalse: 'True / False',
     fillBlank: 'Fill in the blank',
+    essay: 'Essay (Writing)',
   };
 
   return (
@@ -153,6 +168,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             <option value="multipleChoice">Multiple choice</option>
             <option value="trueFalse">True / False</option>
             <option value="fillBlank">Fill in the blank</option>
+            <option value="essay">Essay (Writing)</option>
           </select>
           <button
             type="button"
@@ -186,6 +202,22 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             placeholder="e.g. Paris, paris"
             className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
+        </label>
+      ) : type === 'essay' ? (
+        <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
+          Max score (teacher grades manually out of this many points, T-042)
+          <input
+            type="number"
+            min={1}
+            value={essayMaxScoreText}
+            onChange={(event) => setEssayMaxScoreText(event.target.value)}
+            onBlur={() => void save()}
+            className="w-32 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          />
+          <span className="text-xs font-normal text-base-black/50">
+            The student submits free text; there are no choices or an auto-graded answer for this
+            question type.
+          </span>
         </label>
       ) : (
         <div className="mt-3 flex flex-col gap-2">

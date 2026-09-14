@@ -18,6 +18,7 @@ import type {
   AttemptDetailDTO,
   AttemptResultDTO,
   AttemptSummaryDTO,
+  RecordTabSwitchResponse,
   SaveAnswerRequest,
   SubmitAttemptResponse,
 } from '@platform/shared';
@@ -71,6 +72,7 @@ attemptsRouter.get(
       startedAt: a.startedAt.toISOString(),
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
       timeTakenSeconds: a.timeTakenSeconds,
+      tabSwitchCount: a.tabSwitchCount,
     }));
     res.status(200).json(summaries);
   }),
@@ -78,7 +80,9 @@ attemptsRouter.get(
 
 /** `GET /api/attempts/:attemptId` — the take-test runtime payload (T-012): the
  * student's assigned variant's shuffled sections/questions/choices (answer-key-free),
- * plus whatever answers are already saved (for a mid-test refresh to restore from). */
+ * plus whatever answers are already saved (for a mid-test refresh to restore from).
+ * `sessionMode` (T-040/T-041) is looked up alongside so the runtime knows whether a
+ * Listening section's Play button should be student-controlled or teacher-broadcast-only. */
 attemptsRouter.get(
   '/:attemptId',
   asyncHandler(async (req, res) => {
@@ -88,10 +92,11 @@ attemptsRouter.get(
       return;
     }
 
-    const [test, variant, answers] = await Promise.all([
+    const [test, variant, answers, session] = await Promise.all([
       fetchNestedTest(attempt.testId),
       prisma.testVariant.findUniqueOrThrow({ where: { id: attempt.variantId } }),
       prisma.answer.findMany({ where: { attemptId: attempt.id } }),
+      prisma.testSession.findUniqueOrThrow({ where: { id: attempt.sessionId }, select: { mode: true } }),
     ]);
 
     const sections = buildRuntimeSections(test, variant.layout as unknown as VariantLayout);
@@ -99,6 +104,7 @@ attemptsRouter.get(
     const response: AttemptDetailDTO = {
       id: attempt.id,
       sessionId: attempt.sessionId,
+      sessionMode: session.mode,
       testId: test.id,
       testTitle: test.title,
       timeLimitMinutes: test.timeLimitMinutes,
@@ -147,7 +153,9 @@ attemptsRouter.put(
     let selectedChoiceId: string | null = null;
     let textAnswer: string | null = null;
 
-    if (question.type === 'fillBlank') {
+    // `essay` (T-042) shares fillBlank's free-text storage path — both are plain
+    // `textAnswer`, never `selectedChoiceId`.
+    if (question.type === 'fillBlank' || question.type === 'essay') {
       if (body.textAnswer !== undefined && body.textAnswer !== null) {
         if (typeof body.textAnswer !== 'string') {
           res.status(400).json({ error: 'textAnswer must be a string.' });
@@ -184,7 +192,17 @@ attemptsRouter.put(
 /** `POST /api/attempts/:attemptId/submit` — grades every question exactly once (T-013)
  * and marks the attempt terminal. A second submit call (double-click, retry, a second
  * browser tab) is rejected with 409 rather than silently re-scoring or overwriting —
- * the result is still readable via `GET /:attemptId/result` afterward either way. */
+ * the result is still readable via `GET /:attemptId/result` afterward either way.
+ *
+ * `essay` questions (T-042) are NEVER auto-graded (no equivalent grading logic exists,
+ * nor should it per T-039's "no new grading logic" spirit) — documented choice:
+ * `correctCount`/`totalCount`/`scorePercent` only reflect auto-gradable questions, so a
+ * test mixing objective + essay content isn't penalized/skewed by essays that haven't
+ * been manually graded yet. Every essay still gets an `Answer` row here (same "every
+ * question gets exactly one row" invariant as every other type), just with `isCorrect:
+ * null` forever — a teacher's later manual grade (`manualScore`/`manualComment`, via
+ * `PATCH .../grade` in `teacherSessions.routes.ts`) is what completes it, shown
+ * alongside (not merged into) this auto-graded score on the result view. */
 attemptsRouter.post(
   '/:attemptId/submit',
   asyncHandler(async (req, res) => {
@@ -204,17 +222,21 @@ attemptsRouter.post(
     ]);
     const answerByQuestionId = new Map(existingAnswers.map((a) => [a.questionId, a]));
     const questions = flattenQuestionsInAuthoredOrder(test);
+    const gradableQuestions = questions.filter((q) => q.type !== 'essay');
 
     let correctCount = 0;
-    const totalCount = questions.length;
+    const totalCount = gradableQuestions.length;
 
     const result = await prisma.$transaction(async (tx) => {
       for (const question of questions) {
         const existing = answerByQuestionId.get(question.id);
-        const isCorrect = gradeAnswer(question, {
-          selectedChoiceId: existing?.selectedChoiceId ?? null,
-          textAnswer: existing?.textAnswer ?? null,
-        });
+        const isCorrect =
+          question.type === 'essay'
+            ? null
+            : gradeAnswer(question, {
+                selectedChoiceId: existing?.selectedChoiceId ?? null,
+                textAnswer: existing?.textAnswer ?? null,
+              });
         if (isCorrect) correctCount += 1;
 
         await tx.answer.upsert({
@@ -292,7 +314,13 @@ attemptsRouter.get(
     const answerMap = new Map(
       answers.map((a) => [
         a.questionId,
-        { selectedChoiceId: a.selectedChoiceId, textAnswer: a.textAnswer, isCorrect: a.isCorrect },
+        {
+          selectedChoiceId: a.selectedChoiceId,
+          textAnswer: a.textAnswer,
+          isCorrect: a.isCorrect,
+          manualScore: a.manualScore,
+          manualComment: a.manualComment,
+        },
       ]),
     );
 
@@ -309,8 +337,48 @@ attemptsRouter.get(
       totalCount: attempt.totalCount,
       scorePercent: attempt.scorePercent,
       timeTakenSeconds: attempt.timeTakenSeconds,
+      tabSwitchCount: attempt.tabSwitchCount,
+      tabSwitchLog: attempt.tabSwitchLog,
       questions: buildResultQuestions(test, answerMap),
     };
+    res.status(200).json(response);
+  }),
+);
+
+/** `POST /api/attempts/:attemptId/tab-switch` — global tab-switch / exit detection
+ * (T-044), called by the ONE shared take-test runtime (`TakeTestPage.tsx`) whenever it
+ * detects a `visibilitychange`/`blur` while the attempt is in progress, so every test
+ * type gets this for free (Guiding Principle 5). Rejects (409) once the attempt is
+ * submitted — same server-side re-check convention as the answer-save/submit endpoints
+ * above, so a stray late event after submission can't mutate a finished attempt.
+ * Best-effort from the client's perspective (a failed call never blocks the student),
+ * but the server itself always durably records every successful call — `tabSwitchCount`
+ * is incremented and the ISO timestamp appended to `tabSwitchLog` atomically via
+ * Prisma's `increment`/`push`, so concurrent/rapid calls can't lose an event to a
+ * read-modify-write race. */
+attemptsRouter.post(
+  '/:attemptId/tab-switch',
+  asyncHandler(async (req, res) => {
+    const attempt = await loadOwnAttempt(req.params.attemptId, req.user!.sub);
+    if (!attempt) {
+      res.status(404).json({ error: 'Attempt not found.' });
+      return;
+    }
+    if (attempt.status !== 'inProgress') {
+      res.status(409).json({ error: 'This attempt is no longer in progress.' });
+      return;
+    }
+
+    const updated = await prisma.attempt.update({
+      where: { id: attempt.id },
+      data: {
+        tabSwitchCount: { increment: 1 },
+        tabSwitchLog: { push: new Date().toISOString() },
+      },
+      select: { tabSwitchCount: true },
+    });
+
+    const response: RecordTabSwitchResponse = { tabSwitchCount: updated.tabSwitchCount };
     res.status(200).json(response);
   }),
 );

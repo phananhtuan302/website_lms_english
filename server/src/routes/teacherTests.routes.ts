@@ -39,7 +39,12 @@ export const teacherTestsRouter = Router();
 
 teacherTestsRouter.use(requireAuth, requireRole('teacher'));
 
-const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlank'];
+const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlank', 'essay'];
+
+/** Default point value for a new `essay` question (T-042) when the teacher doesn't
+ * specify one — a simple, documented default rather than forcing every essay question to
+ * have a max score configured before it can be saved. */
+const DEFAULT_ESSAY_MAX_SCORE = 10;
 
 // --- Shared query/serialization helpers --------------------------------------------
 
@@ -77,12 +82,17 @@ function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
     id: section.id,
     title: section.title,
     order: section.order,
+    passageText: section.passageText,
+    passageImageUrl: section.passageImageUrl,
+    audioUrl: section.audioUrl,
+    maxPlayCount: section.maxPlayCount,
     questions: section.questions.map((question) => ({
       id: question.id,
       type: question.type,
       prompt: question.prompt,
       order: question.order,
       acceptedAnswers: question.acceptedAnswers,
+      essayMaxScore: question.essayMaxScore,
       choices: question.choices.map((choice) => ({
         id: choice.id,
         text: choice.text,
@@ -121,6 +131,32 @@ function toVariantDTO(variant: {
   };
 }
 
+/** Validates the optional Reading/Listening fields on a create/update section body
+ * (T-039/T-040). All four are independent and optional; the only real constraint is
+ * `maxPlayCount` (when provided) being a positive whole number — same
+ * "return an English error string, or null if valid" convention as `validateTimeLimit`. */
+function validateSectionContentFields(body: {
+  passageText?: string | null;
+  passageImageUrl?: string | null;
+  audioUrl?: string | null;
+  maxPlayCount?: number | null;
+}): string | null {
+  for (const field of ['passageText', 'passageImageUrl', 'audioUrl'] as const) {
+    const value = body[field];
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      return `${field} must be a string or null.`;
+    }
+  }
+  if (
+    body.maxPlayCount !== undefined &&
+    body.maxPlayCount !== null &&
+    (typeof body.maxPlayCount !== 'number' || !Number.isInteger(body.maxPlayCount) || body.maxPlayCount < 1)
+  ) {
+    return 'maxPlayCount must be a positive whole number, or null for unlimited plays.';
+  }
+  return null;
+}
+
 /** Validates a create/update question body shared shape. Returns an English error
  * string if invalid, or `null` if the body is well-formed. */
 function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | null {
@@ -139,6 +175,22 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
       answers.some((a) => typeof a !== 'string' || a.trim() === '')
     ) {
       return 'fillBlank questions require at least one non-empty accepted answer.';
+    }
+    return null;
+  }
+
+  if (body.type === 'essay') {
+    // No choices/acceptedAnswers apply (T-042) — only `essayMaxScore` needs validating,
+    // and it's optional (defaults to `DEFAULT_ESSAY_MAX_SCORE` at the call site).
+    if (
+      body.essayMaxScore !== undefined &&
+      body.essayMaxScore !== null &&
+      (typeof body.essayMaxScore !== 'number' ||
+        !Number.isInteger(body.essayMaxScore) ||
+        body.essayMaxScore < 1 ||
+        body.essayMaxScore > 1000)
+    ) {
+      return 'essayMaxScore must be a whole number between 1 and 1000, or omitted for the default.';
     }
     return null;
   }
@@ -328,13 +380,26 @@ teacherTestsRouter.post(
       res.status(400).json({ error: 'Section title is required.' });
       return;
     }
+    const contentError = validateSectionContentFields(body);
+    if (contentError) {
+      res.status(400).json({ error: contentError });
+      return;
+    }
 
     const maxOrder = await prisma.section.aggregate({
       where: { testId: test.id },
       _max: { order: true },
     });
     await prisma.section.create({
-      data: { testId: test.id, title, order: (maxOrder._max.order ?? 0) + 1 },
+      data: {
+        testId: test.id,
+        title,
+        order: (maxOrder._max.order ?? 0) + 1,
+        passageText: body.passageText ?? null,
+        passageImageUrl: body.passageImageUrl ?? null,
+        audioUrl: body.audioUrl ?? null,
+        maxPlayCount: body.maxPlayCount ?? null,
+      },
     });
 
     const nested = await fetchNestedTest(test.id);
@@ -360,8 +425,24 @@ teacherTestsRouter.patch(
       res.status(400).json({ error: 'Section title is required.' });
       return;
     }
+    const contentError = validateSectionContentFields(body);
+    if (contentError) {
+      res.status(400).json({ error: contentError });
+      return;
+    }
 
-    await prisma.section.update({ where: { id: section.id }, data: { title } });
+    await prisma.section.update({
+      where: { id: section.id },
+      data: {
+        title,
+        // `undefined` (field omitted) leaves the column untouched; `null` explicitly
+        // clears it — same convention as `PATCH /tests/:testId`'s timeLimit/unitId.
+        ...(body.passageText !== undefined ? { passageText: body.passageText } : {}),
+        ...(body.passageImageUrl !== undefined ? { passageImageUrl: body.passageImageUrl } : {}),
+        ...(body.audioUrl !== undefined ? { audioUrl: body.audioUrl } : {}),
+        ...(body.maxPlayCount !== undefined ? { maxPlayCount: body.maxPlayCount } : {}),
+      },
+    });
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
   }),
@@ -467,8 +548,9 @@ teacherTestsRouter.post(
         order,
         acceptedAnswers:
           body.type === 'fillBlank' ? (body.acceptedAnswers as string[]).map((a) => a.trim()) : [],
+        essayMaxScore: body.type === 'essay' ? (body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE) : null,
         choices:
-          body.type === 'fillBlank'
+          body.type === 'fillBlank' || body.type === 'essay'
             ? undefined
             : {
                 create: choices.map((c, index) => ({
@@ -523,11 +605,12 @@ teacherTestsRouter.patch(
           prompt: (body.prompt as string).trim(),
           acceptedAnswers:
             newType === 'fillBlank' ? (body.acceptedAnswers as string[]).map((a) => a.trim()) : [],
+          essayMaxScore: newType === 'essay' ? (body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE) : null,
         },
       });
 
-      if (newType === 'fillBlank') {
-        // No choices apply to fillBlank at all — drop any that existed from a
+      if (newType === 'fillBlank' || newType === 'essay') {
+        // No choices apply to fillBlank/essay at all — drop any that existed from a
         // previous type (e.g. the teacher switched this question's type).
         await tx.choice.deleteMany({ where: { questionId: question.id } });
         return;

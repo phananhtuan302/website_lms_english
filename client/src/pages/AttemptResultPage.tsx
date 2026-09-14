@@ -62,23 +62,49 @@ function AttemptResultPage() {
           <div
             key={q.questionId}
             className={`rounded-lg border p-4 ${
-              q.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+              q.type === 'essay'
+                ? 'border-primary-100 bg-base-white'
+                : q.isCorrect
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-red-200 bg-red-50'
             }`}
           >
             <div className="flex items-start justify-between gap-3">
               <p className="font-medium text-base-black">
                 Q{q.order}. {q.prompt}
               </p>
-              <span
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase ${
-                  q.isCorrect ? 'bg-green-600 text-base-white' : 'bg-red-600 text-base-white'
-                }`}
-              >
-                {q.isCorrect ? 'Correct' : 'Incorrect'}
-              </span>
+              {q.type === 'essay' ? (
+                <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
+                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : 'Awaiting grading'}
+                </span>
+              ) : (
+                <span
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                    q.isCorrect ? 'bg-green-600 text-base-white' : 'bg-red-600 text-base-white'
+                  }`}
+                >
+                  {q.isCorrect ? 'Correct' : 'Incorrect'}
+                </span>
+              )}
             </div>
 
-            {q.type === 'fillBlank' ? (
+            {q.type === 'essay' ? (
+              <div className="mt-2 flex flex-col gap-2 text-sm text-base-black/80">
+                <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-primary-50 p-3">
+                  {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer submitted)</em>}
+                </div>
+                {q.manualComment && (
+                  <p className="text-xs italic text-base-black/60">
+                    Teacher&apos;s comment: {q.manualComment}
+                  </p>
+                )}
+                {q.manualScore == null && (
+                  <p className="text-xs text-base-black/50">
+                    Your teacher hasn&apos;t graded this essay yet.
+                  </p>
+                )}
+              </div>
+            ) : q.type === 'fillBlank' ? (
               <div className="mt-2 text-sm text-base-black/80">
                 <p>Your answer: {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer)</em>}</p>
                 <p>Accepted answer(s): {q.acceptedAnswers.join(', ')}</p>

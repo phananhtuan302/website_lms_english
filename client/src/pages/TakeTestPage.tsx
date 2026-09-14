@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Socket } from 'socket.io-client';
-import type { AttemptDetailDTO, AttemptQuestionDTO } from '@platform/shared';
+import type { AttemptDetailDTO, AttemptQuestionDTO, LiveAudioPlayEventDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import { createSessionSocket } from '../lib/socket';
 
+/** Reading (T-039) / Listening (T-040/T-041) content, denormalized from the enclosing
+ * section onto every question in it — same "carry the section field down" pattern
+ * already used for `sectionTitle` below, since the take-test runtime navigates a FLAT
+ * question list, not a section tree. */
 interface FlatQuestion extends AttemptQuestionDTO {
+  sectionId: string;
   sectionTitle: string;
+  sectionPassageText: string | null;
+  sectionPassageImageUrl: string | null;
+  sectionAudioUrl: string | null;
+  sectionMaxPlayCount: number | null;
   globalIndex: number;
 }
 
@@ -30,6 +39,13 @@ function formatRemaining(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/** `fillBlank` and `essay` (T-042) both store their answer as plain `textAnswer` rather
+ * than `selectedChoiceId` — every "is this question answered / what do I persist" check
+ * in this file branches on this shared predicate instead of re-listing both types. */
+function isFreeTextType(type: AttemptQuestionDTO['type']): boolean {
+  return type === 'fillBlank' || type === 'essay';
 }
 
 /**
@@ -55,6 +71,19 @@ function TakeTestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+
+  // --- Anti-copy-paste on essay answers (T-043) -------------------------------------
+  const [pasteWarning, setPasteWarning] = useState<string | null>(null);
+  const pasteWarningTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // --- Global tab-switch / exit detection (T-044) -----------------------------------
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [tabSwitchNotice, setTabSwitchNotice] = useState<string | null>(null);
+  const tabSwitchNoticeTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // --- Listening playback (T-040 standalone / T-041 live) ---------------------------
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playCounts, setPlayCounts] = useState<Record<string, number>>({});
 
   const answersRef = useRef(answers);
   useEffect(() => {
@@ -96,13 +125,57 @@ function TakeTestPage() {
 
   useEffect(loadAttempt, [loadAttempt]);
 
+  // --- Global tab-switch / exit detection (T-044) -----------------------------------
+  // Implemented ONCE here in the shared take-test runtime (Guiding Principle 5) so every
+  // test type — objective, Reading, Listening, Writing, Vocabulary Check, Mock Test —
+  // gets this automatically, with no per-content-type wiring. `visibilitychange` catches
+  // switching tabs/apps or minimizing; `blur` additionally catches e.g. alt-tabbing to
+  // another window that doesn't change document.visibilityState on every OS/browser.
+  // Only armed while an attempt is actually in progress (not before load, not after
+  // submit) — `hasSubmittedRef` guards the moment right around submit itself. Recording
+  // is best-effort from the student's point of view (a failed POST never blocks them),
+  // but every successful call durably increments the server-side count/log
+  // (`POST /api/attempts/:id/tab-switch`) that the teacher sees afterward.
+  useEffect(() => {
+    if (!attemptId || !attempt || attempt.status !== 'inProgress') return undefined;
+
+    function recordTabSwitch() {
+      if (hasSubmittedRef.current) return;
+      setTabSwitchCount((count) => count + 1);
+      setTabSwitchNotice('Tab switch detected — this has been recorded for your teacher.');
+      clearTimeout(tabSwitchNoticeTimer.current);
+      tabSwitchNoticeTimer.current = setTimeout(() => setTabSwitchNotice(null), 6000);
+      studentApi.recordTabSwitch(attemptId!).catch(() => undefined);
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) recordTabSwitch();
+    }
+    function handleBlur() {
+      recordTabSwitch();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      clearTimeout(tabSwitchNoticeTimer.current);
+    };
+  }, [attemptId, attempt]);
+
   const flatQuestions = useMemo<FlatQuestion[]>(() => {
     if (!attempt) return [];
     let i = 0;
     return attempt.sections.flatMap((section) =>
       section.questions.map((question) => ({
         ...question,
+        sectionId: section.id,
         sectionTitle: section.title,
+        sectionPassageText: section.passageText,
+        sectionPassageImageUrl: section.passageImageUrl,
+        sectionAudioUrl: section.audioUrl,
+        sectionMaxPlayCount: section.maxPlayCount,
         globalIndex: i++,
       })),
     );
@@ -112,7 +185,7 @@ function TakeTestPage() {
   const answeredCount = flatQuestions.filter((q) => {
     const a = answers[q.id];
     if (!a) return false;
-    return q.type === 'fillBlank' ? a.textAnswer.trim() !== '' : a.selectedChoiceId !== null;
+    return isFreeTextType(q.type) ? a.textAnswer.trim() !== '' : a.selectedChoiceId !== null;
   }).length;
 
   // --- Live progress relay (T-016) --------------------------------------------------
@@ -126,6 +199,13 @@ function TakeTestPage() {
   // the REST autosave above regardless of whether this succeeds.
   const socketRef = useRef<Socket | null>(null);
   const [isProgressSocketJoined, setIsProgressSocketJoined] = useState(false);
+
+  // --- Teacher-controlled synchronized Listening playback (T-041) -------------------
+  // Only ever fires during a `live` session (nothing broadcasts `audio:play` for a
+  // `selfPractice` session — see `sessionRealtime.ts`'s `teacher:playAudio` handler) —
+  // captured here as the raw last-received event; the effect below decides whether it
+  // applies to whatever section the student is currently viewing.
+  const [lastAudioPlayEvent, setLastAudioPlayEvent] = useState<LiveAudioPlayEventDTO | null>(null);
 
   useEffect(() => {
     if (!attempt) return undefined;
@@ -151,6 +231,10 @@ function TakeTestPage() {
       });
     });
 
+    socket.on('audio:play', (payload: LiveAudioPlayEventDTO) => {
+      if (!cancelled) setLastAudioPlayEvent(payload);
+    });
+
     return () => {
       cancelled = true;
       socket.disconnect();
@@ -168,6 +252,19 @@ function TakeTestPage() {
     socketRef.current?.emit('student:progress', { currentQuestionIndex: currentIndex, answeredCount });
   }, [isProgressSocketJoined, currentIndex, answeredCount, totalQuestions]);
 
+  // Plays the shared <audio> element when a `teacher:playAudio` broadcast arrives for
+  // whichever section the student is CURRENTLY viewing. If the teacher plays a section
+  // the student has since navigated away from, this deliberately does nothing for
+  // it — there is no queued/backlog playback, matching "plays live, together" rather
+  // than "guarantees every student eventually hears it regardless of where they are".
+  useEffect(() => {
+    if (!lastAudioPlayEvent) return;
+    const currentSectionId = flatQuestions[currentIndex]?.sectionId;
+    if (currentSectionId === lastAudioPlayEvent.sectionId) {
+      audioRef.current?.play().catch(() => undefined);
+    }
+  }, [lastAudioPlayEvent, flatQuestions, currentIndex]);
+
   const deadline = useMemo(() => {
     if (!attempt || attempt.timeLimitMinutes == null) return null;
     return new Date(attempt.startedAt).getTime() + attempt.timeLimitMinutes * 60_000;
@@ -183,10 +280,9 @@ function TakeTestPage() {
   const persistAnswer = useCallback(
     (questionId: string, question: FlatQuestion, local: LocalAnswer) => {
       if (!attemptId) return;
-      const body =
-        question.type === 'fillBlank'
-          ? { textAnswer: local.textAnswer }
-          : { selectedChoiceId: local.selectedChoiceId };
+      const body = isFreeTextType(question.type)
+        ? { textAnswer: local.textAnswer }
+        : { selectedChoiceId: local.selectedChoiceId };
       studentApi.saveAnswer(attemptId, questionId, body).catch(() => {
         // Autosave failures are surfaced to the student via the periodic flush /
         // explicit submit instead of a disruptive per-keystroke error banner — a
@@ -222,7 +318,7 @@ function TakeTestPage() {
       for (const question of flatQuestions) {
         const local = answersRef.current[question.id];
         if (!local) continue;
-        const hasValue = question.type === 'fillBlank' ? local.textAnswer.trim() !== '' : local.selectedChoiceId !== null;
+        const hasValue = isFreeTextType(question.type) ? local.textAnswer.trim() !== '' : local.selectedChoiceId !== null;
         if (hasValue) persistAnswer(question.id, question, local);
       }
     }, AUTOSAVE_INTERVAL_MS);
@@ -243,6 +339,37 @@ function TakeTestPage() {
     }
     textDebounceTimers.current = {};
   }, [attemptId, flatQuestions]);
+
+  // --- Anti-copy-paste on essay answers (T-043) -------------------------------------
+  // Intercepts `paste` (content is NOT inserted — `preventDefault` stops the browser's
+  // default paste behavior before it ever reaches the textarea's value) and disables
+  // copy/cut OUT of the field, each showing a visible warning. Normal typing is
+  // completely unaffected — this only hooks `paste`/`copy`/`cut`, never `keydown`/
+  // `input`. Verified with simulated `ClipboardEvent`s in the Playwright pass for this
+  // batch (T-043's acceptance criteria: "verified via a simulated paste/copy event in an
+  // automated test, not just manual inspection").
+  function handleEssayBlocked(action: 'paste' | 'copy' | 'cut', event: React.ClipboardEvent) {
+    event.preventDefault();
+    setPasteWarning(
+      action === 'paste'
+        ? 'Pasting into this answer is not allowed. Please type your answer yourself.'
+        : 'Copying text out of this answer is not allowed.',
+    );
+    clearTimeout(pasteWarningTimer.current);
+    pasteWarningTimer.current = setTimeout(() => setPasteWarning(null), 5000);
+  }
+
+  // --- Listening playback (T-040 standalone) ----------------------------------------
+  function handlePlayAudio(question: FlatQuestion) {
+    const el = audioRef.current;
+    if (!el) return;
+    // `.play()` rejects (e.g. `NotSupportedError`) for a placeholder URL that doesn't
+    // resolve to real audio (see `Section.audioUrl`'s doc comment) — always caught, same
+    // as the live-broadcast listener below, so this never surfaces as an unhandled
+    // promise rejection in the browser console.
+    el.play().catch(() => undefined);
+    setPlayCounts((prev) => ({ ...prev, [question.sectionId]: (prev[question.sectionId] ?? 0) + 1 }));
+  }
 
   const handleSubmit = useCallback(
     async (auto: boolean) => {
@@ -325,7 +452,7 @@ function TakeTestPage() {
       <div className="flex flex-wrap gap-1.5" aria-label="Question navigator">
         {flatQuestions.map((q, index) => {
           const local = answers[q.id];
-          const isAnswered = local && (q.type === 'fillBlank' ? local.textAnswer.trim() !== '' : local.selectedChoiceId !== null);
+          const isAnswered = local && (isFreeTextType(q.type) ? local.textAnswer.trim() !== '' : local.selectedChoiceId !== null);
           return (
             <button
               key={q.id}
@@ -347,14 +474,109 @@ function TakeTestPage() {
         })}
       </div>
 
+      {tabSwitchNotice && (
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {tabSwitchNotice} (count: {tabSwitchCount})
+        </p>
+      )}
+
       {current && (
         <div className="rounded-xl border border-primary-200 bg-primary-50 p-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">
             {current.sectionTitle} · Question {currentIndex + 1} of {totalQuestions}
           </p>
-          <p className="mt-2 text-lg font-medium text-base-black">{current.prompt}</p>
 
-          {current.type === 'fillBlank' ? (
+          {/* Reading passage (T-039) — shared context for every question in this section. */}
+          {current.sectionPassageText && (
+            <div className="mt-3 rounded-lg border border-primary-200 bg-base-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                Reading passage
+              </p>
+              {current.sectionPassageImageUrl && (
+                <img
+                  src={current.sectionPassageImageUrl}
+                  alt="Reading passage illustration"
+                  className="mt-2 max-h-64 rounded-md border border-primary-100 object-contain"
+                />
+              )}
+              <p className="mt-2 whitespace-pre-wrap text-sm text-base-black/90">
+                {current.sectionPassageText}
+              </p>
+            </div>
+          )}
+
+          {/* Listening audio (T-040 standalone / T-041 live) — shared context for every
+              question in this section. */}
+          {current.sectionAudioUrl && (
+            <div className="mt-3 rounded-lg border border-primary-200 bg-base-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                Listening audio
+              </p>
+              {/* Hidden native controls in BOTH modes: standalone uses the custom Play
+                  button below (so `maxPlayCount` can actually be enforced — a native
+                  scrubber would let a student replay endlessly regardless of the limit);
+                  live uses no student-facing controls at all (T-041). */}
+              {/* `preload="none"`: don't fetch the clip just because the student scrolled
+                  to this question — only when playback is actually requested (either the
+                  standalone Play button below, or a live `audio:play` broadcast). Also
+                  what makes "did the client actually start playing" reliably observable
+                  as a fresh network request at the moment of play, not one that already
+                  happened speculatively on mount. */}
+              <audio ref={audioRef} src={current.sectionAudioUrl} preload="none" className="hidden" />
+              {attempt.sessionMode === 'live' ? (
+                <p className="mt-2 text-sm text-base-black/70">
+                  Your teacher controls audio playback for this section during a live session. It
+                  will play automatically here when they press Play.
+                </p>
+              ) : (
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handlePlayAudio(current)}
+                    disabled={
+                      current.sectionMaxPlayCount != null &&
+                      (playCounts[current.sectionId] ?? 0) >= current.sectionMaxPlayCount
+                    }
+                    className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    ▶ Play audio
+                  </button>
+                  <span className="text-xs text-base-black/60">
+                    {current.sectionMaxPlayCount != null
+                      ? `Played ${playCounts[current.sectionId] ?? 0} of ${current.sectionMaxPlayCount} times`
+                      : `Played ${playCounts[current.sectionId] ?? 0} time(s) — unlimited plays`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="mt-4 text-lg font-medium text-base-black">{current.prompt}</p>
+
+          {current.type === 'essay' ? (
+            <div className="mt-4">
+              <textarea
+                value={answers[current.id]?.textAnswer ?? ''}
+                onChange={(event) => handleTextChange(current, event.target.value)}
+                onPaste={(event) => handleEssayBlocked('paste', event)}
+                onCopy={(event) => handleEssayBlocked('copy', event)}
+                onCut={(event) => handleEssayBlocked('cut', event)}
+                disabled={isSubmitting}
+                rows={10}
+                placeholder="Write your response here (pasting is disabled — please type your own answer)."
+                className="w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              />
+              <p className="mt-1 text-xs text-base-black/50">
+                {current.essayMaxScore != null && `Graded manually by your teacher, out of ${current.essayMaxScore} points. `}
+                Copy/paste is disabled on this field.
+              </p>
+              {pasteWarning && (
+                <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {pasteWarning}
+                </p>
+              )}
+            </div>
+          ) : current.type === 'fillBlank' ? (
             <input
               type="text"
               value={answers[current.id]?.textAnswer ?? ''}

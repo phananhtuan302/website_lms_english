@@ -3,11 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import type {
   CreateSessionResponse,
   QuestionType,
+  SectionDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestVariantDTO,
   UnitDTO,
   UpdateQuestionRequest,
+  UpdateSectionRequest,
 } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -20,6 +22,7 @@ function defaultQuestionBody(type: QuestionType): {
   prompt: string;
   choices?: { text: string; isCorrect: boolean }[];
   acceptedAnswers?: string[];
+  essayMaxScore?: number;
 } {
   if (type === 'trueFalse') {
     return {
@@ -33,6 +36,9 @@ function defaultQuestionBody(type: QuestionType): {
   }
   if (type === 'fillBlank') {
     return { type, prompt: 'New fill-in-the-blank question', acceptedAnswers: ['answer'] };
+  }
+  if (type === 'essay') {
+    return { type, prompt: 'New essay question', essayMaxScore: 10 };
   }
   return {
     type,
@@ -170,6 +176,25 @@ function TeacherTestEditorPage() {
       setTest(updated);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save section title.');
+    }
+  }
+
+  /** Saves one or more of a section's Reading (T-039) / Listening (T-040/T-041) content
+   * fields — `title` is always resent alongside since `UpdateSectionRequest` requires it
+   * (same "send full current state for fields not being patched" convention as
+   * `handleSaveUnit`/question editing elsewhere on this page). */
+  async function handleUpdateSectionContent(
+    section: SectionDTO,
+    patch: Partial<Omit<UpdateSectionRequest, 'title'>>,
+  ) {
+    try {
+      const updated = await teacherApi.updateSection(testId!, section.id, {
+        title: section.title,
+        ...patch,
+      });
+      setTest(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save section content.');
     }
   }
 
@@ -404,6 +429,65 @@ function TeacherTestEditorPage() {
               </div>
             </div>
 
+            <details className="mt-3 rounded-lg border border-primary-100 bg-base-white p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-primary-600">
+                Reading passage / Listening audio (optional)
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm font-medium text-base-black sm:col-span-2">
+                  Passage text (T-039)
+                  <textarea
+                    defaultValue={section.passageText ?? ''}
+                    onBlur={(event) =>
+                      handleUpdateSectionContent(section, { passageText: event.target.value || null })
+                    }
+                    rows={3}
+                    placeholder="Paste the reading passage here — shown to students above this section's questions."
+                    className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                  Passage image URL (optional)
+                  <input
+                    type="text"
+                    defaultValue={section.passageImageUrl ?? ''}
+                    onBlur={(event) =>
+                      handleUpdateSectionContent(section, { passageImageUrl: event.target.value || null })
+                    }
+                    placeholder="https://..."
+                    className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                  Audio URL (T-040/T-041, placeholder convention like flashcard audio)
+                  <input
+                    type="text"
+                    defaultValue={section.audioUrl ?? ''}
+                    onBlur={(event) =>
+                      handleUpdateSectionContent(section, { audioUrl: event.target.value || null })
+                    }
+                    placeholder="https://..."
+                    className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                  Max plays for home self-practice (blank = unlimited)
+                  <input
+                    type="number"
+                    min={1}
+                    defaultValue={section.maxPlayCount ?? ''}
+                    onBlur={(event) =>
+                      handleUpdateSectionContent(section, {
+                        maxPlayCount: event.target.value.trim() === '' ? null : Number(event.target.value),
+                      })
+                    }
+                    placeholder="Unlimited"
+                    className="w-40 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  />
+                </label>
+              </div>
+            </details>
+
             <div className="mt-4 flex flex-col gap-3">
               {section.questions.map((question, questionIndex) => (
                 <QuestionEditor
@@ -439,6 +523,13 @@ function TeacherTestEditorPage() {
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
                 + Fill in the blank
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddQuestion(section.id, 'essay')}
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+              >
+                + Essay (Writing)
               </button>
             </div>
           </div>
