@@ -22,13 +22,13 @@ function Header() {
 
   return (
     <header className="border-b border-primary-200 bg-base-white">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6">
         <Link to="/" className="text-lg font-bold text-primary-600">
           {APP_NAME}
         </Link>
 
         <nav aria-label="Main navigation">
-          <ul className="flex items-center gap-1 sm:gap-2">
+          <ul className="flex flex-wrap items-center gap-1 sm:gap-2">
             {NAV_ITEMS.map((label) => (
               <li key={label}>
                 <a
@@ -53,7 +53,7 @@ function Header() {
         </nav>
 
         {user ? (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-base-black/70">
               {user.name}{' '}
               <span className="text-xs font-medium uppercase text-primary-600">({user.role})</span>
@@ -67,7 +67,7 @@ function Header() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/register"
               className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700"
