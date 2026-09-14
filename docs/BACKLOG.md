@@ -15,8 +15,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 0 — Foundation & Scaffold
 
-- [ ] **T-001 — Monorepo scaffold & tooling**
-  - Status: Not Started
+- [x] **T-001 — Monorepo scaffold & tooling**
+  - Status: Done
   - Depends on: None
   - Source: TECH_STACK.md (architecture)
   - Acceptance Criteria: Running `npm install` at the repo root installs all workspaces (`/client`, `/server`, `/shared`) without error. Each workspace has a working TypeScript config, and `npm run build` (or equivalent per-workspace script) compiles all three without type errors. ESLint + Prettier are configured at the root and running the lint script reports zero errors on the initial scaffold. A root `README.md` (or `docs/` note) explains how to install and run client + server in dev mode.

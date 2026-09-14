@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Monorepo scaffold
+
+- Task IDs touched: T-001
+- What changed: Dev built the npm-workspaces monorepo (`/client` React+TS+Vite+Tailwind, `/server` Express+TS+Socket.IO, `/shared` shared types), root ESLint/Prettier, `/health` endpoint, `.env` conventions. Test independently re-verified from a clean `node_modules` state (fresh install, build, lint-with-injected-error check, live server boot + curl, live client dev-server + Tailwind CSS content check, shared-import grep, git-tracked-files check for `.env` leakage) — PASS, no bugs found.
+- Why / decisions made: Dev pinned TypeScript 5.9.x, Express 4.x, Tailwind 3.x, React 18.x, Vite 7.x (avoids Windows CVEs in Vite ≤6.4.2 without jumping to the unstable Rolldown-based Vite 8) — documented in README "Notable choices", not worth a formal Assumption entry. Fixed a real Vite/Rollup npm-workspaces symlink bug via `resolve.preserveSymlinks: true` in `client/vite.config.ts`.
+- Status after this entry: T-001 Done (commit `9c69e6a`). T-002/T-003/T-004 now unblocked (all depend only on T-001) and dispatched together as one Dev batch to reduce per-task coordination overhead — see next entry.
+
 ## 2026-09-14 — BA — Initial project plan and backlog
 
 - Task IDs touched: None (planning artifacts only, no backlog task consumed by this itself)
