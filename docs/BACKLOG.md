@@ -395,8 +395,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 0 (follow-up) — Bugs found during QA
 
-- [ ] **T-062 — Fix flaky `verify-reporting.ts` (matches answer by array position, not question type)**
-  - Status: Not Started
+- [x] **T-062 — Fix flaky `verify-reporting.ts` (matches answer by array position, not question type)**
+  - Status: Done
   - Depends on: T-019
   - Source: QA finding during T-019 verification (2026-09-14)
   - Acceptance Criteria: `server/scripts/verify-reporting.ts`'s `runAttempt()` selects the correct choice by looking up `question.type` (or `question.prompt`) rather than assuming a fixed array index — because `generateVariantLayout()` genuinely shuffles question order on every call, the current position-based lookup fails ~50% of the time with "Could not find choice ... on question 0". This is a test-tooling bug only (the actual reporting engine and grading are unaffected — confirmed correct by an independently-written QA script). Fix verified by running `npm run verify:reporting -w server` at least 5 times in a row with no crash.

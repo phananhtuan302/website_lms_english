@@ -19,6 +19,12 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Leader — Direct fix: T-062 flaky verify-reporting.ts
+
+- Task IDs touched: T-062
+- What changed: Fixed directly by the Leader (trivial, well-scoped test-tooling fix). `runAttempt()` now identifies each question by which choice set it actually has (Right1/Wrong1 vs True/False) instead of assuming a fixed array position, since `generateVariantLayout()` genuinely shuffles question order every time. Verified with 5 consecutive clean `npm run verify:reporting -w server` runs (previously ~50% failure rate).
+- Status after this entry: T-062 Done. Remaining backlog: T-045 (Mock Test), T-051–T-056 (Speaking — Dev done, Test in progress), T-057–T-060 (Phase 9 hardening milestone).
+
 ## 2026-09-15 — Dev/Test — Unit Test management, Unit Test leaderboard, Vocabulary Check (Phase 5 complete)
 
 - Task IDs touched: T-036, T-037, T-038
