@@ -1,0 +1,13 @@
+{
+  "name": "@platform/shared",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Types and constants shared between /client and /server.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  }
+}
