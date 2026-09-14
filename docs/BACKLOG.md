@@ -127,8 +127,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 8 note ("report theo unit"); Assumption A5
   - Acceptance Criteria: A `Unit` model (name, order) and an `AcademicPeriod`/semester model (name, startDate, endDate) exist and can be managed by a teacher (create/edit/list). A `Test` can optionally be tagged with a `Unit`. Seeding creates at least two default academic periods for the current year. This task does not yet build the full "Unit Test" feature (that's T-036) — it only introduces the tagging data needed for reporting.
 
-- [ ] **T-019 — Reporting engine v1 (multi-granularity)**
-  - Status: Not Started
+- [x] **T-019 — Reporting engine v1 (multi-granularity)**
+  - Status: Done
   - Depends on: T-013, T-017, T-018
   - Source: Requirement row 8; tab-list report note; Assumption A5
   - Acceptance Criteria: A teacher can view aggregate test-attempt stats (average score, average time) filtered by: a single test, a Unit, an ISO week, a calendar month, a quarter, an Academic Period (semester), and a year. Changing the filter changes the displayed numbers correctly against seeded data spanning at least two different periods (verifiable by checking the math against raw attempt records). All bucketing uses the fixed `Asia/Ho_Chi_Minh` timezone per Assumption A5.
@@ -394,6 +394,12 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Acceptance Criteria: Automated Playwright tests cover, at minimum end to end: teacher login → create test → generate variants → start session with QR → student login → join → take test → auto-grade → both see result; a flashcard study + one exercise type; a Unit Test + its report; a Listening session with teacher-controlled playback; Writing anti-paste triggering; and a Speaking submission graded by the mock provider. The suite runs via a single documented command and passes on a clean checkout.
 
 ## Phase 0 (follow-up) — Bugs found during QA
+
+- [ ] **T-062 — Fix flaky `verify-reporting.ts` (matches answer by array position, not question type)**
+  - Status: Not Started
+  - Depends on: T-019
+  - Source: QA finding during T-019 verification (2026-09-14)
+  - Acceptance Criteria: `server/scripts/verify-reporting.ts`'s `runAttempt()` selects the correct choice by looking up `question.type` (or `question.prompt`) rather than assuming a fixed array index — because `generateVariantLayout()` genuinely shuffles question order on every call, the current position-based lookup fails ~50% of the time with "Could not find choice ... on question 0". This is a test-tooling bug only (the actual reporting engine and grading are unaffected — confirmed correct by an independently-written QA script). Fix verified by running `npm run verify:reporting -w server` at least 5 times in a row with no crash.
 
 - [x] **T-061 — Global JSON error-handling middleware (stop stack-trace leakage)**
   - Status: Done

@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Reporting engine v1
+
+- Task IDs touched: T-019
+- What changed: Dev built a shared reporting engine (`server/src/lib/reporting.ts`) bucketing submitted attempts by test/unit/ISO-week/month/quarter/semester/year, with correct Asia/Ho_Chi_Minh timezone shifting, exposed via `GET /api/teacher/reports`. Test independently re-derived (from scratch, own HCM-shift + ISO-week math, not copied from Dev's code) the week and semester dimensions, confirmed abandoned attempts stay excluded, confirmed a genuine HCM-midnight boundary case (two attempts 2 minutes apart in real time landing in different month/week buckets), and confirmed student 403 — PASS.
+- Why / decisions made: New Assumption **A11** logged in PROJECT_PLAN.md — the reporting engine returns a full breakdown table (one row per bucket present in the data) rather than a single number for a caller-picked bucket, since it's strictly more capable and matches the task's "table/list" framing. Test found Dev's own `verify-reporting.ts` script is flaky (~50% crash rate) because it matches answer choices by array position instead of `question.type`, and the variant-shuffle engine (correctly, by design) randomizes question order on every generation — this does NOT affect the actual reporting/grading logic (confirmed correct by an independent script), only Dev's test tooling. Logged as **T-062** (test-tooling fix only) rather than blocking T-019's Done status.
+- Status after this entry: **Phase 2 (T-015–T-020) fully Done.** Moving fully into Phase 3/4. T-028/T-029/T-034/T-035 (matching exercise, use-in-sentence, two vocab games) were dispatched concurrently with this Test pass and are still in progress as of this entry.
+
 ## 2026-09-14 — Dev/Test — Vocabulary/flashcards core (T-021–T-027)
 
 - Task IDs touched: T-021, T-022, T-023, T-024, T-025, T-026, T-027
