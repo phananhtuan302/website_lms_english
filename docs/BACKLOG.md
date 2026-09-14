@@ -369,14 +369,14 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 9 — Cross-Cutting Hardening & Deployment Prep
 
-- [ ] **T-057 — Full reporting depth across all modules**
-  - Status: Not Started
+- [x] **T-057 — Full reporting depth across all modules**
+  - Status: Done
   - Depends on: T-019, T-032, T-033, T-037, T-050
   - Source: Requirement row 8; tab-list Report note; Assumption A5
   - Acceptance Criteria: A single teacher-facing reporting area lets the teacher pick a module (Test/Unit Test/Vocabulary/Grammar/Speaking) and a period granularity (test, unit, week, month, quarter, semester, year) and see consistent, correctly-aggregated results for each combination, built on the T-019 engine rather than a one-off implementation per module.
 
-- [ ] **T-058 — Deployment/hosting/CI-CD placeholder**
-  - Status: Not Started
+- [x] **T-058 — Deployment/hosting/CI-CD placeholder**
+  - Status: Done
   - Depends on: T-003
   - Source: TECH_STACK.md (deployment note); Assumption A9
   - Acceptance Criteria: `docs/INTEGRATIONS_TODO.md` has an entry for hosting/domain/CI-CD explicitly stating none was specified by the customer, what would be needed to choose one (e.g. domain name, hosting budget/provider preference), and that local dev is the supported mode until then. No actual infrastructure is provisioned by this task.

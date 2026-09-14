@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Unified teacher reporting hub + Speaking report engine (T-057), deployment placeholder (T-058)
+
+- Task IDs touched: T-057, T-058
+- What changed: Dev built one teacher-facing reporting hub (`/teacher/reports`) with tabs for Test/Unit Test/Vocabulary/Grammar/Speaking, consolidating existing report pages/engines and adding a new `computeSpeakingReport` (reusing T-050's HCM-bucketing helpers, respecting T-055's teacher-override-wins rule) rather than one-off logic. Tightened the existing `docs/INTEGRATIONS_TODO.md` hosting/CI-CD row to be self-contained. Test independently spot-checked one dimension per module against manual DB calculations (all 5 matched exactly) and gave the new Speaking report the same cross-teacher scoping scrutiny that caught T-063 in Grammar — this time the scoping is unconditional (not gated behind an optional filter), so no equivalent gap exists — PASS, no bugs found.
+- Why / decisions made: Speaking was listed as "if applicable" in the backlog; Dev judged it in-scope since it mirrors the already-established Grammar-report pattern almost exactly.
+- Status after this entry: T-057/T-058 Done. Remaining: T-059 (mobile polish, Test dispatched) and T-060 (full E2E suite, Dev in progress, may be partial given the approaching customer deadline — see LEADER OPERATING NOTE at top of this file).
+
 ## 2026-09-15 — Dev/Test — Mock Test composition (Phase 6 fully closed out)
 
 - Task IDs touched: T-045
