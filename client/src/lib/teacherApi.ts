@@ -6,12 +6,15 @@
  */
 
 import type {
+  AcademicPeriodDTO,
   AttemptResultDTO,
   AttemptSummaryDTO,
+  CreateAcademicPeriodRequest,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateSessionResponse,
   CreateTestRequest,
+  CreateUnitRequest,
   GenerateVariantsRequest,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
@@ -19,13 +22,17 @@ import type {
   TestSessionDTO,
   TestSummaryDTO,
   TestVariantDTO,
+  UnitDTO,
+  UpdateAcademicPeriodRequest,
   UpdateQuestionRequest,
   UpdateSectionRequest,
   UpdateTestRequest,
+  UpdateUnitRequest,
 } from '@platform/shared';
 import { apiRequest } from './apiClient';
 
 const base = '/api/teacher/tests';
+const teacherBase = '/api/teacher';
 
 export const teacherApi = {
   listTests: () => apiRequest<TestSummaryDTO[]>(base),
@@ -97,4 +104,30 @@ export const teacherApi = {
     apiRequest<AttemptSummaryDTO[]>(`/api/teacher/sessions/${sessionId}/attempts`),
   getAttemptDetail: (attemptId: string) =>
     apiRequest<AttemptResultDTO>(`/api/teacher/attempts/${attemptId}`),
+
+  // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
+  listUnits: () => apiRequest<UnitDTO[]>(`${teacherBase}/units`),
+  createUnit: (body: CreateUnitRequest) =>
+    apiRequest<UnitDTO>(`${teacherBase}/units`, { method: 'POST', body: JSON.stringify(body) }),
+  updateUnit: (unitId: string, body: UpdateUnitRequest) =>
+    apiRequest<UnitDTO>(`${teacherBase}/units/${unitId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteUnit: (unitId: string) =>
+    apiRequest<void>(`${teacherBase}/units/${unitId}`, { method: 'DELETE' }),
+
+  listAcademicPeriods: () => apiRequest<AcademicPeriodDTO[]>(`${teacherBase}/academic-periods`),
+  createAcademicPeriod: (body: CreateAcademicPeriodRequest) =>
+    apiRequest<AcademicPeriodDTO>(`${teacherBase}/academic-periods`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateAcademicPeriod: (periodId: string, body: UpdateAcademicPeriodRequest) =>
+    apiRequest<AcademicPeriodDTO>(`${teacherBase}/academic-periods/${periodId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteAcademicPeriod: (periodId: string) =>
+    apiRequest<void>(`${teacherBase}/academic-periods/${periodId}`, { method: 'DELETE' }),
 };

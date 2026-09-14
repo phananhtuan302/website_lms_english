@@ -22,10 +22,18 @@
  *    during one verification session. Kept here (rather than deleted after use) so the
  *    next person/agent who needs to re-verify authoring/variant/session ownership
  *    checks doesn't have to reconstruct this fixture from scratch.
+ * 4. Creates two default `AcademicPeriod`s spanning the CURRENT calendar year (T-018's
+ *    required "at least two default academic periods for the current year"), split at
+ *    the year's midpoint so "today" always falls inside one of them no matter when this
+ *    seed is run. Also seeds a couple of sample `Unit`s so the curriculum-tagging UI has
+ *    something to select from immediately. Dates are parsed the same
+ *    Asia/Ho_Chi_Minh-fixed-offset way as `curriculum.routes.ts`'s `parseHcmDate`
+ *    (PROJECT_PLAN Assumption A5) — kept as a small local copy here rather than an
+ *    import since a seed script intentionally doesn't depend on route modules.
  *
  * Idempotent: safe to run multiple times — it looks up existing rows by a stable key
- * (email for the user, title+teacherId for the test) instead of blindly inserting
- * duplicates every run.
+ * (email for the user, title+teacherId for the test, name for units/periods) instead of
+ * blindly inserting duplicates every run.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -182,11 +190,54 @@ async function verifyRoundTrip(testId: string) {
   );
 }
 
+/** Fixed Asia/Ho_Chi_Minh offset (UTC+7, no DST) — same convention as
+ * `curriculum.routes.ts`'s `parseHcmDate`, per PROJECT_PLAN Assumption A5. */
+function hcmDate(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00+07:00`);
+}
+
+async function seedAcademicPeriods() {
+  const year = new Date().getFullYear();
+  const periods = [
+    { name: `Semester 1 ${year}`, startDate: `${year}-01-01`, endDate: `${year}-06-30` },
+    { name: `Semester 2 ${year}`, startDate: `${year}-07-01`, endDate: `${year}-12-31` },
+  ];
+
+  for (const period of periods) {
+    const existing = await prisma.academicPeriod.findFirst({ where: { name: period.name } });
+    if (existing) continue;
+    await prisma.academicPeriod.create({
+      data: {
+        name: period.name,
+        startDate: hcmDate(period.startDate),
+        endDate: hcmDate(period.endDate),
+      },
+    });
+  }
+  console.log(`[seed] Academic periods ready: two semesters spanning ${year} (T-018).`);
+}
+
+async function seedUnits() {
+  const units = [
+    { name: 'Unit 1 — Getting Started', order: 1 },
+    { name: 'Unit 2 — Family & Friends', order: 2 },
+  ];
+
+  for (const unit of units) {
+    const existing = await prisma.unit.findFirst({ where: { name: unit.name } });
+    if (existing) continue;
+    await prisma.unit.create({ data: unit });
+  }
+  console.log('[seed] Sample curriculum units ready (T-018).');
+}
+
 async function main() {
   const teacher = await seedTeacher();
   await seedSecondTeacher();
   const testId = await seedDemoTest(teacher.id);
   await verifyRoundTrip(testId);
+  await seedAcademicPeriods();
+  await seedUnits();
 }
 
 main()

@@ -21,12 +21,17 @@ function AttemptResultPage() {
     studentApi
       .getResult(attemptId)
       .then(setResult)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load this result.'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : 'Failed to load this result.'),
+      );
   }, [attemptId]);
 
   if (error) {
     return (
-      <p role="alert" className="mx-auto max-w-md rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p
+        role="alert"
+        className="mx-auto max-w-md rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+      >
         {error}
       </p>
     );
@@ -74,7 +79,7 @@ function AttemptResultPage() {
             {q.type === 'fillBlank' ? (
               <div className="mt-2 text-sm text-base-black/80">
                 <p>Your answer: {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer)</em>}</p>
-                {!q.isCorrect && <p>Accepted answer(s): {q.acceptedAnswers.join(', ')}</p>}
+                <p>Accepted answer(s): {q.acceptedAnswers.join(', ')}</p>
               </div>
             ) : (
               <ul className="mt-2 flex flex-col gap-1 text-sm">
@@ -97,14 +102,19 @@ function AttemptResultPage() {
                     </li>
                   );
                 })}
-                {!q.selectedChoiceId && <li className="text-base-black/50">(no answer selected)</li>}
+                {!q.selectedChoiceId && (
+                  <li className="text-base-black/50">(no answer selected)</li>
+                )}
               </ul>
             )}
           </div>
         ))}
       </section>
 
-      <Link to="/student/dashboard" className="self-center text-sm font-medium text-primary-600 hover:underline">
+      <Link
+        to="/student/dashboard"
+        className="self-center text-sm font-medium text-primary-600 hover:underline"
+      >
         ← Back to dashboard
       </Link>
     </div>

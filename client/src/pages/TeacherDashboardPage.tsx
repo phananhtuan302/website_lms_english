@@ -16,12 +16,20 @@ function TeacherDashboardPage() {
       <h1 className="text-2xl font-bold text-primary-700">Teacher dashboard</h1>
       <p className="mt-2 text-base-black/70">Welcome, {user?.name}.</p>
 
-      <Link
-        to="/teacher/tests"
-        className="mt-6 inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
-      >
-        Manage my tests
-      </Link>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          to="/teacher/tests"
+          className="inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+        >
+          Manage my tests
+        </Link>
+        <Link
+          to="/teacher/curriculum"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          Manage curriculum (Units &amp; Academic Periods)
+        </Link>
+      </div>
 
       <div>
         <button

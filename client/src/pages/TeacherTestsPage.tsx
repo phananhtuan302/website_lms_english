@@ -95,6 +95,15 @@ function TeacherTestsPage() {
                   {test.questionCount} question
                   {test.questionCount === 1 ? '' : 's'} · updated{' '}
                   {new Date(test.updatedAt).toLocaleString()}
+                  {test.unitName && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
+                        {test.unitName}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
               <span className="text-sm font-medium text-primary-600">Open editor →</span>

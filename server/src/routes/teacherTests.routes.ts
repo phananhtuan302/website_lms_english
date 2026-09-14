@@ -55,6 +55,23 @@ function validateTimeLimit(value: unknown): string | null {
   return null;
 }
 
+/** Validates an optional `unitId` from a create/update test body (T-018). `undefined`
+ * leaves the existing tag untouched; `null` explicitly clears it; any other value must
+ * reference an existing `Unit` row (global — see `Unit`'s doc comment in schema.prisma).
+ * Async (unlike `validateTimeLimit`) since it needs a DB lookup — same
+ * "return an English error string, or null if valid" convention either way. */
+async function validateUnitId(value: unknown): Promise<string | null> {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') {
+    return 'unitId must be a string id or null.';
+  }
+  const unit = await prisma.unit.findUnique({ where: { id: value } });
+  if (!unit) {
+    return 'unitId does not reference an existing Unit.';
+  }
+  return null;
+}
+
 function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
   const sections: SectionDTO[] = test.sections.map((section) => ({
     id: section.id,
@@ -80,6 +97,8 @@ function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
     title: test.title,
     teacherId: test.teacherId,
     timeLimitMinutes: test.timeLimitMinutes,
+    unitId: test.unitId,
+    unit: test.unit ? { id: test.unit.id, name: test.unit.name } : null,
     sections,
     createdAt: test.createdAt.toISOString(),
     updatedAt: test.updatedAt.toISOString(),
@@ -164,12 +183,18 @@ teacherTestsRouter.post(
       res.status(400).json({ error: timeLimitError });
       return;
     }
+    const unitError = await validateUnitId(body.unitId);
+    if (unitError) {
+      res.status(400).json({ error: unitError });
+      return;
+    }
 
     const test = await prisma.test.create({
       data: {
         title,
         teacherId: req.user!.sub,
         timeLimitMinutes: body.timeLimitMinutes ?? null,
+        unitId: body.unitId ?? null,
       },
     });
     const nested = await fetchNestedTest(test.id);
@@ -183,7 +208,10 @@ teacherTestsRouter.get(
     const tests = await prisma.test.findMany({
       where: { teacherId: req.user!.sub },
       orderBy: { updatedAt: 'desc' },
-      include: { sections: { include: { _count: { select: { questions: true } } } } },
+      include: {
+        sections: { include: { _count: { select: { questions: true } } } },
+        unit: { select: { id: true, name: true } },
+      },
     });
 
     const summaries: TestSummaryDTO[] = tests.map((test) => ({
@@ -191,6 +219,8 @@ teacherTestsRouter.get(
       title: test.title,
       sectionCount: test.sections.length,
       questionCount: test.sections.reduce((sum, s) => sum + s._count.questions, 0),
+      unitId: test.unitId,
+      unitName: test.unit?.name ?? null,
       createdAt: test.createdAt.toISOString(),
       updatedAt: test.updatedAt.toISOString(),
     }));
@@ -227,14 +257,20 @@ teacherTestsRouter.patch(
       res.status(400).json({ error: timeLimitError });
       return;
     }
+    const unitError = await validateUnitId(body.unitId);
+    if (unitError) {
+      res.status(400).json({ error: unitError });
+      return;
+    }
 
     await prisma.test.update({
       where: { id: test.id },
       data: {
         title,
         // `undefined` (field omitted entirely) leaves the column untouched; `null`
-        // explicitly clears it back to untimed.
+        // explicitly clears it back to untimed / untagged.
         ...(body.timeLimitMinutes !== undefined ? { timeLimitMinutes: body.timeLimitMinutes } : {}),
+        ...(body.unitId !== undefined ? { unitId: body.unitId } : {}),
       },
     });
     const nested = await fetchNestedTest(test.id);
@@ -556,11 +592,9 @@ teacherTestsRouter.put(
     const sameSet =
       orderedIds.length === existingIds.size && orderedIds.every((id) => existingIds.has(id));
     if (!sameSet) {
-      res
-        .status(400)
-        .json({
-          error: 'orderedQuestionIds must contain exactly this section’s current question ids.',
-        });
+      res.status(400).json({
+        error: 'orderedQuestionIds must contain exactly this section’s current question ids.',
+      });
       return;
     }
 

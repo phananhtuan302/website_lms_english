@@ -106,6 +106,9 @@ export interface TestSummaryDTO {
   title: string;
   sectionCount: number;
   questionCount: number;
+  /** Optional curriculum tag (T-018) — `null` when the test isn't tagged to a Unit. */
+  unitId: string | null;
+  unitName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,6 +119,10 @@ export interface TestDetailDTO {
   title: string;
   teacherId: string;
   timeLimitMinutes: number | null;
+  /** Optional curriculum tag (T-018). `unit` is included (id+name only) so the editor
+   * can show the tagged unit's name without a second round-trip. */
+  unitId: string | null;
+  unit: { id: string; name: string } | null;
   sections: SectionDTO[];
   createdAt: string;
   updatedAt: string;
@@ -125,11 +132,15 @@ export interface CreateTestRequest {
   title: string;
   /** Optional whole-minute time limit (T-012). Omitted/undefined leaves it untimed. */
   timeLimitMinutes?: number | null;
+  /** Optional Unit tag (T-018). Omitted/undefined leaves it untagged; explicit `null`
+   * clears an existing tag. */
+  unitId?: string | null;
 }
 
 export interface UpdateTestRequest {
   title: string;
   timeLimitMinutes?: number | null;
+  unitId?: string | null;
 }
 
 export interface CreateSectionRequest {
@@ -353,3 +364,46 @@ export interface AttemptSummaryDTO {
   startedAt: string;
   submittedAt: string | null;
 }
+
+// --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
+// Global entities (see `server/prisma/schema.prisma`'s `Unit`/`AcademicPeriod` doc
+// comments for why they're not per-teacher) managed via teacher-only CRUD endpoints.
+
+export interface UnitDTO {
+  id: string;
+  name: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUnitRequest {
+  name: string;
+  order: number;
+}
+
+export type UpdateUnitRequest = CreateUnitRequest;
+
+/** `startDate`/`endDate` are ISO datetime strings representing UTC instants — see
+ * `server/src/routes/curriculum.routes.ts`'s `parseHcmDate` for how a plain
+ * `YYYY-MM-DD` request field is converted to/from the fixed `Asia/Ho_Chi_Minh`
+ * timezone (PROJECT_PLAN Assumption A5). */
+export interface AcademicPeriodDTO {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Request shape uses plain `YYYY-MM-DD` calendar dates (interpreted in
+ * Asia/Ho_Chi_Minh), not full ISO datetimes — keeps the authoring UI a plain
+ * `<input type="date">` with no timezone-math for the teacher to think about. */
+export interface CreateAcademicPeriodRequest {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export type UpdateAcademicPeriodRequest = CreateAcademicPeriodRequest;

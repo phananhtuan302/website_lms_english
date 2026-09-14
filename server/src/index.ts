@@ -11,6 +11,8 @@ import { teacherTestsRouter } from './routes/teacherTests.routes';
 import { teacherSessionsRouter } from './routes/teacherSessions.routes';
 import { sessionsRouter } from './routes/sessions.routes';
 import { attemptsRouter } from './routes/attempts.routes';
+import { curriculumRouter } from './routes/curriculum.routes';
+import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
 // message if any are missing, before anything else in the app starts (T-003).
@@ -47,6 +49,11 @@ app.use('/api/demo', demoRouter);
 // inside the router, not by middleware, since it needs to inspect the id in the path.
 app.use('/api/teacher', teacherTestsRouter);
 app.use('/api/teacher', teacherSessionsRouter);
+
+// Teacher-only curriculum tagging CRUD (T-018): Unit + Academic Period, both global
+// entities (see curriculum.routes.ts's doc comment for why). Independent of test
+// authoring/sessions above except that `Test.unitId` references a `Unit` here.
+app.use('/api/teacher', curriculumRouter);
 
 // Public join-token lookup (T-010) plus the real, authenticated join (T-011): creates
 // the student's `Attempt` and auto-assigns a variant. See sessions.routes.ts.
@@ -123,20 +130,15 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction): void =>
   res.status(status).json({ error: message });
 });
 
-// Socket.IO is attached to the same underlying HTTP server as Express (not a separate port).
-// No events are wired up yet — this is the T-001 scaffold; realtime features land in T-015+.
+// Socket.IO is attached to the same underlying HTTP server as Express (not a separate
+// port). T-015 wires up the actual realtime session infrastructure (auth handshake,
+// teacher-monitor rooms, student progress relay) — see realtime/sessionRealtime.ts.
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: { origin: CLIENT_ORIGIN },
 });
 
-io.on('connection', (socket) => {
-  console.log(`[socket.io] client connected: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    console.log(`[socket.io] client disconnected: ${socket.id}`);
-  });
-});
+attachSessionRealtime(io);
 
 httpServer.listen(PORT, () => {
   console.log(`[${APP_NAME}] server listening on http://localhost:${PORT}`);

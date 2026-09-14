@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "verify:realtime": "tsx scripts/verify-realtime.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -37,6 +38,7 @@
     "@types/node": "24.13.4",
     "@types/qrcode": "^1.5.5",
     "prisma": "6.19.3",
+    "socket.io-client": "^4.8.3",
     "tsx": "4.23.13"
   }
 }

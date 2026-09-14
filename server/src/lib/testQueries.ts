@@ -19,6 +19,10 @@ export const NESTED_TEST_INCLUDE = {
       },
     },
   },
+  // Curriculum tag (T-018) — just id+name, enough for the editor to display the tagged
+  // Unit's name without a second round-trip. `unitId` itself is already a plain scalar
+  // column on `Test` and needs no `include` to come back.
+  unit: { select: { id: true, name: true } },
 };
 
 export type NestedTest = Awaited<ReturnType<typeof fetchNestedTest>>;

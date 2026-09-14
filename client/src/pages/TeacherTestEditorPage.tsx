@@ -6,6 +6,7 @@ import type {
   TestDetailDTO,
   TestSessionDTO,
   TestVariantDTO,
+  UnitDTO,
   UpdateQuestionRequest,
 } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -58,6 +59,8 @@ function TeacherTestEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [newSectionTitle, setNewSectionTitle] = useState('');
 
+  const [units, setUnits] = useState<UnitDTO[]>([]);
+
   const [variants, setVariants] = useState<TestVariantDTO[]>([]);
   const [variantError, setVariantError] = useState<string | null>(null);
   const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
@@ -93,6 +96,14 @@ function TeacherTestEditorPage() {
       .catch(() => undefined);
   }, [testId]);
 
+  // Units (T-018) — needed for the "tag this test to a Unit" dropdown below.
+  useEffect(() => {
+    teacherApi
+      .listUnits()
+      .then(setUnits)
+      .catch(() => undefined);
+  }, []);
+
   if (!testId) return null;
 
   async function handleSaveTitle() {
@@ -110,7 +121,10 @@ function TeacherTestEditorPage() {
     const trimmed = timeLimitText.trim();
     const timeLimitMinutes = trimmed === '' ? null : Number(trimmed);
     if (timeLimitMinutes === test.timeLimitMinutes) return;
-    if (timeLimitMinutes !== null && (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1)) {
+    if (
+      timeLimitMinutes !== null &&
+      (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1)
+    ) {
       setError('Time limit must be a whole number of minutes, or left blank for no limit.');
       setTimeLimitText(test.timeLimitMinutes != null ? String(test.timeLimitMinutes) : '');
       return;
@@ -121,6 +135,18 @@ function TeacherTestEditorPage() {
       setTimeLimitText(updated.timeLimitMinutes != null ? String(updated.timeLimitMinutes) : '');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save time limit.');
+    }
+  }
+
+  /** T-018: optionally tag this test with a curriculum Unit. `unitId: null` clears the
+   * tag (the dropdown's empty "No unit" option). */
+  async function handleSaveUnit(unitId: string | null) {
+    if (!test) return;
+    try {
+      const updated = await teacherApi.updateTest(testId!, { title: test.title, unitId });
+      setTest(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save unit tag.');
     }
   }
 
@@ -299,18 +325,37 @@ function TeacherTestEditorPage() {
           onBlur={handleSaveTitle}
           className="mt-2 w-full rounded-md border border-primary-200 px-3 py-2 text-2xl font-bold text-primary-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
         />
-        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-base-black">
-          Time limit (minutes, optional)
-          <input
-            type="number"
-            min={1}
-            value={timeLimitText}
-            onChange={(event) => setTimeLimitText(event.target.value)}
-            onBlur={handleSaveTimeLimit}
-            placeholder="No limit"
-            className="w-32 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-          />
-        </label>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+            Time limit (minutes, optional)
+            <input
+              type="number"
+              min={1}
+              value={timeLimitText}
+              onChange={(event) => setTimeLimitText(event.target.value)}
+              onBlur={handleSaveTimeLimit}
+              placeholder="No limit"
+              className="w-32 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+            Unit (optional, T-018)
+            <select
+              value={test.unitId ?? ''}
+              onChange={(event) =>
+                handleSaveUnit(event.target.value === '' ? null : event.target.value)
+              }
+              className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              <option value="">No unit</option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       </div>
 

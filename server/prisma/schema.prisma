@@ -58,8 +58,11 @@ enum QuestionType {
 }
 
 /// A test authored by a teacher. Kept minimal for T-007 — fields like `testType`
-/// (generic/unitTest/vocabularyCheck/...) and Unit tagging still belong to the later
-/// backlog tasks that actually need them (T-018, T-036, ...).
+/// (generic/unitTest/vocabularyCheck/...) still belong to the later backlog tasks that
+/// actually need them (T-036, ...). `unitId` (T-018) is the exception: added now because
+/// T-018's acceptance criteria explicitly requires "a Test can optionally be tagged with
+/// a Unit" — see `Unit`'s doc comment below for why tagging (not the full "Unit Test"
+/// feature) is in scope here.
 ///
 /// `timeLimitMinutes` (T-012 "your call, keep it simple"): optional whole-minute limit
 /// shown as a countdown to the student during the take-test runtime; `null` means
@@ -72,6 +75,10 @@ model Test {
   teacherId        String
   teacher          User          @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
   timeLimitMinutes Int?
+  // `SetNull` (not `Cascade`/`Restrict`): deleting a `Unit` should never take a teacher's
+  // tests down with it, or block the delete — the test just becomes untagged.
+  unitId           String?
+  unit             Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
   sections         Section[]
   variants         TestVariant[]
   sessions         TestSession[]
@@ -80,6 +87,51 @@ model Test {
   updatedAt        DateTime      @updatedAt
 
   @@map("tests")
+}
+
+/// A curriculum unit (T-018), e.g. "Unit 3 — Family & Friends". `order` is an explicit
+/// teacher-controlled sort key (curriculum units are always presented in syllabus
+/// order, not alphabetically or by creation time), same pattern as `Section.order`.
+///
+/// Documented choice (T-018 "your call, document it — global or per-teacher"): GLOBAL,
+/// not owned by a specific teacher. This is a single small teaching business (see
+/// PROJECT_PLAN.md — no multi-tenant/separate-schools scenario anywhere in the
+/// requirements), so "Unit 3" means the same curriculum unit no matter which teacher is
+/// looking at it, and every teacher account should see and manage the same shared list.
+/// If that assumption ever changes, adding a `teacherId` column later is a small,
+/// backwards-compatible migration — nothing about the shape below forecloses it.
+model Unit {
+  id        String   @id @default(uuid())
+  name      String
+  order     Int
+  tests     Test[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("units")
+}
+
+/// An academic period / semester (T-018), e.g. "Semester 1 2026". Same "global, not
+/// per-teacher" reasoning as `Unit` above — the school's semester calendar is one shared
+/// fact, not a per-teacher preference. `startDate`/`endDate` are stored as UTC instants
+/// representing local midnight in the fixed `Asia/Ho_Chi_Minh` timezone (PROJECT_PLAN
+/// Assumption A5) — see `server/src/routes/curriculum.routes.ts`'s `parseHcmDate` for the
+/// exact parsing convention every write path must go through.
+///
+/// Nothing here references `Test`/`Attempt` yet — T-018 only introduces the entity so
+/// T-019's reporting engine has something to bucket by later; wiring an attempt to "which
+/// period was it taken in" is derived at query time from `Attempt.startedAt` falling
+/// within `[startDate, endDate)`, not a stored FK, since a period's dates can be edited
+/// after the fact and a derived lookup never goes stale.
+model AcademicPeriod {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("academic_periods")
 }
 
 /// A section within a test, explicitly ordered (`order`) since a test always renders
