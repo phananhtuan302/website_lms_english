@@ -5,6 +5,7 @@
   "description": "Node.js + TypeScript + Express + Socket.IO API server.",
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
