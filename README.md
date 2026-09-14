@@ -176,6 +176,64 @@ npm run format          # Prettier --write
 npm run format:check    # Prettier --check (CI-friendly)
 ```
 
+## End-to-end tests (Playwright, T-060)
+
+A Playwright regression suite lives at the repo root (`e2e/`, `playwright.config.ts`) —
+`@playwright/test` is a root-level devDependency, not under `/client` or `/server`, since the
+suite drives the client dev server over real HTTP while also depending on the API server being
+up: it exercises the whole running app, not one workspace.
+
+**Prerequisites** (one-time, same convention as the "Database" section above — not automated by
+the test command itself):
+
+```bash
+npm install
+npx playwright install chromium   # downloads the Chromium browser Playwright drives
+npm run prisma:migrate -w server  # DB must be migrated
+npm run seed -w server            # seeds the teacher account + demo Test/flashcard set the suite reuses
+```
+
+**Run the suite** (single documented command):
+
+```bash
+npm run test:e2e
+```
+
+This starts the API server (`npm run dev:server`) and the Vite client (`npm run dev:client`) for
+you if they aren't already running (checked via `http://localhost:4000/health` /
+`http://localhost:5173` — see `playwright.config.ts`'s `webServer` array). If you already have
+`npm run dev` running in another terminal, the suite reuses it as-is instead of trying to bind the
+ports again. Other useful scripts: `npm run test:e2e:ui` (Playwright's interactive UI mode) and
+`npm run test:e2e:report` (opens the last HTML report).
+
+**What it covers** — one spec file per flow under `e2e/`:
+
+- `01-core-test-flow.spec.ts` — teacher login → create test → generate variants → start a QR
+  session → student login → join → take the test → auto-grade → both teacher and student see the
+  matching result.
+- `02-flashcard-and-exercise.spec.ts` — flashcard study mode (flip/mark known, progress persists
+  across reload) + the fill-in-the-blank vocabulary exercise, reusing the seeded demo flashcard
+  set.
+- `03-unit-test-and-report.spec.ts` — tagging/publishing a Unit Test, a student taking it via
+  self-practice, and the resulting Unit Test leaderboard/report from both roles.
+- `04-listening-live-playback.spec.ts` — a live QR session's teacher-controlled, synchronized
+  Listening playback (no student-facing Play button during a live session).
+- `05-writing-anti-paste.spec.ts` — simulated `paste`/`copy`/`cut` `ClipboardEvent`s against an
+  essay answer, confirming they're blocked with a visible warning and normal typing still works.
+- `06-speaking-mock-grading.spec.ts` — a recorded Speaking answer (Chromium's fake media device,
+  no real microphone needed) submitted and graded by `MockAIGradingProvider`, visible on both the
+  in-progress question and the final result page.
+
+**Fixtures**: `e2e/global-setup.ts` runs once per suite invocation, logging in as the seeded
+teacher (`server/prisma/seed.ts`) and registering ONE fresh student account, then saving both
+sessions' `storageState` for every spec to reuse (`e2e/.auth/`, git-ignored) — per-spec content
+(each test/flashcard set/etc.) is still created fresh with a timestamped title so re-running the
+suite never collides with a previous run's data. The suite is intentionally single-worker,
+non-parallel (`playwright.config.ts`) since specs share these two accounts.
+
+Verified passing twice in a row (12/12 total) against the real running app and a real PostgreSQL
+database.
+
 ## Notable choices made for this scaffold (T-001)
 
 Where the backlog/tech stack didn't pin an exact version, these were chosen for stability and
