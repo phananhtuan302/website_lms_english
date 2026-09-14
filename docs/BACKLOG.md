@@ -331,38 +331,38 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 8 — Speaking Module & AI Grading (Stubbed)
 
-- [ ] **T-051 — AIGradingProvider interface + MockAIGradingProvider**
-  - Status: Not Started
+- [x] **T-051 — AIGradingProvider interface + MockAIGradingProvider**
+  - Status: Done
   - Depends on: T-003
   - Source: Notes — Speaking + AI grading; TECH_STACK.md (AIGradingProvider design)
   - Acceptance Criteria: An `AIGradingProvider` interface is defined (server-side) with a method that takes an audio/transcript + prompt and returns a score plus written feedback. `MockAIGradingProvider` implements it with a documented simple heuristic (e.g. based on transcript length/keyword overlap with the prompt) requiring no API key, and is the only registered provider for now. The chosen implementation is swappable via configuration (e.g. one factory/DI point), and this is logged as an entry in `docs/INTEGRATIONS_TODO.md` naming exactly what a real provider integration would need (e.g. an Anthropic API key) and where to plug it in.
 
-- [ ] **T-052 — Speaking question type: prompt + timed response window**
-  - Status: Not Started
+- [x] **T-052 — Speaking question type: prompt + timed response window**
+  - Status: Done
   - Depends on: T-008, T-051
   - Source: Notes — Speaking ("trả lời câu hỏi trong thời gian cho phép")
   - Acceptance Criteria: A teacher can add a Speaking question with a text/audio prompt and a configured allowed response time. When a student reaches it during a test, a visible countdown enforces that window (recording auto-stops / question auto-advances when time expires).
 
-- [ ] **T-053 — Client-side audio recording + Web Speech API draft transcript**
-  - Status: Not Started
+- [x] **T-053 — Client-side audio recording + Web Speech API draft transcript**
+  - Status: Done
   - Depends on: T-052
   - Source: TECH_STACK.md (Web Speech API, no key needed)
   - Acceptance Criteria: A student can record their spoken answer in-browser within the allowed time window; a draft transcript is generated client-side via the Web Speech API while/after recording. If the browser doesn't support the Web Speech API, the flow still allows submitting the audio with an empty/placeholder transcript rather than failing.
 
-- [ ] **T-054 — Submit & grade Speaking answers via AIGradingProvider**
-  - Status: Not Started
+- [x] **T-054 — Submit & grade Speaking answers via AIGradingProvider**
+  - Status: Done
   - Depends on: T-053, T-051
   - Source: Notes — Speaking + AI grading
   - Acceptance Criteria: On submission, the recorded audio and draft transcript are sent to the server, run through the currently-registered `AIGradingProvider` (Mock, for now), and the resulting score + feedback text are stored against the attempt's Speaking answer. Re-submitting is either disallowed or clearly versioned (no silent overwrite that loses the original).
 
-- [ ] **T-055 — Teacher: review/override AI-graded Speaking results**
-  - Status: Not Started
+- [x] **T-055 — Teacher: review/override AI-graded Speaking results**
+  - Status: Done
   - Depends on: T-054
   - Source: Notes — Speaking + AI grading (quality control given it's a mock provider)
   - Acceptance Criteria: A teacher can play back a student's recorded Speaking answer, see the AI-generated (mock) score/feedback, and optionally override the score and/or edit the feedback before it's considered final in reporting.
 
-- [ ] **T-056 — Student: view Speaking feedback/score**
-  - Status: Not Started
+- [x] **T-056 — Student: view Speaking feedback/score**
+  - Status: Done
   - Depends on: T-054
   - Source: Notes — Speaking + AI grading
   - Acceptance Criteria: A student can revisit a completed Speaking attempt and see their score and the feedback text (teacher-overridden version if T-055 applied one, otherwise the AI/mock version), alongside their other attempt results.
@@ -412,3 +412,9 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-001
   - Source: QA finding during T-005/T-006/T-007 verification (2026-09-14)
   - Acceptance Criteria: `/server` registers a 4-arg Express error-handling middleware (after all routes) that catches unhandled errors (incl. malformed-JSON body-parser errors) and returns a clean JSON error body (e.g. `{ "error": "..." }`) with an appropriate status code — never an HTML page or a raw stack trace/file path, regardless of `NODE_ENV`. Repro to fix: `curl -s -i -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{not valid json'` must return clean JSON, not Express's default HTML+stacktrace error page. Verified on at least one other route too (not just `/api/auth/register`), and confirm a genuinely unexpected thrown error (e.g. a temporarily-injected `throw` in a route handler) is also caught and returns clean JSON rather than crashing the process.
+
+- [ ] **T-064 — Enforce Speaking response time window server-side (currently client-only, spoofable)**
+  - Status: Not Started
+  - Depends on: T-052, T-054
+  - Source: QA finding during T-051..T-056 verification (2026-09-15)
+  - Acceptance Criteria: `allowedResponseSeconds` on a Speaking question is enforced server-side, not just via the client countdown. Repro of the current gap: create a Speaking question with `allowedResponseSeconds: 5`, wait 8+ seconds, then call `POST /api/attempts/:attemptId/questions/:questionId/speaking-answer` directly — it currently returns 200 with a full grade instead of being rejected/flagged. Fix by recording when the student first reached the question (e.g. a per-question `speakingWindowStartedAt` timestamp, set on first view/first recording-start signal from the client) and rejecting or flagging-as-late a submission that arrives meaningfully past `speakingWindowStartedAt + allowedResponseSeconds` (+ a small grace period for network latency — document the exact tolerance chosen). Verify: an on-time submission still succeeds normally; a late one is rejected/flagged; this matches the same "exam integrity" bar already set by T-041 (server-enforced Listening control) and T-044 (server-recorded tab-switches) rather than trusting the client alone.

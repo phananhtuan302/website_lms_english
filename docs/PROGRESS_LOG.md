@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Speaking module + AI grading (Phase 8 complete, one gap logged)
+
+- Task IDs touched: T-051, T-052, T-053, T-054, T-055, T-056
+- What changed: Dev built the `AIGradingProvider` interface + `MockAIGradingProvider` (pure heuristic, no external calls, swappable via env var), the Speaking question type with a client-enforced countdown, `MediaRecorder`+Web Speech API recording with graceful fallback to an empty transcript, synchronous mock grading on submit (with a submit-lock and cross-account guards), and teacher override (reusing essay's `manualScore`/`manualComment` pattern, original AI values preserved untouched). Test independently re-verified with its own from-scratch script — resubmission lock, empty-transcript handling, override precedence, and cross-account/cross-teacher isolation all PASS. Test also found a real gap: `allowedResponseSeconds` is enforced only client-side — a direct API call 8s after a 5s window still returns 200 with a full grade, since the server never records when a student first reached the question. Logged as **T-064** rather than blocking these tasks' Done status, per Section 8's policy, but flagged as worth prioritizing given it's an exam-integrity gap consistent with what T-041/T-044 already enforce server-side elsewhere.
+- Why / decisions made: audio stored as a base64 data-URL on the `Answer` row (local-storage convention, no cloud dependency, documented). Speaking scored on a fixed 0–100 scale. Third occurrence of a process concern: this Dev batch's commit message claimed a verification pass but — unlike every other recent batch — committed no verification script at all, so Test had to build one from scratch; worth reinforcing "commit your verification script" in future Dev prompts, not just "verify it."
+- Status after this entry: **Phase 8 (T-051–T-056) fully Done.** T-064 (Speaking time-window server enforcement) added as a follow-up, Not Started. Remaining backlog: T-045 (Mock Test, Dev in progress), T-057–T-060 (Phase 9 hardening milestone), T-064.
+
 ## 2026-09-15 — Leader — Direct fix: T-062 flaky verify-reporting.ts
 
 - Task IDs touched: T-062
