@@ -235,20 +235,20 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 5 — Unit Tests & Vocabulary Check
 
-- [ ] **T-036 — Unit Test management**
-  - Status: Not Started
+- [x] **T-036 — Unit Test management**
+  - Status: Done
   - Depends on: T-018, T-008
   - Source: Requirement row 16
   - Acceptance Criteria: A teacher can tag a test as `testType: unitTest` and associate it with a `Unit` (from T-018). A "Unit Tests" view lists tests grouped by unit for both teacher and student (students only see units/tests relevant to them, e.g. published ones).
 
-- [ ] **T-037 — Unit Test report & leaderboard**
-  - Status: Not Started
+- [x] **T-037 — Unit Test report & leaderboard**
+  - Status: Done
   - Depends on: T-036, T-019
   - Source: Requirement row 17
   - Acceptance Criteria: For a given Unit, both teacher and students can view a report/leaderboard comparing student results on that unit's test(s) — at minimum ranked scores and average score for the unit, consistent with data from T-019.
 
-- [ ] **T-038 — Vocabulary Check test type (15 minutes)**
-  - Status: Not Started
+- [x] **T-038 — Vocabulary Check test type (15 minutes)**
+  - Status: Done
   - Depends on: T-012, T-021, T-030
   - Source: Requirement row 18; Assumption A8
   - Acceptance Criteria: A teacher can generate a Vocabulary Check test (`testType: vocabularyCheck`) with a fixed 15-minute timer, whose question pool is drawn from vocabulary the target student(s) have already studied per their `FlashcardProgress` (Assumption A8) rather than arbitrary new words. Taking it uses the same test-runtime (T-012) and auto-grading (T-013) already built, and the timer auto-submits at 15 minutes if the student hasn't already.

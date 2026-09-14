@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Unit Test management, Unit Test leaderboard, Vocabulary Check (Phase 5 complete)
+
+- Task IDs touched: T-036, T-037, T-038
+- What changed: Dev added a `TestType` enum + `published` flag so teachers tag/publish Unit Tests via the existing test editor (unpublished tests stay invisible to students, double-enforced at the API level too), a Unit leaderboard built on T-019's `computeReport` engine (extended with a `student` groupBy and `testType` filter rather than a one-off query), and a Vocabulary Check generator that auto-builds a 15-minute test whose questions are drawn only from a student's already-studied (`learning`/`known`) flashcard progress, gated by a new `TestAssignment` join table, reusing the existing take-test/grading/timer machinery untouched. Test independently re-verified with its own fixtures/techniques (not reusing Dev's script) — confirmed unpublished-test invisibility, leaderboard correctly scoped to `unitTest`-type attempts only (not every test tagged to a unit), and — the highest-priority check — independently matched every generated Vocabulary Check question's correct-answer content back to real `FlashcardCard` rows, proving zero unseen/new words ever appear — PASS, no bugs found.
+- Why / decisions made: "published" is an explicit teacher-controlled boolean independent of session activity (so a teacher can finish authoring privately first). Vocabulary Check access is scoped by explicit per-student/group assignment (`TestAssignment`), not the broader `published` flag, since it targets specific students rather than a whole class. Second occurrence of a process concern: Dev's commit message again claimed an unverifiable "real Playwright browser pass" with no supporting artifacts in the repo — Test flagged it as unsupported (didn't affect the PASS verdict since API/DB-level proof was independently sufficient here, but future Dev prompts should require leaving concrete evidence, e.g. a screenshot path or script left in scratchpad, for any claimed browser pass rather than just a prose claim).
+- Status after this entry: **Phase 5 (T-036–T-038) fully Done.** Combined with prior entries, everything through Phase 7 plus Phase 6 is Done. Remaining: T-045 (Mock Test), T-051–T-056 (Speaking — Dev done, Test dispatched), T-057–T-060 (Phase 9 hardening milestone), T-062 (trivial flaky-script fix).
+
 ## 2026-09-15 — Dev/Test — Reading, Listening (standalone + live-controlled), Writing/essay, anti-cheat (Phase 6 complete)
 
 - Task IDs touched: T-039, T-040, T-041, T-042, T-043, T-044
