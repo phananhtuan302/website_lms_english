@@ -20,6 +20,10 @@ import { teacherVocabProgressRouter } from './routes/teacherVocabProgress.routes
 import { vocabLeaderboardRouter } from './routes/vocabLeaderboard.routes';
 import { teacherGrammarRouter } from './routes/teacherGrammar.routes';
 import { studentGrammarRouter } from './routes/studentGrammar.routes';
+import { teacherUnitTestsRouter } from './routes/teacherUnitTests.routes';
+import { teacherVocabularyCheckRouter } from './routes/teacherVocabularyCheck.routes';
+import { studentAssignedTestsRouter } from './routes/studentAssignedTests.routes';
+import { unitLeaderboardRouter } from './routes/unitLeaderboard.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -32,7 +36,14 @@ const CLIENT_ORIGIN = env.CLIENT_ORIGIN;
 const app = express();
 
 app.use(cors({ origin: CLIENT_ORIGIN }));
-app.use(express.json());
+// Raised from Express's 100kb default (T-052–T-054): Speaking answers submit a
+// base64-encoded audio recording as part of a plain JSON body (see
+// `attempts.routes.ts`'s module doc comment for the documented "no real object storage
+// yet" convention). Base64 inflates raw bytes ~33%, and `allowedResponseSeconds` is
+// capped at 300s server-side (`teacherTests.routes.ts`), so 20mb comfortably covers a
+// worst-case voice recording with headroom, without opening the door to arbitrarily
+// large uploads.
+app.use(express.json({ limit: '20mb' }));
 
 // Minimal health-check endpoint. Path + response shape come from /shared so the client can
 // import the exact same contract instead of hardcoding it a second time.
@@ -109,6 +120,23 @@ app.use('/api/teacher', teacherGrammarRouter);
 // and the Grammar game (T-049). Same "not ownership-scoped, no enrollment concept"
 // reasoning as `/api/flashcard-sets` above.
 app.use('/api/grammar-topics', studentGrammarRouter);
+
+// Teacher-only Unit Test management (T-036: grouped-by-Unit listing) + Vocabulary Check
+// generation (T-038: target-student picker + generate + list). Same `/api/teacher` mount
+// point as every other teacher-only router above, disambiguated by their own
+// `unit-tests`/`vocabulary-checks`/`students` path segments.
+app.use('/api/teacher', teacherUnitTestsRouter);
+app.use('/api/teacher', teacherVocabularyCheckRouter);
+
+// Student-facing "tests relevant to me" views: Unit Tests (T-036) + assigned Vocabulary
+// Checks (T-038). A fresh top-level mount point (`/api/student`), distinct from every
+// other prefix above — see `studentAssignedTests.routes.ts`'s module doc comment.
+app.use('/api/student', studentAssignedTestsRouter);
+
+// Unit Test report & leaderboard (T-037) — visible to BOTH roles, built on T-019's
+// `computeReport` engine. Own top-level mount point (`/api/units`), distinct from
+// `/api/teacher/units` (curriculum Unit CRUD, T-018) — see that router's doc comment.
+app.use('/api/units', unitLeaderboardRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

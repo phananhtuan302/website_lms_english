@@ -14,7 +14,12 @@ import type {
   PracticeTestSummaryDTO,
   RecordTabSwitchResponse,
   SaveAnswerRequest,
+  StudentUnitTestsResponseDTO,
+  StudentVocabularyCheckSummaryDTO,
   SubmitAttemptResponse,
+  SubmitSpeakingAnswerRequest,
+  SubmitSpeakingAnswerResponse,
+  UnitLeaderboardResponseDTO,
 } from '@platform/shared';
 import { apiRequest } from './apiClient';
 
@@ -39,6 +44,13 @@ export const studentApi = {
     apiRequest<SubmitAttemptResponse>(`/api/attempts/${attemptId}/submit`, { method: 'POST' }),
   getResult: (attemptId: string) => apiRequest<AttemptResultDTO>(`/api/attempts/${attemptId}/result`),
 
+  // --- Speaking answers (T-052–T-054) ------------------------------------------------
+  submitSpeakingAnswer: (attemptId: string, questionId: string, body: SubmitSpeakingAnswerRequest) =>
+    apiRequest<SubmitSpeakingAnswerResponse>(
+      `/api/attempts/${attemptId}/questions/${questionId}/speaking-answer`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
   // --- Global tab-switch / exit detection (T-044) -----------------------------------
   recordTabSwitch: (attemptId: string) =>
     apiRequest<RecordTabSwitchResponse>(`/api/attempts/${attemptId}/tab-switch`, { method: 'POST' }),
@@ -47,4 +59,17 @@ export const studentApi = {
   listPracticeTests: () => apiRequest<PracticeTestSummaryDTO[]>('/api/tests'),
   startPractice: (testId: string) =>
     apiRequest<JoinSessionResponse>(`/api/tests/${testId}/practice`, { method: 'POST' }),
+
+  // --- Unit Tests (T-036) + Unit Test leaderboard (T-037) ---------------------------
+  // "Taking" one reuses `startPractice` above (`POST /api/tests/:testId/practice`) —
+  // same self-practice endpoint, no separate start-attempt call.
+  listUnitTests: () => apiRequest<StudentUnitTestsResponseDTO>('/api/student/unit-tests'),
+  getUnitLeaderboard: (unitId: string) =>
+    apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard`),
+
+  // --- Vocabulary Check (T-038) ------------------------------------------------------
+  // Also taken via `startPractice` above — access is enforced server-side by
+  // `TestAssignment` (see `practice.routes.ts`).
+  listVocabularyChecks: () =>
+    apiRequest<StudentVocabularyCheckSummaryDTO[]>('/api/student/vocabulary-checks'),
 };

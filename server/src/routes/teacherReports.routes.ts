@@ -6,7 +6,7 @@
  */
 
 import { Router } from 'express';
-import type { ReportResponseDTO } from '@platform/shared';
+import type { ReportResponseDTO, TestType } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -16,8 +16,14 @@ export const teacherReportsRouter = Router();
 
 teacherReportsRouter.use(requireAuth, requireRole('teacher'));
 
+const TEST_TYPE_VALUES: TestType[] = ['generic', 'unitTest', 'vocabularyCheck', 'listeningTest', 'mockTest'];
+
 function isReportGroupBy(value: unknown): value is ReportGroupBy {
   return typeof value === 'string' && (REPORT_GROUP_BY_VALUES as readonly string[]).includes(value);
+}
+
+function isTestType(value: unknown): value is TestType {
+  return typeof value === 'string' && (TEST_TYPE_VALUES as readonly string[]).includes(value);
 }
 
 teacherReportsRouter.get(
@@ -56,11 +62,25 @@ teacherReportsRouter.get(
       unitId = unit.id;
     }
 
+    // T-037: optional `testType` filter (e.g. `unitTest`) so the same shared engine can
+    // narrow a Unit's report down to specifically its Unit Test(s) — see
+    // `ComputeReportOptions.testType`'s doc comment.
+    const testTypeRaw = req.query.testType;
+    let testType: TestType | null = null;
+    if (typeof testTypeRaw === 'string' && testTypeRaw.trim() !== '') {
+      if (!isTestType(testTypeRaw)) {
+        res.status(400).json({ error: `testType must be one of: ${TEST_TYPE_VALUES.join(', ')}.` });
+        return;
+      }
+      testType = testTypeRaw;
+    }
+
     const result = await computeReport({
       teacherId: req.user!.sub,
       groupBy: groupByRaw,
       testId,
       unitId,
+      testType,
     });
 
     const body: ReportResponseDTO = result;

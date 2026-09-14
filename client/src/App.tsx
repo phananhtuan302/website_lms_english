@@ -18,10 +18,12 @@ import StudentGrammarTopicPage from './pages/StudentGrammarTopicPage';
 import StudentPracticeTestsPage from './pages/StudentPracticeTestsPage';
 import StudentRunnerGamePage from './pages/StudentRunnerGamePage';
 import StudentSpaceShooterGamePage from './pages/StudentSpaceShooterGamePage';
+import StudentUnitTestsPage from './pages/StudentUnitTestsPage';
 import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
 import StudentVocabMatchingPage from './pages/StudentVocabMatchingPage';
 import StudentVocabProgressPage from './pages/StudentVocabProgressPage';
 import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
+import StudentVocabularyChecksPage from './pages/StudentVocabularyChecksPage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
@@ -37,8 +39,11 @@ import TeacherReportsPage from './pages/TeacherReportsPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
+import TeacherUnitTestsPage from './pages/TeacherUnitTestsPage';
 import TeacherVocabRankingPage from './pages/TeacherVocabRankingPage';
+import TeacherVocabularyChecksPage from './pages/TeacherVocabularyChecksPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
+import UnitLeaderboardPage from './pages/UnitLeaderboardPage';
 import VocabLeaderboardPage from './pages/VocabLeaderboardPage';
 
 /**
@@ -99,6 +104,13 @@ function App() {
               />
               {/* Grammar reports (T-050), reusing T-019's engine additively. */}
               <Route path="/teacher/grammar-reports" element={<TeacherGrammarReportsPage />} />
+              {/* Unit Test management (T-036): grouped-by-Unit listing of this
+                  teacher's own `testType: unitTest` tests. Tagging/publishing a test as
+                  a Unit Test happens in the regular test editor above. */}
+              <Route path="/teacher/unit-tests" element={<TeacherUnitTestsPage />} />
+              {/* Vocabulary Check generation (T-038): pick target student(s), generate,
+                  and see previously-generated checks. */}
+              <Route path="/teacher/vocabulary-checks" element={<TeacherVocabularyChecksPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>
@@ -139,6 +151,14 @@ function App() {
                 path="/student/grammar-topics/:topicId/games/space-shooter"
                 element={<StudentGrammarSpaceShooterGamePage />}
               />
+
+              {/* Unit Tests I can take (T-036) — grouped by curriculum unit, gated by
+                  `Test.published`. "Take"/"Resume" reuse the self-practice start
+                  endpoint, same as `/student/practice`. */}
+              <Route path="/student/unit-tests" element={<StudentUnitTestsPage />} />
+              {/* Vocabulary Checks assigned to me (T-038) — 15-minute checks generated
+                  from vocabulary I've already studied. */}
+              <Route path="/student/vocabulary-checks" element={<StudentVocabularyChecksPage />} />
             </Route>
 
             {/* Vocabulary leaderboard (T-031) — visible to BOTH roles, so it's its own
@@ -146,6 +166,10 @@ function App() {
                 /teacher and /student. */}
             <Route element={<ProtectedRoute allowedRoles={['teacher', 'student']} />}>
               <Route path="/vocab-leaderboard" element={<VocabLeaderboardPage />} />
+              {/* Unit Test report & leaderboard (T-037) — visible to both roles, same
+                  "own route block with both roles allowed" pattern as the vocabulary
+                  leaderboard above. */}
+              <Route path="/units/:unitId/leaderboard" element={<UnitLeaderboardPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

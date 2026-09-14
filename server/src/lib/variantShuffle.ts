@@ -35,8 +35,12 @@ interface TestForShuffle {
 /** Fisher-Yates shuffle using `crypto.randomInt` (cryptographically strong, unlike
  * `Math.random`) — not that a test-order shuffle needs to be unguessable, but it's the
  * standard unbiased algorithm and Node ships an unbiased random source for free, so
- * there's no reason to reach for `Math.random`'s well-known modulo bias instead. */
-function shuffle<T>(items: T[]): T[] {
+ * there's no reason to reach for `Math.random`'s well-known modulo bias instead.
+ * Exported (T-038) so `server/src/lib/vocabularyCheckGenerator.ts` reuses the exact same
+ * shuffle rather than a second copy — picking which studied cards make the pool and
+ * which distractor meanings fill out each question's choices are both "shuffle then
+ * take N" operations, same as variant generation. */
+export function shuffle<T>(items: T[]): T[] {
   const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {
     const j = randomInt(i + 1);

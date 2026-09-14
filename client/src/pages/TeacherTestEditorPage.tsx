@@ -6,11 +6,22 @@ import type {
   SectionDTO,
   TestDetailDTO,
   TestSessionDTO,
+  TestType,
   TestVariantDTO,
   UnitDTO,
   UpdateQuestionRequest,
   UpdateSectionRequest,
 } from '@platform/shared';
+
+/** Every value `Test.testType` supports (T-036/T-038, Assumption A4) — plain labels for
+ * the authoring dropdown below. */
+const TEST_TYPE_OPTIONS: Array<{ value: TestType; label: string }> = [
+  { value: 'generic', label: 'Generic' },
+  { value: 'unitTest', label: 'Unit Test' },
+  { value: 'vocabularyCheck', label: 'Vocabulary Check' },
+  { value: 'listeningTest', label: 'Listening Test' },
+  { value: 'mockTest', label: 'Mock Test' },
+];
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import QuestionEditor from '../components/QuestionEditor';
@@ -23,6 +34,7 @@ function defaultQuestionBody(type: QuestionType): {
   choices?: { text: string; isCorrect: boolean }[];
   acceptedAnswers?: string[];
   essayMaxScore?: number;
+  allowedResponseSeconds?: number;
 } {
   if (type === 'trueFalse') {
     return {
@@ -39,6 +51,9 @@ function defaultQuestionBody(type: QuestionType): {
   }
   if (type === 'essay') {
     return { type, prompt: 'New essay question', essayMaxScore: 10 };
+  }
+  if (type === 'speaking') {
+    return { type, prompt: 'New speaking question', allowedResponseSeconds: 60 };
   }
   return {
     type,
@@ -153,6 +168,31 @@ function TeacherTestEditorPage() {
       setTest(updated);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save unit tag.');
+    }
+  }
+
+  /** T-036: tag this test's `testType` (e.g. `unitTest`) — this is the actual "a teacher
+   * can tag a test as testType: unitTest" authoring action, using the same test editor
+   * as every other test per Guiding Principle 6. */
+  async function handleSaveTestType(testType: TestType) {
+    if (!test) return;
+    try {
+      const updated = await teacherApi.updateTest(testId!, { title: test.title, testType });
+      setTest(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save test type.');
+    }
+  }
+
+  /** T-036: flips whether a Unit Test is visible to students yet (`Test.published`'s
+   * documented "available to students" semantics — see schema.prisma). */
+  async function handleSavePublished(published: boolean) {
+    if (!test) return;
+    try {
+      const updated = await teacherApi.updateTest(testId!, { title: test.title, published });
+      setTest(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save published status.');
     }
   }
 
@@ -380,6 +420,39 @@ function TeacherTestEditorPage() {
               ))}
             </select>
           </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+            Test type (T-036)
+            <select
+              value={test.testType}
+              onChange={(event) => handleSaveTestType(event.target.value as TestType)}
+              className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              {TEST_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {test.testType === 'unitTest' && (
+            <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+              <input
+                type="checkbox"
+                checked={test.published}
+                onChange={(event) => handleSavePublished(event.target.checked)}
+                className="h-4 w-4 rounded border-primary-300 text-primary-600 focus:ring-primary-200"
+              />
+              Published (visible to students in "Unit Tests")
+            </label>
+          )}
+          {test.testType === 'unitTest' && test.unitId && (
+            <Link
+              to={`/units/${test.unitId}/leaderboard`}
+              className="text-sm font-medium text-primary-600 hover:underline"
+            >
+              View this unit's leaderboard →
+            </Link>
+          )}
         </div>
         {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       </div>
@@ -530,6 +603,13 @@ function TeacherTestEditorPage() {
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
                 + Essay (Writing)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddQuestion(section.id, 'speaking')}
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+              >
+                + Speaking
               </button>
             </div>
           </div>

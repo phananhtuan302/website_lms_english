@@ -22,6 +22,7 @@ import type {
   FlashcardSetDetailDTO,
   FlashcardSetSummaryDTO,
   GenerateVariantsRequest,
+  GenerateVocabularyCheckRequest,
   GradeEssayAnswerRequest,
   GrammarReportGroupBy,
   GrammarReportResponseDTO,
@@ -32,12 +33,17 @@ import type {
   ReportGroupBy,
   ReportResponseDTO,
   SentenceSubmissionDTO,
+  TeacherStudentSummaryDTO,
+  TeacherUnitTestsResponseDTO,
   TeacherVocabProgressDTO,
+  TeacherVocabularyCheckSummaryDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestSummaryDTO,
+  TestType,
   TestVariantDTO,
   UnitDTO,
+  UnitLeaderboardResponseDTO,
   UpdateAcademicPeriodRequest,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
@@ -196,10 +202,16 @@ export const teacherApi = {
     apiRequest<SentenceSubmissionDTO[]>(`${flashcardBase}/${setId}/sentence-submissions`),
 
   // --- Reporting engine v1 (T-019) --------------------------------------------------
-  getReport: (params: { groupBy: ReportGroupBy; testId?: string | null; unitId?: string | null }) => {
+  getReport: (params: {
+    groupBy: ReportGroupBy;
+    testId?: string | null;
+    unitId?: string | null;
+    testType?: TestType | null;
+  }) => {
     const query = new URLSearchParams({ groupBy: params.groupBy });
     if (params.testId) query.set('testId', params.testId);
     if (params.unitId) query.set('unitId', params.unitId);
+    if (params.testType) query.set('testType', params.testType);
     return apiRequest<ReportResponseDTO>(`${teacherBase}/reports?${query.toString()}`);
   },
 
@@ -255,4 +267,19 @@ export const teacherApi = {
     if (params.studentId) query.set('studentId', params.studentId);
     return apiRequest<GrammarReportResponseDTO>(`${teacherBase}/grammar-reports?${query.toString()}`);
   },
+
+  // --- Unit Test management (T-036) + leaderboard (T-037) ---------------------------
+  listUnitTests: () => apiRequest<TeacherUnitTestsResponseDTO>(`${teacherBase}/unit-tests`),
+  getUnitLeaderboard: (unitId: string) =>
+    apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard`),
+
+  // --- Vocabulary Check generation (T-038) -------------------------------------------
+  listStudents: () => apiRequest<TeacherStudentSummaryDTO[]>(`${teacherBase}/students`),
+  listVocabularyChecks: () =>
+    apiRequest<TeacherVocabularyCheckSummaryDTO[]>(`${teacherBase}/vocabulary-checks`),
+  generateVocabularyCheck: (body: GenerateVocabularyCheckRequest) =>
+    apiRequest<TeacherVocabularyCheckSummaryDTO>(`${teacherBase}/vocabulary-checks`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };

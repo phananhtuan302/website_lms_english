@@ -65,6 +65,18 @@ function TeacherDashboardPage() {
         >
           Grammar reports
         </Link>
+        <Link
+          to="/teacher/unit-tests"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          Unit Tests
+        </Link>
+        <Link
+          to="/teacher/vocabulary-checks"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          Vocabulary Check
+        </Link>
       </div>
 
       <div>

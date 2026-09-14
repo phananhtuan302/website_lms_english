@@ -72,7 +72,20 @@ export interface AuthTokenPayload {
 
 /** Matches the Prisma `QuestionType` enum (T-007, extended by T-042 with `essay`) — kept
  * as a literal union here since Prisma enums can't be imported into client code. */
-export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank' | 'essay';
+export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank' | 'essay' | 'speaking';
+
+/** Matches the Prisma `TestType` enum (T-036/T-038, Assumption A4) — same "string union,
+ * Prisma enums can't be imported into client code" convention as `QuestionType` above.
+ * See `schema.prisma`'s `TestType` doc comment for what each value unlocks. */
+export type TestType = 'generic' | 'unitTest' | 'vocabularyCheck' | 'listeningTest' | 'mockTest';
+
+/** Speaking answers (T-052–T-056) are always graded on a fixed 0–100 point scale,
+ * regardless of the question's `allowedResponseSeconds` — simpler than requiring a
+ * per-question configurable max score like essay's `essayMaxScore`, and matches how the
+ * server's `AIGradingProvider` interface reports a score (T-051,
+ * `server/src/grading/aiGradingProvider.ts`). Both the AI/mock grade and any teacher
+ * override (`manualScore`, T-055) live on this same scale. */
+export const SPEAKING_SCORE_SCALE = 100;
 
 export interface ChoiceDTO {
   id: string;
@@ -93,6 +106,14 @@ export interface QuestionDTO {
   /** Only meaningful for `essay` (T-042) — the point value a teacher grades this essay
    * out of. `null` for every other type. */
   essayMaxScore: number | null;
+  /** Only meaningful for `speaking` (T-052) — seconds allowed to respond once the
+   * student reaches this question, enforced client-side by a visible countdown
+   * (`TakeTestPage.tsx`). `null` for every other type. */
+  allowedResponseSeconds: number | null;
+  /** Only meaningful for `speaking` (T-052) — an optional audio clip for the prompt
+   * itself, independent of the text `prompt` above. `null` for every other type or when
+   * not configured. */
+  promptAudioUrl: string | null;
 }
 
 /** Reading (T-039) and Listening (T-040/T-041) content, attached at the Section level —
@@ -122,6 +143,11 @@ export interface TestSummaryDTO {
   /** Optional curriculum tag (T-018) — `null` when the test isn't tagged to a Unit. */
   unitId: string | null;
   unitName: string | null;
+  /** T-036/T-038 — defaults to `generic` for every test authored before this batch. */
+  testType: TestType;
+  /** T-036 — only meaningful for `testType: unitTest` (see `Test.published`'s doc
+   * comment in schema.prisma); always `false` for every other type. */
+  published: boolean;
   createdAt: string;
   updatedAt: string;
   /** Average `timeTakenSeconds` across this test's COMPLETED (submitted) attempts only
@@ -145,6 +171,9 @@ export interface TestDetailDTO {
    * can show the tagged unit's name without a second round-trip. */
   unitId: string | null;
   unit: { id: string; name: string } | null;
+  /** T-036/T-038 — see `TestSummaryDTO.testType`/`published` doc comments. */
+  testType: TestType;
+  published: boolean;
   sections: SectionDTO[];
   createdAt: string;
   updatedAt: string;
@@ -157,12 +186,21 @@ export interface CreateTestRequest {
   /** Optional Unit tag (T-018). Omitted/undefined leaves it untagged; explicit `null`
    * clears an existing tag. */
   unitId?: string | null;
+  /** T-036 (Assumption A4). Omitted defaults to `generic` server-side — this is how a
+   * teacher tags a test as `unitTest` (or, later, `mockTest`/`listeningTest`) using the
+   * SAME authoring endpoint as any other test, per Guiding Principle 6. */
+  testType?: TestType;
+  /** T-036. Omitted defaults to `false` server-side (a new Unit Test starts
+   * unpublished/invisible to students until the teacher explicitly flips this). */
+  published?: boolean;
 }
 
 export interface UpdateTestRequest {
   title: string;
   timeLimitMinutes?: number | null;
   unitId?: string | null;
+  testType?: TestType;
+  published?: boolean;
 }
 
 /** Reading/Listening fields (T-039/T-040) are all optional and independent of each
@@ -209,6 +247,12 @@ export interface CreateQuestionRequest {
   /** Only meaningful for `essay` (T-042). Omitted defaults to 10 server-side; ignored
    * for every other type. */
   essayMaxScore?: number | null;
+  /** Only meaningful for `speaking` (T-052). Omitted defaults to 60 seconds
+   * server-side; ignored for every other type. */
+  allowedResponseSeconds?: number | null;
+  /** Only meaningful for `speaking` (T-052). Optional even for a speaking question — a
+   * Speaking question may be text-prompt-only. Ignored for every other type. */
+  promptAudioUrl?: string | null;
 }
 
 export type UpdateQuestionRequest = CreateQuestionRequest;
@@ -310,6 +354,10 @@ export interface AttemptQuestionDTO {
   choices: Array<{ id: string; text: string }>;
   /** Only meaningful for `essay` (T-042) — shown to the student as "out of N points". */
   essayMaxScore: number | null;
+  /** Only meaningful for `speaking` (T-052) — see `QuestionDTO`'s doc comment. `null`
+   * for every other type. */
+  allowedResponseSeconds: number | null;
+  promptAudioUrl: string | null;
 }
 
 /** Reading/Listening content for this section (T-039/T-040/T-041) — same fields as
@@ -332,6 +380,15 @@ export interface AttemptAnswerDTO {
   questionId: string;
   selectedChoiceId: string | null;
   textAnswer: string | null;
+  /** Speaking only (T-052–T-054): ISO timestamp of when this question's Speaking
+   * answer was submitted+graded, or `null` if not yet submitted. Once set, the
+   * take-test runtime locks re-recording for this question (re-submission is rejected
+   * server-side too — see `attempts.routes.ts`). Deliberately the ONLY Speaking field
+   * surfaced by this "restore an in-progress attempt" endpoint — the actual
+   * score/feedback/audio/transcript are only ever shown on the post-submission result
+   * view (T-056), never mid-test, same "never leak grading info mid-test" spirit as
+   * every other question type here. */
+  speakingSubmittedAt: string | null;
 }
 
 /** Response for `GET /api/attempts/:attemptId` — everything the take-test runtime needs
@@ -390,14 +447,34 @@ export interface AttemptResultQuestionDTO {
   selectedChoiceId: string | null;
   textAnswer: string | null;
   isCorrect: boolean | null;
-  /** Manual essay grading (T-042) — all three `null` until a teacher grades this essay
-   * answer (`PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`), and
-   * `essayMaxScore`/`manualScore`/`manualComment` are meaningless for any non-`essay`
-   * question. Shown ALONGSIDE (not merged into) `AttemptResultDTO.scorePercent`, which
-   * only ever reflects auto-gradable questions — see that field's doc comment. */
+  /** Manual essay grading (T-042) — `null` until a teacher grades this essay answer
+   * (`PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`); meaningless
+   * for any non-`essay` question (use `speakingAiScore` for a `speaking` question's
+   * point scale instead — see `SPEAKING_SCORE_SCALE`). `manualScore`/`manualComment`
+   * below are ALSO reused by `speaking` (T-055) — see their own doc comment. Shown
+   * ALONGSIDE (not merged into) `AttemptResultDTO.scorePercent`, which only ever
+   * reflects auto-gradable questions — see that field's doc comment. */
   essayMaxScore: number | null;
+  /** Teacher-set override (T-042 essay, T-055 speaking) — wins once present over the
+   * respective auto/AI value for both display and reporting purposes. */
   manualScore: number | null;
   manualComment: string | null;
+  /** Speaking (T-052–T-056) — see `Question.allowedResponseSeconds`/`promptAudioUrl`'s
+   * doc comments in schema.prisma; both `null` for a non-`speaking` question. */
+  allowedResponseSeconds: number | null;
+  promptAudioUrl: string | null;
+  /** The student's recorded answer, as a base64 `data:` URL (documented local storage
+   * convention, see `attempts.routes.ts`'s module doc comment), and the client-generated
+   * draft transcript (T-053, may be an empty string). Both `null` until a Speaking
+   * answer has actually been submitted for this question. */
+  speakingAudioData: string | null;
+  speakingTranscript: string | null;
+  /** The ORIGINAL AI (Mock, T-051) grade, computed once at submission (T-054) and never
+   * overwritten afterward — `manualScore`/`manualComment` above are the teacher's
+   * OVERRIDE (T-055), which wins once present, exactly like essay. Both `null` until
+   * AI-graded. */
+  speakingAiScore: number | null;
+  speakingAiFeedback: string | null;
 }
 
 /** Response for `GET /api/attempts/:attemptId/result` (student, own attempt only) and
@@ -434,6 +511,29 @@ export interface AttemptResultDTO {
 export interface GradeEssayAnswerRequest {
   score: number;
   comment?: string | null;
+}
+
+// --- Speaking answers: recording submission + AI grading (T-052–T-054) -------------
+
+/** Body for `POST /api/attempts/:attemptId/questions/:questionId/speaking-answer`. The
+ * student's recorded audio, as a `data:` URL (documented local storage convention — no
+ * real cloud storage exists yet, see `attempts.routes.ts`'s module doc comment), plus
+ * whatever draft transcript the Web Speech API produced (T-053) — an empty string if
+ * unsupported/no speech detected, never omitted. Rejected with 409 if this question's
+ * Speaking answer was already submitted (T-054 "no silent overwrite"). */
+export interface SubmitSpeakingAnswerRequest {
+  audioData: string;
+  transcript: string;
+}
+
+/** Response for the endpoint above — the freshly-computed AI (Mock, T-051) grade, so
+ * the take-test runtime can show an immediate confirmation without a second
+ * round-trip. */
+export interface SubmitSpeakingAnswerResponse {
+  questionId: string;
+  aiScore: number;
+  aiFeedback: string;
+  submittedAt: string;
 }
 
 // --- Anti-copy-paste (T-043) / global tab-switch detection (T-044) ------------------
@@ -952,7 +1052,20 @@ export interface LiveStudentProgressDTO {
  * dimension. `week` is ISO-8601 (Monday–Sunday); `semester` buckets by the existing
  * `AcademicPeriod` entity (T-018); all date/time bucketing uses the fixed
  * `Asia/Ho_Chi_Minh` timezone (Assumption A5). */
-export type ReportGroupBy = 'test' | 'unit' | 'week' | 'month' | 'quarter' | 'semester' | 'year';
+/** `student` (T-037) added alongside the original six dimensions: buckets every
+ * `student`-role account (0-row default, same convention as `test`/`unit` below) instead
+ * of a test/unit/period — this is what powers the Unit Test leaderboard's "ranked scores"
+ * (T-037), sorted by score descending rather than the other dimensions' natural/alphabetic
+ * order. See `server/src/lib/reporting.ts`'s `buildStudentBuckets` doc comment. */
+export type ReportGroupBy =
+  | 'test'
+  | 'unit'
+  | 'student'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'semester'
+  | 'year';
 
 /** One row of the report's breakdown table (Assumption A11 — `groupBy` returns a table
  * with one row per bucket for that granularity, not a single filtered number). Only
@@ -981,13 +1094,15 @@ export interface ReportBucketDTO {
   periodEnd: string | null;
 }
 
-/** Response for `GET /api/teacher/reports`. `testId`/`unitId` echo back whichever
- * optional narrowing filters were applied (both `null` if omitted) so the client can
- * confirm what it asked for. */
+/** Response for `GET /api/teacher/reports`. `testId`/`unitId`/`testType` echo back
+ * whichever optional narrowing filters were applied (`null` if omitted) so the client can
+ * confirm what it asked for. `testType` (T-037) is what narrows a Unit report down to
+ * specifically its `unitTest`-type test(s), per that task's acceptance criteria. */
 export interface ReportResponseDTO {
   groupBy: ReportGroupBy;
   testId: string | null;
   unitId: string | null;
+  testType: TestType | null;
   buckets: ReportBucketDTO[];
 }
 
@@ -1192,4 +1307,126 @@ export interface GrammarReportResponseDTO {
   topicId: string | null;
   studentId: string | null;
   buckets: ReportBucketDTO[];
+}
+
+// --- Unit Test management (T-036) ---------------------------------------------------
+// A "Unit Test" is just a `Test` (see above) tagged `testType: 'unitTest'` and (optionally)
+// a `Unit` — see `Test.published`'s doc comment in schema.prisma for the documented
+// "what makes it available to students" semantics this section's DTOs surface.
+
+/** One curriculum Unit's group of Unit Tests, shared by both the teacher's "all my Unit
+ * Tests" view and the student's "Unit Tests I can take" view. `unitId`/`unitName` are
+ * `null` for the "Untagged" group (a `unitTest`-type test with no `Unit` tag yet). */
+export interface UnitTestGroupDTO<TTest> {
+  unitId: string | null;
+  unitName: string | null;
+  tests: TTest[];
+}
+
+/** Response for `GET /api/teacher/unit-tests` — every `unitTest`-type test the calling
+ * teacher owns, grouped by Unit (in curriculum `order`, "Untagged" last). Reuses
+ * `TestSummaryDTO` as-is (already carries `testType`/`published`). */
+export interface TeacherUnitTestsResponseDTO {
+  groups: UnitTestGroupDTO<TestSummaryDTO>[];
+}
+
+/** One Unit Test row as a STUDENT sees it (T-036) — deliberately NOT `TestSummaryDTO`
+ * (which exposes `sectionCount`/authoring metadata a student doesn't need) and instead
+ * carries the student's OWN attempt status for it, if any, so the UI can show "Take
+ * test" vs. "Resume" vs. "View result" without a second round-trip per test. */
+export interface StudentUnitTestSummaryDTO {
+  id: string;
+  title: string;
+  unitId: string | null;
+  unitName: string | null;
+  myAttempt: { attemptId: string; status: AttemptStatus; scorePercent: number | null } | null;
+}
+
+/** Response for `GET /api/student/unit-tests` — every `unitTest`-type test with
+ * `published: true`, grouped by Unit. Documented "published" semantics (T-036 "your
+ * call"): a Unit Test becomes visible here the moment its owning teacher flips
+ * `Test.published` to `true` via the same test editor used to author it — see that
+ * field's doc comment in schema.prisma for why this was chosen over deriving
+ * availability from session/self-practice activity. */
+export interface StudentUnitTestsResponseDTO {
+  groups: UnitTestGroupDTO<StudentUnitTestSummaryDTO>[];
+}
+
+// --- Unit Test report & leaderboard (T-037) -----------------------------------------
+// Built on T-019's `computeReport` engine (`groupBy: 'student'` + `unitId` + `testType:
+// 'unitTest'`), not a one-off query — see `server/src/routes/unitLeaderboard.routes.ts`.
+
+export interface UnitLeaderboardEntryDTO {
+  /** 1-based; simple sequential rank by score descending (no tie-handling beyond stable
+   * sort — unlike T-031's vocab leaderboard, T-037's acceptance criteria doesn't call for
+   * competition-style tie ranks, so the simpler rule was used, documented here). */
+  rank: number;
+  studentId: string;
+  studentName: string;
+  attemptCount: number;
+  averageScorePercent: number | null;
+}
+
+/** Response for `GET /api/units/:unitId/leaderboard` (both roles, T-037): ranked
+ * per-student scores plus the unit-wide average, both scoped to that unit's
+ * `unitTest`-type test(s) only. Every student account appears (even with `attemptCount:
+ * 0`, ranked last) — same "0-row, not a missing row" convention T-019/T-031 already
+ * establish elsewhere in this codebase. */
+export interface UnitLeaderboardResponseDTO {
+  unitId: string;
+  unitName: string;
+  attemptCount: number;
+  averageScorePercent: number | null;
+  entries: UnitLeaderboardEntryDTO[];
+}
+
+// --- Vocabulary Check test type (T-038, Assumption A8) ------------------------------
+// A `vocabularyCheck`-type `Test`, auto-generated by
+// `server/src/lib/vocabularyCheckGenerator.ts` from the target student(s)' OWN
+// `FlashcardProgress` (`learning`/`known` cards only, never `new`/unseen words), always
+// `timeLimitMinutes: 15`. Taking one reuses the exact same self-practice start endpoint
+// (`POST /api/tests/:testId/practice`) and take-test runtime (T-012)/auto-grading (T-013)
+// as any other test — see `TestAssignment`'s doc comment in schema.prisma for how access
+// is scoped to exactly the students it was generated for.
+
+/** Body for `POST /api/teacher/vocabulary-checks`. `studentIds` may be a single id (one
+ * target student) or several (a "group" — the generated pool is drawn from the UNION of
+ * every selected student's studied vocabulary, and every selected student is granted
+ * access to the SAME generated test). */
+export interface GenerateVocabularyCheckRequest {
+  studentIds: string[];
+  /** Optional custom title; omitted/blank generates one from the date + student names. */
+  title?: string;
+}
+
+/** One generated Vocabulary Check as the OWNING teacher sees it — returned by both the
+ * generate endpoint and the teacher's list endpoint. */
+export interface TeacherVocabularyCheckSummaryDTO {
+  id: string;
+  title: string;
+  timeLimitMinutes: number;
+  questionCount: number;
+  assignedStudents: Array<{ id: string; name: string }>;
+  createdAt: string;
+}
+
+/** One Vocabulary Check as an ASSIGNED student sees it (T-038) — same "carry my own
+ * attempt status" shape as `StudentUnitTestSummaryDTO`, since both are started via the
+ * identical self-practice endpoint. */
+export interface StudentVocabularyCheckSummaryDTO {
+  id: string;
+  title: string;
+  timeLimitMinutes: number;
+  questionCount: number;
+  myAttempt: { attemptId: string; status: AttemptStatus; scorePercent: number | null } | null;
+  createdAt: string;
+}
+
+/** Row shape for `GET /api/teacher/students` — the target-student picker for generating
+ * a Vocabulary Check (T-038). No existing endpoint returned a plain student roster before
+ * this batch. */
+export interface TeacherStudentSummaryDTO {
+  id: string;
+  name: string;
+  email: string;
 }

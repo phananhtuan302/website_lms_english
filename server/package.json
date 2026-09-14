@@ -20,6 +20,7 @@
     "verify:reporting": "tsx scripts/verify-reporting.ts",
     "verify:vocab-batch": "tsx scripts/verify-vocab-batch.ts",
     "verify:t039-t044": "tsx scripts/verify-t039-t044.ts",
+    "verify:t036-t038": "tsx scripts/verify-t036-t038.ts",
     "verify:vocab-progress": "tsx scripts/verify-vocab-progress.ts",
     "verify:grammar": "tsx scripts/verify-grammar.ts"
   },

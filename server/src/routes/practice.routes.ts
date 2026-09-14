@@ -35,11 +35,19 @@ practiceRouter.use(requireAuth, requireRole('student'));
 
 /** GET /api/tests — every test, for the student self-practice picker (T-040). Same
  * "every X visible to every student, no class/enrollment concept" convention as
- * `studentFlashcards.routes.ts`'s set listing. */
+ * `studentFlashcards.routes.ts`'s set listing.
+ *
+ * Excludes `unitTest` and `vocabularyCheck` (T-036/T-038, additive change): both now have
+ * their own purpose-built, properly-gated visibility rules (`Test.published` for Unit
+ * Tests, `TestAssignment` for Vocabulary Check — see `POST /:testId/practice` below) that
+ * this generic "every test, no gating" list would otherwise bypass entirely. Every
+ * pre-existing test defaults to `testType: 'generic'` (this migration backfills every
+ * row), so this filter changes nothing about any test that existed before this batch. */
 practiceRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
     const tests = await prisma.test.findMany({
+      where: { testType: { notIn: ['unitTest', 'vocabularyCheck'] } },
       select: { id: true, title: true },
       orderBy: { title: 'asc' },
     });
@@ -92,6 +100,28 @@ practiceRouter.post(
     if (!test) {
       res.status(404).json({ error: 'Test not found.' });
       return;
+    }
+
+    // T-036: an unpublished Unit Test isn't "available" yet (`Test.published`'s doc
+    // comment in schema.prisma) — defense in depth alongside `GET /api/student/unit-tests`
+    // already only listing published ones, in case a student directly POSTs a known id.
+    if (test.testType === 'unitTest' && !test.published) {
+      res.status(403).json({ error: 'This Unit Test has not been published yet.' });
+      return;
+    }
+
+    // T-038: a Vocabulary Check is generated FOR specific student(s) — only a student
+    // explicitly granted a `TestAssignment` row may start it, per that model's doc
+    // comment in schema.prisma (its question pool is drawn from THEIR OWN studied
+    // vocabulary, so an unassigned student starting it would make no sense anyway).
+    if (test.testType === 'vocabularyCheck') {
+      const assignment = await prisma.testAssignment.findUnique({
+        where: { testId_studentId: { testId: test.id, studentId: req.user!.sub } },
+      });
+      if (!assignment) {
+        res.status(403).json({ error: 'This Vocabulary Check was not assigned to you.' });
+        return;
+      }
     }
 
     const session = await findOrCreatePracticeSession(test.id);

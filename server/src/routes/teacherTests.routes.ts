@@ -23,6 +23,7 @@ import type {
   SectionDTO,
   TestDetailDTO,
   TestSummaryDTO,
+  TestType,
   TestVariantDTO,
   UpdateQuestionRequest,
   UpdateSectionRequest,
@@ -39,12 +40,22 @@ export const teacherTestsRouter = Router();
 
 teacherTestsRouter.use(requireAuth, requireRole('teacher'));
 
-const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlank', 'essay'];
+const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlank', 'essay', 'speaking'];
+
+/** T-036/T-038 (Assumption A4) — every value `Test.testType` supports. */
+const TEST_TYPES: TestType[] = ['generic', 'unitTest', 'vocabularyCheck', 'listeningTest', 'mockTest'];
 
 /** Default point value for a new `essay` question (T-042) when the teacher doesn't
  * specify one — a simple, documented default rather than forcing every essay question to
  * have a max score configured before it can be saved. */
 const DEFAULT_ESSAY_MAX_SCORE = 10;
+
+/** Default response window, in seconds, for a new `speaking` question (T-052) when the
+ * teacher doesn't specify one — same "simple, documented default" pattern as
+ * `DEFAULT_ESSAY_MAX_SCORE`. */
+const DEFAULT_SPEAKING_SECONDS = 60;
+const MIN_SPEAKING_SECONDS = 5;
+const MAX_SPEAKING_SECONDS = 300;
 
 // --- Shared query/serialization helpers --------------------------------------------
 
@@ -77,6 +88,26 @@ async function validateUnitId(value: unknown): Promise<string | null> {
   return null;
 }
 
+/** Validates an optional `testType` from a create/update test body (T-036/T-038).
+ * `undefined` leaves the existing value untouched (defaults to `generic` at creation
+ * time, at the call site below) — same convention as `validateTimeLimit`/`validateUnitId`. */
+function validateTestType(value: unknown): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || !TEST_TYPES.includes(value as TestType)) {
+    return `testType must be one of: ${TEST_TYPES.join(', ')}.`;
+  }
+  return null;
+}
+
+/** Validates an optional `published` flag (T-036). `undefined` leaves it untouched. */
+function validatePublished(value: unknown): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'boolean') {
+    return 'published must be a boolean.';
+  }
+  return null;
+}
+
 function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
   const sections: SectionDTO[] = test.sections.map((section) => ({
     id: section.id,
@@ -93,6 +124,8 @@ function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
       order: question.order,
       acceptedAnswers: question.acceptedAnswers,
       essayMaxScore: question.essayMaxScore,
+      allowedResponseSeconds: question.allowedResponseSeconds,
+      promptAudioUrl: question.promptAudioUrl,
       choices: question.choices.map((choice) => ({
         id: choice.id,
         text: choice.text,
@@ -109,6 +142,8 @@ function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
     timeLimitMinutes: test.timeLimitMinutes,
     unitId: test.unitId,
     unit: test.unit ? { id: test.unit.id, name: test.unit.name } : null,
+    testType: test.testType,
+    published: test.published,
     sections,
     createdAt: test.createdAt.toISOString(),
     updatedAt: test.updatedAt.toISOString(),
@@ -195,6 +230,30 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
     return null;
   }
 
+  if (body.type === 'speaking') {
+    // No choices/acceptedAnswers apply (T-052) — `allowedResponseSeconds` is optional
+    // (defaults to `DEFAULT_SPEAKING_SECONDS`) and `promptAudioUrl` is always optional
+    // (a Speaking question may be text-prompt-only).
+    if (
+      body.allowedResponseSeconds !== undefined &&
+      body.allowedResponseSeconds !== null &&
+      (typeof body.allowedResponseSeconds !== 'number' ||
+        !Number.isInteger(body.allowedResponseSeconds) ||
+        body.allowedResponseSeconds < MIN_SPEAKING_SECONDS ||
+        body.allowedResponseSeconds > MAX_SPEAKING_SECONDS)
+    ) {
+      return `allowedResponseSeconds must be a whole number of seconds between ${MIN_SPEAKING_SECONDS} and ${MAX_SPEAKING_SECONDS}, or omitted for the default.`;
+    }
+    if (
+      body.promptAudioUrl !== undefined &&
+      body.promptAudioUrl !== null &&
+      typeof body.promptAudioUrl !== 'string'
+    ) {
+      return 'promptAudioUrl must be a string or null.';
+    }
+    return null;
+  }
+
   // multipleChoice / trueFalse
   const choices = body.choices;
   if (
@@ -240,6 +299,16 @@ teacherTestsRouter.post(
       res.status(400).json({ error: unitError });
       return;
     }
+    const testTypeError = validateTestType(body.testType);
+    if (testTypeError) {
+      res.status(400).json({ error: testTypeError });
+      return;
+    }
+    const publishedError = validatePublished(body.published);
+    if (publishedError) {
+      res.status(400).json({ error: publishedError });
+      return;
+    }
 
     const test = await prisma.test.create({
       data: {
@@ -247,6 +316,8 @@ teacherTestsRouter.post(
         teacherId: req.user!.sub,
         timeLimitMinutes: body.timeLimitMinutes ?? null,
         unitId: body.unitId ?? null,
+        testType: body.testType ?? 'generic',
+        published: body.published ?? false,
       },
     });
     const nested = await fetchNestedTest(test.id);
@@ -295,6 +366,8 @@ teacherTestsRouter.get(
         questionCount: test.sections.reduce((sum, s) => sum + s._count.questions, 0),
         unitId: test.unitId,
         unitName: test.unit?.name ?? null,
+        testType: test.testType,
+        published: test.published,
         createdAt: test.createdAt.toISOString(),
         updatedAt: test.updatedAt.toISOString(),
         averageTimeTakenSeconds,
@@ -339,6 +412,16 @@ teacherTestsRouter.patch(
       res.status(400).json({ error: unitError });
       return;
     }
+    const testTypeError = validateTestType(body.testType);
+    if (testTypeError) {
+      res.status(400).json({ error: testTypeError });
+      return;
+    }
+    const publishedError = validatePublished(body.published);
+    if (publishedError) {
+      res.status(400).json({ error: publishedError });
+      return;
+    }
 
     await prisma.test.update({
       where: { id: test.id },
@@ -348,6 +431,9 @@ teacherTestsRouter.patch(
         // explicitly clears it back to untimed / untagged.
         ...(body.timeLimitMinutes !== undefined ? { timeLimitMinutes: body.timeLimitMinutes } : {}),
         ...(body.unitId !== undefined ? { unitId: body.unitId } : {}),
+        // T-036: `testType`/`published` follow the same "omitted = untouched" convention.
+        ...(body.testType !== undefined ? { testType: body.testType } : {}),
+        ...(body.published !== undefined ? { published: body.published } : {}),
       },
     });
     const nested = await fetchNestedTest(test.id);
@@ -549,8 +635,11 @@ teacherTestsRouter.post(
         acceptedAnswers:
           body.type === 'fillBlank' ? (body.acceptedAnswers as string[]).map((a) => a.trim()) : [],
         essayMaxScore: body.type === 'essay' ? (body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE) : null,
+        allowedResponseSeconds:
+          body.type === 'speaking' ? (body.allowedResponseSeconds ?? DEFAULT_SPEAKING_SECONDS) : null,
+        promptAudioUrl: body.type === 'speaking' ? (body.promptAudioUrl ?? null) : null,
         choices:
-          body.type === 'fillBlank' || body.type === 'essay'
+          body.type === 'fillBlank' || body.type === 'essay' || body.type === 'speaking'
             ? undefined
             : {
                 create: choices.map((c, index) => ({
@@ -606,12 +695,15 @@ teacherTestsRouter.patch(
           acceptedAnswers:
             newType === 'fillBlank' ? (body.acceptedAnswers as string[]).map((a) => a.trim()) : [],
           essayMaxScore: newType === 'essay' ? (body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE) : null,
+          allowedResponseSeconds:
+            newType === 'speaking' ? (body.allowedResponseSeconds ?? DEFAULT_SPEAKING_SECONDS) : null,
+          promptAudioUrl: newType === 'speaking' ? (body.promptAudioUrl ?? null) : null,
         },
       });
 
-      if (newType === 'fillBlank' || newType === 'essay') {
-        // No choices apply to fillBlank/essay at all — drop any that existed from a
-        // previous type (e.g. the teacher switched this question's type).
+      if (newType === 'fillBlank' || newType === 'essay' || newType === 'speaking') {
+        // No choices apply to fillBlank/essay/speaking at all — drop any that existed
+        // from a previous type (e.g. the teacher switched this question's type).
         await tx.choice.deleteMany({ where: { questionId: question.id } });
         return;
       }

@@ -28,11 +28,15 @@
  * generalized here to arbitrary instants (not just authored `YYYY-MM-DD` input).
  */
 
+import type { TestType } from '@platform/shared';
 import { prisma } from './prisma';
 
+/** `student` added (T-037) alongside the original six — see `buildStudentBuckets`'s doc
+ * comment below for what it powers. */
 export const REPORT_GROUP_BY_VALUES = [
   'test',
   'unit',
+  'student',
   'week',
   'month',
   'quarter',
@@ -56,11 +60,20 @@ export interface ReportResult {
   groupBy: ReportGroupBy;
   testId: string | null;
   unitId: string | null;
+  testType: TestType | null;
   buckets: ReportBucketResult[];
 }
 
 export interface ComputeReportOptions {
-  teacherId: string;
+  /** Scopes every bucket to one teacher's own tests — required for the teacher-facing
+   * `GET /api/teacher/reports` (unchanged behavior). Optional (T-037) ONLY for the
+   * student/both-roles-visible Unit Test leaderboard
+   * (`server/src/routes/unitLeaderboard.routes.ts`), which scopes by the (global) `Unit`
+   * instead — see that file's doc comment for why a student has no single "their
+   * teacher" to scope by, matching `Unit`/`AcademicPeriod`'s existing "global, not
+   * per-teacher" convention (schema.prisma). Omitted/`null` means "every teacher's
+   * tests" (still narrowed by `testId`/`unitId`/`testType` as given). */
+  teacherId?: string | null;
   groupBy: ReportGroupBy;
   /** Narrows to one owned test's attempts. Caller (route handler) is responsible for
    * verifying this test actually belongs to `teacherId` BEFORE calling in — this module
@@ -70,6 +83,10 @@ export interface ComputeReportOptions {
    * per-teacher, see `schema.prisma`'s `Unit` doc comment), so no ownership check
    * applies here beyond "does this unit id exist" (route handler's job). */
   unitId?: string | null;
+  /** Narrows to attempts on tests of this `Test.testType` (T-037: `unitTest`, for the
+   * Unit Test report/leaderboard — "that unit's `unitTest`-type test(s)", not every test
+   * ever tagged to the unit). Omitted means every type. */
+  testType?: TestType | null;
 }
 
 // --- Asia/Ho_Chi_Minh fixed-offset local-calendar math ------------------------------
@@ -258,9 +275,10 @@ async function fetchScopedAttempts(options: ComputeReportOptions) {
       scorePercent: { not: null },
       timeTakenSeconds: { not: null },
       test: {
-        teacherId: options.teacherId,
+        ...(options.teacherId ? { teacherId: options.teacherId } : {}),
         ...(options.testId ? { id: options.testId } : {}),
         ...(options.unitId ? { unitId: options.unitId } : {}),
+        ...(options.testType ? { testType: options.testType } : {}),
       },
     },
     select: {
@@ -268,6 +286,8 @@ async function fetchScopedAttempts(options: ComputeReportOptions) {
       scorePercent: true,
       timeTakenSeconds: true,
       testId: true,
+      studentId: true,
+      student: { select: { id: true, name: true } },
       test: { select: { id: true, title: true, unitId: true } },
     },
   });
@@ -310,9 +330,10 @@ async function buildTestBuckets(
   // `GET /api/teacher/tests` (T-017).
   const tests = await prisma.test.findMany({
     where: {
-      teacherId: options.teacherId,
+      ...(options.teacherId ? { teacherId: options.teacherId } : {}),
       ...(options.testId ? { id: options.testId } : {}),
       ...(options.unitId ? { unitId: options.unitId } : {}),
+      ...(options.testType ? { testType: options.testType } : {}),
     },
     select: { id: true, title: true },
     orderBy: { title: 'asc' },
@@ -340,6 +361,47 @@ async function buildTestBuckets(
   }
 
   return sortBuckets([...map.entries()]).map(([key, acc]) => finalizeBucket(key, acc));
+}
+
+/**
+ * `groupBy: 'student'` (T-037) — powers the Unit Test leaderboard's "ranked scores":
+ * every `student`-role account gets a bucket (0-row default, same "0-row, not a missing
+ * row" convention as `buildTestBuckets`/`buildUnitBuckets` above), and — UNLIKE every
+ * other dimension in this module — the result is sorted by score DESCENDING (a
+ * leaderboard's whole point), not by the generic ascending `sortBuckets` helper. A
+ * 0-attempt student's `averageScorePercent` is `null`; those sort last (treated as -1
+ * for comparison purposes only, never displayed as -1).
+ */
+async function buildStudentBuckets(attempts: ScopedAttempt[]): Promise<ReportBucketResult[]> {
+  const students = await prisma.user.findMany({
+    where: { role: 'student' },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
+  const map = new Map<string, BucketAccumulator>();
+  for (const student of students) {
+    map.set(student.id, {
+      label: student.name,
+      periodStart: null,
+      periodEnd: null,
+      attemptCount: 0,
+      scoreSum: 0,
+      timeSum: 0,
+      sortKey: student.name,
+    });
+  }
+  for (const attempt of attempts) {
+    addToBucket(
+      map,
+      attempt.studentId,
+      { label: attempt.student.name, periodStart: null, periodEnd: null, sortKey: attempt.student.name },
+      attempt,
+    );
+  }
+
+  const finalized = [...map.entries()].map(([key, acc]) => finalizeBucket(key, acc));
+  return finalized.sort((a, b) => (b.averageScorePercent ?? -1) - (a.averageScorePercent ?? -1));
 }
 
 const UNTAGGED_UNIT_KEY = 'untagged';
@@ -499,6 +561,9 @@ export async function computeReport(options: ComputeReportOptions): Promise<Repo
     case 'unit':
       buckets = await buildUnitBuckets(options, attempts);
       break;
+    case 'student':
+      buckets = await buildStudentBuckets(attempts);
+      break;
     case 'semester':
       buckets = await buildSemesterBuckets(attempts);
       break;
@@ -511,6 +576,7 @@ export async function computeReport(options: ComputeReportOptions): Promise<Repo
     groupBy: options.groupBy,
     testId: options.testId ?? null,
     unitId: options.unitId ?? null,
+    testType: options.testType ?? null,
     buckets,
   };
 }
