@@ -255,38 +255,38 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 6 — Specialized Content Types & Exam Integrity
 
-- [ ] **T-039 — Reading module (passage content type)**
-  - Status: Not Started
+- [x] **T-039 — Reading module (passage content type)**
+  - Status: Done
   - Depends on: T-008
   - Source: Tab-list note "Reading"; Assumption A2
   - Acceptance Criteria: A teacher can attach a reading passage (rich text, possibly with an image) to a Section, and add one or more questions (reusing existing objective types) that reference it. A student taking such a section sees the passage alongside its questions and is graded exactly as in T-013 — no new grading logic is introduced.
 
-- [ ] **T-040 — Listening module: audio question type + home self-practice playback**
-  - Status: Not Started
+- [x] **T-040 — Listening module: audio question type + home self-practice playback**
+  - Status: Done
   - Depends on: T-008
   - Source: Requirement row 19 (home self-practice half)
   - Acceptance Criteria: A teacher can attach an audio clip to a question/section. When a student takes such a test outside of a live in-class session (self-practice at home), they see and can freely use a Play button to hear the audio as many times as allowed by the teacher's configuration (e.g. unlimited or a max-play-count setting). Grading of any attached questions works as in T-013.
 
-- [ ] **T-041 — Listening: teacher-controlled synchronized in-class playback**
-  - Status: Not Started
+- [x] **T-041 — Listening: teacher-controlled synchronized in-class playback**
+  - Status: Done
   - Depends on: T-015, T-040
   - Source: Requirement row 19 (in-class half — this is the primary, explicit requirement)
   - Acceptance Criteria: During a live session (from T-015/T-010), students taking a Listening section do NOT see an enabled Play button — audio only plays for them when the teacher, from their session control screen, presses Play, at which point it plays (via the realtime channel) on all joined students' screens in sync. Students cannot start, pause, or seek the audio themselves during a live session. This behavior only applies to live sessions; the same test taken standalone at home uses T-040's student-controlled playback.
 
-- [ ] **T-042 — Writing module: essay question type + manual teacher grading**
-  - Status: Not Started
+- [x] **T-042 — Writing module: essay question type + manual teacher grading**
+  - Status: Done
   - Depends on: T-008
   - Source: Tab-list note "Writing"; Assumption A3
   - Acceptance Criteria: A teacher can add a free-text/essay question to a test. A student can submit a multi-paragraph text response. Since this isn't auto-gradable, the teacher has a review UI to read each submission and assign a manual score (and optional comment), which then shows up in the student's result view alongside the auto-graded questions in the same attempt.
 
-- [ ] **T-043 — Writing anti-copy-paste enforcement**
-  - Status: Not Started
+- [x] **T-043 — Writing anti-copy-paste enforcement**
+  - Status: Done
   - Depends on: T-042
   - Source: Requirement row 10
   - Acceptance Criteria: On the Writing answer field, a `paste` event is intercepted and blocked (content is not inserted), and copy/cut out of the field is also disabled; attempting either shows a visible warning message to the student rather than failing silently. This is verified via a simulated paste/copy event in an automated test, not just manual inspection. It does not block normal typing.
 
-- [ ] **T-044 — Global tab-switch / exit detection**
-  - Status: Not Started
+- [x] **T-044 — Global tab-switch / exit detection**
+  - Status: Done
   - Depends on: T-012
   - Source: Requirement row 20
   - Acceptance Criteria: While a student has any test in progress (any `testType`, including ones from earlier phases — MVP test, Unit Test, Vocabulary Check, Listening, Mock Test), switching away from the tab or window (`visibilitychange`/`blur`) triggers a visible on-screen notice to the student and is recorded on the attempt (e.g. a tab-switch count/timestamp log) visible to the teacher afterward. This is implemented once in the shared test-taking session component (T-012) so it automatically covers every test type without per-content-type changes.
