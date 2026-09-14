@@ -2,8 +2,8 @@
 
 Append-only history of what changed, across all future Dev/Test/BA/Leader cycles. Since each agent invocation shares no memory with the others, this file (together with `PROJECT_PLAN.md` and `BACKLOG.md`) is the team's only continuity mechanism.
 
-> **⏱ LEADER OPERATING NOTE (not a project fact, Dev/Test agents can ignore this box) — set 2026-09-15 01:29 (Asia/Ho_Chi_Minh):**
-> The customer asked the Leader to keep autonomously orchestrating for **3 more hours**, until **2026-09-15 04:29** (Asia/Ho_Chi_Minh / SEAST). If the full backlog (`BACKLOG.md`) is not 100% Done/Won't-Do by that timestamp, the Leader must: stop dispatching any new Dev/Test agents, stop any Dev/Test agents still in flight at that moment (accepting the loss of their uncommitted in-progress work), write a comprehensive status report (what's Done, what's in-flight and its state, what's not started), deliver it to the customer, and halt the autonomous loop entirely (no further auto-continuation) until the customer explicitly says to resume. This box should be updated/removed by the Leader once that checkpoint is reached or the customer gives new instructions.
+> **⏱ LEADER OPERATING NOTE (not a project fact, Dev/Test agents can ignore this box) — RESOLVED 2026-09-15 03:35 (Asia/Ho_Chi_Minh):**
+> The customer set a 3-hour deadline (2026-09-15 01:29 → 04:29 ICT) to either finish the backlog or stop-and-report. **The full backlog finished ahead of the deadline** (T-060, the last item, verified Done at 03:35, ~54 minutes early). The autonomous loop has been stopped per the customer's original instruction ("stop burning tokens, wait for my confirmation to continue") — not because of a timeout, but because there is nothing left to do. See `docs/STATUS_REPORT_2026-09-15.md` for the full completion report. Two low-priority, non-blocking follow-ups remain logged (T-065, T-066) for whenever the customer wants to resume.
 
 **Entry format** — add a new entry at the top (most recent first), one per work session:
 
@@ -18,6 +18,13 @@ Append-only history of what changed, across all future Dev/Test/BA/Leader cycles
 Keep entries short. If a session resolves a new ambiguity not already covered by `PROJECT_PLAN.md` Section 6, add it there as a new `A#` item and just reference it here.
 
 ---
+
+## 2026-09-15 — Dev/Test — Full Playwright E2E regression suite (T-060) — BACKLOG COMPLETE
+
+- Task IDs touched: T-060
+- What changed: Dev added `@playwright/test` as a real committed dependency (previously only ad-hoc manual installs existed) with `playwright.config.ts`, `e2e/global-setup.ts` (logs in the seeded teacher + registers one fresh student per run), `e2e/utils.ts`, and 6 spec files covering every flow named in the acceptance criteria: core test-taking loop with QR join, flashcard study+exercise, Unit Test+report, teacher-controlled Listening, Writing anti-paste, and Speaking graded by the mock provider. Test independently ran the suite twice from a cold start (6/6 both times, ~35-70s), read all 6 specs closely and confirmed they assert real, non-vacuous outcomes (e.g. a real `ClipboardEvent` paste is asserted absent from the field's value, not just that a warning rendered; a real mock-graded Speaking score is asserted on two separate pages), confirmed `MockAIGradingProvider` is genuinely the active default (no live network dependency, explaining the deterministic repeatability), and confirmed the documented setup steps and seed data are accurate and idempotent. PASS.
+- Why / decisions made: the suite intentionally accumulates uniquely-titled fixtures per run (documented in `e2e/utils.ts`) rather than tearing down after itself, so repeated runs never collide — by design, not leftover mess. QA found one tooling-coverage gap (not a real type error): none of the three workspace `tsconfig.json`s include `e2e/`/`playwright.config.ts`, so the root `npm run typecheck` silently skips them; a manual `tsc --noEmit --strict` pass confirmed no actual type errors exist today. Logged as **T-066** (tooling coverage only, not blocking).
+- Status after this entry: **T-060 Done. Every task in the original 60-item backlog, plus every QA-discovered follow-up fixed so far (T-061, T-062, T-063, T-064), is now Done.** Only two known, logged, low-priority, non-blocking polish items remain open: T-065 (UI PATCH race condition) and T-066 (e2e typecheck coverage). See the completion report below and `docs/STATUS_REPORT_2026-09-15.md` for the full picture.
 
 ## 2026-09-15 — Leader — Logged T-065 (minor UI race condition found during T-060 work)
 

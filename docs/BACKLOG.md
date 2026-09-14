@@ -387,8 +387,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 4 (QR is scanned via phone camera)
   - Acceptance Criteria: The join page and the test-taking UI are usable on a common mobile viewport (e.g. 375px width) without horizontal scrolling or clipped controls, verified on at least the join flow and the question-answering flow for each objective question type.
 
-- [ ] **T-060 — Full Playwright E2E regression suite**
-  - Status: Not Started
+- [x] **T-060 — Full Playwright E2E regression suite**
+  - Status: Done
   - Depends on: T-014, T-030, T-037, T-041, T-043, T-054
   - Source: TECH_STACK.md (testing strategy)
   - Acceptance Criteria: Automated Playwright tests cover, at minimum end to end: teacher login → create test → generate variants → start session with QR → student login → join → take test → auto-grade → both see result; a flashcard study + one exercise type; a Unit Test + its report; a Listening session with teacher-controlled playback; Writing anti-paste triggering; and a Speaking submission graded by the mock provider. The suite runs via a single documented command and passes on a clean checkout.
@@ -424,3 +424,9 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-036
   - Source: Dev finding during T-060 E2E suite work (2026-09-15) — worked around at the test level, not yet fixed in app code
   - Acceptance Criteria: In the test editor, `unitId`, `testType`, and `published` currently each save via independent async `PATCH` calls fired without waiting on each other; rapid successive edits (e.g. a fast E2E test, or a teacher clicking through several fields quickly) can race and have one call's client-side state clobber another's. Fix by serializing these saves (e.g. queue/await sequentially, or a single combined PATCH) so rapid edits always converge to the last-intended value for every field, not just whichever request happens to land last. Verify with a test that fires several such edits back-to-back without artificial waits and confirms the final saved state matches every edit made, not a partial/clobbered mix.
+
+- [ ] **T-066 — Wire `e2e/` and `playwright.config.ts` into the root typecheck script**
+  - Status: Not Started
+  - Depends on: T-060
+  - Source: QA finding during T-060 verification (2026-09-15)
+  - Acceptance Criteria: `npm run typecheck` (root) currently doesn't actually type-check anything under `e2e/` or `playwright.config.ts`, since none of the three workspace `tsconfig.json`s include them (each is scoped to its own `rootDir: "src"`) and Playwright itself only transpiles specs via esbuild, never `tsc`. Add an e2e-scoped `tsconfig.json` (or extend the root typecheck script) so `npm run typecheck` genuinely covers these files too. A manual `tsc --noEmit --strict` run against them currently passes clean, so this is a tooling-coverage gap, not a sign of an existing type error — verify the fix by intentionally introducing a type error in a spec file and confirming `npm run typecheck` now catches it (then revert the intentional error).
