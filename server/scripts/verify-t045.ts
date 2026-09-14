@@ -231,7 +231,7 @@ async function main() {
       ],
     },
   });
-  const fillBlankQ = await apiRequest<{ sections: Array<{ id: string; questions: Array<{ id: string; type: string }> }> }>(
+  await apiRequest<{ sections: Array<{ id: string; questions: Array<{ id: string; type: string }> }> }>(
     `/api/teacher/tests/${test.id}/sections/${objectiveSectionId}/questions`,
     teacherToken,
     {
@@ -261,22 +261,17 @@ async function main() {
   //    Per the Dev brief: a mock test without Speaking is still a fully valid T-045
   //    deliverable, so any failure here is logged as informational, never a hard FAIL.
   let speakingIncluded = false;
-  let speakingSectionId: string | null = null;
-  let speakingQuestionId: string | null = null;
   try {
     const speakingSection = await apiRequest<{ sections: Array<{ id: string }> }>(
       `/api/teacher/tests/${test.id}/sections`,
       teacherToken,
       { method: 'POST', body: { title: 'Speaking' } },
     );
-    speakingSectionId = speakingSection.sections[4].id;
-    const withSpeaking = await apiRequest<{
-      sections: Array<{ id: string; questions: Array<{ id: string; type: string }> }>;
-    }>(`/api/teacher/tests/${test.id}/sections/${speakingSectionId}/questions`, teacherToken, {
+    const speakingSectionId = speakingSection.sections[4].id;
+    await apiRequest(`/api/teacher/tests/${test.id}/sections/${speakingSectionId}/questions`, teacherToken, {
       method: 'POST',
       body: { type: 'speaking', prompt: 'Describe your morning routine.', allowedResponseSeconds: 30 },
     });
-    speakingQuestionId = withSpeaking.sections.find((s) => s.id === speakingSectionId)!.questions[0].id;
     speakingIncluded = true;
     pass('5. (Bonus) Speaking section authored: T-051-054 code is present in this tree and accepted a speaking question');
   } catch (err) {
