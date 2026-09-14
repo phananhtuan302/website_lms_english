@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type {
   CreateSessionResponse,
   QuestionType,
@@ -51,8 +51,10 @@ function defaultQuestionBody(type: QuestionType): {
  */
 function TeacherTestEditorPage() {
   const { testId } = useParams<{ testId: string }>();
+  const navigate = useNavigate();
   const [test, setTest] = useState<TestDetailDTO | null>(null);
   const [title, setTitle] = useState('');
+  const [timeLimitText, setTimeLimitText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [newSectionTitle, setNewSectionTitle] = useState('');
 
@@ -72,6 +74,7 @@ function TeacherTestEditorPage() {
       .then((data) => {
         setTest(data);
         setTitle(data.title);
+        setTimeLimitText(data.timeLimitMinutes != null ? String(data.timeLimitMinutes) : '');
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load test.'));
   }, [testId]);
@@ -99,6 +102,25 @@ function TeacherTestEditorPage() {
       setTest(updated);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save title.');
+    }
+  }
+
+  async function handleSaveTimeLimit() {
+    if (!test) return;
+    const trimmed = timeLimitText.trim();
+    const timeLimitMinutes = trimmed === '' ? null : Number(trimmed);
+    if (timeLimitMinutes === test.timeLimitMinutes) return;
+    if (timeLimitMinutes !== null && (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1)) {
+      setError('Time limit must be a whole number of minutes, or left blank for no limit.');
+      setTimeLimitText(test.timeLimitMinutes != null ? String(test.timeLimitMinutes) : '');
+      return;
+    }
+    try {
+      const updated = await teacherApi.updateTest(testId!, { title: test.title, timeLimitMinutes });
+      setTest(updated);
+      setTimeLimitText(updated.timeLimitMinutes != null ? String(updated.timeLimitMinutes) : '');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save time limit.');
     }
   }
 
@@ -277,6 +299,18 @@ function TeacherTestEditorPage() {
           onBlur={handleSaveTitle}
           className="mt-2 w-full rounded-md border border-primary-200 px-3 py-2 text-2xl font-bold text-primary-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
         />
+        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-base-black">
+          Time limit (minutes, optional)
+          <input
+            type="number"
+            min={1}
+            value={timeLimitText}
+            onChange={(event) => setTimeLimitText(event.target.value)}
+            onBlur={handleSaveTimeLimit}
+            placeholder="No limit"
+            className="w-32 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          />
+        </label>
         {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       </div>
 
@@ -471,15 +505,24 @@ function TeacherTestEditorPage() {
                 </span>{' '}
                 · started {new Date(session.createdAt).toLocaleString()}
               </span>
-              {session.status === 'active' && (
+              <span className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => handleCloseSession(session.id)}
-                  className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  onClick={() => navigate(`/teacher/sessions/${session.id}/attempts`)}
+                  className="text-xs font-medium text-primary-600 hover:underline"
                 >
-                  Close
+                  View attempts
                 </button>
-              )}
+                {session.status === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => handleCloseSession(session.id)}
+                    className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  >
+                    Close
+                  </button>
+                )}
+              </span>
             </li>
           ))}
           {sessions.length === 0 && (

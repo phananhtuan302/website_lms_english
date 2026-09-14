@@ -15,13 +15,20 @@
 
 import { Router } from 'express';
 import QRCode from 'qrcode';
-import type { CreateSessionResponse, TestSessionDTO } from '@platform/shared';
+import type {
+  AttemptResultDTO,
+  AttemptSummaryDTO,
+  CreateSessionResponse,
+  TestSessionDTO,
+} from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedTest } from '../lib/ownedTest';
 import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { loadEnv } from '../config/env';
+import { fetchNestedTest } from '../lib/testQueries';
+import { buildResultQuestions } from '../lib/attemptView';
 
 export const teacherSessionsRouter = Router();
 
@@ -165,5 +172,94 @@ teacherSessionsRouter.post(
         : session;
 
     res.status(200).json(toSessionDTO(updated));
+  }),
+);
+
+// --- Attempts (T-014) ----------------------------------------------------------------
+// Teacher-facing views of who attempted a session and how they scored. Grading itself
+// (T-013) happens in `attempts.routes.ts`'s student-facing submit endpoint — nothing
+// here writes to an attempt, it only reads.
+
+/** GET /api/teacher/sessions/:sessionId/attempts — every student who joined this
+ * session, with their score (`null` fields for an attempt still `inProgress`, since
+ * grading only happens at submit). Ordered by join time (oldest first), matching the
+ * order variants were round-robin-assigned in. */
+teacherSessionsRouter.get(
+  '/sessions/:sessionId/attempts',
+  asyncHandler(async (req, res) => {
+    const session = await loadOwnedSession(req.params.sessionId, req.user!.sub);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found.' });
+      return;
+    }
+
+    const attempts = await prisma.attempt.findMany({
+      where: { sessionId: session.id },
+      include: { student: true, test: { select: { id: true, title: true } } },
+      orderBy: { startedAt: 'asc' },
+    });
+
+    const summaries: AttemptSummaryDTO[] = attempts.map((a) => ({
+      attemptId: a.id,
+      sessionId: a.sessionId,
+      testId: a.testId,
+      testTitle: a.test.title,
+      studentId: a.studentId,
+      studentName: a.student.name,
+      studentEmail: a.student.email,
+      status: a.status,
+      correctCount: a.correctCount,
+      totalCount: a.totalCount,
+      scorePercent: a.scorePercent,
+      startedAt: a.startedAt.toISOString(),
+      submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
+    }));
+    res.status(200).json(summaries);
+  }),
+);
+
+/** GET /api/teacher/attempts/:attemptId — one attempt's full per-question breakdown,
+ * for a teacher to drill in from the session's attempt list. Ownership is checked via
+ * the attempt's test, not the session directly, since that's the same authorization
+ * boundary every other teacher route uses (`requireOwnedTest`-style: a different
+ * teacher's attempt id looks like it doesn't exist, 404, not 403). */
+teacherSessionsRouter.get(
+  '/attempts/:attemptId',
+  asyncHandler(async (req, res) => {
+    const attempt = await prisma.attempt.findUnique({
+      where: { id: req.params.attemptId },
+      include: { student: true, test: { select: { id: true, title: true, teacherId: true } } },
+    });
+    if (!attempt || attempt.test.teacherId !== req.user!.sub) {
+      res.status(404).json({ error: 'Attempt not found.' });
+      return;
+    }
+
+    const [test, answers] = await Promise.all([
+      fetchNestedTest(attempt.testId),
+      prisma.answer.findMany({ where: { attemptId: attempt.id } }),
+    ]);
+    const answerMap = new Map(
+      answers.map((a) => [
+        a.questionId,
+        { selectedChoiceId: a.selectedChoiceId, textAnswer: a.textAnswer, isCorrect: a.isCorrect },
+      ]),
+    );
+
+    const response: AttemptResultDTO = {
+      attemptId: attempt.id,
+      testId: attempt.test.id,
+      testTitle: attempt.test.title,
+      studentId: attempt.studentId,
+      studentName: attempt.student.name,
+      status: attempt.status,
+      startedAt: attempt.startedAt.toISOString(),
+      submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null,
+      correctCount: attempt.correctCount,
+      totalCount: attempt.totalCount,
+      scorePercent: attempt.scorePercent,
+      questions: buildResultQuestions(test, answerMap),
+    };
+    res.status(200).json(response);
   }),
 );

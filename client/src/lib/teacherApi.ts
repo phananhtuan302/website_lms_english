@@ -6,6 +6,8 @@
  */
 
 import type {
+  AttemptResultDTO,
+  AttemptSummaryDTO,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateSessionResponse,
@@ -89,4 +91,10 @@ export const teacherApi = {
   listSessions: (testId: string) => apiRequest<TestSessionDTO[]>(`${base}/${testId}/sessions`),
   closeSession: (sessionId: string) =>
     apiRequest<TestSessionDTO>(`/api/teacher/sessions/${sessionId}/close`, { method: 'POST' }),
+
+  // --- Attempts (T-014) ------------------------------------------------------------
+  listSessionAttempts: (sessionId: string) =>
+    apiRequest<AttemptSummaryDTO[]>(`/api/teacher/sessions/${sessionId}/attempts`),
+  getAttemptDetail: (attemptId: string) =>
+    apiRequest<AttemptResultDTO>(`/api/teacher/attempts/${attemptId}`),
 };

@@ -1,19 +1,28 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
 
 const MIN_PASSWORD_LENGTH = 8;
+
+interface LocationState {
+  from?: { pathname: string };
+}
 
 /**
  * Self-registration page (T-006) — students only. There is deliberately no role
  * selector anywhere on this page/form: the server always creates a `student` account
  * from this endpoint regardless of what's submitted (see server `POST /api/auth/register`),
  * so there is nothing here that could create a teacher account even by mistake.
+ *
+ * Respects a `location.state.from` (T-011): a student who landed here via the join-gate
+ * on `/join/:token` (logged out -> prompted to register) is sent back to finish joining
+ * after their account is created, same convention as `LoginPage`.
  */
 function RegisterPage() {
   const { register, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,10 +30,16 @@ function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // See `LoginPage`'s identical guard for why this must also respect `from`: this
+  // branch is what actually fires right after a successful registration too (`register()`
+  // calling `setUser` can trigger a re-render of this component, with `user` now
+  // truthy, that lands before `handleSubmit`'s own `navigate(from ?? fallback)` call
+  // below takes effect — both must target the same place or they race).
   if (user) {
+    const from = (location.state as LocationState | null)?.from?.pathname;
     return (
       <Navigate
-        to={user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'}
+        to={from ?? (user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard')}
         replace
       />
     );
@@ -36,7 +51,8 @@ function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register({ name, email, password });
-      navigate('/student/dashboard', { replace: true });
+      const from = (location.state as LocationState | null)?.from?.pathname;
+      navigate(from ?? '/student/dashboard', { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     } finally {

@@ -2,12 +2,17 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import AttemptResultPage from './pages/AttemptResultPage';
 import HomePage from './pages/HomePage';
+import JoinPage from './pages/JoinPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
+import TakeTestPage from './pages/TakeTestPage';
+import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
+import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
@@ -30,15 +35,22 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            {/* Public join-gate (T-011) — deliberately outside ProtectedRoute; it
+                handles the logged-out case itself (see JoinPage's doc comment). */}
+            <Route path="/join/:token" element={<JoinPage />} />
 
             <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
               <Route path="/teacher/tests" element={<TeacherTestsPage />} />
               <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
+              <Route path="/teacher/sessions/:sessionId/attempts" element={<TeacherSessionAttemptsPage />} />
+              <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>
               <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+              <Route path="/student/attempts/:attemptId" element={<TakeTestPage />} />
+              <Route path="/student/attempts/:attemptId/result" element={<AttemptResultPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

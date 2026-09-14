@@ -115,6 +115,7 @@ export interface TestDetailDTO {
   id: string;
   title: string;
   teacherId: string;
+  timeLimitMinutes: number | null;
   sections: SectionDTO[];
   createdAt: string;
   updatedAt: string;
@@ -122,10 +123,13 @@ export interface TestDetailDTO {
 
 export interface CreateTestRequest {
   title: string;
+  /** Optional whole-minute time limit (T-012). Omitted/undefined leaves it untimed. */
+  timeLimitMinutes?: number | null;
 }
 
 export interface UpdateTestRequest {
   title: string;
+  timeLimitMinutes?: number | null;
 }
 
 export interface CreateSectionRequest {
@@ -219,4 +223,133 @@ export interface JoinTokenCheckResponse {
   testId: string;
   testTitle: string;
   sessionId: string;
+}
+
+// --- Student attempts: join, take-test runtime, grading, results (T-011–T-014) ------
+
+export type AttemptStatus = 'inProgress' | 'submitted';
+
+/** Response for `POST /api/sessions/join/:token` (requires a logged-in `student`).
+ * Idempotent: joining a session the student already joined returns the SAME
+ * `attemptId`/`variantId` rather than creating a second attempt or reassigning the
+ * variant (see `Attempt.@@unique([sessionId, studentId])` in schema.prisma). */
+export interface JoinSessionResponse {
+  attemptId: string;
+  sessionId: string;
+  testId: string;
+  testTitle: string;
+  variantCode: string;
+  status: AttemptStatus;
+}
+
+/** One question as presented during the take-test runtime — shuffled per the student's
+ * assigned variant, and deliberately WITHOUT any correctness info (`Choice.isCorrect`,
+ * `Question.acceptedAnswers`) so the runtime payload can never leak the answer key. */
+export interface AttemptQuestionDTO {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  /** 1-based position within the section, per the assigned variant's shuffled order. */
+  order: number;
+  /** Shuffled per the variant; empty for `fillBlank`. Never carries `isCorrect`. */
+  choices: Array<{ id: string; text: string }>;
+}
+
+export interface AttemptSectionDTO {
+  id: string;
+  title: string;
+  order: number;
+  questions: AttemptQuestionDTO[];
+}
+
+/** The student's own previously-saved answer for one question — used to restore
+ * in-progress work after a page refresh (T-012). */
+export interface AttemptAnswerDTO {
+  questionId: string;
+  selectedChoiceId: string | null;
+  textAnswer: string | null;
+}
+
+/** Response for `GET /api/attempts/:attemptId` — everything the take-test runtime needs
+ * to render the assigned variant and restore any answers already saved. */
+export interface AttemptDetailDTO {
+  id: string;
+  testId: string;
+  testTitle: string;
+  timeLimitMinutes: number | null;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt: string | null;
+  sections: AttemptSectionDTO[];
+  answers: AttemptAnswerDTO[];
+}
+
+/** Body for `PUT /api/attempts/:attemptId/answers/:questionId` (autosave, T-012).
+ * Exactly one of the two fields is meaningful depending on the question's type — same
+ * type-dependent shape as authoring's `ChoiceInput`/`acceptedAnswers` split. Sending
+ * `null` explicitly clears a previously-saved answer (e.g. student deselects). */
+export interface SaveAnswerRequest {
+  selectedChoiceId?: string | null;
+  textAnswer?: string | null;
+}
+
+/** Response for `POST /api/attempts/:attemptId/submit` (T-013). */
+export interface SubmitAttemptResponse {
+  attemptId: string;
+  status: AttemptStatus;
+  correctCount: number;
+  totalCount: number;
+  scorePercent: number;
+}
+
+/** Per-question breakdown row shared by the student result view (T-014) and the
+ * teacher's attempt-detail view (T-014) — same shape, since both are allowed to see the
+ * full answer key once an attempt exists. `isCorrect` is `null` only for an attempt a
+ * teacher is viewing before the student has submitted (ungraded yet). */
+export interface AttemptResultQuestionDTO {
+  questionId: string;
+  type: QuestionType;
+  prompt: string;
+  order: number;
+  choices: Array<{ id: string; text: string; isCorrect: boolean }>;
+  /** Accepted answers for `fillBlank`; empty for other types. */
+  acceptedAnswers: string[];
+  selectedChoiceId: string | null;
+  textAnswer: string | null;
+  isCorrect: boolean | null;
+}
+
+/** Response for `GET /api/attempts/:attemptId/result` (student, own attempt only) and
+ * `GET /api/teacher/attempts/:attemptId` (teacher, own test only). */
+export interface AttemptResultDTO {
+  attemptId: string;
+  testId: string;
+  testTitle: string;
+  studentId: string;
+  studentName: string;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt: string | null;
+  correctCount: number | null;
+  totalCount: number | null;
+  scorePercent: number | null;
+  questions: AttemptResultQuestionDTO[];
+}
+
+/** Row shape for a student's own "my attempts" list (student dashboard) and for a
+ * teacher's per-session attempt list (T-014). */
+export interface AttemptSummaryDTO {
+  attemptId: string;
+  sessionId: string;
+  testId: string;
+  testTitle: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  status: AttemptStatus;
+  correctCount: number | null;
+  totalCount: number | null;
+  scorePercent: number | null;
+  startedAt: string;
+  submittedAt: string | null;
 }

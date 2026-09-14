@@ -10,6 +10,7 @@ import { demoRouter } from './routes/demo.routes';
 import { teacherTestsRouter } from './routes/teacherTests.routes';
 import { teacherSessionsRouter } from './routes/teacherSessions.routes';
 import { sessionsRouter } from './routes/sessions.routes';
+import { attemptsRouter } from './routes/attempts.routes';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
 // message if any are missing, before anything else in the app starts (T-003).
@@ -47,11 +48,13 @@ app.use('/api/demo', demoRouter);
 app.use('/api/teacher', teacherTestsRouter);
 app.use('/api/teacher', teacherSessionsRouter);
 
-// Public join-token lookup (T-010). Deliberately minimal — read-only, does not attach
-// a student or assign a variant (that's T-011's job) — it only answers "is this token
-// still valid to join with right now?", which is what a QR/manual-code scan needs to
-// check before the student even logs in.
+// Public join-token lookup (T-010) plus the real, authenticated join (T-011): creates
+// the student's `Attempt` and auto-assigns a variant. See sessions.routes.ts.
 app.use('/api/sessions', sessionsRouter);
+
+// Student-facing take-test runtime (T-012), auto-grading on submit (T-013), and the
+// student's own result view (T-014). Joining itself is the route above, not here.
+app.use('/api/attempts', attemptsRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

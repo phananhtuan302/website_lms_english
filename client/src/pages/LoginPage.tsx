@@ -23,11 +23,20 @@ function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Already logged in (e.g. navigated here manually) -> go straight to the dashboard
-  // instead of showing the form again.
+  // instead of showing the form again. Also respects `from` (T-011): this same branch
+  // is what actually fires right after a successful login too — `login()` calling
+  // `setUser` triggers a re-render of THIS component (with `user` now truthy) which can
+  // land before `handleSubmit`'s own `navigate(from ?? fallback)` call below takes
+  // effect, so this guard must redirect to the exact same place `handleSubmit` would,
+  // or the two can race and whichever runs last silently overrides the other's target
+  // (discovered via an end-to-end Playwright run of the T-011 join flow: a fresh login
+  // from `/join/:token` intermittently landed on `/student/dashboard` instead of back on
+  // the join page).
   if (user) {
+    const from = (location.state as LocationState | null)?.from?.pathname;
     return (
       <Navigate
-        to={user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'}
+        to={from ?? (user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard')}
         replace
       />
     );

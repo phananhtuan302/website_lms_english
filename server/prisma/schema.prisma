@@ -39,6 +39,11 @@ model User {
   // authoring endpoints) is what actually restricts test creation to teachers.
   tests Test[] @relation("TeacherTests")
 
+  // A student's test attempts (T-011). Nothing at the DB layer stops a `teacher`-role
+  // user from being the FK target here either — the join endpoint's `requireRole('student')`
+  // is what actually enforces "students only" for joining a session.
+  attempts Attempt[] @relation("StudentAttempts")
+
   @@map("users")
 }
 
@@ -53,18 +58,26 @@ enum QuestionType {
 }
 
 /// A test authored by a teacher. Kept minimal for T-007 — fields like `testType`
-/// (generic/unitTest/vocabularyCheck/...), Unit tagging, and time limits belong to the
-/// later backlog tasks that actually need them (T-018, T-036, T-038, ...).
+/// (generic/unitTest/vocabularyCheck/...) and Unit tagging still belong to the later
+/// backlog tasks that actually need them (T-018, T-036, ...).
+///
+/// `timeLimitMinutes` (T-012 "your call, keep it simple"): optional whole-minute limit
+/// shown as a countdown to the student during the take-test runtime; `null` means
+/// untimed. Deliberately just a plain nullable `Int` on `Test` rather than a separate
+/// config table — every attempt of every variant of a test shares the same limit, so
+/// there's nothing per-variant or per-attempt to store here.
 model Test {
-  id        String        @id @default(uuid())
-  title     String
-  teacherId String
-  teacher   User          @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
-  sections  Section[]
-  variants  TestVariant[]
-  sessions  TestSession[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id               String        @id @default(uuid())
+  title            String
+  teacherId        String
+  teacher          User          @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
+  timeLimitMinutes Int?
+  sections         Section[]
+  variants         TestVariant[]
+  sessions         TestSession[]
+  attempts         Attempt[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@map("tests")
 }
@@ -105,6 +118,7 @@ model Question {
   order           Int
   acceptedAnswers String[]     @default([])
   choices         Choice[]
+  answers         Answer[]
   createdAt       DateTime     @default(now())
 
   @@map("questions")
@@ -119,6 +133,9 @@ model Choice {
   text       String
   isCorrect  Boolean  @default(false)
   order      Int
+  // `SetNull` (declared on `Answer.selectedChoice`, not here) so deleting a choice a
+  // student already answered with doesn't cascade-delete their whole `Answer` row.
+  answers    Answer[]
 
   @@map("choices")
 }
@@ -143,12 +160,13 @@ model Choice {
 /// itself is left as authored, since sections typically carry meaning (e.g. "Reading",
 /// "Listening") that shouldn't be scrambled relative to each other.
 model TestVariant {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   testId    String
-  test      Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test      Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
   code      String
   layout    Json
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  attempts  Attempt[]
 
   @@unique([testId, code])
   @@map("test_variants")
@@ -178,6 +196,79 @@ model TestSession {
   status     SessionStatus @default(active)
   createdAt  DateTime      @default(now())
   closedAt   DateTime?
+  attempts   Attempt[]
 
   @@map("test_sessions")
+}
+
+/// Status of an `Attempt` (T-011/T-012). `inProgress` accepts answer autosaves;
+/// `submitted` is terminal — every write endpoint that touches an attempt's answers
+/// re-checks this server-side (not just trusting the client to stop sending requests)
+/// so a submitted attempt can never be edited afterward, per T-012's acceptance
+/// criteria ("verify server-side too, not just client-side").
+enum AttemptStatus {
+  inProgress
+  submitted
+}
+
+/// One student's attempt at one `TestSession` (T-011), pinned to a single
+/// auto-assigned `TestVariant` for the lifetime of the attempt (T-011/A7: round-robin
+/// assignment, see `server/src/routes/sessions.routes.ts`). `@@unique([sessionId,
+/// studentId])` is what makes "join" idempotent — re-opening the join link (or a
+/// duplicate request from e.g. React StrictMode's double-effect in dev) always resolves
+/// back to the SAME attempt/variant instead of creating a second one or reassigning a
+/// different variant partway through.
+///
+/// Score fields (`correctCount`/`totalCount`/`scorePercent`) are `null` until submitted
+/// (T-013) — grading happens once, at submission, from the answers already persisted at
+/// that moment, and is deterministic (re-deriving from the same stored `Answer` rows via
+/// `server/src/lib/grading.ts` always yields the same numbers).
+model Attempt {
+  id           String        @id @default(uuid())
+  sessionId    String
+  session      TestSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  testId       String
+  test         Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User          @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+  variantId    String
+  variant      TestVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  status       AttemptStatus @default(inProgress)
+  startedAt    DateTime      @default(now())
+  submittedAt  DateTime?
+  correctCount Int?
+  totalCount   Int?
+  scorePercent Float?
+  answers      Answer[]
+
+  @@unique([sessionId, studentId])
+  @@map("attempts")
+}
+
+/// One question's stored response within an `Attempt` (T-012/T-013). Exactly one of
+/// `selectedChoiceId` (multipleChoice/trueFalse) or `textAnswer` (fillBlank) is
+/// meaningful per question, mirroring the type-dependent storage already established by
+/// `Question`/`Choice`. `isCorrect` stays `null` until the attempt is submitted (T-013
+/// grades every question — answered or not — exactly once, at submit time); an
+/// unanswered question still gets an `Answer` row after submission (both fields `null`,
+/// `isCorrect: false`) so every question has exactly one graded row for the result/report
+/// views (T-014), never a gap a UI has to special-case.
+///
+/// `@@unique([attemptId, questionId])` makes autosave an upsert: re-saving the same
+/// question just overwrites the prior value, so "save on change or interval" can never
+/// create duplicate answer rows for one question.
+model Answer {
+  id               String   @id @default(uuid())
+  attemptId        String
+  attempt          Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedChoiceId String?
+  selectedChoice   Choice?  @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
+  textAnswer       String?
+  isCorrect        Boolean?
+  updatedAt        DateTime @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@map("answers")
 }

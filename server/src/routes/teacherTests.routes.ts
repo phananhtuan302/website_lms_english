@@ -33,6 +33,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedTest } from '../lib/ownedTest';
 import { generateVariantLayout, nextVariantCodes, type VariantLayout } from '../lib/variantShuffle';
+import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
 
 export const teacherTestsRouter = Router();
 
@@ -42,22 +43,16 @@ const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlan
 
 // --- Shared query/serialization helpers --------------------------------------------
 
-const NESTED_TEST_INCLUDE = {
-  sections: {
-    orderBy: { order: 'asc' as const },
-    include: {
-      questions: {
-        orderBy: { order: 'asc' as const },
-        include: { choices: { orderBy: { order: 'asc' as const } } },
-      },
-    },
-  },
-};
-
-type NestedTest = Awaited<ReturnType<typeof fetchNestedTest>>;
-
-function fetchNestedTest(testId: string) {
-  return prisma.test.findUniqueOrThrow({ where: { id: testId }, include: NESTED_TEST_INCLUDE });
+/** Validates an optional time-limit value from a create/update test body. `undefined`
+ * (field omitted) leaves the existing/untimed value untouched; `null` explicitly clears
+ * it; anything else must be a positive integer. Returns an English error string or
+ * `null` if valid — same convention as `validateQuestionBody` below. */
+function validateTimeLimit(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 480) {
+    return 'timeLimitMinutes must be a whole number of minutes between 1 and 480, or null for no limit.';
+  }
+  return null;
 }
 
 function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
@@ -84,6 +79,7 @@ function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
     id: test.id,
     title: test.title,
     teacherId: test.teacherId,
+    timeLimitMinutes: test.timeLimitMinutes,
     sections,
     createdAt: test.createdAt.toISOString(),
     updatedAt: test.updatedAt.toISOString(),
@@ -163,8 +159,19 @@ teacherTestsRouter.post(
       res.status(400).json({ error: 'Test title is required.' });
       return;
     }
+    const timeLimitError = validateTimeLimit(body.timeLimitMinutes);
+    if (timeLimitError) {
+      res.status(400).json({ error: timeLimitError });
+      return;
+    }
 
-    const test = await prisma.test.create({ data: { title, teacherId: req.user!.sub } });
+    const test = await prisma.test.create({
+      data: {
+        title,
+        teacherId: req.user!.sub,
+        timeLimitMinutes: body.timeLimitMinutes ?? null,
+      },
+    });
     const nested = await fetchNestedTest(test.id);
     res.status(201).json(toTestDetailDTO(nested));
   }),
@@ -215,8 +222,21 @@ teacherTestsRouter.patch(
       res.status(400).json({ error: 'Test title is required.' });
       return;
     }
+    const timeLimitError = validateTimeLimit(body.timeLimitMinutes);
+    if (timeLimitError) {
+      res.status(400).json({ error: timeLimitError });
+      return;
+    }
 
-    await prisma.test.update({ where: { id: test.id }, data: { title } });
+    await prisma.test.update({
+      where: { id: test.id },
+      data: {
+        title,
+        // `undefined` (field omitted entirely) leaves the column untouched; `null`
+        // explicitly clears it back to untimed.
+        ...(body.timeLimitMinutes !== undefined ? { timeLimitMinutes: body.timeLimitMinutes } : {}),
+      },
+    });
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
   }),
