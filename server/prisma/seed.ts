@@ -363,6 +363,111 @@ async function verifyFlashcardRoundTrip(setId: string) {
   console.log('\n[seed] Field-intact checks:', checks);
 }
 
+const DEMO_GRAMMAR_TOPIC_TITLE = 'Seed Demo Grammar Topic: Present Simple (T-046 round-trip check)';
+
+/**
+ * Seeds one demo `GrammarTopic` (T-046) with theory content plus one exercise of each
+ * objective type (multipleChoice, trueFalse, fillBlank) — this is T-046's required
+ * "seeded topic with theory + at least one exercise queries back intact" round-trip
+ * proof, mirroring `seedDemoTest`'s structure for the Test engine.
+ */
+async function seedGrammarTopic(teacherId: string, unitId: string | null) {
+  const existing = await prisma.grammarTopic.findFirst({
+    where: { title: DEMO_GRAMMAR_TOPIC_TITLE, teacherId },
+  });
+  if (existing) {
+    console.log(`[seed] Demo Grammar topic already exists (id: ${existing.id}), skipping creation.`);
+    return existing.id;
+  }
+
+  const topic = await prisma.grammarTopic.create({
+    data: {
+      title: DEMO_GRAMMAR_TOPIC_TITLE,
+      teacherId,
+      unitId,
+      theoryContent:
+        'The present simple tense describes habits, facts, and routines.\n\n' +
+        'Form: subject + base verb (add -s/-es for he/she/it).\n\n' +
+        'Examples: "She walks to school every day." "Water boils at 100 degrees Celsius." ' +
+        '"They play football on Saturdays."\n\n' +
+        'Common time markers: always, usually, often, sometimes, never, every day/week/year.',
+      exercises: {
+        create: [
+          {
+            type: 'multipleChoice',
+            prompt: 'She ___ to school every day.',
+            order: 1,
+            choices: {
+              create: [
+                { text: 'walk', isCorrect: false, order: 1 },
+                { text: 'walks', isCorrect: true, order: 2 },
+                { text: 'walking', isCorrect: false, order: 3 },
+                { text: 'walked', isCorrect: false, order: 4 },
+              ],
+            },
+          },
+          {
+            type: 'trueFalse',
+            prompt: 'The present simple can describe a permanent fact, like "The sun rises in the east."',
+            order: 2,
+            choices: {
+              create: [
+                { text: 'True', isCorrect: true, order: 1 },
+                { text: 'False', isCorrect: false, order: 2 },
+              ],
+            },
+          },
+          {
+            type: 'fillBlank',
+            prompt: 'Water ___ (boil) at 100 degrees Celsius.',
+            order: 3,
+            acceptedAnswers: ['boils'],
+          },
+        ],
+      },
+    },
+  });
+
+  console.log(`[seed] Created demo Grammar topic (id: ${topic.id}).`);
+  return topic.id;
+}
+
+async function verifyGrammarRoundTrip(topicId: string) {
+  const topic = await prisma.grammarTopic.findUniqueOrThrow({
+    where: { id: topicId },
+    include: {
+      teacher: { select: { id: true, name: true, email: true } },
+      unit: { select: { id: true, name: true } },
+      exercises: {
+        orderBy: { order: 'asc' },
+        include: { choices: { orderBy: { order: 'asc' } } },
+      },
+    },
+  });
+
+  console.log('\n[seed] T-046 round-trip verification — nested query result:');
+  console.log(JSON.stringify(topic, null, 2));
+
+  const exerciseTypes = topic.exercises.map((e) => e.type);
+  const checks = {
+    'theory content is non-empty': topic.theoryContent.trim().length > 0,
+    'exactly 3 exercises': topic.exercises.length === 3,
+    'has one of each objective type (multipleChoice, trueFalse, fillBlank)':
+      ['multipleChoice', 'trueFalse', 'fillBlank'].every((t) =>
+        exerciseTypes.includes(t as (typeof exerciseTypes)[number]),
+      ),
+    'multipleChoice exercise has exactly one correct choice': (() => {
+      const mc = topic.exercises.find((e) => e.type === 'multipleChoice');
+      return mc?.choices.filter((c) => c.isCorrect).length === 1;
+    })(),
+    'fillBlank exercise has no choice rows, only acceptedAnswers': (() => {
+      const fb = topic.exercises.find((e) => e.type === 'fillBlank');
+      return fb?.choices.length === 0 && (fb?.acceptedAnswers.length ?? 0) > 0;
+    })(),
+  };
+  console.log('\n[seed] Field-intact checks:', checks);
+}
+
 async function main() {
   const teacher = await seedTeacher();
   await seedSecondTeacher();
@@ -373,6 +478,8 @@ async function main() {
   const unit = await prisma.unit.findFirst({ orderBy: { order: 'asc' } });
   const flashcardSetId = await seedFlashcards(teacher.id, unit?.id ?? null);
   await verifyFlashcardRoundTrip(flashcardSetId);
+  const grammarTopicId = await seedGrammarTopic(teacher.id, unit?.id ?? null);
+  await verifyGrammarRoundTrip(grammarTopicId);
 }
 
 main()
