@@ -59,20 +59,20 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 3
   - Acceptance Criteria: Prisma models exist for `Test` (owned by a teacher), `Section`, `Question` (with a `type` enum including at minimum `multipleChoice`, `trueFalse`, `fillBlank`), and `Choice`/accepted-answer data as appropriate per type. A migration applies cleanly. Seed/test data can create a `Test` with at least one `Section` containing one question of each of the three types, and querying it back returns the full nested structure.
 
-- [ ] **T-008 — Teacher: test authoring (create/edit test & questions)**
-  - Status: Not Started
+- [x] **T-008 — Teacher: test authoring (create/edit test & questions)**
+  - Status: Done
   - Depends on: T-006, T-007
   - Source: Requirement row 3
   - Acceptance Criteria: A logged-in teacher can create a new test, add/edit/delete sections and questions of the three objective types (setting correct answer(s) for each), reorder questions, and save. Reloading the test editor shows the previously saved content. A student account cannot access the authoring UI or its API endpoints (403).
 
-- [ ] **T-009 — Test code/variant shuffle engine**
-  - Status: Not Started
+- [x] **T-009 — Test code/variant shuffle engine**
+  - Status: Done
   - Depends on: T-007, T-008
   - Source: Requirement row 5
   - Acceptance Criteria: Given an authored test, the system can generate at least 2 base variants ("mã đề") plus additional variants by shuffling question order and, within a question, choice order (per Assumption A7, variants are later auto-assigned per joining student). Generating variants twice from the same test produces different orderings (not identical output), while the underlying question/answer-key mapping stays correct (grading a shuffled variant still scores against the right answer). A teacher can view the list of generated variants for a test.
 
-- [ ] **T-010 — QR join: session creation + QR code generation**
-  - Status: Not Started
+- [x] **T-010 — QR join: session creation + QR code generation**
+  - Status: Done
   - Depends on: T-009
   - Source: Requirement row 4; Assumption A6
   - Acceptance Criteria: A teacher can start a "session" for one of their tests, which creates a unique join token and displays a scannable QR code (generated with the `qrcode` npm package, no external service) encoding a join URL, plus a short manual-entry fallback code shown alongside it. Each session start produces a new, distinct token (old QR codes/tokens for a closed session no longer allow joining).
@@ -395,8 +395,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 0 (follow-up) — Bugs found during QA
 
-- [ ] **T-061 — Global JSON error-handling middleware (stop stack-trace leakage)**
-  - Status: Not Started
+- [x] **T-061 — Global JSON error-handling middleware (stop stack-trace leakage)**
+  - Status: Done
   - Depends on: T-001
   - Source: QA finding during T-005/T-006/T-007 verification (2026-09-14)
   - Acceptance Criteria: `/server` registers a 4-arg Express error-handling middleware (after all routes) that catches unhandled errors (incl. malformed-JSON body-parser errors) and returns a clean JSON error body (e.g. `{ "error": "..." }`) with an appropriate status code — never an HTML page or a raw stack trace/file path, regardless of `NODE_ENV`. Repro to fix: `curl -s -i -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{not valid json'` must return clean JSON, not Express's default HTML+stacktrace error page. Verified on at least one other route too (not just `/api/auth/register`), and confirm a genuinely unexpected thrown error (e.g. a temporarily-injected `throw` in a route handler) is also caught and returns clean JSON rather than crashing the process.

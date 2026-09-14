@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Test authoring, variant shuffle, QR sessions, error middleware
+
+- Task IDs touched: T-061, T-008, T-009, T-010
+- What changed: Dev added a global JSON error-handling middleware + async-error wrapper (fixes T-061's stack-trace leak and a real unhandled-rejection crash risk), full teacher test-authoring CRUD (backend + UI) with per-teacher ownership isolation (404 on cross-teacher access) and question-type validation, a `TestVariant` shuffle engine (question/choice order shuffled, correctness resolved by id so grading integrity survives), and QR-based session join (`qrcode` npm package, no external service) with token invalidation on new-session-start or explicit close. Test independently re-verified everything adversarially (malformed JSON, injected throws, invalid question data, cross-teacher access attempts, independently-decoded QR pixel data via a separate `jsqr` script, independent SQL-level grading-integrity check) — PASS.
+- Why / decisions made: Cross-teacher access returns 404 (not 403) to avoid leaking test existence, matching the login-error pattern from T-005. Only question order (within a section) and choice order (within a question) are shuffled — not section order. A session's token is invalidated both by starting a new session for the same test and by explicit close. QA additionally found (not a regression, pre-existing since T-002) that a bare `npm install` didn't run `prisma generate`, so a truly clean checkout failed T-001's own build criterion — fixed directly by the Leader (`server/package.json` `postinstall: prisma generate`, commit `ddfc50b`), verified with a full clean reinstall + build.
+- Status after this entry: T-001–T-010 and T-061 Done. T-011 (student join via QR/link) is now unblocked; dispatching T-011→T-014 (student join, take-test runtime, auto-grading, result views — the rest of the MVP Core Loop) as the next Dev batch since they're a tightly sequential chain.
+
 ## 2026-09-14 — Dev/Test — Auth (backend+frontend) and test-content schema
 
 - Task IDs touched: T-005, T-006, T-007
