@@ -19,6 +19,12 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Leader — Logged T-065 (minor UI race condition found during T-060 work)
+
+- Task IDs touched: T-065 (new)
+- What changed: Dev building the T-060 E2E suite found `TeacherTestEditorPage`'s `unitId`/`testType`/`published` fields save via independent, unserialized async PATCH calls that can race under rapid successive edits (worked around at the test level via `waitForResponse`, not fixed in app code). Logged as T-065, low priority, not blocking — no functional test/grading integrity impact, purely a test-editor UX robustness item.
+- Status after this entry: T-065 Not Started (low priority polish). T-060 (full E2E suite) Dev reported fully complete (all 6 required flows, 3x-repeatable) — Test dispatched to independently confirm before Done; this would close out the entire original backlog if it passes.
+
 ## 2026-09-15 — Dev/Test — Mobile-responsive polish (T-059)
 
 - Task IDs touched: T-059
