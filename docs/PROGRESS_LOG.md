@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Vocabulary/flashcards core (T-021–T-027)
+
+- Task IDs touched: T-021, T-022, T-023, T-024, T-025, T-026, T-027
+- What changed: Dev built the flashcard schema (`FlashcardSet`/`FlashcardCard`/`FlashcardProgress`), teacher CRUD with ownership isolation, student study mode (know/learning marking, persists across reload), and four exercise types (fill-blank, unscramble, listen-and-type, IPA-to-word) sharing one eligibility/progress engine (`flashcardExercises.ts`/`flashcardProgress.ts`). Test verified (Velocity Mode: stated criteria + top edge case per task) via direct API/DB checks — ownership 404/403, progress persistence, case-insensitive matching, and correct exclusion of ineligible cards (no example sentence / no audio / no IPA) from each respective exercise type — PASS, no bugs found. This was the first batch built and tested while OTHER Dev/Test agents worked concurrently on T-019 (reporting) and then T-028/T-029/T-034/T-035 (matching, sentence, games) in the same working tree — both agents confirmed the concurrent edits were purely additive to shared files, no conflicts.
+- Why / decisions made: exercise progress reuses the same `FlashcardProgress` row as study mode (no separate per-exercise log). Fill-blank alternates reuse the card's `synonyms` field. Flashcard sets are globally visible to all students (no enrollment model), consistent with the existing Unit/AcademicPeriod single-class assumption. Audio uses a placeholder-URL convention documented in code (no real TTS/audio service needed yet, so no INTEGRATIONS_TODO entry).
+- Status after this entry: Phase 3 core (T-021–T-027) Done; only T-028/T-029/T-030 remain in Phase 3 (T-028/T-029 dispatched concurrently, in progress; T-030 still blocked on those). Phase 2 is now fully Done (T-019 landed separately, see next entry). Also codified a new standing rule (PROJECT_PLAN.md Guiding Principle 8): never kill processes by name/pattern — only exact PIDs an agent itself launched — after an agent's cleanup step accidentally closed the human user's real Chrome windows via a broad `taskkill`.
+
 ## 2026-09-14 — Dev/Test — Live monitoring dashboard, time tracking (Phase 2 complete except T-019)
 
 - Task IDs touched: T-016, T-017

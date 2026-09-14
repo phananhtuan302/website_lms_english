@@ -141,44 +141,44 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 3 — Vocabulary & Flashcards Core
 
-- [ ] **T-021 — DB schema: Vocabulary, FlashcardSet, FlashcardCard, FlashcardProgress**
-  - Status: Not Started
+- [x] **T-021 — DB schema: Vocabulary, FlashcardSet, FlashcardCard, FlashcardProgress**
+  - Status: Done
   - Depends on: T-002
   - Source: Requirement row 11
   - Acceptance Criteria: Prisma models exist for a vocabulary word (term, meaning, IPA, image URL, audio URL, synonyms, antonyms — fields may be optional), a `FlashcardSet` grouping words (optionally tagged to a `Unit`), and a `FlashcardProgress` per student per card (e.g. status/familiarity, last reviewed). Migration applies cleanly and a seeded set with several words can be queried back with all fields intact.
 
-- [ ] **T-022 — Teacher: manage flashcard sets & vocabulary words**
-  - Status: Not Started
+- [x] **T-022 — Teacher: manage flashcard sets & vocabulary words**
+  - Status: Done
   - Depends on: T-006, T-021
   - Source: Requirement row 11
   - Acceptance Criteria: A teacher can create a flashcard set, add/edit/delete words with meaning, IPA, optional image, optional audio, and optional synonym/antonym lists, and save. Reopening the set shows all saved data. A student cannot access the authoring endpoints (403).
 
-- [ ] **T-023 — Student: flashcard study/review mode**
-  - Status: Not Started
+- [x] **T-023 — Student: flashcard study/review mode**
+  - Status: Done
   - Depends on: T-022
   - Source: Requirement row 11
   - Acceptance Criteria: A student can open a flashcard set and flip through cards (front: term or prompt, back: meaning/details), marking each as known/unknown or similar, which updates that student's `FlashcardProgress` for the card. Reopening the set later reflects the previously recorded progress (e.g. resumes or shows prior status) rather than resetting.
 
-- [ ] **T-024 — Exercise: fill-in-the-blank vocabulary**
-  - Status: Not Started
+- [x] **T-024 — Exercise: fill-in-the-blank vocabulary**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note
   - Acceptance Criteria: For a flashcard set, a student can attempt a fill-in-the-blank exercise (sentence with the target word blanked out); submitting an answer is checked case-insensitively against the correct word (and any configured alternates), the result (correct/incorrect) is shown immediately, and the attempt updates that student's exercise progress for the set.
 
-- [ ] **T-025 — Exercise: unscramble word**
-  - Status: Not Started
+- [x] **T-025 — Exercise: unscramble word**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student is shown a scrambled arrangement of a vocabulary word's letters and must reconstruct it; submitting checks the exact word, gives immediate correct/incorrect feedback, and records progress the same way as T-024.
 
-- [ ] **T-026 — Exercise: listen-and-type (dictation)**
-  - Status: Not Started
+- [x] **T-026 — Exercise: listen-and-type (dictation)**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student can play the audio for a word (using the word's audio asset from T-021; if no audio asset is present for a word, that word is excluded from this exercise type rather than failing) and type what they heard; submission is checked case-insensitively against the word, gives immediate feedback, and records progress.
 
-- [ ] **T-027 — Exercise: IPA-to-word**
-  - Status: Not Started
+- [x] **T-027 — Exercise: IPA-to-word**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student is shown a word's IPA transcription and must type the word it represents; submission is checked case-insensitively, gives immediate feedback, and records progress. Words without an IPA field populated are excluded from this exercise type.
