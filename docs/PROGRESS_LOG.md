@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Live monitoring dashboard, time tracking (Phase 2 complete except T-019)
+
+- Task IDs touched: T-016, T-017
+- What changed: Dev wired the student side of T-015's realtime infra (TakeTestPage now emits `student:progress` on navigation/answer changes) and built the teacher live dashboard (`/teacher/sessions/:id/live`), seeded from the join-ack snapshot so opening mid-session shows current state immediately; added session-close propagation (`session:closed` event, stops further relay). Added `Attempt.timeTakenSeconds` and a teacher-facing average-time/completed-count stat per test, excluding non-submitted (abandoned) attempts from the average. Test verified under the new Velocity Mode (Section 8 of PROJECT_PLAN.md) — core behavior plus the single highest-risk edge case per task (join-after-progress snapshot correctness; abandoned attempt not skewing the average) — PASS, no bugs, in one faster targeted pass instead of full adversarial coverage.
+- Why / decisions made: No REST snapshot endpoint was added for the dashboard — the existing socket-ack snapshot from T-015 was sufficient, avoiding a redundant endpoint. Abandoned attempts are identified by `AttemptStatus.inProgress` + null `timeTakenSeconds`, no new enum value needed.
+- Status after this entry: Phase 2 is Done except **T-019** (reporting engine v1, needs T-017 — now satisfied). T-019 will be picked up next. In parallel (per Velocity Mode pipelining), a Dev batch for Phase 3 vocabulary core (T-021–T-027) was already dispatched concurrently with this Test pass and is still in progress as of this entry.
+
 ## 2026-09-14 — Leader — Process change: velocity mode approved by customer
 
 - Task IDs touched: None (process change)

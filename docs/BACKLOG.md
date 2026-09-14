@@ -109,14 +109,14 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: TECH_STACK.md (realtime rationale); foundation for rows 6, 7, 19
   - Acceptance Criteria: The server exposes a Socket.IO namespace/room per active test session. A connected teacher client (authenticated) can join the room for a session they own; a student client joining the same session emits progress events the server relays to the room. Disconnecting and reconnecting a student mid-test does not duplicate them in the room or crash the server.
 
-- [ ] **T-016 — Teacher live monitoring dashboard**
-  - Status: Not Started
+- [x] **T-016 — Teacher live monitoring dashboard**
+  - Status: Done
   - Depends on: T-015, T-012
   - Source: Requirement rows 6, 7
   - Acceptance Criteria: While a session is active, the teacher's dashboard shows, per joined student and updating without a manual page refresh: which question they're currently on (or last answered) and their percent-complete. Opening the dashboard mid-session (after students already started) shows their current state, not just updates from that point forward. Closing/finishing the session stops further live updates.
 
-- [ ] **T-017 — Time tracking & averages**
-  - Status: Not Started
+- [x] **T-017 — Time tracking & averages**
+  - Status: Done
   - Depends on: T-013, T-015
   - Source: Requirement row 8
   - Acceptance Criteria: Each attempt records start time and submit time; total time-taken is computed and stored. For a given test, the teacher can see the average time-taken across all attempts. A student who never submits (abandoned attempt) does not corrupt the average (excluded or clearly flagged as incomplete).
