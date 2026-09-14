@@ -24,6 +24,7 @@ import type {
   ReorderSectionsRequest,
   ReportGroupBy,
   ReportResponseDTO,
+  SentenceSubmissionDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestSummaryDTO,
@@ -170,6 +171,10 @@ export const teacherApi = {
     apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards/${cardId}`, {
       method: 'DELETE',
     }),
+
+  // --- Sentence submissions, read-only (T-029) --------------------------------------
+  listSentenceSubmissions: (setId: string) =>
+    apiRequest<SentenceSubmissionDTO[]>(`${flashcardBase}/${setId}/sentence-submissions`),
 
   // --- Reporting engine v1 (T-019) --------------------------------------------------
   getReport: (params: { groupBy: ReportGroupBy; testId?: string | null; unitId?: string | null }) => {

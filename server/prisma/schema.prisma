@@ -51,6 +51,9 @@ model User {
   // A student's per-card vocabulary progress (T-021/T-023). Same note as `attempts`.
   flashcardProgress FlashcardProgress[] @relation("StudentFlashcardProgress")
 
+  // A student's "use it in a sentence" submissions (T-029). Same note as `attempts`.
+  vocabSentenceSubmissions VocabSentenceSubmission[] @relation("StudentVocabSentenceSubmissions")
+
   @@map("users")
 }
 
@@ -424,6 +427,7 @@ model FlashcardCard {
   antonyms        String[]            @default([])
   order           Int
   progress        FlashcardProgress[]
+  sentenceSubmissions VocabSentenceSubmission[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -460,4 +464,26 @@ model FlashcardProgress {
 
   @@unique([cardId, studentId])
   @@map("flashcard_progress")
+}
+
+/// A student's free-text "use this word in a sentence" submission (T-029). Never
+/// AI-graded (PROJECT_PLAN Assumption A3 scopes AI grading to Speaking only) — grading
+/// here is a simple heuristic only (`containsWord`, computed once at submit time by
+/// `server/src/lib/vocabSentence.ts` and stored alongside the raw text) and is never
+/// used to block or reject the submission, only to give the student immediate
+/// informational feedback and let a teacher skim for words nobody used correctly.
+/// Append-only: a student may submit more than one sentence for the same card over time
+/// (e.g. retrying), so there is no `@@unique([cardId, studentId])` here unlike
+/// `FlashcardProgress` — every submission is its own row, ordered by `createdAt`.
+model VocabSentenceSubmission {
+  id           String        @id @default(uuid())
+  cardId       String
+  card         FlashcardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User          @relation("StudentVocabSentenceSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
+  sentence     String
+  containsWord Boolean
+  createdAt    DateTime      @default(now())
+
+  @@map("vocab_sentence_submissions")
 }

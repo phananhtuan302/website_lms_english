@@ -10,12 +10,21 @@
 import type {
   CheckVocabExerciseRequest,
   CheckVocabExerciseResponse,
+  CompleteVocabActivityRequest,
+  CompleteVocabActivityResponse,
   FlashcardProgressDTO,
+  GameWordDTO,
+  MatchingMode,
+  MatchingPairDTO,
+  SentencePromptDTO,
   StudentFlashcardSetDetailDTO,
   StudentFlashcardSetSummaryDTO,
+  SubmitSentenceRequest,
+  SubmitSentenceResponse,
   UpdateFlashcardProgressRequest,
   VocabExercisePromptDTO,
   VocabExerciseType,
+  VocabGameType,
 } from '@platform/shared';
 import { apiRequest } from './apiClient';
 
@@ -39,6 +48,31 @@ export const flashcardApi = {
     body: CheckVocabExerciseRequest,
   ) =>
     apiRequest<CheckVocabExerciseResponse>(`${base}/${setId}/exercises/${type}/${cardId}/check`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // --- Matching exercise (T-028) ------------------------------------------------------
+  listMatchingPairs: (setId: string, mode: MatchingMode) =>
+    apiRequest<MatchingPairDTO[]>(`${base}/${setId}/matching/${mode}`),
+  completeMatching: (setId: string, mode: MatchingMode, body: CompleteVocabActivityRequest) =>
+    apiRequest<CompleteVocabActivityResponse>(`${base}/${setId}/matching/${mode}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // --- Use-word-in-a-sentence exercise (T-029) ----------------------------------------
+  listSentencePrompts: (setId: string) => apiRequest<SentencePromptDTO[]>(`${base}/${setId}/sentence-prompts`),
+  submitSentence: (setId: string, cardId: string, body: SubmitSentenceRequest) =>
+    apiRequest<SubmitSentenceResponse>(`${base}/${setId}/sentence/${cardId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // --- Vocab games: space shooter (T-034) and runner (T-035) --------------------------
+  listGameWords: (setId: string) => apiRequest<GameWordDTO[]>(`${base}/${setId}/game-words`),
+  completeGame: (setId: string, gameType: VocabGameType, body: CompleteVocabActivityRequest) =>
+    apiRequest<CompleteVocabActivityResponse>(`${base}/${setId}/games/${gameType}/complete`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),

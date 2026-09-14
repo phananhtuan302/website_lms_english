@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { FlashcardCardInput, FlashcardSetDetailDTO, UnitDTO } from '@platform/shared';
+import type {
+  FlashcardCardInput,
+  FlashcardSetDetailDTO,
+  SentenceSubmissionDTO,
+  UnitDTO,
+} from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import FlashcardCardEditor from '../components/FlashcardCardEditor';
@@ -22,6 +27,7 @@ function TeacherFlashcardSetEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [units, setUnits] = useState<UnitDTO[]>([]);
   const [isAddingCard, setIsAddingCard] = useState(false);
+  const [submissions, setSubmissions] = useState<SentenceSubmissionDTO[] | null>(null);
 
   const refresh = useCallback(() => {
     if (!setId) return;
@@ -42,6 +48,14 @@ function TeacherFlashcardSetEditorPage() {
       .then(setUnits)
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!setId) return;
+    teacherApi
+      .listSentenceSubmissions(setId)
+      .then(setSubmissions)
+      .catch(() => undefined);
+  }, [setId]);
 
   if (!setId) return null;
 
@@ -169,6 +183,41 @@ function TeacherFlashcardSetEditorPage() {
             {isAddingCard ? 'Adding...' : '+ Add card'}
           </button>
         </form>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-bold text-base-black">
+          Student &quot;use it in a sentence&quot; submissions
+        </h2>
+        <p className="text-sm text-base-black/60">
+          Read-only — these are never AI- or auto-graded (PROJECT_PLAN Assumption A3), just
+          stored so you can see what students wrote.
+        </p>
+        {submissions === null ? (
+          <p className="text-sm text-base-black/60">Loading...</p>
+        ) : submissions.length === 0 ? (
+          <p className="text-sm text-base-black/60">No submissions yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {submissions.map((s) => (
+              <li key={s.id} className="rounded-md border border-primary-200 p-3 text-sm">
+                <div className="flex items-center justify-between text-xs text-base-black/50">
+                  <span>
+                    {s.studentName} — word: <span className="font-semibold">{s.term}</span>
+                  </span>
+                  <span
+                    className={
+                      s.containsWord ? 'font-semibold text-green-700' : 'font-semibold text-base-black/50'
+                    }
+                  >
+                    {s.containsWord ? 'used the word' : 'word not detected'}
+                  </span>
+                </div>
+                <p className="mt-1 text-base-black">{s.sentence}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

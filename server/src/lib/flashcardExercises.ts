@@ -1,12 +1,13 @@
 /**
  * Pure logic shared by the four vocabulary exercise types (T-024 fill-blank, T-025
- * unscramble, T-026 listen-and-type, T-027 IPA-to-word): which cards are eligible for a
- * given type, how to build the answer-free prompt sent to the client, and what counts
- * as a correct submission. No DB access here — `studentFlashcards.routes.ts` is the only
+ * unscramble, T-026 listen-and-type, T-027 IPA-to-word) plus the T-028 matching
+ * exercise: which cards are eligible for a given type/mode, how to build the
+ * answer-free prompt (or matching pair) sent to the client, and what counts as a
+ * correct submission. No DB access here — `studentFlashcards.routes.ts` is the only
  * caller and owns all persistence, same "pure function" split as `lib/grading.ts`.
  */
 
-import type { VocabExercisePromptDTO, VocabExerciseType } from '@platform/shared';
+import type { MatchingMode, VocabExercisePromptDTO, VocabExerciseType } from '@platform/shared';
 
 export const VOCAB_EXERCISE_TYPES: VocabExerciseType[] = [
   'fillBlank',
@@ -121,4 +122,68 @@ export function isCorrectAnswer(
   const normalizedSubmitted = normalize(submitted);
   if (!normalizedSubmitted) return false;
   return acceptedAnswers(type, card).some((candidate) => normalize(candidate) === normalizedSubmitted);
+}
+
+// --- Matching exercise (T-028) --------------------------------------------------------
+// Extends the eligibility-filtering pattern above to the four matching modes. Unlike
+// T-024–T-027 (one "correct" word to type), a matching round doesn't need a
+// correctness check here at all — the server just hands the client both sides of every
+// eligible pair (see `MatchingPairDTO`'s doc comment in `@platform/shared` for why
+// that's not an answer leak), and the client is the one that knows whether the
+// student's chosen pairing matches. Completion/progress-recording goes through the
+// shared `applyBatchProgress` helper in `flashcardProgress.ts` instead.
+
+export const MATCHING_MODES: MatchingMode[] = ['meaning', 'image', 'synonym', 'antonym'];
+
+/** Minimal shape this module needs from a `FlashcardCard` row for matching — a superset
+ * of `ExercisableCard` (adds the two fields no T-024–T-027 type needs: `meaning` and
+ * `imageUrl`). */
+export interface MatchableCard extends ExercisableCard {
+  meaning: string;
+  imageUrl: string | null;
+  antonyms: string[];
+}
+
+/**
+ * Eligibility per matching mode (T-028's "a mode with no eligible data ... must simply
+ * be unavailable for that set, not error"):
+ * - `meaning`: every card has a `meaning` (required field), so every card is eligible.
+ * - `image`: needs a non-empty `imageUrl`.
+ * - `synonym`: needs at least one configured synonym.
+ * - `antonym`: needs at least one configured antonym.
+ *
+ * A mode being "unavailable" is a client-side concern (see
+ * `StudentVocabMatchingPage.tsx`): the route always returns whatever pairs pass this
+ * filter, even if that's fewer than 2 (too few to meaningfully play) or 0 — same
+ * "empty list, never a 4xx" convention as `isEligible` above.
+ */
+export function isMatchingEligible(mode: MatchingMode, card: MatchableCard): boolean {
+  switch (mode) {
+    case 'meaning':
+      return true;
+    case 'image':
+      return !!card.imageUrl;
+    case 'synonym':
+      return card.synonyms.length > 0;
+    case 'antonym':
+      return card.antonyms.length > 0;
+  }
+}
+
+/** The "target" (right-hand column) value for one card in one mode. Caller must have
+ * already checked `isMatchingEligible`. For `synonym`/`antonym`, a card may have
+ * several configured alternates — the first one is used as this round's target so each
+ * card contributes exactly one pair (matches T-028's "a set of pairs to match", not a
+ * variable-sized one). */
+export function buildMatchingTarget(mode: MatchingMode, card: MatchableCard): string {
+  switch (mode) {
+    case 'meaning':
+      return card.meaning;
+    case 'image':
+      return card.imageUrl!;
+    case 'synonym':
+      return card.synonyms[0];
+    case 'antonym':
+      return card.antonyms[0];
+  }
 }

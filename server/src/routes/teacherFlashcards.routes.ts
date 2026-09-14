@@ -13,6 +13,7 @@ import type {
   FlashcardCardDTO,
   FlashcardSetDetailDTO,
   FlashcardSetSummaryDTO,
+  SentenceSubmissionDTO,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
 } from '@platform/shared';
@@ -293,5 +294,38 @@ teacherFlashcardsRouter.delete(
 
     await prisma.flashcardCard.delete({ where: { id: card.id } });
     res.status(200).json(await fetchDetail(set.id));
+  }),
+);
+
+// --- Sentence submissions, read-only (T-029 "stored for teacher visibility") -----------
+
+/** `GET /flashcard-sets/:setId/sentence-submissions` — every student's "use it in a
+ * sentence" submission for this teacher's own set, newest first. Read-only: this batch
+ * never adds a grading/override UI for these (T-029 is explicitly not AI- or
+ * teacher-graded, just "stored for teacher visibility" per its acceptance criteria) —
+ * a teacher can skim raw submissions here, nothing more yet. */
+teacherFlashcardsRouter.get(
+  '/flashcard-sets/:setId/sentence-submissions',
+  asyncHandler(async (req, res) => {
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    if (!set) return;
+
+    const submissions = await prisma.vocabSentenceSubmission.findMany({
+      where: { card: { setId: set.id } },
+      orderBy: { createdAt: 'desc' },
+      include: { card: { select: { term: true } }, student: { select: { name: true } } },
+    });
+
+    const dtos: SentenceSubmissionDTO[] = submissions.map((s) => ({
+      id: s.id,
+      cardId: s.cardId,
+      term: s.card.term,
+      studentId: s.studentId,
+      studentName: s.student.name,
+      sentence: s.sentence,
+      containsWord: s.containsWord,
+      createdAt: s.createdAt.toISOString(),
+    }));
+    res.status(200).json(dtos);
   }),
 );

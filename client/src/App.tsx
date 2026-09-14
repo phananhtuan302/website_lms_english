@@ -11,7 +11,11 @@ import RegisterPage from './pages/RegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import StudentFlashcardsPage from './pages/StudentFlashcardsPage';
 import StudentFlashcardSetPage from './pages/StudentFlashcardSetPage';
+import StudentRunnerGamePage from './pages/StudentRunnerGamePage';
+import StudentSpaceShooterGamePage from './pages/StudentSpaceShooterGamePage';
 import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
+import StudentVocabMatchingPage from './pages/StudentVocabMatchingPage';
+import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
@@ -79,6 +83,16 @@ function App() {
                 path="/student/flashcard-sets/:setId/exercises/:exerciseType"
                 element={<StudentVocabExercisePage />}
               />
+              {/* Matching exercise (T-028), use-in-a-sentence (T-029), and the two vocab
+                  games (T-034 space shooter, T-035 runner) — same "generic feature,
+                  routed off :setId" shape as the exercise route above. */}
+              <Route path="/student/flashcard-sets/:setId/matching" element={<StudentVocabMatchingPage />} />
+              <Route path="/student/flashcard-sets/:setId/sentence" element={<StudentVocabSentencePage />} />
+              <Route
+                path="/student/flashcard-sets/:setId/games/space-shooter"
+                element={<StudentSpaceShooterGamePage />}
+              />
+              <Route path="/student/flashcard-sets/:setId/games/runner" element={<StudentRunnerGamePage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

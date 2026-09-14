@@ -18,23 +18,41 @@ import { Router } from 'express';
 import type {
   CheckVocabExerciseRequest,
   CheckVocabExerciseResponse,
+  CompleteVocabActivityRequest,
+  CompleteVocabActivityResponse,
+  GameWordDTO,
+  MatchingMode,
+  MatchingPairDTO,
+  SentencePromptDTO,
   StudentFlashcardCardDTO,
   StudentFlashcardSetDetailDTO,
   StudentFlashcardSetSummaryDTO,
+  SubmitSentenceRequest,
+  SubmitSentenceResponse,
   UpdateFlashcardProgressRequest,
   VocabExercisePromptDTO,
   VocabExerciseType,
+  VocabGameType,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
-import { advanceStatus, getCurrentStatus, setFlashcardProgress } from '../lib/flashcardProgress';
 import {
+  advanceStatus,
+  applyBatchProgress,
+  getCurrentStatus,
+  setFlashcardProgress,
+} from '../lib/flashcardProgress';
+import {
+  MATCHING_MODES,
   VOCAB_EXERCISE_TYPES,
+  buildMatchingTarget,
   buildPrompt,
   isCorrectAnswer,
   isEligible,
+  isMatchingEligible,
 } from '../lib/flashcardExercises';
+import { sentenceContainsWord } from '../lib/vocabSentence';
 
 export const studentFlashcardsRouter = Router();
 
@@ -225,6 +243,198 @@ studentFlashcardsRouter.post(
       correctAnswer: card.term,
       progressStatus: nextStatus,
     };
+    res.status(200).json(response);
+  }),
+);
+
+// --- Matching exercise (T-028) ---------------------------------------------------------
+
+function isMatchingMode(value: string): value is MatchingMode {
+  return (MATCHING_MODES as string[]).includes(value);
+}
+
+/** `GET /:setId/matching/:mode` — the eligible pairs for one matching mode on this set
+ * (T-028). Same "just filter, never error" convention as the exercise-prompt route
+ * above: a mode with 0 or 1 eligible pairs is returned as-is (an empty/too-short list),
+ * and it's the client's job to treat that as "this mode isn't available for this set"
+ * rather than trying to render an unplayable round. */
+studentFlashcardsRouter.get(
+  '/:setId/matching/:mode',
+  asyncHandler(async (req, res) => {
+    const mode = req.params.mode;
+    if (!isMatchingMode(mode)) {
+      res.status(400).json({ error: `Unknown matching mode. Must be one of: ${MATCHING_MODES.join(', ')}.` });
+      return;
+    }
+
+    const set = await loadSetWithCards(req.params.setId, res);
+    if (!set) return;
+
+    const pairs: MatchingPairDTO[] = set.cards
+      .filter((card) => isMatchingEligible(mode, card))
+      .map((card) => ({ cardId: card.id, term: card.term, target: buildMatchingTarget(mode, card) }));
+
+    res.status(200).json(pairs);
+  }),
+);
+
+/** `POST /:setId/matching/:mode/complete` — records a finished matching round (T-028).
+ * The client already knows which pairs it got right vs. wrong (it holds both sides of
+ * every pair, see `MatchingPairDTO`'s doc comment) — this endpoint only persists the
+ * verdicts via the shared `applyBatchProgress` helper, same mechanism every other
+ * exercise type in this file uses. */
+studentFlashcardsRouter.post(
+  '/:setId/matching/:mode/complete',
+  asyncHandler(async (req, res) => {
+    const mode = req.params.mode;
+    if (!isMatchingMode(mode)) {
+      res.status(400).json({ error: `Unknown matching mode. Must be one of: ${MATCHING_MODES.join(', ')}.` });
+      return;
+    }
+
+    const set = await loadSetWithCards(req.params.setId, res);
+    if (!set) return;
+
+    const body = req.body as Partial<CompleteVocabActivityRequest>;
+    if (!Array.isArray(body.results)) {
+      res.status(400).json({ error: 'results must be an array of { cardId, correct }.' });
+      return;
+    }
+
+    const cardIds = new Set(set.cards.map((c) => c.id));
+    const validResults = body.results.filter(
+      (r): r is { cardId: string; correct: boolean } =>
+        !!r && typeof r.cardId === 'string' && typeof r.correct === 'boolean' && cardIds.has(r.cardId),
+    );
+
+    const updated = await applyBatchProgress(req.user!.sub, validResults);
+    const response: CompleteVocabActivityResponse = { updated };
+    res.status(200).json(response);
+  }),
+);
+
+// --- Use-word-in-a-sentence exercise (T-029) --------------------------------------------
+
+/** `GET /:setId/sentence-prompts` — every card in the set is eligible (any word can be
+ * used in a free-text sentence), unlike every exercise type above. */
+studentFlashcardsRouter.get(
+  '/:setId/sentence-prompts',
+  asyncHandler(async (req, res) => {
+    const set = await loadSetWithCards(req.params.setId, res);
+    if (!set) return;
+
+    const prompts: SentencePromptDTO[] = set.cards.map((card) => ({
+      cardId: card.id,
+      term: card.term,
+      meaning: card.meaning,
+    }));
+    res.status(200).json(prompts);
+  }),
+);
+
+/** `POST /:setId/sentence/:cardId/submit` — stores a student's sentence (T-029). Always
+ * succeeds (never a 4xx for a "wrong" or word-missing sentence, per T-029's acceptance
+ * criteria "does not block progress on a wrong answer") as long as the request itself
+ * is well-formed; `containsWord` is purely informational feedback plus the signal fed
+ * into `advanceStatus`, both computed via `sentenceContainsWord`'s heuristic (see that
+ * module's doc comment for exactly which inflections count). */
+studentFlashcardsRouter.post(
+  '/:setId/sentence/:cardId/submit',
+  asyncHandler(async (req, res) => {
+    const card = await prisma.flashcardCard.findUnique({ where: { id: req.params.cardId } });
+    if (!card || card.setId !== req.params.setId) {
+      res.status(404).json({ error: 'Card not found in this flashcard set.' });
+      return;
+    }
+
+    const body = req.body as Partial<SubmitSentenceRequest>;
+    if (typeof body.sentence !== 'string' || body.sentence.trim() === '') {
+      res.status(400).json({ error: 'sentence is required and must be a non-empty string.' });
+      return;
+    }
+
+    const containsWord = sentenceContainsWord(body.sentence, card.term);
+
+    await prisma.vocabSentenceSubmission.create({
+      data: {
+        cardId: card.id,
+        studentId: req.user!.sub,
+        sentence: body.sentence.trim(),
+        containsWord,
+      },
+    });
+
+    const currentStatus = await getCurrentStatus(card.id, req.user!.sub);
+    const nextStatus = advanceStatus(currentStatus, containsWord);
+    await setFlashcardProgress(card.id, req.user!.sub, nextStatus);
+
+    const response: SubmitSentenceResponse = { containsWord, progressStatus: nextStatus };
+    res.status(200).json(response);
+  }),
+);
+
+// --- Vocab games: space shooter (T-034) and runner (T-035) ------------------------------
+
+const VOCAB_GAME_TYPES: VocabGameType[] = ['spaceShooter', 'runner'];
+
+function isVocabGameType(value: string): value is VocabGameType {
+  return (VOCAB_GAME_TYPES as string[]).includes(value);
+}
+
+/** `GET /:setId/game-words` — the word pool both vocab games play with (T-034/T-035).
+ * Every card qualifies (term+meaning are always present, no eligibility filter needed)
+ * — shared by both games since they're built from the exact same underlying data,
+ * only the play mechanic differs client-side. */
+studentFlashcardsRouter.get(
+  '/:setId/game-words',
+  asyncHandler(async (req, res) => {
+    const set = await loadSetWithCards(req.params.setId, res);
+    if (!set) return;
+
+    const words: GameWordDTO[] = set.cards.map((card) => ({
+      cardId: card.id,
+      term: card.term,
+      meaning: card.meaning,
+    }));
+    res.status(200).json(words);
+  }),
+);
+
+/** `POST /:setId/games/:gameType/complete` — records a finished game round (T-034
+ * space shooter, T-035 runner). Both games play entirely client-side (a canvas game
+ * loop firing an HTTP request per frame/shot would be pointless overhead) and report
+ * their aggregated per-word results once, at round end, through the same
+ * `applyBatchProgress` mechanism the matching exercise above uses — "completing a round
+ * records progress via the same mechanism as the other exercises", per both tasks'
+ * acceptance criteria. `gameType` is validated but doesn't change the update logic
+ * itself; it exists for clarity/future per-game analytics, not because the two games
+ * need different progress-recording rules. */
+studentFlashcardsRouter.post(
+  '/:setId/games/:gameType/complete',
+  asyncHandler(async (req, res) => {
+    const gameType = req.params.gameType;
+    if (!isVocabGameType(gameType)) {
+      res.status(400).json({ error: `Unknown game type. Must be one of: ${VOCAB_GAME_TYPES.join(', ')}.` });
+      return;
+    }
+
+    const set = await loadSetWithCards(req.params.setId, res);
+    if (!set) return;
+
+    const body = req.body as Partial<CompleteVocabActivityRequest>;
+    if (!Array.isArray(body.results)) {
+      res.status(400).json({ error: 'results must be an array of { cardId, correct }.' });
+      return;
+    }
+
+    const cardIds = new Set(set.cards.map((c) => c.id));
+    const validResults = body.results.filter(
+      (r): r is { cardId: string; correct: boolean } =>
+        !!r && typeof r.cardId === 'string' && typeof r.correct === 'boolean' && cardIds.has(r.cardId),
+    );
+
+    const updated = await applyBatchProgress(req.user!.sub, validResults);
+    const response: CompleteVocabActivityResponse = { updated };
     res.status(200).json(response);
   }),
 );

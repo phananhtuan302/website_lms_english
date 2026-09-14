@@ -212,6 +212,39 @@ function StudentFlashcardSetPage() {
               {link.label}
             </Link>
           ))}
+          <Link
+            to={`/student/flashcard-sets/${setId}/matching`}
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            Matching
+          </Link>
+          <Link
+            to={`/student/flashcard-sets/${setId}/sentence`}
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            Use it in a sentence
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-primary-200 p-4">
+        <h2 className="text-lg font-bold text-base-black">Games</h2>
+        <p className="mt-1 text-sm text-base-black/60">
+          Play a quick vocabulary game using the words in this set.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            to={`/student/flashcard-sets/${setId}/games/space-shooter`}
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            Space Shooter
+          </Link>
+          <Link
+            to={`/student/flashcard-sets/${setId}/games/runner`}
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            Word Runner
+          </Link>
         </div>
       </section>
     </div>

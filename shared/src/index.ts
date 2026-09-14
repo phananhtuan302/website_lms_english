@@ -581,6 +581,94 @@ export interface CheckVocabExerciseResponse {
   progressStatus: FlashcardProgressStatus;
 }
 
+// --- Vocabulary matching exercise (T-028) -------------------------------------------
+// Extends the T-024–T-027 exercise pattern above: four modes matching a word against
+// its meaning / image / synonym / antonym. See
+// `server/src/lib/flashcardExercises.ts`'s `isMatchingEligible`/`buildMatchingTarget`
+// for the per-mode eligibility rule (mirrors `isEligible`/`buildPrompt` for the
+// fill-blank/unscramble/etc. exercises above) — a mode with fewer than 2 eligible cards
+// is simply unplayable for that set (empty/too-short list, never a 4xx), per T-028's
+// acceptance criteria.
+
+export type MatchingMode = 'meaning' | 'image' | 'synonym' | 'antonym';
+
+/** One term/target pair for a matching round. `target` holds whatever the mode needs:
+ * the card's meaning text, its `imageUrl`, one synonym, or one antonym. The client
+ * shuffles the left (`term`) and right (`target`) columns independently and the
+ * student's job is to re-pair them — nothing here is a hidden "answer" the way
+ * `VocabExercisePromptDTO` hides the term, since presenting both sides IS the exercise
+ * (the challenge is in the shuffled order, not in withholding data). */
+export interface MatchingPairDTO {
+  cardId: string;
+  term: string;
+  target: string;
+}
+
+/** Body for completing a batch vocabulary activity round — shared by the matching
+ * exercise (T-028) and both vocab games (T-034/T-035), since all three record
+ * `FlashcardProgress` the same way: one correct/incorrect verdict per card touched
+ * during the round, applied via `flashcardProgress.ts`'s `advanceStatus` exactly like
+ * every other exercise type. `correct` means "paired correctly on the first attempt"
+ * for matching, or "answered/hit the right target for that word" for a game — see each
+ * page's doc comment. */
+export interface CompleteVocabActivityRequest {
+  results: Array<{ cardId: string; correct: boolean }>;
+}
+
+export interface CompleteVocabActivityResponse {
+  updated: number;
+}
+
+// --- Use-word-in-a-sentence exercise (T-029) ----------------------------------------
+
+/** Every card is eligible (any word can be used in a free-text sentence) — unlike the
+ * T-024–T-027 exercises there is no eligibility filter here. */
+export interface SentencePromptDTO {
+  cardId: string;
+  term: string;
+  meaning: string;
+}
+
+export interface SubmitSentenceRequest {
+  sentence: string;
+}
+
+/** `containsWord` is the validation heuristic's verdict (see
+ * `server/src/lib/vocabSentence.ts`) — shown to the student as feedback, but per T-029's
+ * acceptance criteria it NEVER blocks the submission: the request always succeeds and
+ * the raw sentence is always stored for teacher visibility, regardless of this value. */
+export interface SubmitSentenceResponse {
+  containsWord: boolean;
+  progressStatus: FlashcardProgressStatus;
+}
+
+/** Row shape for the teacher-facing view of stored sentence submissions (T-029 "stored
+ * for teacher visibility"), newest first. */
+export interface SentenceSubmissionDTO {
+  id: string;
+  cardId: string;
+  term: string;
+  studentId: string;
+  studentName: string;
+  sentence: string;
+  containsWord: boolean;
+  createdAt: string;
+}
+
+// --- Vocabulary games: space shooter (T-034) and runner (T-035) --------------------
+// Both games use the exact same word data (term+meaning — every card qualifies, no
+// eligibility filter) and the exact same round-completion contract
+// (`CompleteVocabActivityRequest`/`Response` above), so only one word-list DTO and one
+// `gameType` union are needed for both tasks.
+
+export type VocabGameType = 'spaceShooter' | 'runner';
+
+export interface GameWordDTO {
+  cardId: string;
+  term: string;
+  meaning: string;
+}
+
 /** One student's latest known progress within a session, keyed by `studentId` (never
  * socket id — see `sessionRealtime.ts`'s module doc comment for why) so a reconnect
  * overwrites the same entry instead of adding a second one. */
