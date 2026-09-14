@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { AttemptResultDTO } from '@platform/shared';
+import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 
@@ -62,7 +62,7 @@ function AttemptResultPage() {
           <div
             key={q.questionId}
             className={`rounded-lg border p-4 ${
-              q.type === 'essay'
+              q.type === 'essay' || q.type === 'speaking'
                 ? 'border-primary-100 bg-base-white'
                 : q.isCorrect
                   ? 'border-green-200 bg-green-50'
@@ -76,6 +76,17 @@ function AttemptResultPage() {
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
                   {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : 'Awaiting grading'}
+                </span>
+              ) : q.type === 'speaking' ? (
+                <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
+                  {/* Teacher override (T-055) wins once present; otherwise the AI/mock
+                      grade (T-054); "Not yet submitted" if the student never recorded
+                      an answer for this question. */}
+                  {q.manualScore != null
+                    ? `${q.manualScore} / ${SPEAKING_SCORE_SCALE}`
+                    : q.speakingAiScore != null
+                      ? `${q.speakingAiScore} / ${SPEAKING_SCORE_SCALE}`
+                      : 'Not yet submitted'}
                 </span>
               ) : (
                 <span
@@ -102,6 +113,26 @@ function AttemptResultPage() {
                   <p className="text-xs text-base-black/50">
                     Your teacher hasn&apos;t graded this essay yet.
                   </p>
+                )}
+              </div>
+            ) : q.type === 'speaking' ? (
+              <div className="mt-2 flex flex-col gap-2 text-sm text-base-black/80">
+                {q.speakingAudioData ? (
+                  <audio controls src={q.speakingAudioData} className="w-full" />
+                ) : (
+                  <p className="italic text-base-black/50">(you did not submit a recording for this question)</p>
+                )}
+                {/* Teacher override wins once present (T-055); otherwise show the
+                    AI/mock feedback (T-054) — same "teacher value wins" rule as the
+                    score badge above. */}
+                {(q.manualComment ?? q.speakingAiFeedback) && (
+                  <p className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-base-black/70">
+                    {q.manualComment ? 'Teacher’s feedback: ' : 'Feedback: '}
+                    {q.manualComment ?? q.speakingAiFeedback}
+                  </p>
+                )}
+                {q.speakingAudioData && q.manualScore == null && q.speakingAiScore == null && (
+                  <p className="text-xs text-base-black/50">This recording hasn&apos;t been graded yet.</p>
                 )}
               </div>
             ) : q.type === 'fillBlank' ? (

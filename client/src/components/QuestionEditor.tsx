@@ -37,6 +37,12 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
   const [essayMaxScoreText, setEssayMaxScoreText] = useState(
     String(question.essayMaxScore ?? 10),
   );
+  // Speaking (T-052) — response window defaults to 60 seconds (matches the server's own
+  // default); prompt audio is optional even for a speaking question.
+  const [allowedResponseSecondsText, setAllowedResponseSecondsText] = useState(
+    String(question.allowedResponseSeconds ?? 60),
+  );
+  const [promptAudioUrl, setPromptAudioUrl] = useState(question.promptAudioUrl ?? '');
   const [saveError, setSaveError] = useState<string | null>(null);
 
   function currentBody(): UpdateQuestionRequest {
@@ -53,6 +59,15 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
     if (type === 'essay') {
       const parsed = Number(essayMaxScoreText);
       return { type, prompt, essayMaxScore: Number.isFinite(parsed) && parsed > 0 ? parsed : 10 };
+    }
+    if (type === 'speaking') {
+      const parsed = Number(allowedResponseSecondsText);
+      return {
+        type,
+        prompt,
+        allowedResponseSeconds: Number.isFinite(parsed) && parsed > 0 ? parsed : 60,
+        promptAudioUrl: promptAudioUrl.trim() === '' ? null : promptAudioUrl.trim(),
+      };
     }
     return { type, prompt, choices };
   }
@@ -98,6 +113,16 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
       void save({ type: newType, prompt, essayMaxScore: Number.isFinite(parsed) && parsed > 0 ? parsed : 10 });
       return;
     }
+    if (newType === 'speaking') {
+      const parsed = Number(allowedResponseSecondsText);
+      void save({
+        type: newType,
+        prompt,
+        allowedResponseSeconds: Number.isFinite(parsed) && parsed > 0 ? parsed : 60,
+        promptAudioUrl: promptAudioUrl.trim() === '' ? null : promptAudioUrl.trim(),
+      });
+      return;
+    }
     void save({ type: newType, prompt, choices: nextChoices });
   }
 
@@ -132,6 +157,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
     trueFalse: 'True / False',
     fillBlank: 'Fill in the blank',
     essay: 'Essay (Writing)',
+    speaking: 'Speaking',
   };
 
   return (
@@ -169,6 +195,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             <option value="trueFalse">True / False</option>
             <option value="fillBlank">Fill in the blank</option>
             <option value="essay">Essay (Writing)</option>
+            <option value="speaking">Speaking</option>
           </select>
           <button
             type="button"
@@ -219,6 +246,37 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             question type.
           </span>
         </label>
+      ) : type === 'speaking' ? (
+        <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+            Response time allowed (seconds, T-052)
+            <input
+              type="number"
+              min={5}
+              max={300}
+              value={allowedResponseSecondsText}
+              onChange={(event) => setAllowedResponseSecondsText(event.target.value)}
+              onBlur={() => void save()}
+              className="w-32 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+            Prompt audio URL (optional)
+            <input
+              type="text"
+              value={promptAudioUrl}
+              onChange={(event) => setPromptAudioUrl(event.target.value)}
+              onBlur={() => void save()}
+              placeholder="https://... (leave blank for a text-only prompt)"
+              className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            />
+          </label>
+          <span className="text-xs font-normal text-base-black/50">
+            The student records a spoken answer in-browser within the time allowed, and it is
+            graded automatically (Mock AI grading, T-051) — you can review and override the score
+            afterward from the attempt detail page.
+          </span>
+        </div>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           <span className="text-sm font-medium text-base-black">

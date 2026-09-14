@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { AttemptResultDTO } from '@platform/shared';
+import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
-/** Local draft state for one essay question's manual-grading form (T-042) — kept
- * separate from `result` so an in-progress edit doesn't get clobbered by a re-render,
- * same "own local draft, save on explicit action" pattern as `QuestionEditor.tsx`. */
-interface EssayDraft {
+/** Local draft state for one essay/speaking question's manual-grading form (T-042
+ * essay, T-055 speaking override) — kept separate from `result` so an in-progress edit
+ * doesn't get clobbered by a re-render, same "own local draft, save on explicit action"
+ * pattern as `QuestionEditor.tsx`. */
+interface GradeDraft {
   scoreText: string;
   comment: string;
 }
@@ -19,16 +20,17 @@ interface EssayDraft {
  * per-question correct/incorrect breakdown means the same thing to both audiences; only
  * the ownership check differs (teacher must own the test, enforced server-side).
  *
- * Extended by T-042 (manual essay grading — score + comment form per essay question)
- * and T-044 (a tab-switch summary banner, since this is also where a teacher reviews
- * integrity signals for one attempt after the fact).
+ * Extended by T-042 (manual essay grading — score + comment form per essay question),
+ * T-044 (a tab-switch summary banner, since this is also where a teacher reviews
+ * integrity signals for one attempt after the fact), and T-055 (Speaking playback + AI
+ * score/feedback review, with the same manual-override form reused for speaking).
  */
 function TeacherAttemptDetailPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
   const [result, setResult] = useState<AttemptResultDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, EssayDraft>>({});
+  const [drafts, setDrafts] = useState<Record<string, GradeDraft>>({});
   const [gradingErrors, setGradingErrors] = useState<Record<string, string>>({});
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
 
@@ -44,6 +46,23 @@ function TeacherAttemptDetailPage() {
             if (q.type === 'essay' && !next[q.questionId]) {
               next[q.questionId] = {
                 scoreText: q.manualScore != null ? String(q.manualScore) : '',
+                comment: q.manualComment ?? '',
+              };
+            }
+            if (q.type === 'speaking' && !next[q.questionId]) {
+              // Pre-fills the score with the AI (Mock) grade as a starting point for
+              // override (T-055) — documented choice: overriding reads as "adjust this
+              // number" rather than "type a score from nothing," since the AI verdict
+              // is already right there to compare against. The comment stays blank
+              // (not pre-filled from `speakingAiFeedback`) so a saved `manualComment`
+              // always reflects something the teacher actually wrote.
+              next[q.questionId] = {
+                scoreText:
+                  q.manualScore != null
+                    ? String(q.manualScore)
+                    : q.speakingAiScore != null
+                      ? String(q.speakingAiScore)
+                      : '',
                 comment: q.manualComment ?? '',
               };
             }
@@ -169,6 +188,14 @@ function TeacherAttemptDetailPage() {
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
                   {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : 'Not graded yet'}
                 </span>
+              ) : q.type === 'speaking' ? (
+                <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
+                  {q.manualScore != null
+                    ? `${q.manualScore} / ${SPEAKING_SCORE_SCALE} (teacher)`
+                    : q.speakingAiScore != null
+                      ? `${q.speakingAiScore} / ${SPEAKING_SCORE_SCALE} (AI)`
+                      : 'Not submitted yet'}
+                </span>
               ) : (
                 q.isCorrect !== null && (
                   <span
@@ -233,6 +260,83 @@ function TeacherAttemptDetailPage() {
                 )}
                 {q.manualComment && (
                   <p className="text-xs italic text-base-black/60">Comment: {q.manualComment}</p>
+                )}
+              </div>
+            ) : q.type === 'speaking' ? (
+              <div className="mt-2 flex flex-col gap-3 text-sm text-base-black/80">
+                {q.speakingAudioData ? (
+                  <audio controls src={q.speakingAudioData} className="w-full" />
+                ) : (
+                  <p className="italic text-base-black/50">(no recording submitted)</p>
+                )}
+                <div className="rounded-md border border-primary-100 bg-base-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                    Draft transcript (Web Speech API)
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap">
+                    {q.speakingTranscript?.trim() ? q.speakingTranscript : <em>(no transcript)</em>}
+                  </p>
+                </div>
+                {q.speakingAiFeedback && (
+                  <div className="rounded-md border border-primary-100 bg-primary-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                      Mock AI grading (T-051)
+                    </p>
+                    <p className="mt-1">{q.speakingAiFeedback}</p>
+                  </div>
+                )}
+                {q.speakingAudioData ? (
+                  <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
+                    <label className="flex flex-col gap-1 text-xs font-medium text-base-black">
+                      Override score (out of {SPEAKING_SCORE_SCALE})
+                      <input
+                        type="number"
+                        min={0}
+                        max={SPEAKING_SCORE_SCALE}
+                        value={drafts[q.questionId]?.scoreText ?? ''}
+                        onChange={(event) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [q.questionId]: { ...prev[q.questionId], scoreText: event.target.value, comment: prev[q.questionId]?.comment ?? '' },
+                          }))
+                        }
+                        className="w-24 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                      />
+                    </label>
+                    <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-base-black">
+                      Override feedback (optional)
+                      <input
+                        type="text"
+                        value={drafts[q.questionId]?.comment ?? ''}
+                        onChange={(event) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [q.questionId]: { scoreText: prev[q.questionId]?.scoreText ?? '', comment: event.target.value },
+                          }))
+                        }
+                        placeholder="Feedback for the student (leave blank to keep the AI feedback above)"
+                        className="min-w-[12rem] rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveGrade(q.questionId, SPEAKING_SCORE_SCALE)}
+                      disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
+                      className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {savingQuestionId === q.questionId ? 'Saving...' : 'Save override'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-base-black/50">
+                    Nothing to override yet — the student hasn&apos;t submitted a recording for this question.
+                  </p>
+                )}
+                {gradingErrors[q.questionId] && (
+                  <p className="text-xs text-red-600">{gradingErrors[q.questionId]}</p>
+                )}
+                {q.manualComment && (
+                  <p className="text-xs italic text-base-black/60">Teacher override comment: {q.manualComment}</p>
                 )}
               </div>
             ) : q.type === 'fillBlank' ? (

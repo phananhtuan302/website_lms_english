@@ -85,6 +85,42 @@ function TakeTestPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playCounts, setPlayCounts] = useState<Record<string, number>>({});
 
+  // --- Speaking recording + AI grading (T-052/T-053/T-054) --------------------------
+  // `speakingDeadlinesRef`: the countdown deadline (ms epoch) for each `speaking`
+  // question, set once the student first reaches it (not reset by navigating away and
+  // back — see the effect below). A plain ref, not `useState` — nothing needs to
+  // re-render WHEN a deadline is armed (only the once-per-second `now` tick below drives
+  // the visible countdown), so latching it via a ref avoids a pointless "setState
+  // derived from other state" effect. `speakingStatus`: per-question lifecycle, restored
+  // to `submitted` on load for any question the student already finished (locks
+  // re-recording, mirrors the server-side `speakingSubmittedAt` lock in
+  // `attempts.routes.ts`).
+  const speakingDeadlinesRef = useRef<Record<string, number>>({});
+  const [speakingStatus, setSpeakingStatus] = useState<
+    Record<string, 'recording' | 'submitting' | 'submitted' | 'error'>
+  >({});
+  const [speakingResults, setSpeakingResults] = useState<
+    Record<string, { aiScore: number; aiFeedback: string }>
+  >({});
+  const [speakingError, setSpeakingError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  // `any` — the Web Speech API's `SpeechRecognition` type isn't in the default DOM lib
+  // and is prefixed (`webkitSpeechRecognition`) in Chrome; feature-detected below, never
+  // assumed present (T-053's "browser doesn't support it" fallback).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const speechRecognitionRef = useRef<any>(null);
+  const speakingTranscriptRef = useRef<Record<string, string>>({});
+
+  const speechApiSupported = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition),
+    [],
+  );
+
   const answersRef = useRef(answers);
   useEffect(() => {
     answersRef.current = answers;
@@ -117,6 +153,18 @@ function TakeTestPage() {
           };
         }
         setAnswers(initial);
+
+        // Speaking (T-052–T-054): restore the "already submitted, locked" state for any
+        // question the student finished before a mid-test refresh — the server is the
+        // source of truth for the lock (`speakingSubmittedAt`), this just mirrors it
+        // into the UI so re-recording isn't offered for something already graded.
+        const restoredSpeakingStatus: Record<string, 'submitted'> = {};
+        for (const saved of data.answers) {
+          if (saved.speakingSubmittedAt) {
+            restoredSpeakingStatus[saved.questionId] = 'submitted';
+          }
+        }
+        setSpeakingStatus(restoredSpeakingStatus);
       })
       .catch((err) => {
         setLoadError(err instanceof ApiError ? err.message : 'Failed to load this attempt.');
@@ -182,11 +230,18 @@ function TakeTestPage() {
   }, [attempt]);
 
   const totalQuestions = flatQuestions.length;
-  const answeredCount = flatQuestions.filter((q) => {
+
+  // Speaking (T-052–T-054) is "answered" once its recording has been submitted+graded
+  // (`speakingStatus`), never via the shared `answers` map — a speaking question never
+  // writes `selectedChoiceId`/`textAnswer` at all.
+  function isQuestionAnswered(q: FlatQuestion): boolean {
+    if (q.type === 'speaking') return speakingStatus[q.id] === 'submitted';
     const a = answers[q.id];
     if (!a) return false;
     return isFreeTextType(q.type) ? a.textAnswer.trim() !== '' : a.selectedChoiceId !== null;
-  }).length;
+  }
+
+  const answeredCount = flatQuestions.filter(isQuestionAnswered).length;
 
   // --- Live progress relay (T-016) --------------------------------------------------
   // T-015 built the server-side room/relay; this is the missing student-side emitter.
@@ -270,12 +325,80 @@ function TakeTestPage() {
     return new Date(attempt.startedAt).getTime() + attempt.timeLimitMinutes * 60_000;
   }, [attempt]);
 
-  // 1-second countdown tick, only running when this test actually has a time limit.
+  // Whether ANY question in this test is a timed Speaking question — a stable,
+  // structural check (doesn't change once the attempt loads) used only to decide
+  // whether the countdown tick below needs to run at all.
+  const hasTimedSpeakingQuestion = flatQuestions.some(
+    (q) => q.type === 'speaking' && q.allowedResponseSeconds != null,
+  );
+
+  // 1-second countdown tick — runs when this test has an overall time limit AND/OR
+  // contains at least one timed `speaking` question (T-052).
   useEffect(() => {
-    if (deadline === null) return;
+    if (deadline === null && !hasTimedSpeakingQuestion) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [deadline]);
+  }, [deadline, hasTimedSpeakingQuestion]);
+
+  // Latches question `q`'s response-window deadline into `speakingDeadlinesRef` the
+  // first time the student reaches it (T-052 "when a student reaches it during a
+  // test") — a no-op if already set. Deliberately does NOT reset if they navigate away
+  // and back — the deadline ticks down in the background regardless of which question
+  // is currently displayed, so a student can't "pause" their Speaking time budget by
+  // switching questions. A plain ref mutation, not a state update, so this effect never
+  // itself triggers a re-render — the visible countdown updates via the `now` tick above.
+  useEffect(() => {
+    const q = flatQuestions[currentIndex];
+    if (!q || q.type !== 'speaking' || q.allowedResponseSeconds == null) return;
+    if (speakingStatus[q.id] === 'submitted') return;
+    if (speakingDeadlinesRef.current[q.id] == null) {
+      speakingDeadlinesRef.current[q.id] = Date.now() + q.allowedResponseSeconds * 1000;
+    }
+  }, [currentIndex, flatQuestions, speakingStatus]);
+
+  // Enforces the Speaking countdown at expiry (T-052): auto-stops an in-progress
+  // recording (which submits whatever was captured so far via `MediaRecorder.onstop` ->
+  // `finishRecording`), or auto-advances past a question the student never started
+  // recording for. Only acts on whichever speaking question is CURRENTLY displayed —
+  // documented scope choice: if the student navigates away before starting to record
+  // and the deadline passes while they're viewing a different question, nothing fires
+  // until they return to it (at which point it immediately auto-advances again, since
+  // there's nothing to stop). Recording itself is never silently abandoned this way,
+  // because navigation is disabled while a recording is in progress (`isAnyRecording`
+  // below) — a student can't leave an active recording running unattended.
+  //
+  // The actual `setCurrentIndex` call is deferred one tick (`setTimeout(..., 0)`)
+  // rather than called directly in the effect body — this is genuinely reacting to an
+  // external clock ticking (`now`), not recomputing state from other state, but is
+  // deferred anyway so it reads (and lints) as "a callback responding to an external
+  // event" per this file's existing `handleSubmit`-from-an-effect convention.
+  useEffect(() => {
+    const q = flatQuestions[currentIndex];
+    if (!q || q.type !== 'speaking') return;
+    const deadlineForQuestion = speakingDeadlinesRef.current[q.id];
+    if (deadlineForQuestion == null || now < deadlineForQuestion) return;
+    const status = speakingStatus[q.id];
+    if (status === 'recording') {
+      stopRecording(q);
+    } else if (status !== 'submitting' && status !== 'submitted' && status !== 'error') {
+      const timer = setTimeout(() => {
+        setCurrentIndex((i) => Math.min(totalQuestions - 1, i + 1));
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [now, currentIndex, flatQuestions, speakingStatus, totalQuestions]);
+
+  // Releases the microphone if the student navigates away from the page mid-recording
+  // (e.g. closes the tab) — a safety net alongside the navigation lock below, which
+  // prevents this in the normal in-app flow.
+  useEffect(() => {
+    return () => {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  const isAnySpeakingRecording = Object.values(speakingStatus).includes('recording');
 
   const persistAnswer = useCallback(
     (questionId: string, question: FlatQuestion, local: LocalAnswer) => {
@@ -371,6 +494,127 @@ function TakeTestPage() {
     setPlayCounts((prev) => ({ ...prev, [question.sectionId]: (prev[question.sectionId] ?? 0) + 1 }));
   }
 
+  // --- Speaking recording + AI grading (T-052/T-053/T-054) --------------------------
+
+  function blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error ?? new Error('Failed to read recorded audio.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /** Sends the finished recording + whatever draft transcript was captured to the
+   * server for AI grading (T-054). Called from the `MediaRecorder`'s `onstop` handler,
+   * so it fires whether recording was stopped manually or by the countdown expiring. */
+  async function finishRecording(question: FlatQuestion) {
+    setSpeakingStatus((prev) => ({ ...prev, [question.id]: 'submitting' }));
+    try {
+      const blob = new Blob(recordedChunksRef.current, {
+        type: mediaRecorderRef.current?.mimeType || 'audio/webm',
+      });
+      const audioData = await blobToDataUrl(blob);
+      const transcript = speakingTranscriptRef.current[question.id] ?? '';
+      const result = await studentApi.submitSpeakingAnswer(attemptId!, question.id, {
+        audioData,
+        transcript,
+      });
+      setSpeakingResults((prev) => ({
+        ...prev,
+        [question.id]: { aiScore: result.aiScore, aiFeedback: result.aiFeedback },
+      }));
+      setSpeakingStatus((prev) => ({ ...prev, [question.id]: 'submitted' }));
+    } catch (err) {
+      setSpeakingStatus((prev) => ({ ...prev, [question.id]: 'error' }));
+      setSpeakingError(
+        err instanceof ApiError ? err.message : 'Failed to submit your Speaking answer. Please try again.',
+      );
+    }
+  }
+
+  /** Stops the active recording (manual "Stop & submit" click, or the countdown expiry
+   * effect below) — always releases the microphone stream and, if running, the Web
+   * Speech API session, regardless of which triggered it. The `MediaRecorder`'s own
+   * `onstop` handler (registered in `startRecording`, closed over the same question)
+   * is what actually calls `finishRecording` — this function only ever needs to know
+   * WHICH recorder/stream/recognizer to tear down, never which question, since only one
+   * can ever be active at a time (navigation is locked while recording, see
+   * `isAnySpeakingRecording`). */
+  function stopRecording(_question: FlatQuestion) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch {
+        // Best-effort — an already-stopped/errored recognizer throwing here should
+        // never block finishing the recording.
+      }
+    }
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }
+
+  /** Starts recording a Speaking answer (T-053): requests the microphone, starts a
+   * `MediaRecorder`, and — if the browser supports it (feature-detected, T-053's
+   * "submitting still works... rather than failing") — starts a Web Speech API session
+   * in parallel to build a draft transcript. Recording itself never depends on speech
+   * recognition succeeding or even existing. */
+  async function startRecording(question: FlatQuestion) {
+    setSpeakingError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      recordedChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        void finishRecording(question);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setSpeakingStatus((prev) => ({ ...prev, [question.id]: 'recording' }));
+
+      speakingTranscriptRef.current[question.id] = '';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognitionCtor) {
+        const recognition = new SpeechRecognitionCtor();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        recognition.onresult = (event: any) => {
+          let finalText = '';
+          for (let i = 0; i < event.results.length; i += 1) {
+            finalText += event.results[i][0].transcript;
+          }
+          speakingTranscriptRef.current[question.id] = finalText;
+        };
+        // Best-effort — a recognition error (e.g. no speech detected, network hiccup)
+        // never blocks or fails the recording itself, per T-053's fallback requirement.
+        recognition.onerror = () => undefined;
+        speechRecognitionRef.current = recognition;
+        try {
+          recognition.start();
+        } catch {
+          // Some browsers throw if called too early/late in the recorder's lifecycle —
+          // harmless, the transcript just stays empty for this question.
+        }
+      } else {
+        speechRecognitionRef.current = null;
+      }
+    } catch {
+      setSpeakingError(
+        'Microphone access is required to record a Speaking answer. Please allow microphone access and try again.',
+      );
+    }
+  }
+
   const handleSubmit = useCallback(
     async (auto: boolean) => {
       if (!attemptId || hasSubmittedRef.current) return;
@@ -451,16 +695,16 @@ function TakeTestPage() {
 
       <div className="flex flex-wrap gap-1.5" aria-label="Question navigator">
         {flatQuestions.map((q, index) => {
-          const local = answers[q.id];
-          const isAnswered = local && (isFreeTextType(q.type) ? local.textAnswer.trim() !== '' : local.selectedChoiceId !== null);
+          const isAnswered = isQuestionAnswered(q);
           return (
             <button
               key={q.id}
               type="button"
               onClick={() => setCurrentIndex(index)}
+              disabled={isAnySpeakingRecording}
               aria-current={index === currentIndex ? 'true' : undefined}
               aria-label={`Go to question ${index + 1}${isAnswered ? ' (answered)' : ' (unanswered)'}`}
-              className={`h-8 w-8 rounded-md text-xs font-semibold transition-colors ${
+              className={`h-8 w-8 rounded-md text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                 index === currentIndex
                   ? 'bg-primary-700 text-base-white'
                   : isAnswered
@@ -585,6 +829,75 @@ function TakeTestPage() {
               placeholder="Type your answer"
               className="mt-4 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
+          ) : current.type === 'speaking' ? (
+            <div className="mt-4 flex flex-col gap-3">
+              {current.promptAudioUrl && <audio controls src={current.promptAudioUrl} className="w-full" />}
+
+              {(() => {
+                const currentDeadline = speakingDeadlinesRef.current[current.id];
+                if (speakingStatus[current.id] === 'submitted' || currentDeadline == null) return null;
+                const remainingMsForSpeaking = currentDeadline - now;
+                return (
+                  <div
+                    role="timer"
+                    className={`self-start rounded-md px-3 py-1.5 text-sm font-bold ${
+                      remainingMsForSpeaking < 10_000 ? 'bg-red-100 text-red-700' : 'bg-primary-100 text-primary-700'
+                    }`}
+                  >
+                    Time left to respond: {formatRemaining(remainingMsForSpeaking)}
+                  </div>
+                );
+              })()}
+
+              {speakingStatus[current.id] === 'submitted' ? (
+                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                  <p>
+                    Your Speaking answer has been recorded and submitted. It can&apos;t be re-recorded — you can
+                    revisit your final score and feedback from this test&apos;s result page once it&apos;s
+                    submitted.
+                  </p>
+                  {speakingResults[current.id] && (
+                    <p className="mt-1 text-xs text-green-700">
+                      Immediate Mock AI grade: {speakingResults[current.id].aiScore}/100 —{' '}
+                      {speakingResults[current.id].aiFeedback}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-start gap-2">
+                  {speakingStatus[current.id] === 'recording' ? (
+                    <button
+                      type="button"
+                      onClick={() => stopRecording(current)}
+                      className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-red-700"
+                    >
+                      ⏹ Stop &amp; submit recording
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void startRecording(current)}
+                      disabled={speakingStatus[current.id] === 'submitting'}
+                      className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {speakingStatus[current.id] === 'submitting' ? 'Submitting...' : '🎤 Start recording'}
+                    </button>
+                  )}
+                  {!speechApiSupported && (
+                    <p className="text-xs text-base-black/50">
+                      Your browser doesn&apos;t support automatic transcription — your recording will still be
+                      submitted, with an empty draft transcript.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {speakingError && (
+                <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {speakingError}
+                </p>
+              )}
+            </div>
           ) : (
             <div className="mt-4 flex flex-col gap-2">
               {current.choices.map((choice) => (
@@ -607,11 +920,17 @@ function TakeTestPage() {
         </div>
       )}
 
+      {isAnySpeakingRecording && (
+        <p className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-700">
+          Finish your Speaking recording before moving to another question or submitting the test.
+        </p>
+      )}
+
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-          disabled={currentIndex === 0}
+          disabled={currentIndex === 0 || isAnySpeakingRecording}
           className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           ← Previous
@@ -621,7 +940,8 @@ function TakeTestPage() {
           <button
             type="button"
             onClick={() => setCurrentIndex((i) => Math.min(totalQuestions - 1, i + 1))}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            disabled={isAnySpeakingRecording}
+            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next →
           </button>
@@ -629,7 +949,7 @@ function TakeTestPage() {
           <button
             type="button"
             onClick={() => void handleSubmit(false)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isAnySpeakingRecording}
             className="rounded-md bg-primary-700 px-6 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Submitting...' : 'Submit test'}
@@ -641,7 +961,7 @@ function TakeTestPage() {
         <button
           type="button"
           onClick={() => void handleSubmit(false)}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isAnySpeakingRecording}
           className="self-center text-sm font-medium text-primary-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Submitting...' : 'Finish early and submit test'}

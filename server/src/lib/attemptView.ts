@@ -37,6 +37,10 @@ interface QuestionRow {
   acceptedAnswers: string[];
   /** Only meaningful for `essay` (T-042) — see `Question.essayMaxScore`'s doc comment. */
   essayMaxScore: number | null;
+  /** Only meaningful for `speaking` (T-052) — see `Question.allowedResponseSeconds`/
+   * `promptAudioUrl`'s doc comments in schema.prisma. */
+  allowedResponseSeconds: number | null;
+  promptAudioUrl: string | null;
   choices: ChoiceRow[];
 }
 
@@ -103,6 +107,8 @@ export function buildRuntimeSections(
           order: questionIndex + 1,
           choices,
           essayMaxScore: question.essayMaxScore,
+          allowedResponseSeconds: question.allowedResponseSeconds,
+          promptAudioUrl: question.promptAudioUrl,
         };
       }),
     };
@@ -126,7 +132,15 @@ export function buildResultQuestions(
   test: NestedTestForAttempt,
   answers: Map<
     string,
-    RawAnswer & { isCorrect: boolean | null; manualScore?: number | null; manualComment?: string | null }
+    RawAnswer & {
+      isCorrect: boolean | null;
+      manualScore?: number | null;
+      manualComment?: string | null;
+      speakingAudioData?: string | null;
+      speakingTranscript?: string | null;
+      speakingAiScore?: number | null;
+      speakingAiFeedback?: string | null;
+    }
   >,
 ): AttemptResultQuestionDTO[] {
   return flattenQuestionsInAuthoredOrder(test).map((question, index) => {
@@ -144,6 +158,12 @@ export function buildResultQuestions(
       essayMaxScore: question.essayMaxScore,
       manualScore: answer?.manualScore ?? null,
       manualComment: answer?.manualComment ?? null,
+      allowedResponseSeconds: question.allowedResponseSeconds,
+      promptAudioUrl: question.promptAudioUrl,
+      speakingAudioData: answer?.speakingAudioData ?? null,
+      speakingTranscript: answer?.speakingTranscript ?? null,
+      speakingAiScore: answer?.speakingAiScore ?? null,
+      speakingAiFeedback: answer?.speakingAiFeedback ?? null,
     };
   });
 }

@@ -11,6 +11,19 @@
  * acceptance criteria ("no further answer changes accepted after submit, verify
  * server-side too, not just client-side") — a client bug or a replayed request can
  * never mutate a submitted attempt.
+ *
+ * Speaking answers (T-052–T-056): documented storage choice — recorded audio is stored
+ * directly on `Answer.speakingAudioData` as a base64 `data:` URL, not a file on disk or
+ * any real object-storage/CDN service. No cloud storage integration exists for this
+ * product yet (nor is one required — this is a storage MECHANISM Dev controls, not a
+ * third-party credential, so it needs no `INTEGRATIONS_TODO.md` entry, unlike the
+ * `AIGradingProvider` itself). This keeps the whole Speaking flow working end-to-end in
+ * dev with zero extra infrastructure; a real deployment could swap this for an uploaded
+ * file + hosted URL without changing any other business logic, since every consumer
+ * just treats it as an opaque string. `express.json()`'s body size limit is raised in
+ * `index.ts` specifically to accommodate this (base64 inflates audio ~33%, and
+ * `allowedResponseSeconds` is capped at 300s server-side — see `teacherTests.routes.ts`
+ * — to keep worst-case payload size bounded).
  */
 
 import { Router } from 'express';
@@ -21,6 +34,8 @@ import type {
   RecordTabSwitchResponse,
   SaveAnswerRequest,
   SubmitAttemptResponse,
+  SubmitSpeakingAnswerRequest,
+  SubmitSpeakingAnswerResponse,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
@@ -29,6 +44,7 @@ import { fetchNestedTest } from '../lib/testQueries';
 import type { VariantLayout } from '../lib/variantShuffle';
 import { buildResultQuestions, buildRuntimeSections, flattenQuestionsInAuthoredOrder } from '../lib/attemptView';
 import { gradeAnswer } from '../lib/grading';
+import { getAIGradingProvider } from '../grading';
 
 export const attemptsRouter = Router();
 
@@ -116,6 +132,7 @@ attemptsRouter.get(
         questionId: a.questionId,
         selectedChoiceId: a.selectedChoiceId,
         textAnswer: a.textAnswer,
+        speakingSubmittedAt: a.speakingSubmittedAt ? a.speakingSubmittedAt.toISOString() : null,
       })),
     };
     res.status(200).json(response);
@@ -194,15 +211,18 @@ attemptsRouter.put(
  * browser tab) is rejected with 409 rather than silently re-scoring or overwriting —
  * the result is still readable via `GET /:attemptId/result` afterward either way.
  *
- * `essay` questions (T-042) are NEVER auto-graded (no equivalent grading logic exists,
- * nor should it per T-039's "no new grading logic" spirit) — documented choice:
- * `correctCount`/`totalCount`/`scorePercent` only reflect auto-gradable questions, so a
- * test mixing objective + essay content isn't penalized/skewed by essays that haven't
- * been manually graded yet. Every essay still gets an `Answer` row here (same "every
- * question gets exactly one row" invariant as every other type), just with `isCorrect:
- * null` forever — a teacher's later manual grade (`manualScore`/`manualComment`, via
- * `PATCH .../grade` in `teacherSessions.routes.ts`) is what completes it, shown
- * alongside (not merged into) this auto-graded score on the result view. */
+ * `essay` (T-042) and `speaking` (T-052–T-056) questions are NEVER auto-graded here (no
+ * equivalent grading logic exists, nor should it per T-039's "no new grading logic"
+ * spirit) — documented choice: `correctCount`/`totalCount`/`scorePercent` only reflect
+ * auto-gradable questions, so a test mixing objective + essay/speaking content isn't
+ * penalized/skewed by answers that aren't part of that tally. Every essay/speaking
+ * question still gets an `Answer` row here (same "every question gets exactly one row"
+ * invariant as every other type), just with `isCorrect: null` forever — essay's later
+ * manual grade (`manualScore`/`manualComment`, via `PATCH .../grade` in
+ * `teacherSessions.routes.ts`) and Speaking's AI grade (already computed earlier, at
+ * per-question submission time — see `POST /:attemptId/questions/:questionId/speaking-answer`
+ * below, T-054) are what complete those, shown alongside (not merged into) this
+ * auto-graded score on the result view. */
 attemptsRouter.post(
   '/:attemptId/submit',
   asyncHandler(async (req, res) => {
@@ -222,7 +242,7 @@ attemptsRouter.post(
     ]);
     const answerByQuestionId = new Map(existingAnswers.map((a) => [a.questionId, a]));
     const questions = flattenQuestionsInAuthoredOrder(test);
-    const gradableQuestions = questions.filter((q) => q.type !== 'essay');
+    const gradableQuestions = questions.filter((q) => q.type !== 'essay' && q.type !== 'speaking');
 
     let correctCount = 0;
     const totalCount = gradableQuestions.length;
@@ -231,7 +251,7 @@ attemptsRouter.post(
       for (const question of questions) {
         const existing = answerByQuestionId.get(question.id);
         const isCorrect =
-          question.type === 'essay'
+          question.type === 'essay' || question.type === 'speaking'
             ? null
             : gradeAnswer(question, {
                 selectedChoiceId: existing?.selectedChoiceId ?? null,
@@ -320,6 +340,10 @@ attemptsRouter.get(
           isCorrect: a.isCorrect,
           manualScore: a.manualScore,
           manualComment: a.manualComment,
+          speakingAudioData: a.speakingAudioData,
+          speakingTranscript: a.speakingTranscript,
+          speakingAiScore: a.speakingAiScore,
+          speakingAiFeedback: a.speakingAiFeedback,
         },
       ]),
     );
@@ -379,6 +403,105 @@ attemptsRouter.post(
     });
 
     const response: RecordTabSwitchResponse = { tabSwitchCount: updated.tabSwitchCount };
+    res.status(200).json(response);
+  }),
+);
+
+/** `POST /api/attempts/:attemptId/questions/:questionId/speaking-answer` — T-052–T-054.
+ *
+ * The student's finished recording (audio + whatever draft transcript the Web Speech
+ * API produced, T-053) is submitted for exactly ONE `speaking` question at a time —
+ * distinct from the whole-attempt `/submit` above, since a Speaking response is
+ * finalized the moment its own timed window ends (auto-stop) or the student explicitly
+ * stops recording, independent of when the rest of the test gets submitted (see
+ * `TakeTestPage.tsx`'s per-question countdown, T-052).
+ *
+ * Graded synchronously, right here, via the currently-registered `AIGradingProvider`
+ * (Mock, T-051/T-054) — not deferred to the whole-attempt submit handler — so the
+ * student can see an immediate confirmation and a teacher can start reviewing/
+ * overriding (T-055) before the student even finishes the rest of the test.
+ *
+ * Locked after the first successful submission (`speakingSubmittedAt` doubles as the
+ * lock): re-submitting is rejected with 409 rather than silently overwriting the
+ * original AI verdict, per T-054's "no silent overwrite" acceptance criteria — this is
+ * the Speaking-specific analogue of the whole-attempt "submitted is terminal" rule
+ * already enforced above for `/submit`. */
+attemptsRouter.post(
+  '/:attemptId/questions/:questionId/speaking-answer',
+  asyncHandler(async (req, res) => {
+    const attempt = await loadOwnAttempt(req.params.attemptId, req.user!.sub);
+    if (!attempt) {
+      res.status(404).json({ error: 'Attempt not found.' });
+      return;
+    }
+    if (attempt.status !== 'inProgress') {
+      res.status(409).json({ error: 'This attempt has already been submitted; answers can no longer be changed.' });
+      return;
+    }
+
+    const question = await prisma.question.findUnique({
+      where: { id: req.params.questionId },
+      include: { section: true },
+    });
+    if (!question || question.section.testId !== attempt.testId) {
+      res.status(404).json({ error: 'Question not found on this attempt.' });
+      return;
+    }
+    if (question.type !== 'speaking') {
+      res.status(400).json({ error: 'Only speaking questions accept a speaking-answer submission.' });
+      return;
+    }
+
+    const existing = await prisma.answer.findUnique({
+      where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+    });
+    if (existing?.speakingSubmittedAt) {
+      res.status(409).json({
+        error: 'This speaking answer has already been submitted and graded; it cannot be re-submitted.',
+      });
+      return;
+    }
+
+    const body = req.body as Partial<SubmitSpeakingAnswerRequest>;
+    if (typeof body.audioData !== 'string' || body.audioData.trim() === '') {
+      res.status(400).json({ error: 'audioData is required (the recorded answer, as a base64 data: URL).' });
+      return;
+    }
+    if (typeof body.transcript !== 'string') {
+      res.status(400).json({ error: 'transcript must be a string (may be empty).' });
+      return;
+    }
+
+    const provider = getAIGradingProvider();
+    const { score, feedback } = await provider.grade(body.transcript, body.audioData, question.prompt);
+    const submittedAt = new Date();
+
+    await prisma.answer.upsert({
+      where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+      create: {
+        attemptId: attempt.id,
+        questionId: question.id,
+        speakingAudioData: body.audioData,
+        speakingTranscript: body.transcript,
+        speakingAiScore: score,
+        speakingAiFeedback: feedback,
+        speakingSubmittedAt: submittedAt,
+      },
+      update: {
+        speakingAudioData: body.audioData,
+        speakingTranscript: body.transcript,
+        speakingAiScore: score,
+        speakingAiFeedback: feedback,
+        speakingSubmittedAt: submittedAt,
+      },
+    });
+
+    const response: SubmitSpeakingAnswerResponse = {
+      questionId: question.id,
+      aiScore: score,
+      aiFeedback: feedback,
+      submittedAt: submittedAt.toISOString(),
+    };
     res.status(200).json(response);
   }),
 );

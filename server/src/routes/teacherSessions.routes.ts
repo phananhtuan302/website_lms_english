@@ -22,6 +22,7 @@ import type {
   GradeEssayAnswerRequest,
   TestSessionDTO,
 } from '@platform/shared';
+import { SPEAKING_SCORE_SCALE } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -276,6 +277,10 @@ teacherSessionsRouter.get(
           isCorrect: a.isCorrect,
           manualScore: a.manualScore,
           manualComment: a.manualComment,
+          speakingAudioData: a.speakingAudioData,
+          speakingTranscript: a.speakingTranscript,
+          speakingAiScore: a.speakingAiScore,
+          speakingAiFeedback: a.speakingAiFeedback,
         },
       ]),
     );
@@ -302,10 +307,15 @@ teacherSessionsRouter.get(
 );
 
 /** PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade — manual essay
- * grading (T-042). Ownership is checked the same way as the attempt-detail GET above
- * (via the attempt's test, 404 if not this teacher's). Only valid for an `essay`
- * question that has actually been submitted (an in-progress attempt has nothing final
- * to grade yet); `score` must be within `[0, essayMaxScore]`. */
+ * grading (T-042) AND Speaking override (T-055) — both reuse the exact same
+ * `manualScore`/`manualComment` columns and the same "teacher value wins once present"
+ * display rule (see `AttemptResultQuestionDTO`'s doc comment in `@platform/shared`), so
+ * one endpoint serves both question types. Ownership is checked the same way as the
+ * attempt-detail GET above (via the attempt's test, 404 if not this teacher's). Only
+ * valid for an `essay`/`speaking` question that has actually been submitted (an
+ * in-progress attempt has nothing final to grade yet, and an ungraded Speaking answer —
+ * one the student never recorded — has no AI verdict to override either); `score` must
+ * be within `[0, essayMaxScore]` for essay or `[0, SPEAKING_SCORE_SCALE]` for speaking. */
 teacherSessionsRouter.patch(
   '/attempts/:attemptId/answers/:questionId/grade',
   asyncHandler(async (req, res) => {
@@ -334,13 +344,23 @@ teacherSessionsRouter.patch(
       res.status(404).json({ error: 'Question not found on this attempt.' });
       return;
     }
-    if (question.type !== 'essay') {
-      res.status(400).json({ error: 'Only essay questions can be manually graded.' });
+    if (question.type !== 'essay' && question.type !== 'speaking') {
+      res.status(400).json({ error: 'Only essay or speaking questions can be manually graded.' });
+      return;
+    }
+
+    const existingAnswer = await prisma.answer.findUnique({
+      where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+    });
+    if (question.type === 'speaking' && !existingAnswer?.speakingSubmittedAt) {
+      res
+        .status(409)
+        .json({ error: 'This speaking answer has not been submitted by the student yet — nothing to override.' });
       return;
     }
 
     const body = req.body as Partial<GradeEssayAnswerRequest>;
-    const maxScore = question.essayMaxScore ?? 0;
+    const maxScore = question.type === 'essay' ? (question.essayMaxScore ?? 0) : SPEAKING_SCORE_SCALE;
     if (typeof body.score !== 'number' || Number.isNaN(body.score) || body.score < 0 || body.score > maxScore) {
       res.status(400).json({ error: `score must be a number between 0 and ${maxScore}.` });
       return;
