@@ -9,6 +9,16 @@ const STATUS_LABEL: Record<AttemptSummaryDTO['status'], string> = {
   submitted: 'Submitted',
 };
 
+/** `null` (never submitted — see `AttemptSummaryDTO.timeTakenSeconds`'s doc comment,
+ * T-017) renders as an em dash rather than "0:00", so an abandoned attempt reads as
+ * "no data" instead of implying it took zero time. */
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return '—';
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, '0')}`;
+}
+
 /**
  * Teacher's per-session attempt list (T-014), reachable at
  * `/teacher/sessions/:sessionId/attempts` from the session panel in the test editor.
@@ -35,13 +45,23 @@ function TeacherSessionAttemptsPage() {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => (testId ? navigate(`/teacher/tests/${testId}`) : navigate(-1))}
-        className="text-sm text-primary-600 hover:underline"
-      >
-        ← Back to test
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => (testId ? navigate(`/teacher/tests/${testId}`) : navigate(-1))}
+          className="text-sm text-primary-600 hover:underline"
+        >
+          ← Back to test
+        </button>
+        {sessionId && (
+          <Link
+            to={`/teacher/sessions/${sessionId}/live`}
+            className="text-sm font-medium text-primary-600 hover:underline"
+          >
+            Live monitor →
+          </Link>
+        )}
+      </div>
 
       <h1 className="mt-2 text-2xl font-bold text-primary-700">
         Session attempts{testTitle ? ` — ${testTitle}` : ''}
@@ -67,6 +87,7 @@ function TeacherSessionAttemptsPage() {
                 <th className="px-4 py-3">Student</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Score</th>
+                <th className="px-4 py-3">Time taken</th>
                 <th className="px-4 py-3">Started</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -91,6 +112,9 @@ function TeacherSessionAttemptsPage() {
                     {attempt.scorePercent !== null
                       ? `${attempt.scorePercent}% (${attempt.correctCount}/${attempt.totalCount})`
                       : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-base-black/70">
+                    {formatDuration(attempt.timeTakenSeconds)}
                   </td>
                   <td className="px-4 py-3 text-base-black/70">
                     {new Date(attempt.startedAt).toLocaleString()}

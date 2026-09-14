@@ -111,6 +111,15 @@ export interface TestSummaryDTO {
   unitName: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Average `timeTakenSeconds` across this test's COMPLETED (submitted) attempts only
+   * (T-017) — `null` when there are zero completed attempts yet, never `0` as a stand-in
+   * for "no data". An attempt that was joined but never submitted (abandoned) has
+   * `timeTakenSeconds: null` and is excluded from this average rather than counted as 0,
+   * so one impatient student who never finishes can't drag the average down. */
+  averageTimeTakenSeconds: number | null;
+  /** How many completed attempts the average above is based on — shown alongside it so
+   * "average of 1 attempt" reads differently from "average of 30". */
+  completedAttemptCount: number;
 }
 
 /** Full nested shape returned by the single-test editor endpoint. */
@@ -282,9 +291,12 @@ export interface AttemptAnswerDTO {
 }
 
 /** Response for `GET /api/attempts/:attemptId` — everything the take-test runtime needs
- * to render the assigned variant and restore any answers already saved. */
+ * to render the assigned variant and restore any answers already saved. `sessionId`
+ * (T-016) is what the take-test runtime needs to join that session's Socket.IO
+ * teacher-monitor room via `student:join` — see `client/src/pages/TakeTestPage.tsx`. */
 export interface AttemptDetailDTO {
   id: string;
+  sessionId: string;
   testId: string;
   testTitle: string;
   timeLimitMinutes: number | null;
@@ -304,13 +316,15 @@ export interface SaveAnswerRequest {
   textAnswer?: string | null;
 }
 
-/** Response for `POST /api/attempts/:attemptId/submit` (T-013). */
+/** Response for `POST /api/attempts/:attemptId/submit` (T-013). `timeTakenSeconds`
+ * (T-017) is `submittedAt - startedAt` in whole seconds, computed once here. */
 export interface SubmitAttemptResponse {
   attemptId: string;
   status: AttemptStatus;
   correctCount: number;
   totalCount: number;
   scorePercent: number;
+  timeTakenSeconds: number;
 }
 
 /** Per-question breakdown row shared by the student result view (T-014) and the
@@ -344,6 +358,8 @@ export interface AttemptResultDTO {
   correctCount: number | null;
   totalCount: number | null;
   scorePercent: number | null;
+  /** Total time taken in whole seconds (T-017), `null` until submitted. */
+  timeTakenSeconds: number | null;
   questions: AttemptResultQuestionDTO[];
 }
 
@@ -363,6 +379,9 @@ export interface AttemptSummaryDTO {
   scorePercent: number | null;
   startedAt: string;
   submittedAt: string | null;
+  /** Total time taken in whole seconds (T-017), `null` for an attempt still `inProgress`
+   * (including one that's effectively abandoned — never submitted). */
+  timeTakenSeconds: number | null;
 }
 
 // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
@@ -407,3 +426,32 @@ export interface CreateAcademicPeriodRequest {
 }
 
 export type UpdateAcademicPeriodRequest = CreateAcademicPeriodRequest;
+
+// --- Live session monitoring (T-016) -----------------------------------------------
+// The Socket.IO event payload shape shared between the server's in-memory relay
+// (`server/src/realtime/sessionRealtime.ts`, built in T-015) and the client's live
+// dashboard (`client/src/pages/TeacherLiveSessionPage.tsx`). Not a REST DTO — this is
+// the `student:progress` event payload and the `teacher:join` ack's `students` array —
+// but it's shared here anyway (rather than redeclared in both workspaces) for the same
+// reason every other cross-workspace shape lives here: client and server must never
+// drift on what fields exist.
+
+/** One student's latest known progress within a session, keyed by `studentId` (never
+ * socket id — see `sessionRealtime.ts`'s module doc comment for why) so a reconnect
+ * overwrites the same entry instead of adding a second one. */
+export interface LiveStudentProgressDTO {
+  studentId: string;
+  studentName: string;
+  attemptId: string;
+  /** 0-based index into the student's flattened question list (matches
+   * `TakeTestPage.tsx`'s `flatQuestions` indexing) — "which question they're currently
+   * on (or last answered)" per T-016's acceptance criteria. */
+  currentQuestionIndex: number;
+  answeredCount: number;
+  /** Total question count for the test being taken — set once at `student:join` time
+   * (the same for every student in a session, since they all take the same test, just
+   * shuffled per T-009's variants) so the dashboard can render "percent complete"
+   * without a second REST round-trip. */
+  totalQuestions: number;
+  updatedAt: string;
+}

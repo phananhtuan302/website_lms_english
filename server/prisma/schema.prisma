@@ -291,6 +291,19 @@ model Attempt {
   correctCount Int?
   totalCount   Int?
   scorePercent Float?
+  /// Total time taken, in whole seconds (T-017): `submittedAt - startedAt`, computed and
+  /// stored once at submission time (`attempts.routes.ts`'s submit handler) — never
+  /// recomputed on read, so it can't drift if `startedAt`/`submittedAt` are ever
+  /// inspected later. `null` until submitted.
+  ///
+  /// Documented choice (T-017 "your call, document it") for excluding abandoned
+  /// attempts from the average: this schema has NO separate "abandoned" status — an
+  /// attempt that's never submitted just stays `AttemptStatus.inProgress` forever with
+  /// `timeTakenSeconds: null`. The average-time query (`teacherTests.routes.ts`'s
+  /// `GET /tests` handler) filters on `status: 'submitted'` (equivalently, `timeTakenSeconds
+  /// IS NOT NULL`), so an abandoned attempt is simply excluded rather than corrupting the
+  /// average — no new enum value needed.
+  timeTakenSeconds Int?
   answers      Answer[]
 
   @@unique([sessionId, studentId])

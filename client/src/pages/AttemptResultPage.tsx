@@ -51,6 +51,8 @@ function AttemptResultPage() {
         </p>
         <p className="mt-1 text-xs text-base-black/50">
           Submitted {result.submittedAt ? new Date(result.submittedAt).toLocaleString() : ''}
+          {result.timeTakenSeconds !== null &&
+            ` · Time taken: ${Math.floor(result.timeTakenSeconds / 60)}:${String(result.timeTakenSeconds % 60).padStart(2, '0')}`}
         </p>
       </div>
 

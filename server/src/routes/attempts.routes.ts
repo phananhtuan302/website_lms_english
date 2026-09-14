@@ -70,6 +70,7 @@ attemptsRouter.get(
       scorePercent: a.scorePercent,
       startedAt: a.startedAt.toISOString(),
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
+      timeTakenSeconds: a.timeTakenSeconds,
     }));
     res.status(200).json(summaries);
   }),
@@ -97,6 +98,7 @@ attemptsRouter.get(
 
     const response: AttemptDetailDTO = {
       id: attempt.id,
+      sessionId: attempt.sessionId,
       testId: test.id,
       testTitle: test.title,
       timeLimitMinutes: test.timeLimitMinutes,
@@ -230,14 +232,25 @@ attemptsRouter.post(
 
       const scorePercent = totalCount > 0 ? Number(((correctCount / totalCount) * 100).toFixed(1)) : 0;
 
+      // T-017: total time taken, in whole seconds, computed ONCE here from the same
+      // `submittedAt` instant being stored — never recomputed later from a fresh
+      // `new Date()`, so re-reading this attempt afterward always reports the exact
+      // same duration.
+      const submittedAt = new Date();
+      const timeTakenSeconds = Math.max(
+        0,
+        Math.round((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000),
+      );
+
       return tx.attempt.update({
         where: { id: attempt.id },
         data: {
           status: 'submitted',
-          submittedAt: new Date(),
+          submittedAt,
           correctCount,
           totalCount,
           scorePercent,
+          timeTakenSeconds,
         },
       });
     });
@@ -248,6 +261,7 @@ attemptsRouter.post(
       correctCount: result.correctCount!,
       totalCount: result.totalCount!,
       scorePercent: result.scorePercent!,
+      timeTakenSeconds: result.timeTakenSeconds!,
     };
     res.status(200).json(response);
   }),
@@ -294,6 +308,7 @@ attemptsRouter.get(
       correctCount: attempt.correctCount,
       totalCount: attempt.totalCount,
       scorePercent: attempt.scorePercent,
+      timeTakenSeconds: attempt.timeTakenSeconds,
       questions: buildResultQuestions(test, answerMap),
     };
     res.status(200).json(response);

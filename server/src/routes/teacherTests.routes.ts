@@ -214,16 +214,41 @@ teacherTestsRouter.get(
       },
     });
 
-    const summaries: TestSummaryDTO[] = tests.map((test) => ({
-      id: test.id,
-      title: test.title,
-      sectionCount: test.sections.length,
-      questionCount: test.sections.reduce((sum, s) => sum + s._count.questions, 0),
-      unitId: test.unitId,
-      unitName: test.unit?.name ?? null,
-      createdAt: test.createdAt.toISOString(),
-      updatedAt: test.updatedAt.toISOString(),
-    }));
+    // T-017: average time-taken per test, across COMPLETED attempts only. One extra
+    // aggregate query for the whole list (grouped by testId) rather than N+1 — `status:
+    // 'submitted'` is what excludes an abandoned (never-submitted) attempt from the
+    // average; `timeTakenSeconds: { not: null }` additionally guards against any
+    // pre-T-017 submitted attempt that predates this column (should be none in a fresh
+    // dev DB, but costs nothing to be defensive about a `null` sneaking into the avg).
+    const timeStats = await prisma.attempt.groupBy({
+      by: ['testId'],
+      where: {
+        testId: { in: tests.map((t) => t.id) },
+        status: 'submitted',
+        timeTakenSeconds: { not: null },
+      },
+      _avg: { timeTakenSeconds: true },
+      _count: { _all: true },
+    });
+    const timeStatsByTestId = new Map(timeStats.map((s) => [s.testId, s]));
+
+    const summaries: TestSummaryDTO[] = tests.map((test) => {
+      const stats = timeStatsByTestId.get(test.id);
+      const averageTimeTakenSeconds =
+        stats && stats._avg.timeTakenSeconds != null ? Math.round(stats._avg.timeTakenSeconds) : null;
+      return {
+        id: test.id,
+        title: test.title,
+        sectionCount: test.sections.length,
+        questionCount: test.sections.reduce((sum, s) => sum + s._count.questions, 0),
+        unitId: test.unitId,
+        unitName: test.unit?.name ?? null,
+        createdAt: test.createdAt.toISOString(),
+        updatedAt: test.updatedAt.toISOString(),
+        averageTimeTakenSeconds,
+        completedAttemptCount: stats?._count._all ?? 0,
+      };
+    });
 
     res.status(200).json(summaries);
   }),

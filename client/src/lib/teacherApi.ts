@@ -96,6 +96,8 @@ export const teacherApi = {
   startSession: (testId: string) =>
     apiRequest<CreateSessionResponse>(`${base}/${testId}/sessions`, { method: 'POST' }),
   listSessions: (testId: string) => apiRequest<TestSessionDTO[]>(`${base}/${testId}/sessions`),
+  getSession: (sessionId: string) =>
+    apiRequest<CreateSessionResponse>(`/api/teacher/sessions/${sessionId}`),
   closeSession: (sessionId: string) =>
     apiRequest<TestSessionDTO>(`/api/teacher/sessions/${sessionId}/close`, { method: 'POST' }),
 

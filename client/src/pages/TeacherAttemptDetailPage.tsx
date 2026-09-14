@@ -52,6 +52,12 @@ function TeacherAttemptDetailPage() {
             <p className="mt-1 text-sm text-base-black/70">
               {result.correctCount} out of {result.totalCount} correct
             </p>
+            {result.timeTakenSeconds !== null && (
+              <p className="mt-1 text-xs text-base-black/50">
+                Time taken: {Math.floor(result.timeTakenSeconds / 60)}:
+                {String(result.timeTakenSeconds % 60).padStart(2, '0')}
+              </p>
+            )}
           </>
         ) : (
           <p className="mt-2 text-lg font-semibold text-base-black/60">Still in progress — not yet submitted</p>

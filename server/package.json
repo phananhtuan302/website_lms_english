@@ -14,7 +14,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "verify:realtime": "tsx scripts/verify-realtime.ts"
+    "verify:realtime": "tsx scripts/verify-realtime.ts",
+    "verify:live-dashboard": "tsx scripts/verify-live-dashboard.ts",
+    "verify:time-tracking": "tsx scripts/verify-time-tracking.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

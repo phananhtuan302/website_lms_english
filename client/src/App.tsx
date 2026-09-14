@@ -13,6 +13,7 @@ import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
+import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
@@ -48,6 +49,10 @@ function App() {
               <Route
                 path="/teacher/sessions/:sessionId/attempts"
                 element={<TeacherSessionAttemptsPage />}
+              />
+              <Route
+                path="/teacher/sessions/:sessionId/live"
+                element={<TeacherLiveSessionPage />}
               />
               <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
             </Route>

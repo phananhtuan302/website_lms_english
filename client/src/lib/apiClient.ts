@@ -4,7 +4,9 @@
  * client should call `fetch` against the API directly.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+// Exported (T-016) so `lib/socket.ts` connects Socket.IO to the exact same origin as
+// every REST call, instead of re-deriving/duplicating the "where's the API" logic.
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
 const TOKEN_STORAGE_KEY = 'auth_token';
 

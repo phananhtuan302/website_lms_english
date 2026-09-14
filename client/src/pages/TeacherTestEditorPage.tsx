@@ -553,6 +553,13 @@ function TeacherTestEditorPage() {
               <span className="flex items-center gap-3">
                 <button
                   type="button"
+                  onClick={() => navigate(`/teacher/sessions/${session.id}/live`)}
+                  className="text-xs font-medium text-primary-600 hover:underline"
+                >
+                  Live monitor
+                </button>
+                <button
+                  type="button"
                   onClick={() => navigate(`/teacher/sessions/${session.id}/attempts`)}
                   className="text-xs font-medium text-primary-600 hover:underline"
                 >

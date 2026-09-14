@@ -4,10 +4,23 @@ import type { TestSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
+/** `null` average (zero completed attempts yet, T-017) renders as nothing rather than
+ * "0:00" — see `TestSummaryDTO.averageTimeTakenSeconds`'s doc comment for why an
+ * abandoned (never-submitted) attempt is excluded rather than counted as zero time. */
+function formatAverageDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, '0')}`;
+}
+
 /**
  * Teacher's "my tests" list (T-008). Reachable from the teacher dashboard. Lets a
  * teacher see every test they've authored and create a new one, which immediately
  * navigates into the editor (`TeacherTestEditorPage`) for that new test.
+ *
+ * Also shows the average time-taken across completed attempts per test (T-017) — the
+ * documented "your call" placement for this stat, since it's the one view a teacher
+ * already visits to get a bird's-eye read on all of their tests at once.
  */
 function TeacherTestsPage() {
   const navigate = useNavigate();
@@ -103,6 +116,17 @@ function TeacherTestsPage() {
                         {test.unitName}
                       </span>
                     </>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-base-black/60">
+                  {test.averageTimeTakenSeconds !== null ? (
+                    <>
+                      Average time taken: {formatAverageDuration(test.averageTimeTakenSeconds)} (
+                      {test.completedAttemptCount} completed attempt
+                      {test.completedAttemptCount === 1 ? '' : 's'})
+                    </>
+                  ) : (
+                    'Average time taken: — (no completed attempts yet)'
                   )}
                 </p>
               </div>

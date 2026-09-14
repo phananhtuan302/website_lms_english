@@ -33,18 +33,14 @@
  */
 
 import type { Server as SocketIOServer, Socket } from 'socket.io';
-import type { AuthTokenPayload } from '@platform/shared';
+import type { AuthTokenPayload, LiveStudentProgressDTO } from '@platform/shared';
 import { verifyToken } from '../lib/jwt';
 import { prisma } from '../lib/prisma';
 
-export interface StudentProgress {
-  studentId: string;
-  studentName: string;
-  attemptId: string;
-  currentQuestionIndex: number;
-  answeredCount: number;
-  updatedAt: string;
-}
+/** Kept as a local alias (rather than renaming every usage below) — the shape now lives
+ * in `@platform/shared` as `LiveStudentProgressDTO` (T-016) so the client's live
+ * dashboard shares the exact same type instead of redeclaring it. */
+export type StudentProgress = LiveStudentProgressDTO;
 
 type AckResponse = { ok: true; [key: string]: unknown } | { ok: false; error: string };
 type Ack = (response: AckResponse) => void;
@@ -57,8 +53,38 @@ function isAck(value: unknown): value is Ack {
  * id) so a reconnect overwrites the existing entry instead of adding a second one. */
 const sessionProgress = new Map<string, Map<string, StudentProgress>>();
 
+/** Sessions that have been closed (T-016), via either close path in
+ * `teacherSessions.routes.ts` (`markSessionClosed` below). Checked before relaying any
+ * further `student:progress` update into a teacher room — "closing/finishing the
+ * session stops further live updates" per T-016's acceptance criteria. In-memory only,
+ * same single-process assumption as `sessionProgress` above (see this module's top doc
+ * comment); never cleared, but bounded by the number of sessions ever closed in one
+ * server process lifetime, which is fine for this local-dev-only product. */
+const closedSessionIds = new Set<string>();
+
+/** Set once by `attachSessionRealtime` at server startup so `markSessionClosed` (called
+ * from the REST session-close routes, a different module) can push a `session:closed`
+ * event to any teacher dashboard that already has the room open — without that module
+ * needing its own reference to `io`. */
+let ioRef: SocketIOServer | null = null;
+
 export function teacherRoom(sessionId: string): string {
   return `teacher:${sessionId}`;
+}
+
+/**
+ * Marks a session closed (T-016): called from `teacherSessions.routes.ts` on BOTH paths
+ * that stop a session accepting joins (explicit `POST /sessions/:sessionId/close`, and
+ * starting a new session auto-closing the test's previous active one) — same two paths
+ * documented in that file's module comment. From this point on, `student:progress` /
+ * `student:join` for this session update the in-memory snapshot (so a teacher opening
+ * the dashboard for the first time after close still sees the final state) but no longer
+ * relay into the teacher room, and a `session:closed` event is pushed immediately to
+ * anyone already watching so an open dashboard doesn't have to poll to notice.
+ */
+export function markSessionClosed(sessionId: string): void {
+  closedSessionIds.add(sessionId);
+  ioRef?.to(teacherRoom(sessionId)).emit('session:closed', { sessionId });
 }
 
 function getOrCreateSessionMap(sessionId: string): Map<string, StudentProgress> {
@@ -81,6 +107,9 @@ interface StudentSocketState {
   sessionId: string;
   attemptId: string;
   studentName: string;
+  /** Captured once at `student:join` time so `student:progress` never has to re-query
+   * the DB just to keep echoing the same value (T-016 — see `LiveStudentProgressDTO`). */
+  totalQuestions: number;
 }
 
 // `Socket.data` is typed `any` by the library itself (the class's `SocketData` generic
@@ -90,6 +119,8 @@ interface StudentSocketState {
 // unreliable in TypeScript and not worth the risk for two internal-only fields).
 
 export function attachSessionRealtime(io: SocketIOServer): void {
+  ioRef = io;
+
   // Auth handshake middleware — runs for every new connection, including every
   // reconnect (each reconnect is a brand-new Socket.IO connection with a new socket id,
   // so this always re-verifies rather than trusting stale state).
@@ -120,9 +151,13 @@ export function attachSessionRealtime(io: SocketIOServer): void {
 
     /** `teacher:join({ sessionId }, ack)` — joins the calling teacher's socket to that
      * session's monitor room, after verifying they own the session's test. Acks with the
-     * currently-known progress of every student in the session, so opening the monitor
-     * mid-session (or reconnecting) immediately shows current state, not just future
-     * updates (this is what T-016's dashboard will render). */
+     * currently-known progress of every student in the session (T-016's dashboard
+     * renders this as the initial state), so opening the monitor mid-session (or
+     * reconnecting, including AFTER the session has been closed) immediately shows
+     * current state rather than erroring or starting blank. `sessionStatus` lets the
+     * dashboard show a "closed, no more live updates" banner immediately on open,
+     * without waiting for a `session:closed` event that may have fired before it
+     * connected. */
     socket.on('teacher:join', (payload: { sessionId?: string }, ack?: Ack) => {
       const respond = isAck(ack) ? ack : () => undefined;
       const sessionId = payload?.sessionId;
@@ -147,7 +182,11 @@ export function attachSessionRealtime(io: SocketIOServer): void {
             return;
           }
           await socket.join(teacherRoom(sessionId));
-          respond({ ok: true, students: getSessionProgress(sessionId) });
+          respond({
+            ok: true,
+            students: getSessionProgress(sessionId),
+            sessionStatus: session.status,
+          });
         })
         .catch((err: unknown) => {
           console.error('[socket.io] teacher:join failed:', err);
@@ -177,7 +216,14 @@ export function attachSessionRealtime(io: SocketIOServer): void {
       prisma.attempt
         .findUnique({
           where: { sessionId_studentId: { sessionId, studentId: user.sub } },
-          include: { student: { select: { name: true } } },
+          include: {
+            student: { select: { name: true } },
+            // Needed once here to compute `totalQuestions` (T-016) for the percent-complete
+            // calculation the dashboard renders — same flattened count as
+            // `flattenQuestionsInAuthoredOrder` uses elsewhere, just inlined since this is
+            // the only place in this module that touches Prisma models directly.
+            test: { include: { sections: { include: { questions: { select: { id: true } } } } } },
+          },
         })
         .then((attempt) => {
           if (!attempt) {
@@ -185,10 +231,16 @@ export function attachSessionRealtime(io: SocketIOServer): void {
             return;
           }
 
+          const totalQuestions = attempt.test.sections.reduce(
+            (sum, section) => sum + section.questions.length,
+            0,
+          );
+
           socket.data.studentSession = {
             sessionId,
             attemptId: attempt.id,
             studentName: attempt.student.name,
+            totalQuestions,
           };
 
           const map = getOrCreateSessionMap(sessionId);
@@ -199,11 +251,17 @@ export function attachSessionRealtime(io: SocketIOServer): void {
             attemptId: attempt.id,
             currentQuestionIndex: 0,
             answeredCount: 0,
+            totalQuestions,
             updatedAt: new Date().toISOString(),
           };
           map.set(user.sub, progress);
 
-          io.to(teacherRoom(sessionId)).emit('student:progress', progress);
+          // T-016: a closed session's teacher room no longer receives live updates —
+          // the map above still records the latest snapshot (so a first-ever
+          // `teacher:join` after close still sees final state), it just isn't relayed.
+          if (!closedSessionIds.has(sessionId)) {
+            io.to(teacherRoom(sessionId)).emit('student:progress', progress);
+          }
           respond({ ok: true });
         })
         .catch((err: unknown) => {
@@ -227,7 +285,7 @@ export function attachSessionRealtime(io: SocketIOServer): void {
           return;
         }
 
-        const { sessionId, attemptId, studentName } = studentSession;
+        const { sessionId, attemptId, studentName, totalQuestions } = studentSession;
         const map = getOrCreateSessionMap(sessionId);
         const previous = map.get(user.sub);
 
@@ -243,11 +301,16 @@ export function attachSessionRealtime(io: SocketIOServer): void {
             typeof payload?.answeredCount === 'number'
               ? payload.answeredCount
               : (previous?.answeredCount ?? 0),
+          totalQuestions: previous?.totalQuestions ?? totalQuestions,
           updatedAt: new Date().toISOString(),
         };
         map.set(user.sub, progress);
 
-        io.to(teacherRoom(sessionId)).emit('student:progress', progress);
+        // T-016: see the matching comment in `student:join` above — snapshot is always
+        // kept current, relay is skipped once the session is closed.
+        if (!closedSessionIds.has(sessionId)) {
+          io.to(teacherRoom(sessionId)).emit('student:progress', progress);
+        }
         respond({ ok: true });
       },
     );

@@ -29,6 +29,7 @@ import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { loadEnv } from '../config/env';
 import { fetchNestedTest } from '../lib/testQueries';
 import { buildResultQuestions } from '../lib/attemptView';
+import { markSessionClosed } from '../realtime/sessionRealtime';
 
 export const teacherSessionsRouter = Router();
 
@@ -68,6 +69,12 @@ function toSessionDTO(session: {
  * session's token stops working for new joins the instant the new one exists, without
  * the teacher having to remember to close it manually. A session can also be closed
  * explicitly via `POST /api/teacher/sessions/:sessionId/close`.
+ *
+ * Either path also calls `markSessionClosed` (T-016) for every session that transitions
+ * to `closed` here, so that session's live-monitor room immediately stops relaying
+ * `student:progress` updates — see `realtime/sessionRealtime.ts`'s doc comment on that
+ * function for why closing a session must also be a realtime-layer event, not just a DB
+ * status flip.
  */
 teacherSessionsRouter.post(
   '/tests/:testId/sessions',
@@ -78,6 +85,14 @@ teacherSessionsRouter.post(
     const joinToken = generateJoinToken();
     const manualCode = generateManualCode();
 
+    // Captured BEFORE the transaction closes them, since `updateMany` only returns a
+    // count, not the affected rows — needed after commit to notify the realtime layer
+    // which session ids just became closed.
+    const previouslyActive = await prisma.testSession.findMany({
+      where: { testId: test.id, status: 'active' },
+      select: { id: true },
+    });
+
     const session = await prisma.$transaction(async (tx) => {
       await tx.testSession.updateMany({
         where: { testId: test.id, status: 'active' },
@@ -87,6 +102,10 @@ teacherSessionsRouter.post(
         data: { testId: test.id, joinToken, manualCode, status: 'active' },
       });
     });
+
+    for (const closed of previouslyActive) {
+      markSessionClosed(closed.id);
+    }
 
     const joinUrl = buildJoinUrl(session.joinToken);
     const qrCodeDataUrl = await QRCode.toDataURL(joinUrl);
@@ -171,6 +190,10 @@ teacherSessionsRouter.post(
           })
         : session;
 
+    if (session.status === 'active') {
+      markSessionClosed(session.id);
+    }
+
     res.status(200).json(toSessionDTO(updated));
   }),
 );
@@ -213,6 +236,7 @@ teacherSessionsRouter.get(
       scorePercent: a.scorePercent,
       startedAt: a.startedAt.toISOString(),
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
+      timeTakenSeconds: a.timeTakenSeconds,
     }));
     res.status(200).json(summaries);
   }),
@@ -258,6 +282,7 @@ teacherSessionsRouter.get(
       correctCount: attempt.correctCount,
       totalCount: attempt.totalCount,
       scorePercent: attempt.scorePercent,
+      timeTakenSeconds: attempt.timeTakenSeconds,
       questions: buildResultQuestions(test, answerMap),
     };
     res.status(200).json(response);

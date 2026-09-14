@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { Socket } from 'socket.io-client';
 import type { AttemptDetailDTO, AttemptQuestionDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
+import { createSessionSocket } from '../lib/socket';
 
 interface FlatQuestion extends AttemptQuestionDTO {
   sectionTitle: string;
@@ -112,6 +114,59 @@ function TakeTestPage() {
     if (!a) return false;
     return q.type === 'fillBlank' ? a.textAnswer.trim() !== '' : a.selectedChoiceId !== null;
   }).length;
+
+  // --- Live progress relay (T-016) --------------------------------------------------
+  // T-015 built the server-side room/relay; this is the missing student-side emitter.
+  // Connects once the attempt (and therefore its `sessionId`) is known, joins that
+  // session's realtime layer via `student:join`, then re-emits `student:progress`
+  // whenever the student moves to a different question or answers one — coarse enough
+  // to not spam the socket per keystroke, fine enough for a teacher's live dashboard to
+  // feel real-time. Entirely best-effort: a failed/slow socket never blocks or shows an
+  // error in the take-test UI, since the student's actual answers are already safe via
+  // the REST autosave above regardless of whether this succeeds.
+  const socketRef = useRef<Socket | null>(null);
+  const [isProgressSocketJoined, setIsProgressSocketJoined] = useState(false);
+
+  useEffect(() => {
+    if (!attempt) return undefined;
+
+    let cancelled = false;
+    const socket = createSessionSocket();
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('student:join', { sessionId: attempt.sessionId }, (ack: { ok: boolean }) => {
+        if (!cancelled) {
+          setIsProgressSocketJoined(ack?.ok === true);
+        }
+      });
+    });
+    // A reconnect (network blip) needs to re-join — T-015's server keys progress by
+    // studentId, so re-joining overwrites the same entry rather than duplicating it.
+    socket.io.on('reconnect', () => {
+      socket.emit('student:join', { sessionId: attempt.sessionId }, (ack: { ok: boolean }) => {
+        if (!cancelled) {
+          setIsProgressSocketJoined(ack?.ok === true);
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      socket.disconnect();
+      socketRef.current = null;
+      setIsProgressSocketJoined(false);
+    };
+    // Deliberately keyed on `attempt` (not `attempt.sessionId`) so eslint's
+    // exhaustive-deps rule is satisfied without over-triggering in practice — `attempt`
+    // is only ever set once per page load (see `loadAttempt` above), so this still
+    // connects exactly once per mount.
+  }, [attempt]);
+
+  useEffect(() => {
+    if (!isProgressSocketJoined || totalQuestions === 0) return;
+    socketRef.current?.emit('student:progress', { currentQuestionIndex: currentIndex, answeredCount });
+  }, [isProgressSocketJoined, currentIndex, answeredCount, totalQuestions]);
 
   const deadline = useMemo(() => {
     if (!attempt || attempt.timeLimitMinutes == null) return null;
