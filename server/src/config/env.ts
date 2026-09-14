@@ -35,13 +35,22 @@ export interface Env {
   JWT_SECRET: string;
 }
 
+let cached: Env | undefined;
+
 /**
- * Reads and validates `process.env`. Call this once, as early as possible in the
- * server's entry point (after `dotenv/config` has run). Exits the process with a
- * clear, human-readable message if anything required is missing or blank, rather
- * than letting the app limp along half-configured.
+ * Reads and validates `process.env`. Safe to call from multiple modules (e.g. both
+ * `index.ts` and `lib/jwt.ts`) — the result is memoized after the first successful
+ * call, so validation only runs and only logs once per process. Still exits the
+ * process with a clear, human-readable message if anything required is missing or
+ * blank, rather than letting the app limp along half-configured. Call it as early as
+ * possible from the entry point (after `dotenv/config` has run) so the first call
+ * happens before anything else touches `process.env`.
  */
 export function loadEnv(): Env {
+  if (cached) {
+    return cached;
+  }
+
   const missing = REQUIRED_VARS.filter(({ name }) => {
     const value = process.env[name];
     return value === undefined || value.trim() === '';
@@ -63,10 +72,11 @@ export function loadEnv(): Env {
     process.exit(1);
   }
 
-  return {
+  cached = {
     PORT: Number(process.env.PORT) || 4000,
     CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
     DATABASE_URL: process.env.DATABASE_URL as string,
     JWT_SECRET: process.env.JWT_SECRET as string,
   };
+  return cached;
 }

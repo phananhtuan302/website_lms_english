@@ -5,6 +5,8 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { APP_NAME, HEALTH_CHECK_PATH, type HealthCheckResponse } from '@platform/shared';
 import { loadEnv } from './config/env';
+import { authRouter } from './routes/auth.routes';
+import { demoRouter } from './routes/demo.routes';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
 // message if any are missing, before anything else in the app starts (T-003).
@@ -28,6 +30,13 @@ app.get(HEALTH_CHECK_PATH, (_req, res) => {
   };
   res.status(200).json(body);
 });
+
+// Auth endpoints (T-005): student self-registration + login for both roles.
+app.use('/api/auth', authRouter);
+
+// Placeholder protected routes proving the role-based middleware works (T-005) — see
+// routes/demo.routes.ts for why these exist and when to remove them.
+app.use('/api/demo', demoRouter);
 
 // Socket.IO is attached to the same underlying HTTP server as Express (not a separate port).
 // No events are wired up yet — this is the T-001 scaffold; realtime features land in T-015+.

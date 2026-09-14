@@ -1,9 +1,9 @@
 // Prisma schema for the English Test Platform (server).
 //
-// Scope note (T-002): this file intentionally only defines the `User` model plus the
-// enum it needs. It is the minimal foundation later auth work (T-005) requires. Every
-// other domain model (Test, Section, Question, Flashcard, ...) is owned by its own
-// backlog task (T-007, T-021, T-046, ...) and must NOT be added here ahead of time.
+// Scope note (T-002): originally this file only defined `User`. T-007 adds the
+// Test/Section/Question/Choice domain model (see below). Every other domain model
+// (Flashcard, Grammar, ...) is still owned by its own later backlog task and must NOT
+// be added here ahead of time.
 
 generator client {
   provider = "prisma-client-js"
@@ -34,5 +34,89 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
+  // A teacher's authored tests. Nothing at the DB layer stops a `student`-role user
+  // from being the FK target here — the app layer (T-005 role middleware, T-008
+  // authoring endpoints) is what actually restricts test creation to teachers.
+  tests Test[] @relation("TeacherTests")
+
   @@map("users")
+}
+
+/// Objective question types supported by the MVP test engine (T-007). Content types
+/// added by later phases (Reading passages, Listening audio, Writing essays, Speaking)
+/// are additional `QuestionType` values layered on later per PROJECT_PLAN Guiding
+/// Principle 6 ("one engine, extended over time") — not modeled yet.
+enum QuestionType {
+  multipleChoice
+  trueFalse
+  fillBlank
+}
+
+/// A test authored by a teacher. Kept minimal for T-007 — fields like `testType`
+/// (generic/unitTest/vocabularyCheck/...), Unit tagging, and time limits belong to the
+/// later backlog tasks that actually need them (T-018, T-036, T-038, ...).
+model Test {
+  id        String    @id @default(uuid())
+  title     String
+  teacherId String
+  teacher   User      @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
+  sections  Section[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("tests")
+}
+
+/// A section within a test, explicitly ordered (`order`) since a test always renders
+/// its sections in a fixed sequence.
+model Section {
+  id        String     @id @default(uuid())
+  testId    String
+  test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  title     String
+  order     Int
+  questions Question[]
+  createdAt DateTime   @default(now())
+
+  @@map("sections")
+}
+
+/// A question within a section, explicitly ordered (`order`). `prompt` holds the
+/// question text for every type.
+///
+/// Accepted-answer storage per type (documented per T-007's "your call, document it"):
+/// - `multipleChoice` / `trueFalse`: correctness lives on the related `Choice` rows
+///   (`isCorrect`). `trueFalse` is just a `multipleChoice`-shaped question restricted
+///   to two choices ("True"/"False") at the application layer — no separate storage.
+/// - `fillBlank`: no `Choice` rows are created at all; accepted answers are stored
+///   directly on the question as `acceptedAnswers String[]` (rather than a separate
+///   join table) because they're a flat list of interchangeable correct strings with
+///   no other per-answer data (no `isCorrect` flag needed — every entry in the array
+///   is, by definition, correct) and are always loaded together with the question.
+///   Matching is case-insensitive at grading time (T-013), not enforced by the DB.
+model Question {
+  id              String       @id @default(uuid())
+  sectionId       String
+  section         Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  type            QuestionType
+  prompt          String
+  order           Int
+  acceptedAnswers String[]     @default([])
+  choices         Choice[]
+  createdAt       DateTime     @default(now())
+
+  @@map("questions")
+}
+
+/// A single answer option for a `multipleChoice` or `trueFalse` question. Not used for
+/// `fillBlank` (see `Question.acceptedAnswers`).
+model Choice {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false)
+  order      Int
+
+  @@map("choices")
 }
