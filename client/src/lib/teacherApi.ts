@@ -12,6 +12,8 @@ import type {
   CreateAcademicPeriodRequest,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
+  CreateGrammarExerciseRequest,
+  CreateGrammarTopicRequest,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateSessionResponse,
@@ -20,11 +22,17 @@ import type {
   FlashcardSetDetailDTO,
   FlashcardSetSummaryDTO,
   GenerateVariantsRequest,
+  GradeEssayAnswerRequest,
+  GrammarReportGroupBy,
+  GrammarReportResponseDTO,
+  GrammarTopicDetailDTO,
+  GrammarTopicSummaryDTO,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
   ReportGroupBy,
   ReportResponseDTO,
   SentenceSubmissionDTO,
+  TeacherVocabProgressDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestSummaryDTO,
@@ -33,16 +41,20 @@ import type {
   UpdateAcademicPeriodRequest,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
+  UpdateGrammarExerciseRequest,
+  UpdateGrammarTopicRequest,
   UpdateQuestionRequest,
   UpdateSectionRequest,
   UpdateTestRequest,
   UpdateUnitRequest,
+  VocabPeriodLeaderboardResponseDTO,
 } from '@platform/shared';
 import { apiRequest } from './apiClient';
 
 const base = '/api/teacher/tests';
 const teacherBase = '/api/teacher';
 const flashcardBase = '/api/teacher/flashcard-sets';
+const grammarBase = '/api/teacher/grammar-topics';
 
 export const teacherApi = {
   listTests: () => apiRequest<TestSummaryDTO[]>(base),
@@ -117,6 +129,13 @@ export const teacherApi = {
   getAttemptDetail: (attemptId: string) =>
     apiRequest<AttemptResultDTO>(`/api/teacher/attempts/${attemptId}`),
 
+  // --- Manual essay grading (T-042) --------------------------------------------------
+  gradeEssayAnswer: (attemptId: string, questionId: string, body: GradeEssayAnswerRequest) =>
+    apiRequest<{ questionId: string; manualScore: number; manualComment: string | null }>(
+      `/api/teacher/attempts/${attemptId}/answers/${questionId}/grade`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
+
   // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
   listUnits: () => apiRequest<UnitDTO[]>(`${teacherBase}/units`),
   createUnit: (body: CreateUnitRequest) =>
@@ -182,5 +201,58 @@ export const teacherApi = {
     if (params.testId) query.set('testId', params.testId);
     if (params.unitId) query.set('unitId', params.unitId);
     return apiRequest<ReportResponseDTO>(`${teacherBase}/reports?${query.toString()}`);
+  },
+
+  // --- Vocabulary progress (T-030) + monthly/yearly ranking (T-032/T-033) ------------
+  getVocabSetProgress: (setId: string) =>
+    apiRequest<TeacherVocabProgressDTO>(`${flashcardBase}/${setId}/progress`),
+  getMonthlyVocabRanking: (year: number, month: number) =>
+    apiRequest<VocabPeriodLeaderboardResponseDTO>(
+      `${teacherBase}/vocab-leaderboard/monthly?year=${year}&month=${month}`,
+    ),
+  getYearlyVocabRanking: (year: number) =>
+    apiRequest<VocabPeriodLeaderboardResponseDTO>(
+      `${teacherBase}/vocab-leaderboard/yearly?year=${year}`,
+    ),
+
+  // --- Grammar topics & exercises (T-046/T-047/T-048) --------------------------------
+  listGrammarTopics: () => apiRequest<GrammarTopicSummaryDTO[]>(grammarBase),
+  createGrammarTopic: (body: CreateGrammarTopicRequest) =>
+    apiRequest<GrammarTopicDetailDTO>(grammarBase, { method: 'POST', body: JSON.stringify(body) }),
+  getGrammarTopic: (topicId: string) =>
+    apiRequest<GrammarTopicDetailDTO>(`${grammarBase}/${topicId}`),
+  updateGrammarTopic: (topicId: string, body: UpdateGrammarTopicRequest) =>
+    apiRequest<GrammarTopicDetailDTO>(`${grammarBase}/${topicId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteGrammarTopic: (topicId: string) =>
+    apiRequest<void>(`${grammarBase}/${topicId}`, { method: 'DELETE' }),
+
+  createGrammarExercise: (topicId: string, body: CreateGrammarExerciseRequest) =>
+    apiRequest<GrammarTopicDetailDTO>(`${grammarBase}/${topicId}/exercises`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateGrammarExercise: (topicId: string, exerciseId: string, body: UpdateGrammarExerciseRequest) =>
+    apiRequest<GrammarTopicDetailDTO>(`${grammarBase}/${topicId}/exercises/${exerciseId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteGrammarExercise: (topicId: string, exerciseId: string) =>
+    apiRequest<GrammarTopicDetailDTO>(`${grammarBase}/${topicId}/exercises/${exerciseId}`, {
+      method: 'DELETE',
+    }),
+
+  // --- Grammar reports (T-050) --------------------------------------------------------
+  getGrammarReport: (params: {
+    groupBy: GrammarReportGroupBy;
+    topicId?: string | null;
+    studentId?: string | null;
+  }) => {
+    const query = new URLSearchParams({ groupBy: params.groupBy });
+    if (params.topicId) query.set('topicId', params.topicId);
+    if (params.studentId) query.set('studentId', params.studentId);
+    return apiRequest<GrammarReportResponseDTO>(`${teacherBase}/grammar-reports?${query.toString()}`);
   },
 };

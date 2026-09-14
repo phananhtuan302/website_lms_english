@@ -39,6 +39,30 @@ function StudentDashboardPage() {
           >
             Study vocabulary
           </Link>
+          <Link
+            to="/student/practice"
+            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            Practice a test at home
+          </Link>
+          <Link
+            to="/student/vocab-progress"
+            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            My vocabulary progress
+          </Link>
+          <Link
+            to="/vocab-leaderboard"
+            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            Vocabulary leaderboard
+          </Link>
+          <Link
+            to="/student/grammar-topics"
+            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            Study Grammar
+          </Link>
           <button
             type="button"
             onClick={logout}

@@ -19,6 +19,7 @@ import type {
   SentencePromptDTO,
   StudentFlashcardSetDetailDTO,
   StudentFlashcardSetSummaryDTO,
+  StudentVocabProgressDTO,
   SubmitSentenceRequest,
   SubmitSentenceResponse,
   UpdateFlashcardProgressRequest,
@@ -33,6 +34,9 @@ const base = '/api/flashcard-sets';
 export const flashcardApi = {
   listSets: () => apiRequest<StudentFlashcardSetSummaryDTO[]>(base),
   getSet: (setId: string) => apiRequest<StudentFlashcardSetDetailDTO>(`${base}/${setId}`),
+
+  // --- Progress tracking (T-030) -------------------------------------------------------
+  getMyProgress: () => apiRequest<StudentVocabProgressDTO>(`${base}/progress`),
   setCardProgress: (setId: string, cardId: string, body: UpdateFlashcardProgressRequest) =>
     apiRequest<FlashcardProgressDTO>(`${base}/${setId}/cards/${cardId}/progress`, {
       method: 'PUT',

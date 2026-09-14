@@ -10,11 +10,16 @@ import { demoRouter } from './routes/demo.routes';
 import { teacherTestsRouter } from './routes/teacherTests.routes';
 import { teacherSessionsRouter } from './routes/teacherSessions.routes';
 import { sessionsRouter } from './routes/sessions.routes';
+import { practiceRouter } from './routes/practice.routes';
 import { attemptsRouter } from './routes/attempts.routes';
 import { curriculumRouter } from './routes/curriculum.routes';
 import { teacherFlashcardsRouter } from './routes/teacherFlashcards.routes';
 import { studentFlashcardsRouter } from './routes/studentFlashcards.routes';
 import { teacherReportsRouter } from './routes/teacherReports.routes';
+import { teacherVocabProgressRouter } from './routes/teacherVocabProgress.routes';
+import { vocabLeaderboardRouter } from './routes/vocabLeaderboard.routes';
+import { teacherGrammarRouter } from './routes/teacherGrammar.routes';
+import { studentGrammarRouter } from './routes/studentGrammar.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -62,6 +67,10 @@ app.use('/api/teacher', curriculumRouter);
 // the student's `Attempt` and auto-assigns a variant. See sessions.routes.ts.
 app.use('/api/sessions', sessionsRouter);
 
+// Student-facing home self-practice (T-040): list every test and start/resume a
+// standalone practice attempt for one, outside any teacher-run QR/live session.
+app.use('/api/tests', practiceRouter);
+
 // Student-facing take-test runtime (T-012), auto-grading on submit (T-013), and the
 // student's own result view (T-014). Joining itself is the route above, not here.
 app.use('/api/attempts', attemptsRouter);
@@ -81,6 +90,25 @@ app.use('/api/flashcard-sets', studentFlashcardsRouter);
 // `computeReport` engine in `lib/reporting.ts`. Same `/api/teacher` mount point as the
 // other teacher-only routers above.
 app.use('/api/teacher', teacherReportsRouter);
+
+// Teacher-only vocabulary progress (T-030) + monthly/yearly ranking (T-032/T-033). Same
+// `/api/teacher` mount point as every other teacher-only router above.
+app.use('/api/teacher', teacherVocabProgressRouter);
+
+// Vocabulary leaderboard (T-031) — the one vocab-progress endpoint visible to BOTH
+// roles, so it gets its own top-level mount point instead of `/api/teacher` or
+// `/api/flashcard-sets` (which is student-only, see `studentFlashcards.routes.ts`).
+app.use('/api/vocab-leaderboard', vocabLeaderboardRouter);
+
+// Teacher-only Grammar-topic authoring (T-046/T-047) + practice-exercise authoring
+// (T-048) + Grammar reporting (T-050). Same `/api/teacher` mount point as every other
+// teacher-only router above.
+app.use('/api/teacher', teacherGrammarRouter);
+
+// Student-facing Grammar topic browsing/reading (T-047), practice exercises (T-048),
+// and the Grammar game (T-049). Same "not ownership-scoped, no enrollment concept"
+// reasoning as `/api/flashcard-sets` above.
+app.use('/api/grammar-topics', studentGrammarRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

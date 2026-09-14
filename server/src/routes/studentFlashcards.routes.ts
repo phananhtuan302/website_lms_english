@@ -27,12 +27,14 @@ import type {
   StudentFlashcardCardDTO,
   StudentFlashcardSetDetailDTO,
   StudentFlashcardSetSummaryDTO,
+  StudentVocabProgressDTO,
   SubmitSentenceRequest,
   SubmitSentenceResponse,
   UpdateFlashcardProgressRequest,
   VocabExercisePromptDTO,
   VocabExerciseType,
   VocabGameType,
+  VocabSetProgressDTO,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
@@ -41,6 +43,7 @@ import {
   advanceStatus,
   applyBatchProgress,
   getCurrentStatus,
+  recordExerciseAttempt,
   setFlashcardProgress,
 } from '../lib/flashcardProgress';
 import {
@@ -53,6 +56,7 @@ import {
   isMatchingEligible,
 } from '../lib/flashcardExercises';
 import { sentenceContainsWord } from '../lib/vocabSentence';
+import { summarizeActivityStats, summarizeCardStatuses } from '../lib/vocabProgress';
 
 export const studentFlashcardsRouter = Router();
 
@@ -75,6 +79,67 @@ studentFlashcardsRouter.get(
       cardCount: set._count.cards,
     }));
     res.status(200).json(summaries);
+  }),
+);
+
+/**
+ * `GET /progress` — the requesting student's own vocabulary progress (T-030).
+ * Registered BEFORE `GET /:setId` below so the literal path `/progress` isn't swallowed
+ * by that param route (Express matches routes in declaration order).
+ *
+ * Documented choice: `sets` only includes a flashcard set once the student has at least
+ * one `FlashcardProgress` row somewhere in it — an untouched set trivially reads "0
+ * known, 0 learning, all new," which isn't informative "progress" to show; T-023's
+ * browse page already lists every available set for starting fresh study. `activityStats`
+ * (per exercise/activity type accuracy) is intentionally NOT scoped to one set — a
+ * student's fill-blank accuracy is one number across everything they've practiced.
+ */
+studentFlashcardsRouter.get(
+  '/progress',
+  asyncHandler(async (req, res) => {
+    const studentId = req.user!.sub;
+
+    const sets = await prisma.flashcardSet.findMany({
+      orderBy: { updatedAt: 'desc' },
+      include: { unit: { select: { name: true } }, cards: { select: { id: true } } },
+    });
+
+    const progressRows = await prisma.flashcardProgress.findMany({
+      where: { studentId },
+      select: { cardId: true, status: true },
+    });
+    const statusByCardId = new Map(progressRows.map((p) => [p.cardId, p.status]));
+
+    const setSummaries: VocabSetProgressDTO[] = sets
+      .filter((set) => set.cards.some((card) => statusByCardId.has(card.id)))
+      .map((set) => {
+        const cardIds = set.cards.map((c) => c.id);
+        const statusesInSet = cardIds
+          .map((id) => statusByCardId.get(id))
+          .filter((status): status is NonNullable<typeof status> => !!status)
+          .map((status) => ({ status }));
+        const { knownCount, learningCount, newCount } = summarizeCardStatuses(cardIds, statusesInSet);
+        return {
+          setId: set.id,
+          setName: set.name,
+          unitName: set.unit?.name ?? null,
+          cardCount: cardIds.length,
+          knownCount,
+          learningCount,
+          newCount,
+        };
+      });
+
+    const attemptRows = await prisma.flashcardExerciseAttempt.findMany({
+      where: { studentId },
+      select: { type: true, correct: true },
+    });
+
+    const response: StudentVocabProgressDTO = {
+      sets: setSummaries,
+      activityStats: summarizeActivityStats(attemptRows),
+    };
+    res.status(200).json(response);
   }),
 );
 
@@ -237,6 +302,8 @@ studentFlashcardsRouter.post(
     const currentStatus = await getCurrentStatus(card.id, req.user!.sub);
     const nextStatus = advanceStatus(currentStatus, correct);
     await setFlashcardProgress(card.id, req.user!.sub, nextStatus);
+    // T-030: append-only attempt log, alongside the FlashcardProgress upsert above.
+    await recordExerciseAttempt(card.id, req.user!.sub, type, correct);
 
     const response: CheckVocabExerciseResponse = {
       correct,
@@ -307,7 +374,9 @@ studentFlashcardsRouter.post(
         !!r && typeof r.cardId === 'string' && typeof r.correct === 'boolean' && cardIds.has(r.cardId),
     );
 
-    const updated = await applyBatchProgress(req.user!.sub, validResults);
+    // T-030: logs one `FlashcardExerciseAttempt` row (type 'matching') per result,
+    // alongside the FlashcardProgress upsert `applyBatchProgress` already does.
+    const updated = await applyBatchProgress(req.user!.sub, validResults, 'matching');
     const response: CompleteVocabActivityResponse = { updated };
     res.status(200).json(response);
   }),
@@ -367,6 +436,8 @@ studentFlashcardsRouter.post(
     const currentStatus = await getCurrentStatus(card.id, req.user!.sub);
     const nextStatus = advanceStatus(currentStatus, containsWord);
     await setFlashcardProgress(card.id, req.user!.sub, nextStatus);
+    // T-030: append-only attempt log, alongside the FlashcardProgress upsert above.
+    await recordExerciseAttempt(card.id, req.user!.sub, 'sentence', containsWord);
 
     const response: SubmitSentenceResponse = { containsWord, progressStatus: nextStatus };
     res.status(200).json(response);
@@ -433,7 +504,9 @@ studentFlashcardsRouter.post(
         !!r && typeof r.cardId === 'string' && typeof r.correct === 'boolean' && cardIds.has(r.cardId),
     );
 
-    const updated = await applyBatchProgress(req.user!.sub, validResults);
+    // T-030: logs one `FlashcardExerciseAttempt` row (type = gameType) per result,
+    // alongside the FlashcardProgress upsert `applyBatchProgress` already does.
+    const updated = await applyBatchProgress(req.user!.sub, validResults, gameType);
     const response: CompleteVocabActivityResponse = { updated };
     res.status(200).json(response);
   }),

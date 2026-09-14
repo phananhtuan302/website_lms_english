@@ -54,6 +54,18 @@ model User {
   // A student's "use it in a sentence" submissions (T-029). Same note as `attempts`.
   vocabSentenceSubmissions VocabSentenceSubmission[] @relation("StudentVocabSentenceSubmissions")
 
+  // A student's per-attempt vocabulary exercise/activity log (T-030). Same note as
+  // `attempts` above.
+  flashcardExerciseAttempts FlashcardExerciseAttempt[] @relation("StudentFlashcardExerciseAttempts")
+
+  // A teacher's authored Grammar topics (T-046). Same "app layer enforces the role, not
+  // the FK" note as `tests`/`flashcardSets` above.
+  grammarTopics GrammarTopic[] @relation("TeacherGrammarTopics")
+
+  // A student's per-attempt Grammar exercise log (T-048). Same note as
+  // `flashcardExerciseAttempts` above.
+  grammarExerciseAttempts GrammarExerciseAttempt[] @relation("StudentGrammarExerciseAttempts")
+
   @@map("users")
 }
 
@@ -65,6 +77,10 @@ enum QuestionType {
   multipleChoice
   trueFalse
   fillBlank
+  /// Free-text essay response (T-042/Assumption A3) — graded manually by the teacher
+  /// (`Answer.manualScore`/`manualComment`), never auto-graded. See `Question.essayMaxScore`
+  /// for the point scale a teacher grades against.
+  essay
 }
 
 /// A test authored by a teacher. Kept minimal for T-007 — fields like `testType`
@@ -119,6 +135,9 @@ model Unit {
   // reasoning as `Test.unitId` below: deleting a Unit should never take a teacher's
   // flashcard sets down with it.
   flashcardSets FlashcardSet[]
+  // Optional curriculum tag for a Grammar topic (T-046) — same `SetNull` reasoning as
+  // `flashcardSets` above.
+  grammarTopics GrammarTopic[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -150,14 +169,40 @@ model AcademicPeriod {
 
 /// A section within a test, explicitly ordered (`order`) since a test always renders
 /// its sections in a fixed sequence.
+///
+/// Reading (T-039) and Listening (T-040/T-041) content types are attached at the
+/// SECTION level, not per-question (documented choice): a real reading passage or
+/// listening clip is shared context for every question underneath it, so "one passage/
+/// clip per section, N questions about it" mirrors how these are authored in practice
+/// and avoids storing/repeating the same passage or audio URL on every question row.
+/// Both sets of fields are optional/independent — a section may have neither, either, or
+/// (unusually) both.
+///
+/// - `passageText`/`passageImageUrl` (T-039): plain/markdown-ish text plus an optional
+///   image URL. No rich-text editor/sanitization is introduced — same "just a string,
+///   rendered as-is" level of effort as every other free-text field in this schema.
+/// - `audioUrl`/`maxPlayCount` (T-040/T-041): `audioUrl` follows the exact same
+///   placeholder-URL convention already established by `FlashcardCard.audioUrl`
+///   (T-021/T-026) — a plain URL string, no real hosting/streaming service, never
+///   validated to actually resolve to playable audio. `maxPlayCount` bounds how many
+///   times a STANDALONE (self-practice, T-040) student may press Play; `null` means
+///   unlimited plays. During a LIVE session (T-041) `maxPlayCount` is irrelevant — the
+///   student never gets a self-serve Play button at all, only the teacher's broadcast
+///   Play (see `TestSession.mode` and `server/src/realtime/sessionRealtime.ts`'s
+///   `teacher:playAudio` event) can start playback, so there is nothing to cap
+///   client-side in that mode.
 model Section {
-  id        String     @id @default(uuid())
-  testId    String
-  test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
-  title     String
-  order     Int
-  questions Question[]
-  createdAt DateTime   @default(now())
+  id              String     @id @default(uuid())
+  testId          String
+  test            Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  title           String
+  order           Int
+  passageText     String?
+  passageImageUrl String?
+  audioUrl        String?
+  maxPlayCount    Int?
+  questions       Question[]
+  createdAt       DateTime   @default(now())
 
   @@map("sections")
 }
@@ -183,6 +228,12 @@ model Question {
   prompt          String
   order           Int
   acceptedAnswers String[]     @default([])
+  /// Only meaningful for `essay` (T-042): the point value a teacher grades this essay
+  /// out of (`Answer.manualScore` must be between 0 and this). `null` for every other
+  /// type. Defaults to 10 at creation time if an essay is created without specifying one
+  /// (`teacherTests.routes.ts`) — a simple, documented default rather than forcing every
+  /// essay question to have one configured before it can be saved.
+  essayMaxScore   Int?
   choices         Choice[]
   answers         Answer[]
   createdAt       DateTime     @default(now())
@@ -244,6 +295,24 @@ enum SessionStatus {
   closed
 }
 
+/// Distinguishes a teacher-run QR/in-class session from a student-initiated home
+/// self-practice session (T-040/T-041, documented choice). `live` is every session
+/// created by the existing teacher flow (`POST /tests/:testId/sessions`,
+/// unchanged/default) — this is what T-041's teacher-controlled synchronized Listening
+/// playback applies to. `selfPractice` sessions are created lazily by
+/// `server/src/routes/practice.routes.ts` the first time ANY student requests to
+/// self-practice a given test (one shared `selfPractice` session per `Test`, found-or-
+/// created, never closed) — Listening sections behave per T-040 there (student's own
+/// enabled Play button, optionally capped by `Section.maxPlayCount`) instead of T-041's
+/// teacher-broadcast-only behavior. Every other part of the test-taking engine (grading,
+/// tab-switch detection, essay review, ...) behaves identically regardless of `mode` —
+/// this field ONLY gates Listening playback control, per Guiding Principle 6 ("one
+/// engine, extended over time," not a parallel system for self-practice).
+enum SessionMode {
+  live
+  selfPractice
+}
+
 /// A live/joinable "session" a teacher starts for one of their tests (T-010): a unique
 /// join token (embedded in the QR code's join URL) plus a short manual-entry fallback
 /// code for when scanning isn't possible.
@@ -260,6 +329,8 @@ model TestSession {
   joinToken  String        @unique
   manualCode String
   status     SessionStatus @default(active)
+  /// `live` (default) vs `selfPractice` — see `SessionMode`'s doc comment above.
+  mode       SessionMode   @default(live)
   createdAt  DateTime      @default(now())
   closedAt   DateTime?
   attempts   Attempt[]
@@ -290,21 +361,21 @@ enum AttemptStatus {
 /// that moment, and is deterministic (re-deriving from the same stored `Answer` rows via
 /// `server/src/lib/grading.ts` always yields the same numbers).
 model Attempt {
-  id           String        @id @default(uuid())
-  sessionId    String
-  session      TestSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  testId       String
-  test         Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
-  studentId    String
-  student      User          @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Cascade)
-  variantId    String
-  variant      TestVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  status       AttemptStatus @default(inProgress)
-  startedAt    DateTime      @default(now())
-  submittedAt  DateTime?
-  correctCount Int?
-  totalCount   Int?
-  scorePercent Float?
+  id               String        @id @default(uuid())
+  sessionId        String
+  session          TestSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  testId           String
+  test             Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          User          @relation("StudentAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+  variantId        String
+  variant          TestVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  status           AttemptStatus @default(inProgress)
+  startedAt        DateTime      @default(now())
+  submittedAt      DateTime?
+  correctCount     Int?
+  totalCount       Int?
+  scorePercent     Float?
   /// Total time taken, in whole seconds (T-017): `submittedAt - startedAt`, computed and
   /// stored once at submission time (`attempts.routes.ts`'s submit handler) — never
   /// recomputed on read, so it can't drift if `startedAt`/`submittedAt` are ever
@@ -318,7 +389,19 @@ model Attempt {
   /// IS NOT NULL`), so an abandoned attempt is simply excluded rather than corrupting the
   /// average — no new enum value needed.
   timeTakenSeconds Int?
-  answers      Answer[]
+  /// Global tab-switch / exit detection (T-044), recorded once by the ONE shared
+  /// take-test runtime (`client/src/pages/TakeTestPage.tsx`, per Guiding Principle 5) so
+  /// every test type gets this for free. `tabSwitchCount` is a denormalized running
+  /// total (avoids every reader having to `.length` the log array); `tabSwitchLog` holds
+  /// the ISO timestamp of each detected `visibilitychange`/`blur` event, same
+  /// "plain string array, no separate join table" convention as
+  /// `Question.acceptedAnswers`. Both are append-only and only meaningful while
+  /// `status: inProgress` — the record endpoint (`POST /api/attempts/:id/tab-switch`)
+  /// rejects further writes once submitted, same server-side re-check convention as
+  /// every other attempt-mutating endpoint in this file.
+  tabSwitchCount   Int           @default(0)
+  tabSwitchLog     String[]      @default([])
+  answers          Answer[]
 
   @@unique([sessionId, studentId])
   @@map("attempts")
@@ -346,6 +429,17 @@ model Answer {
   selectedChoice   Choice?  @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
   textAnswer       String?
   isCorrect        Boolean?
+  /// Manual essay grading (T-042). Both stay `null` until a teacher grades this answer
+  /// via `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade` — only
+  /// meaningful when the underlying `Question.type` is `essay` (never set for any other
+  /// type). `isCorrect` above is deliberately left `null` forever for an essay answer
+  /// (there is no auto-graded pass/fail concept for free text) — `manualScore` out of the
+  /// question's `essayMaxScore` is the only score that exists for it, and is displayed
+  /// alongside (not merged into) `Attempt.correctCount`/`scorePercent`, which only ever
+  /// reflect auto-gradable questions. See `attempts.routes.ts`'s submit handler doc
+  /// comment for the full reasoning.
+  manualScore      Float?
+  manualComment    String?
   updatedAt        DateTime @updatedAt
 
   @@unique([attemptId, questionId])
@@ -414,22 +508,25 @@ model FlashcardSet {
 /// schema task didn't call for one and a synonym is, by definition, an acceptable
 /// alternate word for the blank.
 model FlashcardCard {
-  id              String              @id @default(uuid())
-  setId           String
-  set             FlashcardSet        @relation(fields: [setId], references: [id], onDelete: Cascade)
-  term            String
-  meaning         String
-  ipa             String?
-  imageUrl        String?
-  audioUrl        String?
-  exampleSentence String?
-  synonyms        String[]            @default([])
-  antonyms        String[]            @default([])
-  order           Int
-  progress        FlashcardProgress[]
+  id                  String                     @id @default(uuid())
+  setId               String
+  set                 FlashcardSet               @relation(fields: [setId], references: [id], onDelete: Cascade)
+  term                String
+  meaning             String
+  ipa                 String?
+  imageUrl            String?
+  audioUrl            String?
+  exampleSentence     String?
+  synonyms            String[]                   @default([])
+  antonyms            String[]                   @default([])
+  order               Int
+  progress            FlashcardProgress[]
   sentenceSubmissions VocabSentenceSubmission[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  /// Per-attempt exercise/activity log (T-030) — see `FlashcardExerciseAttempt`'s doc
+  /// comment below.
+  exerciseAttempts    FlashcardExerciseAttempt[]
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
 
   @@map("flashcard_cards")
 }
@@ -486,4 +583,193 @@ model VocabSentenceSubmission {
   createdAt    DateTime      @default(now())
 
   @@map("vocab_sentence_submissions")
+}
+
+// --- Vocabulary/exercise progress tracking (T-030) -----------------------------------
+
+/// Every vocabulary "activity" type that can produce a correct/incorrect verdict on one
+/// card, mirroring `VocabExerciseType` (T-024-027) plus `'matching'` (T-028),
+/// `'sentence'` (T-029, verdict = `VocabSentenceSubmission.containsWord`), and the two
+/// vocab games `'spaceShooter'`/`'runner'` (T-034/T-035) — see `@platform/shared`'s
+/// `VocabActivityType` for the matching TS union (string values kept identical, same
+/// "Prisma enum can't import a TS union" note as `Role`/`UserRole`).
+enum VocabActivityType {
+  fillBlank
+  unscramble
+  listenAndType
+  ipaToWord
+  matching
+  sentence
+  spaceShooter
+  runner
+}
+
+/// Per-attempt vocabulary exercise/activity log (T-030), added specifically because
+/// `FlashcardProgress` (above) only ever holds ONE current status per student+card — it
+/// is overwritten on every check, so there is no way to answer "how many fill-blank
+/// attempts has this student made, with what accuracy" from it alone (only "what's their
+/// status right now"). Rather than retrofitting history onto `FlashcardProgress` (which
+/// would mean migrating every existing status transition into a reconstructed log that
+/// doesn't actually exist), this is a lightweight, append-only, ADDITIVE log: every
+/// exercise-check/matching-complete/sentence-submit/game-complete endpoint writes one row
+/// here going forward, alongside (not instead of) its existing `FlashcardProgress`
+/// upsert. No backfill of pre-T-030 history is attempted or needed — T-030's acceptance
+/// criteria only asks for progress tracking from here on, and `FlashcardProgress.status`
+/// still answers "known/learning/new right now" for cards practiced before this log
+/// existed.
+///
+/// Deliberately NOT `@@unique` on any column combination — unlike `FlashcardProgress`,
+/// this is a full history, so the same student may answer the same card via the same
+/// exercise type more than once over time, and every attempt gets its own row.
+model FlashcardExerciseAttempt {
+  id        String            @id @default(uuid())
+  cardId    String
+  card      FlashcardCard     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User              @relation("StudentFlashcardExerciseAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+  type      VocabActivityType
+  correct   Boolean
+  createdAt DateTime          @default(now())
+
+  // Read patterns this indexes for: "this student's stats, optionally per type"
+  // (T-030), and "every attempt in a date range" (T-032/T-033 month/year ranking, via
+  // `createdAt` alone — a plain b-tree index already covers a range scan, no composite
+  // needed).
+  @@index([studentId, type])
+  @@index([cardId])
+  @@index([createdAt])
+  @@map("flashcard_exercise_attempts")
+}
+
+// --- Grammar module (T-046) ----------------------------------------------------------
+// Phase 7: theory content + practice exercises + a per-attempt log for Grammar topics.
+//
+// Documented schema choice (T-046 "your call, document it clearly since it affects
+// T-048"): `GrammarExercise`/`GrammarChoice` MIRROR `Question`/`Choice`'s exact shape —
+// including reusing the very same `QuestionType` enum — as a fully PARALLEL set of
+// models, rather than adding a nullable `sectionId`-free path onto `Question` itself (the
+// "FK linking a Question-shaped table tagged as grammar" alternative the backlog also
+// offered). Reasons:
+//   1. `Question` is always owned by a `Section` of a `Test`, which is always owned by a
+//      `TestSession`/QR-join/variant-shuffle flow. Grammar practice has NONE of that — a
+//      student attempts a topic's exercises directly, anytime, with no session/join
+//      concept at all, exactly like the Flashcard exercises (T-024–T-027) pattern, not
+//      the Test-attempt pattern. Making `Question.sectionId` optional just to attach a
+//      question to a `GrammarTopic` instead would be a non-additive, invasive change to
+//      the core Test engine that Guiding Principle 6 explicitly warns against forcing.
+//   2. `server/src/lib/grading.ts`'s `gradeAnswer` is ALREADY a pure, structural function
+//      over `{ id, type, choices: {id, isCorrect}[], acceptedAnswers }` +
+//      `{ selectedChoiceId, textAnswer }` shapes, with zero dependency on the real
+//      `Question`/`Answer` Prisma models. `GrammarExercise`/`GrammarChoice` rows satisfy
+//      that exact same shape, so T-048 calls the IDENTICAL grading function T-013 uses —
+//      zero duplicated grading rules — without needing a shared table.
+// `essay` remains a valid `QuestionType` value at the DB level (the enum isn't
+// re-declared), but `teacherGrammar.routes.ts` rejects it at the validation layer:
+// Grammar practice is objective-only per T-048's acceptance criteria (no manual-grading
+// UI exists for Grammar).
+
+/// A Grammar topic (T-046): theory content plus its practice exercises. Teacher-owned
+/// (`teacherId`) for authoring rights — same ownership pattern as `FlashcardSet` — while
+/// every topic is readable by every student (T-047), same "no enrollment concept"
+/// convention already used for `FlashcardSet`/`Unit`.
+model GrammarTopic {
+  id            String                   @id @default(uuid())
+  title         String
+  teacherId     String
+  teacher       User                     @relation("TeacherGrammarTopics", fields: [teacherId], references: [id], onDelete: Cascade)
+  // Optional curriculum tag (T-018) — same optional-tag + `SetNull` pattern as
+  // `Test.unitId`/`FlashcardSet.unitId`.
+  unitId        String?
+  unit          Unit?                    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  /// Theory content (T-047): plain/markdown-ish text, paragraphs separated by a blank
+  /// line — same "just a string, rendered as-is, no rich-text editor/sanitization"
+  /// convention already established by `Section.passageText`.
+  theoryContent String
+  exercises     GrammarExercise[]
+  attempts      GrammarExerciseAttempt[]
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@map("grammar_topics")
+}
+
+/// One practice exercise within a `GrammarTopic` (T-046/T-048), explicitly ordered
+/// (`order`) — same convention as `Section`/`Question`. Mirrors `Question`'s exact
+/// type/storage split (see this section's module doc comment above): `multipleChoice`/
+/// `trueFalse` correctness lives on `GrammarChoice.isCorrect`; `fillBlank` has no choice
+/// rows and stores its accepted answers directly as `acceptedAnswers String[]`, matched
+/// case-insensitively at grading time by the same `lib/grading.ts#gradeAnswer` T-013
+/// uses.
+model GrammarExercise {
+  id              String                   @id @default(uuid())
+  topicId         String
+  topic           GrammarTopic             @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  type            QuestionType
+  prompt          String
+  order           Int
+  acceptedAnswers String[]                 @default([])
+  choices         GrammarChoice[]
+  attempts        GrammarExerciseAttempt[]
+  createdAt       DateTime                 @default(now())
+
+  @@map("grammar_exercises")
+}
+
+/// A single answer option for a `multipleChoice`/`trueFalse` `GrammarExercise`. Not used
+/// for `fillBlank` — same split as `Choice`.
+model GrammarChoice {
+  id         String                   @id @default(uuid())
+  exerciseId String
+  exercise   GrammarExercise          @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean                  @default(false)
+  order      Int
+  // `SetNull` (declared on `GrammarExerciseAttempt.selectedChoice`, not here) — same
+  // "don't cascade-delete a student's already-graded attempt" reasoning as `Choice`.
+  attempts   GrammarExerciseAttempt[]
+
+  @@map("grammar_choices")
+}
+
+/// Per-attempt Grammar exercise log (T-048), one row per submission — append-only, same
+/// "full history, not a single overwritten status" convention as `FlashcardExerciseAttempt`
+/// (T-030), which this deliberately mirrors: a student may retry the same exercise, and
+/// T-050's reporting needs to bucket by WHEN each attempt happened (week/month/quarter/
+/// semester/year), not just latest state. `isCorrect` is computed synchronously at
+/// submission time via `lib/grading.ts#gradeAnswer` — the exact same function T-013 uses
+/// for Test answers (see this section's module doc comment for why that's possible
+/// without sharing a table).
+///
+/// `topicId` is a deliberate denormalization of `exercise.topicId` (the exercise's own
+/// FK already implies it) — kept directly on this row so T-050's reporting can bucket/
+/// filter by topic without an extra join on every report query, same "cheap, documented
+/// denormalization" trade-off already used elsewhere in this schema (e.g.
+/// `Attempt.timeTakenSeconds` being computed once and stored rather than derived on read).
+///
+/// `selectedChoiceId`/`textAnswer` are both `null` for a game-round batch submission
+/// (T-049, `POST /grammar-topics/:topicId/games/:gameType/complete`) — that endpoint only
+/// reports an aggregate correct/incorrect verdict per exercise touched during the round,
+/// not which exact choice was clicked, same "client already knows both sides, only the
+/// verdict is persisted" convention as the vocab games' `CompleteVocabActivityRequest`.
+model GrammarExerciseAttempt {
+  id               String          @id @default(uuid())
+  topicId          String
+  topic            GrammarTopic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  exerciseId       String
+  exercise         GrammarExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          User            @relation("StudentGrammarExerciseAttempts", fields: [studentId], references: [id], onDelete: Cascade)
+  selectedChoiceId String?
+  selectedChoice   GrammarChoice?  @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
+  textAnswer       String?
+  isCorrect        Boolean
+  createdAt        DateTime        @default(now())
+
+  // Read patterns this indexes for (T-050): "this student's stats, optionally per
+  // topic" and "every attempt in a date range" (period-bucketing) — same indexing
+  // rationale as `FlashcardExerciseAttempt` above.
+  @@index([studentId, topicId])
+  @@index([topicId])
+  @@index([createdAt])
+  @@map("grammar_exercise_attempts")
 }

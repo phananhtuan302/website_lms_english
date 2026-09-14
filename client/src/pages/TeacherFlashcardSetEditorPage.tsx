@@ -127,9 +127,14 @@ function TeacherFlashcardSetEditorPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
-          ← Back to my flashcard sets
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
+            ← Back to my flashcard sets
+          </Link>
+          <Link to={`/teacher/flashcard-sets/${setId}/progress`} className="text-sm font-medium text-primary-600 hover:underline">
+            View student progress →
+          </Link>
+        </div>
         <input
           type="text"
           value={name}

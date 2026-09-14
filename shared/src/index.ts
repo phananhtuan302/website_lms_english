@@ -70,9 +70,9 @@ export interface AuthTokenPayload {
 // Shared shapes for the teacher test-authoring API. Mirrors `server/prisma/schema.prisma`
 // (Test/Section/Question/Choice) but as plain DTOs, never the Prisma model directly.
 
-/** Matches the Prisma `QuestionType` enum (T-007) — kept as a literal union here since
- * Prisma enums can't be imported into client code. */
-export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank';
+/** Matches the Prisma `QuestionType` enum (T-007, extended by T-042 with `essay`) — kept
+ * as a literal union here since Prisma enums can't be imported into client code. */
+export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank' | 'essay';
 
 export interface ChoiceDTO {
   id: string;
@@ -90,12 +90,25 @@ export interface QuestionDTO {
   acceptedAnswers: string[];
   /** Only meaningful for `multipleChoice`/`trueFalse`; empty array for `fillBlank`. */
   choices: ChoiceDTO[];
+  /** Only meaningful for `essay` (T-042) — the point value a teacher grades this essay
+   * out of. `null` for every other type. */
+  essayMaxScore: number | null;
 }
 
+/** Reading (T-039) and Listening (T-040/T-041) content, attached at the Section level —
+ * see `Section`'s doc comment in `schema.prisma` for why. All four fields are `null`
+ * when not configured for a given section. */
 export interface SectionDTO {
   id: string;
   title: string;
   order: number;
+  passageText: string | null;
+  passageImageUrl: string | null;
+  audioUrl: string | null;
+  /** `null` means unlimited plays (T-040) for a STANDALONE/self-practice attempt; has no
+   * effect during a live session (T-041), where students never get a self-serve Play
+   * button at all. */
+  maxPlayCount: number | null;
   questions: QuestionDTO[];
 }
 
@@ -152,12 +165,23 @@ export interface UpdateTestRequest {
   unitId?: string | null;
 }
 
+/** Reading/Listening fields (T-039/T-040) are all optional and independent of each
+ * other and of `title`. Omitted/undefined leaves the existing value untouched on
+ * update; explicit `null` clears it back to "no passage" / "no audio". */
 export interface CreateSectionRequest {
   title: string;
+  passageText?: string | null;
+  passageImageUrl?: string | null;
+  audioUrl?: string | null;
+  maxPlayCount?: number | null;
 }
 
 export interface UpdateSectionRequest {
   title: string;
+  passageText?: string | null;
+  passageImageUrl?: string | null;
+  audioUrl?: string | null;
+  maxPlayCount?: number | null;
 }
 
 /** Body for the section-reorder endpoint: the full list of that test's section ids, in
@@ -178,10 +202,13 @@ export interface ChoiceInput {
 export interface CreateQuestionRequest {
   type: QuestionType;
   prompt: string;
-  /** Required (non-empty) for multipleChoice/trueFalse, ignored for fillBlank. */
+  /** Required (non-empty) for multipleChoice/trueFalse, ignored for fillBlank/essay. */
   choices?: ChoiceInput[];
   /** Required (non-empty) for fillBlank, ignored otherwise. */
   acceptedAnswers?: string[];
+  /** Only meaningful for `essay` (T-042). Omitted defaults to 10 server-side; ignored
+   * for every other type. */
+  essayMaxScore?: number | null;
 }
 
 export type UpdateQuestionRequest = CreateQuestionRequest;
@@ -218,11 +245,19 @@ export interface GenerateVariantsRequest {
 
 export type SessionStatus = 'active' | 'closed';
 
+/** `live` = a teacher-run QR/in-class session (T-010, unchanged/default). `selfPractice`
+ * = a student-initiated home self-practice session (T-040/T-041) — see `SessionMode`'s
+ * doc comment in `schema.prisma` for the full reasoning. This is what gates whether a
+ * Listening section's Play button is student-controlled (T-040) or teacher-broadcast-only
+ * (T-041). */
+export type SessionMode = 'live' | 'selfPractice';
+
 export interface TestSessionDTO {
   id: string;
   testId: string;
   manualCode: string;
   status: SessionStatus;
+  mode: SessionMode;
   createdAt: string;
   closedAt: string | null;
   /** Relative join URL, e.g. `/join/<token>` — see `server/src/routes/teacherSessions.routes.ts`
@@ -271,14 +306,23 @@ export interface AttemptQuestionDTO {
   prompt: string;
   /** 1-based position within the section, per the assigned variant's shuffled order. */
   order: number;
-  /** Shuffled per the variant; empty for `fillBlank`. Never carries `isCorrect`. */
+  /** Shuffled per the variant; empty for `fillBlank`/`essay`. Never carries `isCorrect`. */
   choices: Array<{ id: string; text: string }>;
+  /** Only meaningful for `essay` (T-042) — shown to the student as "out of N points". */
+  essayMaxScore: number | null;
 }
 
+/** Reading/Listening content for this section (T-039/T-040/T-041) — same fields as
+ * authoring's `SectionDTO`, just carried into the runtime payload too so the take-test
+ * page can render the passage / audio player alongside this section's questions. */
 export interface AttemptSectionDTO {
   id: string;
   title: string;
   order: number;
+  passageText: string | null;
+  passageImageUrl: string | null;
+  audioUrl: string | null;
+  maxPlayCount: number | null;
   questions: AttemptQuestionDTO[];
 }
 
@@ -297,6 +341,10 @@ export interface AttemptAnswerDTO {
 export interface AttemptDetailDTO {
   id: string;
   sessionId: string;
+  /** `live` vs `selfPractice` (T-040/T-041) — gates whether a Listening section's Play
+   * button is student-controlled (`selfPractice`) or teacher-broadcast-only (`live`). See
+   * `SessionMode`'s doc comment. */
+  sessionMode: SessionMode;
   testId: string;
   testTitle: string;
   timeLimitMinutes: number | null;
@@ -342,6 +390,14 @@ export interface AttemptResultQuestionDTO {
   selectedChoiceId: string | null;
   textAnswer: string | null;
   isCorrect: boolean | null;
+  /** Manual essay grading (T-042) — all three `null` until a teacher grades this essay
+   * answer (`PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`), and
+   * `essayMaxScore`/`manualScore`/`manualComment` are meaningless for any non-`essay`
+   * question. Shown ALONGSIDE (not merged into) `AttemptResultDTO.scorePercent`, which
+   * only ever reflects auto-gradable questions — see that field's doc comment. */
+  essayMaxScore: number | null;
+  manualScore: number | null;
+  manualComment: string | null;
 }
 
 /** Response for `GET /api/attempts/:attemptId/result` (student, own attempt only) and
@@ -355,12 +411,69 @@ export interface AttemptResultDTO {
   status: AttemptStatus;
   startedAt: string;
   submittedAt: string | null;
+  /** Auto-graded objective questions only (T-013) — a test containing `essay` questions
+   * (T-042) excludes them from this tally entirely; each essay's own manual score lives
+   * on its `AttemptResultQuestionDTO` row instead (documented choice — see that DTO's
+   * doc comment and `attempts.routes.ts`'s submit handler). */
   correctCount: number | null;
   totalCount: number | null;
   scorePercent: number | null;
   /** Total time taken in whole seconds (T-017), `null` until submitted. */
   timeTakenSeconds: number | null;
+  /** Global tab-switch / exit detection (T-044) — see `Attempt.tabSwitchCount`/`tabSwitchLog`
+   * doc comment in schema.prisma. Always present (0/[] if never triggered). */
+  tabSwitchCount: number;
+  tabSwitchLog: string[];
   questions: AttemptResultQuestionDTO[];
+}
+
+// --- Manual essay grading (T-042) ---------------------------------------------------
+
+/** Body for `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`. `score`
+ * must be between 0 and the question's `essayMaxScore`; `comment` is optional. */
+export interface GradeEssayAnswerRequest {
+  score: number;
+  comment?: string | null;
+}
+
+// --- Anti-copy-paste (T-043) / global tab-switch detection (T-044) ------------------
+// T-043 (anti-copy-paste on the essay textarea) is entirely client-side (DOM `paste`/
+// `copy`/`cut` event interception in `TakeTestPage.tsx`) and needs no server contract of
+// its own — nothing to add here for it.
+
+/** Response for `POST /api/attempts/:attemptId/tab-switch` (T-044) — echoes the updated
+ * running total so the take-test UI can show "(N)" without a second round-trip. */
+export interface RecordTabSwitchResponse {
+  tabSwitchCount: number;
+}
+
+// --- Home self-practice (T-040) -----------------------------------------------------
+// Lets a student take ANY test standalone (outside a teacher-run QR/live session) so
+// Listening sections behave per T-040 (student's own Play button) rather than T-041
+// (teacher-broadcast-only). See `SessionMode`'s doc comment and
+// `server/src/routes/practice.routes.ts`.
+
+/** Row shape for `GET /api/tests` (student-only, T-040) — every test is visible to every
+ * student for self-practice, same "no class/enrollment concept" convention already
+ * documented on `StudentFlashcardSetSummaryDTO`. */
+export interface PracticeTestSummaryDTO {
+  id: string;
+  title: string;
+}
+
+// --- Teacher-controlled synchronized Listening playback (T-041) --------------------
+// Socket.IO event payload (not a REST DTO) shared between the server's realtime relay
+// (`server/src/realtime/sessionRealtime.ts`'s `teacher:playAudio` -> `audio:play`) and
+// the client (`TeacherLiveSessionPage.tsx` emits, `TakeTestPage.tsx` listens) — same
+// "shared here so client/server never drift" reasoning as `LiveStudentProgressDTO`.
+
+export interface LiveAudioPlayEventDTO {
+  sectionId: string;
+  audioUrl: string;
+  /** ISO timestamp the teacher pressed Play — informational only; each client just
+   * starts playback immediately on receipt rather than trying to compute/compensate for
+   * network latency, which is more precision than an in-class listening exercise needs. */
+  playedAt: string;
 }
 
 /** Row shape for a student's own "my attempts" list (student dashboard) and for a
@@ -382,6 +495,9 @@ export interface AttemptSummaryDTO {
   /** Total time taken in whole seconds (T-017), `null` for an attempt still `inProgress`
    * (including one that's effectively abandoned — never submitted). */
   timeTakenSeconds: number | null;
+  /** Global tab-switch / exit detection (T-044) — running count only (the full timestamp
+   * log is on `AttemptResultDTO`, not repeated in this list-row shape). */
+  tabSwitchCount: number;
 }
 
 // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
@@ -655,6 +771,143 @@ export interface SentenceSubmissionDTO {
   createdAt: string;
 }
 
+// --- Vocabulary/exercise progress tracking (T-030) ----------------------------------
+// Mirrors `server/prisma/schema.prisma`'s `FlashcardExerciseAttempt` model — see that
+// model's doc comment for why a separate append-only log was added rather than
+// retrofitting `FlashcardProgress` (which only ever holds ONE current status per
+// student+card, not a history).
+
+/** Every vocabulary "activity" type that can produce a correct/incorrect verdict on one
+ * card: the four single-answer exercises (T-024-027), matching (T-028), the
+ * use-in-a-sentence exercise (T-029, verdict = `containsWord`), and the two vocab games
+ * (T-034/T-035). A superset of `VocabExerciseType` — every `VocabExerciseType` value is
+ * also a valid `VocabActivityType`. */
+export type VocabActivityType =
+  | VocabExerciseType
+  | 'matching'
+  | 'sentence'
+  | VocabGameType;
+
+/** Per-activity-type stats row: how many attempts, how many correct, and the resulting
+ * accuracy — shared by the student's own progress view and the teacher's per-student/
+ * per-class view (T-030), so both render the exact same shape. `accuracyPercent` is
+ * `null` (never `0`) when `attempted` is 0, same "don't fake a zero" convention as
+ * `TestSummaryDTO.averageTimeTakenSeconds`. */
+export interface VocabActivityStatDTO {
+  type: VocabActivityType;
+  attempted: number;
+  correct: number;
+  accuracyPercent: number | null;
+}
+
+/** One flashcard set's card-status breakdown (T-030) — "known/learning/new" counts for
+ * ONE student (either "me" on the student view, or one row of the teacher's per-student
+ * table). `cardCount` is the set's total card count, always equal to
+ * `knownCount + learningCount + newCount` (a card with no `FlashcardProgress` row at all
+ * counts as `new`, same convention as everywhere else in this codebase). */
+export interface VocabSetProgressDTO {
+  setId: string;
+  setName: string;
+  unitName: string | null;
+  cardCount: number;
+  knownCount: number;
+  learningCount: number;
+  newCount: number;
+}
+
+/** Response for `GET /api/flashcard-sets/progress` (T-030, student-only): the
+ * requesting student's own progress across every flashcard set that has at least one
+ * `FlashcardProgress` row for them, plus their overall per-exercise-type stats across
+ * ALL sets (not scoped to one set — a student's fill-blank accuracy is one number across
+ * everything they've practiced, matching how the student experiences it). */
+export interface StudentVocabProgressDTO {
+  sets: VocabSetProgressDTO[];
+  activityStats: VocabActivityStatDTO[];
+}
+
+/** One row of the teacher's per-student table for one flashcard set (T-030) — every
+ * student account appears here (not just ones who've started), so a teacher can spot who
+ * hasn't practiced at all (`cardCount` progress fields all 0, `activityStats` all
+ * `attempted: 0`), per that acceptance criteria. */
+export interface TeacherVocabProgressStudentRowDTO {
+  studentId: string;
+  studentName: string;
+  knownCount: number;
+  learningCount: number;
+  newCount: number;
+  activityStats: VocabActivityStatDTO[];
+}
+
+/** Response for `GET /api/teacher/flashcard-sets/:setId/progress` (T-030, teacher-only,
+ * ownership-checked). `classSummary` is the "per-class-of-students" view the acceptance
+ * criteria asks for: this schema has no separate Class/cohort entity (every flashcard
+ * set is visible to every student, see `StudentFlashcardSetSummaryDTO`'s doc comment) —
+ * documented choice: "the class" is every student account, the same flat cohort already
+ * used throughout Phase 3, so `classSummary` aggregates across every row in `students`
+ * rather than a smaller subdivision that doesn't exist in this schema yet. */
+export interface TeacherVocabProgressDTO {
+  setId: string;
+  setName: string;
+  cardCount: number;
+  classSummary: {
+    studentCount: number;
+    knownCount: number;
+    learningCount: number;
+    newCount: number;
+    activityStats: VocabActivityStatDTO[];
+  };
+  students: TeacherVocabProgressStudentRowDTO[];
+}
+
+// --- Vocabulary leaderboard (T-031) + monthly/yearly ranking (T-032/T-033) ----------
+// Shared scoring shape across all three tasks — see `server/src/lib/vocabLeaderboard.ts`
+// for the documented score formula and why the all-time and period-scoped variants
+// weight things slightly differently (the latter has no period-attributable "cards
+// learned" count, only period-scoped exercise activity).
+
+/** One ranked row. `knownCardCount` is always 0 on a period-scoped leaderboard (T-032/
+ * T-033) — see `vocabLeaderboard.ts`'s doc comment for why "cards learned" isn't
+ * period-attributable with the data this schema tracks, so period rankings score
+ * activity within the period instead. `rank` is 1-based and accounts for ties (equal
+ * `score` -> equal `rank`, per standard "competition ranking" — see the module for the
+ * exact tie-break-then-rank rule). */
+export interface VocabLeaderboardEntryDTO {
+  rank: number;
+  studentId: string;
+  studentName: string;
+  knownCardCount: number;
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracyPercent: number | null;
+  score: number;
+}
+
+/** Response for `GET /api/vocab-leaderboard` (T-031, both roles). Includes every
+ * student account, even ones with a zero score (score 0, ranked last) — a "leaderboard"
+ * showing the whole cohort's standing, not just active students. */
+export interface VocabLeaderboardResponseDTO {
+  entries: VocabLeaderboardEntryDTO[];
+}
+
+/** Response for the teacher-only monthly (T-032) / yearly (T-033) ranking endpoints.
+ * `entries` is filtered to students with at least one exercise attempt IN that period
+ * (unlike the all-time leaderboard above) — a student with zero activity that month has
+ * nothing meaningful to rank, per "identifying the highest-scoring and MOST ACTIVE
+ * students for that month specifically" (T-032's acceptance criteria emphasis).
+ * `periodStart`/`periodEnd` are the UTC instant bounds of the selected HCM-local
+ * calendar month/year (`periodEnd` exclusive), computed via the same
+ * `Asia/Ho_Chi_Minh`-fixed-offset helpers T-019's reporting engine uses (Assumption A5)
+ * — see `server/src/lib/reporting.ts`'s `hcmMonthRange`/`hcmYearRange`. */
+export interface VocabPeriodLeaderboardResponseDTO {
+  period: 'month' | 'year';
+  year: number;
+  /** 1-12, only present when `period === 'month'`. */
+  month: number | null;
+  periodStart: string;
+  periodEnd: string;
+  entries: VocabLeaderboardEntryDTO[];
+}
+
 // --- Vocabulary games: space shooter (T-034) and runner (T-035) --------------------
 // Both games use the exact same word data (term+meaning — every card qualifies, no
 // eligibility filter) and the exact same round-completion contract
@@ -735,5 +988,208 @@ export interface ReportResponseDTO {
   groupBy: ReportGroupBy;
   testId: string | null;
   unitId: string | null;
+  buckets: ReportBucketDTO[];
+}
+
+// --- Grammar module (T-046–T-050) ---------------------------------------------------
+// Mirrors `server/prisma/schema.prisma`'s `GrammarTopic`/`GrammarExercise`/
+// `GrammarChoice`/`GrammarExerciseAttempt` models as plain DTOs, same pattern as every
+// other Prisma-model-to-DTO section above. See `GrammarTopic`'s doc comment in that
+// schema file for the documented choice of why `GrammarExercise` mirrors `Question`'s
+// shape/types (reusing the very same `QuestionType` + the exact same
+// `server/src/lib/grading.ts#gradeAnswer` function) rather than sharing a table with it.
+
+export interface GrammarChoiceDTO {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  order: number;
+}
+
+/** Full authoring shape (teacher-only) — mirrors `QuestionDTO`, minus `essayMaxScore`
+ * (Grammar exercises are objective-only; `essay` is rejected at the validation layer,
+ * see schema.prisma's module doc comment). */
+export interface GrammarExerciseDTO {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  order: number;
+  /** Only meaningful for `fillBlank`; empty array for the other types. */
+  acceptedAnswers: string[];
+  /** Only meaningful for `multipleChoice`/`trueFalse`; empty array for `fillBlank`. */
+  choices: GrammarChoiceDTO[];
+}
+
+export interface GrammarTopicSummaryDTO {
+  id: string;
+  title: string;
+  unitId: string | null;
+  unitName: string | null;
+  exerciseCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GrammarTopicDetailDTO {
+  id: string;
+  title: string;
+  teacherId: string;
+  unitId: string | null;
+  unit: { id: string; name: string } | null;
+  theoryContent: string;
+  exercises: GrammarExerciseDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateGrammarTopicRequest {
+  title: string;
+  theoryContent: string;
+  /** Optional Unit tag (mirrors `CreateTestRequest.unitId`) — omitted/undefined leaves
+   * it untagged; explicit `null` clears an existing tag on update. */
+  unitId?: string | null;
+}
+export type UpdateGrammarTopicRequest = CreateGrammarTopicRequest;
+
+/** Body shared by create/edit-exercise — mirrors `ChoiceInput`. */
+export interface GrammarChoiceInput {
+  id?: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+/** Mirrors `CreateQuestionRequest`, restricted to the objective types Grammar practice
+ * supports (`essay` is rejected server-side — see `GrammarExerciseDTO`'s doc comment). */
+export interface CreateGrammarExerciseRequest {
+  type: QuestionType;
+  prompt: string;
+  /** Required (non-empty) for multipleChoice/trueFalse, ignored for fillBlank. */
+  choices?: GrammarChoiceInput[];
+  /** Required (non-empty) for fillBlank, ignored otherwise. */
+  acceptedAnswers?: string[];
+}
+export type UpdateGrammarExerciseRequest = CreateGrammarExerciseRequest;
+
+// --- Student-facing Grammar browsing + theory reading (T-047) -----------------------
+// Every topic is visible to every student — same "no enrollment concept" convention as
+// `StudentFlashcardSetSummaryDTO`.
+
+export interface StudentGrammarTopicSummaryDTO {
+  id: string;
+  title: string;
+  unitId: string | null;
+  unitName: string | null;
+  exerciseCount: number;
+}
+
+export interface StudentGrammarTopicDetailDTO {
+  id: string;
+  title: string;
+  unitId: string | null;
+  unitName: string | null;
+  theoryContent: string;
+}
+
+// --- Grammar practice exercises (T-048) ----------------------------------------------
+
+/** One eligible practice-exercise prompt — deliberately WITHOUT correctness info
+ * (`isCorrect`/`acceptedAnswers`), same "never leak the answer key ahead of time"
+ * convention as `AttemptQuestionDTO`. */
+export interface GrammarExercisePromptDTO {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  order: number;
+  choices: Array<{ id: string; text: string }>;
+}
+
+/** Body for `POST /grammar-topics/:topicId/exercises/:exerciseId/check`. Exactly one of
+ * the two fields is meaningful depending on the exercise's type, same type-dependent
+ * shape as `SaveAnswerRequest`. */
+export interface CheckGrammarExerciseRequest {
+  selectedChoiceId?: string | null;
+  textAnswer?: string | null;
+}
+
+/** `correctChoiceId`/`correctAnswers` are always populated regardless of whether the
+ * submission was right, so the UI can show "the correct answer was ..." on a miss —
+ * same convention as `CheckVocabExerciseResponse.correctAnswer`. */
+export interface CheckGrammarExerciseResponse {
+  correct: boolean;
+  /** The correct choice id for multipleChoice/trueFalse; `null` for fillBlank. */
+  correctChoiceId: string | null;
+  /** Accepted answers for fillBlank; empty for multipleChoice/trueFalse. */
+  correctAnswers: string[];
+}
+
+/** A student's own running accuracy on one topic (`GET
+ * /grammar-topics/:topicId/progress`) — shown on the topic page so the practice loop has
+ * a visible sense of progress, same spirit as `FlashcardProgress` for vocabulary. */
+export interface GrammarTopicProgressDTO {
+  attemptedCount: number;
+  correctCount: number;
+}
+
+// --- Grammar game (T-049) ------------------------------------------------------------
+// Adapts the vocab space-shooter's Canvas/React structure (T-034) to Grammar exercise
+// content. Only multipleChoice/trueFalse exercises are eligible (a game round needs
+// choices to build lanes from; fillBlank is excluded — documented choice, see
+// `studentGrammar.routes.ts`'s module doc comment). Unlike `GrammarExercisePromptDTO`,
+// this DTO DOES include the correct answer text up front — same "presenting the content
+// IS the exercise, not a leak" reasoning already documented on `MatchingPairDTO` (T-028):
+// the game's whole point is instant client-side feedback with no per-shot round trip,
+// and round completion still POSTs an aggregate correct/incorrect verdict per exercise
+// to `GrammarExerciseAttempt` server-side (same trust model as the vocab games).
+
+export type GrammarGameType = 'spaceShooter';
+
+export interface GrammarGameQuestionDTO {
+  exerciseId: string;
+  prompt: string;
+  correctAnswer: string;
+  /** This exercise's own incorrect choice texts — the natural decoy source for a game
+   * round (unlike vocabulary term/meaning pairs, a multipleChoice/trueFalse Grammar
+   * exercise already HAS wrong answers attached, so no cross-exercise decoy-picking is
+   * needed first — though the client pads from OTHER exercises' answers too, for
+   * exercises with fewer than 2 wrong choices, e.g. `trueFalse`). */
+  wrongAnswers: string[];
+}
+
+/** Body for completing a batch Grammar-game round — mirrors
+ * `CompleteVocabActivityRequest`: one correct/incorrect verdict per exercise touched
+ * during the round, recorded as a `GrammarExerciseAttempt` row each (T-048/T-049 share
+ * the same attempt log). */
+export interface CompleteGrammarActivityRequest {
+  results: Array<{ exerciseId: string; correct: boolean }>;
+}
+export interface CompleteGrammarActivityResponse {
+  updated: number;
+}
+
+// --- Grammar reports (T-050) ---------------------------------------------------------
+// Extends T-019's reporting engine additively (`computeGrammarReport` in
+// `server/src/lib/reporting.ts`, alongside the existing `computeReport` for Test
+// attempts) rather than modifying its existing code paths. Reuses `ReportBucketDTO`
+// as-is, reinterpreted: `averageScorePercent` here means "percent of Grammar exercise
+// submissions answered correctly" (accuracy), and `averageTimeTakenSeconds` is always
+// `null` (Grammar practice exercises aren't timed).
+
+/** Every filter dimension T-050 supports — `topic`/`student` play the role
+ * `test`/`unit` play in `ReportGroupBy`, plus the same time-based dimensions
+ * (`week`/`month`/`quarter`/`semester`/`year`, fixed `Asia/Ho_Chi_Minh` timezone, per
+ * Assumption A5). */
+export type GrammarReportGroupBy =
+  | 'topic'
+  | 'student'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'semester'
+  | 'year';
+
+export interface GrammarReportResponseDTO {
+  groupBy: GrammarReportGroupBy;
+  topicId: string | null;
+  studentId: string | null;
   buckets: ReportBucketDTO[];
 }

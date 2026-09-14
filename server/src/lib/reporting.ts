@@ -77,7 +77,9 @@ export interface ComputeReportOptions {
 const HCM_OFFSET_MS = 7 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-interface HcmParts {
+/** Exported (T-050) so `computeGrammarReport` below reuses the exact same HCM-local
+ * calendar-field shape rather than redeclaring it — see that function's doc comment. */
+export interface HcmParts {
   year: number;
   /** 0-11, matches `Date`'s own month convention. */
   month: number;
@@ -88,8 +90,9 @@ interface HcmParts {
 
 /** Reads an instant's HCM-local calendar fields by shifting it +7h and reading the
  * shifted instant's UTC fields — valid because the offset is fixed (no DST) so this
- * never needs a timezone database. */
-function toHcmParts(date: Date): HcmParts {
+ * never needs a timezone database. Exported (T-050) for reuse by `computeGrammarReport`
+ * below — see that function's doc comment for why. */
+export function toHcmParts(date: Date): HcmParts {
   const shifted = new Date(date.getTime() + HCM_OFFSET_MS);
   return {
     year: shifted.getUTCFullYear(),
@@ -105,6 +108,32 @@ function hcmMidnightToUtc(year: number, month: number, day: number): Date {
   return new Date(Date.UTC(year, month, day) - HCM_OFFSET_MS);
 }
 
+/**
+ * Exported wrappers around the fixed-offset HCM month/year math above (T-032/T-033):
+ * the vocabulary monthly/yearly ranking reports need the exact same `[start, end)` UTC
+ * instant range this module already computes internally for `groupBy=month`/`year`
+ * (via `monthBucketOf`/`yearBucketOf` below), so these are exported here rather than
+ * reimplemented in `vocabLeaderboard.ts` — per the backlog's explicit instruction to
+ * reuse T-019's period-bucketing convention, not reinvent date math. `month1to12` uses
+ * calendar convention (1-12), matching how a teacher-facing UI would present it —
+ * `monthBucketOf`'s internal `parts.month` (0-11) is only an implementation detail of
+ * this module.
+ */
+export function hcmMonthRange(year: number, month1to12: number): { start: Date; end: Date } {
+  const month0 = month1to12 - 1;
+  return {
+    start: hcmMidnightToUtc(year, month0, 1),
+    end: hcmMidnightToUtc(year, month0 + 1, 1),
+  };
+}
+
+export function hcmYearRange(year: number): { start: Date; end: Date } {
+  return {
+    start: hcmMidnightToUtc(year, 0, 1),
+    end: hcmMidnightToUtc(year + 1, 0, 1),
+  };
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
@@ -113,7 +142,8 @@ function dateKey(year: number, month: number, day: number): string {
   return `${year}-${pad2(month + 1)}-${pad2(day)}`;
 }
 
-interface BucketDef {
+/** Exported (T-050) alongside `HcmParts` — same reuse reasoning. */
+export interface BucketDef {
   key: string;
   label: string;
   periodStart: Date | null;
@@ -122,8 +152,9 @@ interface BucketDef {
 
 /** ISO-8601 week (Monday-Sunday) containing an HCM-local calendar date, via the
  * standard "nearest Thursday" algorithm applied to the HCM-local Y/M/D (not the
- * instant's UTC or server-local date). */
-function weekBucketOf(parts: HcmParts): BucketDef {
+ * instant's UTC or server-local date). Exported (T-050) for reuse by
+ * `computeGrammarReport` below. */
+export function weekBucketOf(parts: HcmParts): BucketDef {
   const mondayY_M_D = new Date(Date.UTC(parts.year, parts.month, parts.day - parts.weekdayMon0));
   const mondayY = mondayY_M_D.getUTCFullYear();
   const mondayM = mondayY_M_D.getUTCMonth();
@@ -153,7 +184,8 @@ function weekBucketOf(parts: HcmParts): BucketDef {
   };
 }
 
-function monthBucketOf(parts: HcmParts): BucketDef {
+/** Exported (T-050) for reuse by `computeGrammarReport` below. */
+export function monthBucketOf(parts: HcmParts): BucketDef {
   const key = `${parts.year}-${pad2(parts.month + 1)}`;
   return {
     key,
@@ -163,7 +195,8 @@ function monthBucketOf(parts: HcmParts): BucketDef {
   };
 }
 
-function quarterBucketOf(parts: HcmParts): BucketDef {
+/** Exported (T-050) for reuse by `computeGrammarReport` below. */
+export function quarterBucketOf(parts: HcmParts): BucketDef {
   const quarter = Math.floor(parts.month / 3) + 1;
   const key = `${parts.year}-Q${quarter}`;
   const startMonth = (quarter - 1) * 3;
@@ -175,7 +208,8 @@ function quarterBucketOf(parts: HcmParts): BucketDef {
   };
 }
 
-function yearBucketOf(parts: HcmParts): BucketDef {
+/** Exported (T-050) for reuse by `computeGrammarReport` below. */
+export function yearBucketOf(parts: HcmParts): BucketDef {
   const key = `${parts.year}`;
   return {
     key,
@@ -477,6 +511,313 @@ export async function computeReport(options: ComputeReportOptions): Promise<Repo
     groupBy: options.groupBy,
     testId: options.testId ?? null,
     unitId: options.unitId ?? null,
+    buckets,
+  };
+}
+
+// --- Grammar reports (T-050) -----------------------------------------------------------
+//
+// Extends this module ADDITIVELY: a new exported function (`computeGrammarReport`)
+// alongside the existing `computeReport` above, reusing the exact same HCM-local
+// time-bucketing math (`toHcmParts`/`weekBucketOf`/`monthBucketOf`/`quarterBucketOf`/
+// `yearBucketOf`, exported above for this purpose) rather than reimplementing ISO-week/
+// month/quarter/year arithmetic a second time. Nothing about `computeReport`'s own code
+// path above is modified.
+//
+// Grammar practice has no `Test`-shaped "attempt" (score/time-taken over many
+// questions) — instead every single exercise submission is its own row
+// (`GrammarExerciseAttempt`, T-048), so the bucket metric here is REINTERPRETED rather
+// than reshaped: `averageScorePercent` means "percent of exercise submissions answered
+// correctly" (accuracy) in this bucket, and `averageTimeTakenSeconds` is always `null`
+// (Grammar practice exercises aren't timed) — both fields keep their existing meaning
+// closely enough that the client's existing `ReportBucketResult`/`ReportBucketDTO` shape
+// is reused as-is (see `@platform/shared`'s `GrammarReportResponseDTO` doc comment).
+//
+// Grammar topics/attempts are global-ish (no per-teacher ownership filter here, same as
+// `Unit`/`AcademicPeriod` bucketing above) — the route handler
+// (`teacherGrammar.routes.ts`) is responsible for any topic-ownership check before
+// narrowing by `topicId`, same division of responsibility as `ComputeReportOptions`.
+
+export const GRAMMAR_REPORT_GROUP_BY_VALUES = [
+  'topic',
+  'student',
+  'week',
+  'month',
+  'quarter',
+  'semester',
+  'year',
+] as const;
+
+export type GrammarReportGroupBy = (typeof GRAMMAR_REPORT_GROUP_BY_VALUES)[number];
+
+export interface GrammarReportResult {
+  groupBy: GrammarReportGroupBy;
+  topicId: string | null;
+  studentId: string | null;
+  buckets: ReportBucketResult[];
+}
+
+export interface ComputeGrammarReportOptions {
+  groupBy: GrammarReportGroupBy;
+  /** Narrows to one Grammar topic's attempts. */
+  topicId?: string | null;
+  /** Narrows to one student's attempts (the "per-student" half of T-050's acceptance
+   * criteria; omitted means "per-class", i.e. every student). */
+  studentId?: string | null;
+}
+
+interface GrammarBucketAccumulator {
+  label: string;
+  periodStart: Date | null;
+  periodEnd: Date | null;
+  attemptCount: number;
+  correctCount: number;
+  sortKey: number | string;
+}
+
+function finalizeGrammarBucket(key: string, acc: GrammarBucketAccumulator): ReportBucketResult {
+  return {
+    key,
+    label: acc.label,
+    attemptCount: acc.attemptCount,
+    averageScorePercent:
+      acc.attemptCount > 0 ? Number(((acc.correctCount / acc.attemptCount) * 100).toFixed(1)) : null,
+    // Grammar practice exercises aren't timed (unlike a Test attempt) — always null,
+    // same "don't fake a zero" convention as every other averageTimeTakenSeconds field.
+    averageTimeTakenSeconds: null,
+    periodStart: acc.periodStart ? acc.periodStart.toISOString() : null,
+    periodEnd: acc.periodEnd ? acc.periodEnd.toISOString() : null,
+  };
+}
+
+/** The one query every Grammar-report dimension shares — mirrors `fetchScopedAttempts`
+ * above but over `GrammarExerciseAttempt` rows instead of `Attempt` rows. Every row here
+ * already has a non-null `isCorrect` (computed synchronously at submission time, see
+ * `GrammarExerciseAttempt`'s doc comment in schema.prisma), so — unlike
+ * `fetchScopedAttempts` — there's no "still in progress, exclude it" filter needed. */
+async function fetchScopedGrammarAttempts(options: ComputeGrammarReportOptions) {
+  return prisma.grammarExerciseAttempt.findMany({
+    where: {
+      ...(options.topicId ? { topicId: options.topicId } : {}),
+      ...(options.studentId ? { studentId: options.studentId } : {}),
+    },
+    select: {
+      createdAt: true,
+      isCorrect: true,
+      topicId: true,
+      studentId: true,
+      topic: { select: { id: true, title: true } },
+      student: { select: { id: true, name: true } },
+    },
+  });
+}
+
+type ScopedGrammarAttempt = Awaited<ReturnType<typeof fetchScopedGrammarAttempts>>[number];
+
+function addToGrammarBucket(
+  map: Map<string, GrammarBucketAccumulator>,
+  key: string,
+  def: Omit<GrammarBucketAccumulator, 'attemptCount' | 'correctCount'>,
+  attempt: ScopedGrammarAttempt,
+): void {
+  let acc = map.get(key);
+  if (!acc) {
+    acc = { ...def, attemptCount: 0, correctCount: 0 };
+    map.set(key, acc);
+  }
+  acc.attemptCount += 1;
+  if (attempt.isCorrect) acc.correctCount += 1;
+}
+
+function sortGrammarBuckets(
+  entries: Array<[string, GrammarBucketAccumulator]>,
+): Array<[string, GrammarBucketAccumulator]> {
+  return entries.sort(([, a], [, b]) => {
+    if (a.sortKey < b.sortKey) return -1;
+    if (a.sortKey > b.sortKey) return 1;
+    return 0;
+  });
+}
+
+async function buildGrammarTopicBuckets(
+  options: ComputeGrammarReportOptions,
+  attempts: ScopedGrammarAttempt[],
+): Promise<ReportBucketResult[]> {
+  // Canonical list of Grammar topics (matching the same optional `topicId` filter) so a
+  // topic with zero attempts yet still appears as a 0-row — same convention as
+  // `buildTestBuckets` above.
+  const topics = await prisma.grammarTopic.findMany({
+    where: options.topicId ? { id: options.topicId } : {},
+    select: { id: true, title: true },
+    orderBy: { title: 'asc' },
+  });
+
+  const map = new Map<string, GrammarBucketAccumulator>();
+  for (const topic of topics) {
+    map.set(topic.id, {
+      label: topic.title,
+      periodStart: null,
+      periodEnd: null,
+      attemptCount: 0,
+      correctCount: 0,
+      sortKey: topic.title,
+    });
+  }
+  for (const attempt of attempts) {
+    addToGrammarBucket(
+      map,
+      attempt.topicId,
+      { label: attempt.topic.title, periodStart: null, periodEnd: null, sortKey: attempt.topic.title },
+      attempt,
+    );
+  }
+
+  return sortGrammarBuckets([...map.entries()]).map(([key, acc]) => finalizeGrammarBucket(key, acc));
+}
+
+async function buildGrammarStudentBuckets(
+  options: ComputeGrammarReportOptions,
+  attempts: ScopedGrammarAttempt[],
+): Promise<ReportBucketResult[]> {
+  // Canonical list of students (T-050's "per-class" view: every student, even ones with
+  // zero Grammar attempts yet, per the same "0-row, not a missing row" convention used
+  // throughout this module) — narrowed to one student when `studentId` is given (the
+  // "per-student" half of T-050's acceptance criteria).
+  const students = await prisma.user.findMany({
+    where: { role: 'student', ...(options.studentId ? { id: options.studentId } : {}) },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
+  const map = new Map<string, GrammarBucketAccumulator>();
+  for (const student of students) {
+    map.set(student.id, {
+      label: student.name,
+      periodStart: null,
+      periodEnd: null,
+      attemptCount: 0,
+      correctCount: 0,
+      sortKey: student.name,
+    });
+  }
+  for (const attempt of attempts) {
+    addToGrammarBucket(
+      map,
+      attempt.studentId,
+      {
+        label: attempt.student.name,
+        periodStart: null,
+        periodEnd: null,
+        sortKey: attempt.student.name,
+      },
+      attempt,
+    );
+  }
+
+  return sortGrammarBuckets([...map.entries()]).map(([key, acc]) => finalizeGrammarBucket(key, acc));
+}
+
+const UNASSIGNED_GRAMMAR_SEMESTER_KEY = 'unassigned';
+
+async function buildGrammarSemesterBuckets(
+  attempts: ScopedGrammarAttempt[],
+): Promise<ReportBucketResult[]> {
+  const periods = await prisma.academicPeriod.findMany({
+    orderBy: { startDate: 'asc' },
+    select: { id: true, name: true, startDate: true, endDate: true },
+  });
+
+  const map = new Map<string, GrammarBucketAccumulator>();
+  for (const period of periods) {
+    map.set(period.id, {
+      label: period.name,
+      periodStart: period.startDate,
+      periodEnd: period.endDate,
+      attemptCount: 0,
+      correctCount: 0,
+      sortKey: period.startDate.getTime(),
+    });
+  }
+  map.set(UNASSIGNED_GRAMMAR_SEMESTER_KEY, {
+    label: 'Unassigned (outside any academic period)',
+    periodStart: null,
+    periodEnd: null,
+    attemptCount: 0,
+    correctCount: 0,
+    sortKey: Number.MAX_SAFE_INTEGER,
+  });
+
+  for (const attempt of attempts) {
+    const match = periods.find(
+      (p) => attempt.createdAt >= p.startDate && attempt.createdAt < p.endDate,
+    );
+    const key = match?.id ?? UNASSIGNED_GRAMMAR_SEMESTER_KEY;
+    addToGrammarBucket(map, key, map.get(key)!, attempt);
+  }
+
+  return sortGrammarBuckets([...map.entries()]).map(([key, acc]) => finalizeGrammarBucket(key, acc));
+}
+
+function buildGrammarTimeBuckets(
+  groupBy: 'week' | 'month' | 'quarter' | 'year',
+  attempts: ScopedGrammarAttempt[],
+): ReportBucketResult[] {
+  const bucketOf =
+    groupBy === 'week'
+      ? weekBucketOf
+      : groupBy === 'month'
+        ? monthBucketOf
+        : groupBy === 'quarter'
+          ? quarterBucketOf
+          : yearBucketOf;
+
+  const map = new Map<string, GrammarBucketAccumulator>();
+  for (const attempt of attempts) {
+    const def = bucketOf(toHcmParts(attempt.createdAt));
+    if (!map.has(def.key)) {
+      map.set(def.key, {
+        label: def.label,
+        periodStart: def.periodStart,
+        periodEnd: def.periodEnd,
+        attemptCount: 0,
+        correctCount: 0,
+        sortKey: (def.periodStart ?? new Date(0)).getTime(),
+      });
+    }
+    addToGrammarBucket(map, def.key, map.get(def.key)!, attempt);
+  }
+
+  return sortGrammarBuckets([...map.entries()]).map(([key, acc]) => finalizeGrammarBucket(key, acc));
+}
+
+/** Computes a Grammar-practice report breakdown table (T-050), alongside `computeReport`
+ * above — see this section's module doc comment for the accuracy/no-time-tracking
+ * reinterpretation and the additive-only reasoning. */
+export async function computeGrammarReport(
+  options: ComputeGrammarReportOptions,
+): Promise<GrammarReportResult> {
+  const attempts = await fetchScopedGrammarAttempts(options);
+
+  let buckets: ReportBucketResult[];
+  switch (options.groupBy) {
+    case 'topic':
+      buckets = await buildGrammarTopicBuckets(options, attempts);
+      break;
+    case 'student':
+      buckets = await buildGrammarStudentBuckets(options, attempts);
+      break;
+    case 'semester':
+      buckets = await buildGrammarSemesterBuckets(attempts);
+      break;
+    default:
+      buckets = buildGrammarTimeBuckets(options.groupBy, attempts);
+      break;
+  }
+
+  return {
+    groupBy: options.groupBy,
+    topicId: options.topicId ?? null,
+    studentId: options.studentId ?? null,
     buckets,
   };
 }

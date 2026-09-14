@@ -11,10 +11,16 @@ import RegisterPage from './pages/RegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import StudentFlashcardsPage from './pages/StudentFlashcardsPage';
 import StudentFlashcardSetPage from './pages/StudentFlashcardSetPage';
+import StudentGrammarExercisePage from './pages/StudentGrammarExercisePage';
+import StudentGrammarPage from './pages/StudentGrammarPage';
+import StudentGrammarSpaceShooterGamePage from './pages/StudentGrammarSpaceShooterGamePage';
+import StudentGrammarTopicPage from './pages/StudentGrammarTopicPage';
+import StudentPracticeTestsPage from './pages/StudentPracticeTestsPage';
 import StudentRunnerGamePage from './pages/StudentRunnerGamePage';
 import StudentSpaceShooterGamePage from './pages/StudentSpaceShooterGamePage';
 import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
 import StudentVocabMatchingPage from './pages/StudentVocabMatchingPage';
+import StudentVocabProgressPage from './pages/StudentVocabProgressPage';
 import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
@@ -22,12 +28,18 @@ import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
 import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
+import TeacherFlashcardSetProgressPage from './pages/TeacherFlashcardSetProgressPage';
+import TeacherGrammarPage from './pages/TeacherGrammarPage';
+import TeacherGrammarReportsPage from './pages/TeacherGrammarReportsPage';
+import TeacherGrammarTopicEditorPage from './pages/TeacherGrammarTopicEditorPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
 import TeacherReportsPage from './pages/TeacherReportsPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
+import TeacherVocabRankingPage from './pages/TeacherVocabRankingPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
+import VocabLeaderboardPage from './pages/VocabLeaderboardPage';
 
 /**
  * Routing + session provider (T-006). `AuthProvider` wraps everything so `Header` (in
@@ -61,6 +73,11 @@ function App() {
                 path="/teacher/flashcard-sets/:setId"
                 element={<TeacherFlashcardSetEditorPage />}
               />
+              {/* Per-student/per-class vocabulary progress for one owned set (T-030). */}
+              <Route
+                path="/teacher/flashcard-sets/:setId/progress"
+                element={<TeacherFlashcardSetProgressPage />}
+              />
               <Route
                 path="/teacher/sessions/:sessionId/attempts"
                 element={<TeacherSessionAttemptsPage />}
@@ -71,14 +88,30 @@ function App() {
               />
               <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
               <Route path="/teacher/reports" element={<TeacherReportsPage />} />
+              {/* Vocabulary monthly (T-032) / yearly (T-033) ranking report. */}
+              <Route path="/teacher/vocab-ranking" element={<TeacherVocabRankingPage />} />
+              {/* Grammar topic authoring: theory content (T-047) + practice exercises
+                  (T-048). */}
+              <Route path="/teacher/grammar-topics" element={<TeacherGrammarPage />} />
+              <Route
+                path="/teacher/grammar-topics/:topicId"
+                element={<TeacherGrammarTopicEditorPage />}
+              />
+              {/* Grammar reports (T-050), reusing T-019's engine additively. */}
+              <Route path="/teacher/grammar-reports" element={<TeacherGrammarReportsPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>
               <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+              {/* Home self-practice picker (T-040) — starts/resumes a standalone attempt
+                  for any test, outside a teacher-run QR/live session. */}
+              <Route path="/student/practice" element={<StudentPracticeTestsPage />} />
               <Route path="/student/attempts/:attemptId" element={<TakeTestPage />} />
               <Route path="/student/attempts/:attemptId/result" element={<AttemptResultPage />} />
               <Route path="/student/flashcard-sets" element={<StudentFlashcardsPage />} />
               <Route path="/student/flashcard-sets/:setId" element={<StudentFlashcardSetPage />} />
+              {/* Own vocabulary progress across every studied set (T-030). */}
+              <Route path="/student/vocab-progress" element={<StudentVocabProgressPage />} />
               <Route
                 path="/student/flashcard-sets/:setId/exercises/:exerciseType"
                 element={<StudentVocabExercisePage />}
@@ -93,6 +126,26 @@ function App() {
                 element={<StudentSpaceShooterGamePage />}
               />
               <Route path="/student/flashcard-sets/:setId/games/runner" element={<StudentRunnerGamePage />} />
+
+              {/* Grammar: browse topics + read theory (T-047), practice exercises
+                  (T-048), and the Grammar game (T-049). */}
+              <Route path="/student/grammar-topics" element={<StudentGrammarPage />} />
+              <Route path="/student/grammar-topics/:topicId" element={<StudentGrammarTopicPage />} />
+              <Route
+                path="/student/grammar-topics/:topicId/practice"
+                element={<StudentGrammarExercisePage />}
+              />
+              <Route
+                path="/student/grammar-topics/:topicId/games/space-shooter"
+                element={<StudentGrammarSpaceShooterGamePage />}
+              />
+            </Route>
+
+            {/* Vocabulary leaderboard (T-031) — visible to BOTH roles, so it's its own
+                route block with both roles allowed, rather than duplicated under
+                /teacher and /student. */}
+            <Route element={<ProtectedRoute allowedRoles={['teacher', 'student']} />}>
+              <Route path="/vocab-leaderboard" element={<VocabLeaderboardPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

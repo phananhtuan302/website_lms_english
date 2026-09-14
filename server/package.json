@@ -18,7 +18,10 @@
     "verify:live-dashboard": "tsx scripts/verify-live-dashboard.ts",
     "verify:time-tracking": "tsx scripts/verify-time-tracking.ts",
     "verify:reporting": "tsx scripts/verify-reporting.ts",
-    "verify:vocab-batch": "tsx scripts/verify-vocab-batch.ts"
+    "verify:vocab-batch": "tsx scripts/verify-vocab-batch.ts",
+    "verify:t039-t044": "tsx scripts/verify-t039-t044.ts",
+    "verify:vocab-progress": "tsx scripts/verify-vocab-progress.ts",
+    "verify:grammar": "tsx scripts/verify-grammar.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
