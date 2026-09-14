@@ -263,11 +263,17 @@ async function main() {
     freshRow,
   );
 
-  const classSummaryExpectedKnown = rowA!.knownCount + rowB!.knownCount + rowC!.knownCount + freshRow!.knownCount;
+  // The dev DB is shared across many prior verification runs, so other (pre-existing)
+  // students may also have progress on this set — classSummary.knownCount can only be
+  // >= our 4 fresh students' contribution, not exactly equal to it, unless run against a
+  // pristine DB. `>=` is still a real assertion (it fails if the rollup silently drops or
+  // undercounts any of our known rows) without being flaky against shared dev-DB state.
+  const classSummaryMinKnown = rowA!.knownCount + rowB!.knownCount + rowC!.knownCount + freshRow!.knownCount;
   check(
-    "classSummary.knownCount is the sum of every student row's knownCount (at least A+B+C+fresh)",
-    teacherProgress2.body.students.length >= 4,
-    teacherProgress2.body.students.length,
+    "classSummary.knownCount includes at least the sum of A+B+C+fresh's knownCount",
+    teacherProgress2.body.students.length >= 4 &&
+      teacherProgress2.body.classSummary.knownCount >= classSummaryMinKnown,
+    { actual: teacherProgress2.body.classSummary.knownCount, minExpected: classSummaryMinKnown },
   );
 
   // Cross-teacher ownership: teacher2 must get 404, not the data.

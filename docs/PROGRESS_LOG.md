@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Leader — Direct fix: Grammar report cross-teacher data leak (T-063) + T-030-033/T-046-050 merged
+
+- Task IDs touched: T-030, T-031, T-032, T-033, T-046, T-047, T-048, T-049, T-050, T-063
+- What changed: Test independently verified T-030–T-033 (vocab progress/leaderboard/monthly-yearly ranking, commit `868bbba`) and T-046–T-050 (Grammar module, commit `bb297ae`+`868bbba`) — both PASS. T-050's Test pass found a real cross-teacher data leak: `computeGrammarReport` had no `teacherId` scoping, so any teacher calling `GET /api/teacher/grammar-reports` with no `topicId` filter got every teacher's Grammar topics/accuracy back (ownership was only checked when `topicId` was explicitly passed). Logged as **T-063** and fixed directly by the Leader (not a full Dev/Test cycle, given the small well-understood scope): added required `teacherId` to `ComputeGrammarReportOptions`, scoped `fetchScopedGrammarAttempts` and `buildGrammarTopicBuckets`'s canonical topic list to `topic.teacherId`, and passed `req.user!.sub` from the route. Verified the fix directly with a live repro (teacher2 fetching the unfiltered report — confirmed teacher1's topic is no longer returned) plus re-running both `verify:vocab-progress` and `verify:grammar` scripts clean. Also fixed a real bug in `verify-vocab-progress.ts`'s own assertion (the one QA flagged as a lint issue): it computed an expected class-summary sum but the `check()` call never actually compared against it — fixed to compare with `>=` (not `===`, since the shared dev DB has other pre-existing students contributing to the same class summary, making exact equality environment-dependent) so the assertion is now real instead of a no-op; confirmed it still passes with real data.
+- Why / decisions made: `GrammarTopic` is NOT a global/shared entity like `Unit`/`AcademicPeriod` — T-047's own CRUD already 404s non-owners — so the reporting engine's original "same as Unit/AcademicPeriod, no per-teacher filter" comment was simply wrong, not an intentional design choice; fixed to match every other owned-resource pattern in the codebase (T-019's `computeReport` requires `teacherId` the same way).
+- Status after this entry: T-030–T-033, T-046–T-050, and T-063 all Done and committed. **Phase 3, Phase 4 (all vocabulary/flashcard work), and Phase 7 (Grammar module) are now fully Done.**
+
 ## 2026-09-15 — Dev/Test — Vocab matching/sentence exercises, 2 vocab games
 
 - Task IDs touched: T-028, T-029, T-034, T-035

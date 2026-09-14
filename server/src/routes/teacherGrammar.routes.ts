@@ -432,7 +432,12 @@ teacherGrammarRouter.get(
       studentId = student.id;
     }
 
-    const result = await computeGrammarReport({ groupBy: groupByRaw, topicId, studentId });
+    const result = await computeGrammarReport({
+      groupBy: groupByRaw,
+      teacherId: req.user!.sub,
+      topicId,
+      studentId,
+    });
     const body: GrammarReportResponseDTO = result;
     res.status(200).json(body);
   }),

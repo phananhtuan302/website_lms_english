@@ -195,28 +195,28 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student is prompted to write a sentence using a given vocabulary word and submits free text. Since correctness isn't objectively checkable, the system at minimum validates the target word appears in the submission (simple heuristic) and stores the submission for teacher visibility; it does not block progress on a "wrong" answer. This is explicitly not AI-graded (see PROJECT_PLAN Assumption A3 — AI grading is Speaking-only).
 
-- [ ] **T-030 — Vocabulary/exercise progress tracking (student + teacher views)**
-  - Status: Not Started
+- [x] **T-030 — Vocabulary/exercise progress tracking (student + teacher views)**
+  - Status: Done
   - Depends on: T-023, T-024, T-025, T-026, T-027, T-028, T-029
   - Source: Requirement row 12
   - Acceptance Criteria: A student has a personal progress view showing, per flashcard set, how many cards are known/learning and how many of each exercise type have been completed/attempted with what accuracy. A teacher has a per-student (and per-class-of-students) view of the same data for sets they own, so they can identify who hasn't practiced.
 
 ## Phase 4 — Vocabulary Leaderboards, Reports & Games
 
-- [ ] **T-031 — Vocabulary leaderboard**
-  - Status: Not Started
+- [x] **T-031 — Vocabulary leaderboard**
+  - Status: Done
   - Depends on: T-030
   - Source: Requirement row 13
   - Acceptance Criteria: A ranked leaderboard is visible to both teacher and students, ordered by a defined score derived from vocabulary results/activity level (e.g. exercise accuracy plus volume of cards learned). Given seeded progress data for multiple students, the displayed order matches a manually-computed expected order.
 
-- [ ] **T-032 — Vocabulary monthly ranking report**
-  - Status: Not Started
+- [x] **T-032 — Vocabulary monthly ranking report**
+  - Status: Done
   - Depends on: T-030, T-019
   - Source: Requirement row 14
   - Acceptance Criteria: A teacher can select a calendar month and see a ranked report identifying the highest-scoring and most active students for that month specifically (not all-time), using the reporting engine's month bucketing from T-019.
 
-- [ ] **T-033 — Vocabulary yearly ranking report**
-  - Status: Not Started
+- [x] **T-033 — Vocabulary yearly ranking report**
+  - Status: Done
   - Depends on: T-030, T-019
   - Source: Requirement row 15
   - Acceptance Criteria: Same as T-032 but bucketed by year. Selecting different years with seeded multi-year data produces different, correct rankings for each year.
@@ -299,32 +299,32 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 7 — Grammar Module
 
-- [ ] **T-046 — Grammar DB schema**
-  - Status: Not Started
+- [x] **T-046 — Grammar DB schema**
+  - Status: Done
   - Depends on: T-002
   - Source: Notes — Grammar module
   - Acceptance Criteria: Prisma models exist for a `GrammarTopic` (title, optional Unit tag) with associated theory content (rich text) and a set of practice exercises (reusing the `Question` shape/types from T-007 where possible, tagged as grammar). Migration applies cleanly and a seeded topic with theory + at least one exercise can be queried back intact.
 
-- [ ] **T-047 — Grammar theory content pages**
-  - Status: Not Started
+- [x] **T-047 — Grammar theory content pages**
+  - Status: Done
   - Depends on: T-006, T-046
   - Source: Notes — Grammar module ("có lý thuyết")
   - Acceptance Criteria: A teacher can create/edit a Grammar topic's theory content (rich text, e.g. explanation + examples) and a student can browse the list of topics and read one. Content persists across reload.
 
-- [ ] **T-048 — Grammar practice exercises**
-  - Status: Not Started
+- [x] **T-048 — Grammar practice exercises**
+  - Status: Done
   - Depends on: T-047, T-024
   - Source: Notes — Grammar module ("có bài luyện tập")
   - Acceptance Criteria: A student can attempt practice exercises attached to a Grammar topic (reusing objective question types and grading logic from T-013), see immediate correct/incorrect feedback, and have their attempts recorded per topic for later reporting.
 
-- [ ] **T-049 — Grammar game(s)**
-  - Status: Not Started
+- [x] **T-049 — Grammar game(s)**
+  - Status: Done
   - Depends on: T-048, T-034
   - Source: Notes — Grammar module ("có game")
   - Acceptance Criteria: At least one game mechanic (reusing/adapting the vocab game engine from T-034/T-035) is playable using Grammar exercise content instead of vocabulary words, with the same win/lose and progress-recording behavior.
 
-- [ ] **T-050 — Grammar reports**
-  - Status: Not Started
+- [x] **T-050 — Grammar reports**
+  - Status: Done
   - Depends on: T-046, T-019
   - Source: Notes — Grammar module ("có report")
   - Acceptance Criteria: A teacher can view per-student and per-class progress/accuracy on Grammar topics/exercises, using the same reporting engine and period-bucketing (week/month/quarter/semester/year) established in T-019.
@@ -400,6 +400,12 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-019
   - Source: QA finding during T-019 verification (2026-09-14)
   - Acceptance Criteria: `server/scripts/verify-reporting.ts`'s `runAttempt()` selects the correct choice by looking up `question.type` (or `question.prompt`) rather than assuming a fixed array index — because `generateVariantLayout()` genuinely shuffles question order on every call, the current position-based lookup fails ~50% of the time with "Could not find choice ... on question 0". This is a test-tooling bug only (the actual reporting engine and grading are unaffected — confirmed correct by an independently-written QA script). Fix verified by running `npm run verify:reporting -w server` at least 5 times in a row with no crash.
+
+- [x] **T-063 — Fix cross-teacher data leak in Grammar reports (no ownership scoping when no topicId filter given)**
+  - Status: Done
+  - Depends on: T-050
+  - Source: QA finding during T-050 verification (2026-09-15)
+  - Acceptance Criteria: `GET /api/teacher/grammar-reports` (backed by `computeGrammarReport` in `server/src/lib/reporting.ts`) must scope results to the calling teacher's own `GrammarTopic`s by default, the same way T-019's `computeReport` requires a `teacherId`. Currently, calling it with no `topicId` filter returns every teacher's topics/accuracy data (ownership is only enforced when an explicit `topicId` is passed and checked). Fix verified by: teacher2 (no filter) sees only their own topics; teacher2 passing `topicId=<teacher1's topic>` still gets 404 (already correct, must not regress); teacher1's own report is unaffected.
 
 - [x] **T-061 — Global JSON error-handling middleware (stop stack-trace leakage)**
   - Status: Done

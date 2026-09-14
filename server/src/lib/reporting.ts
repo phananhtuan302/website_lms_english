@@ -533,10 +533,15 @@ export async function computeReport(options: ComputeReportOptions): Promise<Repo
 // closely enough that the client's existing `ReportBucketResult`/`ReportBucketDTO` shape
 // is reused as-is (see `@platform/shared`'s `GrammarReportResponseDTO` doc comment).
 //
-// Grammar topics/attempts are global-ish (no per-teacher ownership filter here, same as
-// `Unit`/`AcademicPeriod` bucketing above) — the route handler
-// (`teacherGrammar.routes.ts`) is responsible for any topic-ownership check before
-// narrowing by `topicId`, same division of responsibility as `ComputeReportOptions`.
+// Unlike `Unit`/`AcademicPeriod` (genuinely global curriculum entities), `GrammarTopic`
+// has real per-teacher ownership everywhere else (T-047's CRUD 404s a non-owner) — so
+// this report MUST scope to the calling teacher's own topics by default, the same way
+// `computeReport` above requires a `teacherId`. (Fixed as T-063: an earlier version of
+// this comment incorrectly treated Grammar topics as global and let `groupBy=topic`/
+// the attempt query return every teacher's data when no `topicId` filter was given.)
+// `topicId`, when given, is still expected to have already been ownership-checked by the
+// route handler (`teacherGrammar.routes.ts`) before calling in here — this module additionally
+// enforces `teacherId` directly on the topic relation as defense in depth.
 
 export const GRAMMAR_REPORT_GROUP_BY_VALUES = [
   'topic',
@@ -559,6 +564,10 @@ export interface GrammarReportResult {
 
 export interface ComputeGrammarReportOptions {
   groupBy: GrammarReportGroupBy;
+  /** The calling teacher — required (T-063). Every topic considered by this report,
+   * including the canonical zero-attempt rows in `groupBy=topic`, is restricted to
+   * topics owned by this teacher. */
+  teacherId: string;
   /** Narrows to one Grammar topic's attempts. */
   topicId?: string | null;
   /** Narrows to one student's attempts (the "per-student" half of T-050's acceptance
@@ -598,6 +607,7 @@ function finalizeGrammarBucket(key: string, acc: GrammarBucketAccumulator): Repo
 async function fetchScopedGrammarAttempts(options: ComputeGrammarReportOptions) {
   return prisma.grammarExerciseAttempt.findMany({
     where: {
+      topic: { teacherId: options.teacherId },
       ...(options.topicId ? { topicId: options.topicId } : {}),
       ...(options.studentId ? { studentId: options.studentId } : {}),
     },
@@ -647,7 +657,10 @@ async function buildGrammarTopicBuckets(
   // topic with zero attempts yet still appears as a 0-row — same convention as
   // `buildTestBuckets` above.
   const topics = await prisma.grammarTopic.findMany({
-    where: options.topicId ? { id: options.topicId } : {},
+    where: {
+      teacherId: options.teacherId,
+      ...(options.topicId ? { id: options.topicId } : {}),
+    },
     select: { id: true, title: true },
     orderBy: { title: 'asc' },
   });
