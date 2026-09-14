@@ -77,26 +77,26 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 4; Assumption A6
   - Acceptance Criteria: A teacher can start a "session" for one of their tests, which creates a unique join token and displays a scannable QR code (generated with the `qrcode` npm package, no external service) encoding a join URL, plus a short manual-entry fallback code shown alongside it. Each session start produces a new, distinct token (old QR codes/tokens for a closed session no longer allow joining).
 
-- [ ] **T-011 — Student: join session via QR/link + login gate**
-  - Status: Not Started
+- [x] **T-011 — Student: join session via QR/link + login gate**
+  - Status: Done
   - Depends on: T-006, T-010
   - Source: Requirement rows 2, 4
   - Acceptance Criteria: Opening the join URL (as if scanned) while logged out prompts login/registration first, then completes the join; while already logged in as a student it joins immediately. On successful join, the student is attached to the session and (per Assumption A7) assigned one of the session's shuffled variants. Attempting to join with an invalid/expired token shows a clear error instead of a crash.
 
-- [ ] **T-012 — Student: take-test runtime UI**
-  - Status: Not Started
+- [x] **T-012 — Student: take-test runtime UI**
+  - Status: Done
   - Depends on: T-007, T-011
   - Source: Requirement row 3 (implied "students take tests"); foundation for row 20 later
   - Acceptance Criteria: A joined student can navigate between questions, answer each objective question type, see a visible timer if the test has a time limit, and submit. Answers are autosaved (e.g. on change or at an interval) so that refreshing the page mid-test restores previously entered answers rather than losing them. Submitting is a distinct, confirmed action that ends the attempt.
 
-- [ ] **T-013 — Auto-grading engine for objective question types**
-  - Status: Not Started
+- [x] **T-013 — Auto-grading engine for objective question types**
+  - Status: Done
   - Depends on: T-012
   - Source: Requirement row 9
   - Acceptance Criteria: On submission, the system scores multiple-choice and true/false by exact match against the stored correct choice, and fill-blank by case-insensitive match against a list of accepted answers configured at authoring time. Each answer is persisted with an `isCorrect` boolean and the attempt has a total score (correct/total and percentage). Grading is deterministic — grading the same submitted answers twice yields the same score.
 
-- [ ] **T-014 — Basic result views (student + teacher)**
-  - Status: Not Started
+- [x] **T-014 — Basic result views (student + teacher)**
+  - Status: Done
   - Depends on: T-013
   - Source: Requirement row 9
   - Acceptance Criteria: After submitting, a student sees their own score and a correct/incorrect indicator per question for that attempt. A teacher, from the test/session view, sees a list of all students who attempted it with each one's score. A student cannot view another student's result (403/blocked at the API level, not just hidden in the UI).

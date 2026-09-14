@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Student join, take-test runtime, grading, results (MVP Core Loop complete)
+
+- Task IDs touched: T-011, T-012, T-013, T-014
+- What changed: Dev built the join-via-QR/link login gate with round-robin variant auto-assignment, the take-test runtime (timer, autosave, confirmed submit, server-side post-submit lock), the objective-question grading engine (exact match for MC/TF, case-insensitive trimmed match for fillBlank), and student/teacher result views sharing one server-side view-builder so they can't disagree. This closes the full MVP Core Loop: teacher creates a test → generates variants → starts a QR session → student joins → takes the test → gets auto-graded → both teacher and student see matching results. Test independently re-verified the entire flow end-to-end (real browser + real DB queries), including 5x adversarial re-runs of a login/register race-condition fix Dev made, server-side rejection of post-submit edits, and cross-student/cross-teacher isolation — PASS, no bugs found in this commit.
+- Why / decisions made: Variant assignment is round-robin by join order (not random) for even distribution — documented in `sessions.routes.ts`. A structural fix (not a timing hack) was applied to `LoginPage`/`RegisterPage` so the "already logged in" redirect and the post-login navigation always agree on the `from` target, eliminating a race that could send a freshly-registered student to their dashboard instead of back into the test they were joining.
+- Status after this entry: **Phase 0 and Phase 1 (MVP Core Loop) fully Done** — T-001 through T-014 plus T-061. The product now has a real, demoable end-to-end teacher-creates-test → student-takes-test → both-see-results flow. Moving to Phase 2 (Realtime Monitoring & Reporting Foundations). Of T-015–T-020, three are immediately unblocked and independent enough to batch together: T-015 (Socket.IO realtime infra, needs only T-006/T-007), T-018 (Unit/AcademicPeriod tagging entities, needs only T-007), and T-020 (per-question result breakdown, needs only T-013/T-014, all done). T-016/T-017/T-019 depend on T-015 and will follow next.
+
 ## 2026-09-14 — Dev/Test — Test authoring, variant shuffle, QR sessions, error middleware
 
 - Task IDs touched: T-061, T-008, T-009, T-010
