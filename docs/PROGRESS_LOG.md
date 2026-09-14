@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Realtime infra, curriculum tagging, result breakdown
+
+- Task IDs touched: T-015, T-018, T-020
+- What changed: Dev built Socket.IO realtime infra (one room per session, JWT-authenticated sockets, server-verified ownership, student progress keyed by studentId so reconnects overwrite rather than duplicate, students never see each other's progress), the `Unit`/`AcademicPeriod` curriculum-tagging models + teacher-only CRUD + minimal UI + optional `Test.unitId` tag, and completed the per-question breakdown (mostly already present from T-014's shared `attemptView.ts` builder; fixed the student result page to always show the correct/accepted answer, matching the teacher view exactly). Test independently re-verified with its own socket client scripts (not reusing Dev's `verify-realtime.ts` unmodified): ownership enforcement, stranger rejection, 3x disconnect/reconnect dedup, cross-student isolation, curriculum CRUD + role checks + `onDelete: SetNull` behavior, and byte-identical student/teacher breakdown views — PASS, no bugs found.
+- Why / decisions made: `Unit`/`AcademicPeriod` are global (not per-teacher) — documented as reasonable for a single small teaching business, revisit if that assumption changes. AcademicPeriod dates are parsed as `YYYY-MM-DD` and stored as UTC instants representing Asia/Ho_Chi_Minh midnight, consistent with Assumption A5.
+- Status after this entry: T-001–T-015, T-018, T-020, T-061 Done. T-016 (live monitoring dashboard, needs T-015+T-012, both done) and T-017 (time tracking/averages, needs T-013+T-015, both done) are now unblocked and independent enough to batch together; T-019 (reporting engine v1) still needs T-017 first, so it follows next.
+
 ## 2026-09-14 — Dev/Test — Student join, take-test runtime, grading, results (MVP Core Loop complete)
 
 - Task IDs touched: T-011, T-012, T-013, T-014

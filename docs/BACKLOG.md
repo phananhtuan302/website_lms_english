@@ -103,8 +103,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 2 — Realtime Monitoring & Reporting Foundations
 
-- [ ] **T-015 — Realtime session infrastructure (Socket.IO)**
-  - Status: Not Started
+- [x] **T-015 — Realtime session infrastructure (Socket.IO)**
+  - Status: Done
   - Depends on: T-006, T-007
   - Source: TECH_STACK.md (realtime rationale); foundation for rows 6, 7, 19
   - Acceptance Criteria: The server exposes a Socket.IO namespace/room per active test session. A connected teacher client (authenticated) can join the room for a session they own; a student client joining the same session emits progress events the server relays to the room. Disconnecting and reconnecting a student mid-test does not duplicate them in the room or crash the server.
@@ -121,8 +121,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 8
   - Acceptance Criteria: Each attempt records start time and submit time; total time-taken is computed and stored. For a given test, the teacher can see the average time-taken across all attempts. A student who never submits (abandoned attempt) does not corrupt the average (excluded or clearly flagged as incomplete).
 
-- [ ] **T-018 — Curriculum tagging: Unit & Academic Period (semester) entities**
-  - Status: Not Started
+- [x] **T-018 — Curriculum tagging: Unit & Academic Period (semester) entities**
+  - Status: Done
   - Depends on: T-007
   - Source: Requirement row 8 note ("report theo unit"); Assumption A5
   - Acceptance Criteria: A `Unit` model (name, order) and an `AcademicPeriod`/semester model (name, startDate, endDate) exist and can be managed by a teacher (create/edit/list). A `Test` can optionally be tagged with a `Unit`. Seeding creates at least two default academic periods for the current year. This task does not yet build the full "Unit Test" feature (that's T-036) — it only introduces the tagging data needed for reporting.
@@ -133,8 +133,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 8; tab-list report note; Assumption A5
   - Acceptance Criteria: A teacher can view aggregate test-attempt stats (average score, average time) filtered by: a single test, a Unit, an ISO week, a calendar month, a quarter, an Academic Period (semester), and a year. Changing the filter changes the displayed numbers correctly against seeded data spanning at least two different periods (verifiable by checking the math against raw attempt records). All bucketing uses the fixed `Asia/Ho_Chi_Minh` timezone per Assumption A5.
 
-- [ ] **T-020 — Result detail: per-question correct/incorrect breakdown**
-  - Status: Not Started
+- [x] **T-020 — Result detail: per-question correct/incorrect breakdown**
+  - Status: Done
   - Depends on: T-013, T-014
   - Source: Requirement row 9
   - Acceptance Criteria: From a specific student's attempt, both the student and the owning teacher can open a per-question breakdown showing the question text, the student's answer, whether it was correct, and the correct answer. This view is available from both the student result page (T-014) and the teacher's per-session student list.
