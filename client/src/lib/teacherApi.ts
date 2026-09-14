@@ -33,6 +33,8 @@ import type {
   ReportGroupBy,
   ReportResponseDTO,
   SentenceSubmissionDTO,
+  SpeakingReportGroupBy,
+  SpeakingReportResponseDTO,
   TeacherStudentSummaryDTO,
   TeacherUnitTestsResponseDTO,
   TeacherVocabProgressDTO,
@@ -213,6 +215,18 @@ export const teacherApi = {
     if (params.unitId) query.set('unitId', params.unitId);
     if (params.testType) query.set('testType', params.testType);
     return apiRequest<ReportResponseDTO>(`${teacherBase}/reports?${query.toString()}`);
+  },
+
+  // --- Speaking reports (T-057) ------------------------------------------------------
+  getSpeakingReport: (params: {
+    groupBy: SpeakingReportGroupBy;
+    testId?: string | null;
+    unitId?: string | null;
+  }) => {
+    const query = new URLSearchParams({ groupBy: params.groupBy });
+    if (params.testId) query.set('testId', params.testId);
+    if (params.unitId) query.set('unitId', params.unitId);
+    return apiRequest<SpeakingReportResponseDTO>(`${teacherBase}/speaking-reports?${query.toString()}`);
   },
 
   // --- Vocabulary progress (T-030) + monthly/yearly ranking (T-032/T-033) ------------

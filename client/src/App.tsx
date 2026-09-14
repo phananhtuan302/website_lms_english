@@ -35,7 +35,7 @@ import TeacherGrammarPage from './pages/TeacherGrammarPage';
 import TeacherGrammarReportsPage from './pages/TeacherGrammarReportsPage';
 import TeacherGrammarTopicEditorPage from './pages/TeacherGrammarTopicEditorPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
-import TeacherReportsPage from './pages/TeacherReportsPage';
+import TeacherReportsHubPage from './pages/TeacherReportsHubPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
@@ -92,7 +92,10 @@ function App() {
                 element={<TeacherLiveSessionPage />}
               />
               <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
-              <Route path="/teacher/reports" element={<TeacherReportsPage />} />
+              {/* Unified reporting area (T-057): module switcher (Test/Unit Test/
+                  Vocabulary/Grammar/Speaking) over the same reporting engines each
+                  module already used standalone. */}
+              <Route path="/teacher/reports" element={<TeacherReportsHubPage />} />
               {/* Vocabulary monthly (T-032) / yearly (T-033) ranking report. */}
               <Route path="/teacher/vocab-ranking" element={<TeacherVocabRankingPage />} />
               {/* Grammar topic authoring: theory content (T-047) + practice exercises

@@ -1122,6 +1122,35 @@ export interface ReportResponseDTO {
   buckets: ReportBucketDTO[];
 }
 
+// --- Speaking reports (T-057) --------------------------------------------------------
+// Extends T-019's reporting engine additively once more (`computeSpeakingReport` in
+// `server/src/lib/reporting.ts`, alongside `computeReport`/`computeGrammarReport`),
+// reusing `ReportBucketDTO` as-is: `averageScorePercent` here means "average effective
+// Speaking score" (the teacher's override when present, else the AI grade — same
+// "teacher value wins" rule as `AttemptResultQuestionDTO` below), and
+// `averageTimeTakenSeconds` is always `null` (no whole-attempt duration is meaningful
+// for a single Speaking answer's per-question response window).
+
+/** `test`/`unit` play the same role as in `ReportGroupBy`, restricted to tests/units that
+ * actually contain a Speaking question; no `student` dimension (T-057 didn't ask for a
+ * Speaking leaderboard, only the same depth of period bucketing every other module
+ * gets). */
+export type SpeakingReportGroupBy =
+  | 'test'
+  | 'unit'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'semester'
+  | 'year';
+
+export interface SpeakingReportResponseDTO {
+  groupBy: SpeakingReportGroupBy;
+  testId: string | null;
+  unitId: string | null;
+  buckets: ReportBucketDTO[];
+}
+
 // --- Grammar module (T-046–T-050) ---------------------------------------------------
 // Mirrors `server/prisma/schema.prisma`'s `GrammarTopic`/`GrammarExercise`/
 // `GrammarChoice`/`GrammarExerciseAttempt` models as plain DTOs, same pattern as every

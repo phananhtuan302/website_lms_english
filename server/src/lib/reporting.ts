@@ -900,3 +900,342 @@ export async function computeGrammarReport(
     buckets,
   };
 }
+
+// --- Speaking reports (T-057) -----------------------------------------------------------
+//
+// Extends this module ADDITIVELY once more, same reasoning as `computeGrammarReport`
+// above: reuses the exact same HCM-local bucketing helpers (`toHcmParts`/`weekBucketOf`/
+// `monthBucketOf`/`quarterBucketOf`/`yearBucketOf`) rather than a third reimplementation
+// of the date math, so the "single reporting area" T-057 builds on the client side has a
+// real, consistent engine underneath for the Speaking module rather than reading
+// Speaking scores off individual attempts one at a time.
+//
+// Speaking has no `Test`-shaped "attempt" score either (like Grammar) — the meaningful
+// unit here is a single graded `Answer` row for a `speaking`-type `Question`
+// (`speakingSubmittedAt` non-null, per T-054/T-064). `averageScorePercent` means "average
+// effective Speaking score" — the teacher's override (`Answer.manualScore`, T-055) when
+// present, else the AI grade (`Answer.speakingAiScore`, T-051/T-054), matching exactly
+// what `AttemptResultQuestionDTO`'s "teacher value wins" rule already shows a student
+// (see that DTO's doc comment in `@platform/shared`). `averageTimeTakenSeconds` is always
+// `null` — a Speaking answer's response window (T-052/T-064) is a per-question time
+// limit, not a whole-attempt duration, so faking a number here would be misleading; same
+// "don't fake it" convention `computeGrammarReport` already established for its own
+// always-timeless metric.
+
+export const SPEAKING_REPORT_GROUP_BY_VALUES = [
+  'test',
+  'unit',
+  'week',
+  'month',
+  'quarter',
+  'semester',
+  'year',
+] as const;
+
+export type SpeakingReportGroupBy = (typeof SPEAKING_REPORT_GROUP_BY_VALUES)[number];
+
+export interface SpeakingReportResult {
+  groupBy: SpeakingReportGroupBy;
+  testId: string | null;
+  unitId: string | null;
+  buckets: ReportBucketResult[];
+}
+
+export interface ComputeSpeakingReportOptions {
+  /** Required — scopes to the calling teacher's own tests, same as `computeReport`'s
+   * `teacherId` (Speaking questions, unlike `Unit`/`AcademicPeriod`, live inside a
+   * teacher-owned `Test`, so there is no "global" reading of this report). */
+  teacherId: string;
+  groupBy: SpeakingReportGroupBy;
+  /** Narrows to one owned test's Speaking answers. Caller (route handler) verifies
+   * ownership before calling in, same division of responsibility as `computeReport`. */
+  testId?: string | null;
+  /** Narrows to Speaking answers on tests tagged with this Unit. */
+  unitId?: string | null;
+}
+
+interface SpeakingBucketAccumulator {
+  label: string;
+  periodStart: Date | null;
+  periodEnd: Date | null;
+  /** Count of graded Speaking answers falling in this bucket (there is no broader
+   * "attempt" concept for this report — see module doc comment above). */
+  attemptCount: number;
+  scoreSum: number;
+  sortKey: number | string;
+}
+
+function finalizeSpeakingBucket(key: string, acc: SpeakingBucketAccumulator): ReportBucketResult {
+  return {
+    key,
+    label: acc.label,
+    attemptCount: acc.attemptCount,
+    averageScorePercent:
+      acc.attemptCount > 0 ? Number((acc.scoreSum / acc.attemptCount).toFixed(1)) : null,
+    averageTimeTakenSeconds: null,
+    periodStart: acc.periodStart ? acc.periodStart.toISOString() : null,
+    periodEnd: acc.periodEnd ? acc.periodEnd.toISOString() : null,
+  };
+}
+
+/** The one query every Speaking-report dimension shares — mirrors
+ * `fetchScopedGrammarAttempts` above but over graded `Answer` rows for `speaking`-type
+ * questions, joined through `Attempt`/`Test` for ownership + test/unit bucketing. */
+async function fetchScopedSpeakingAnswers(options: ComputeSpeakingReportOptions) {
+  return prisma.answer.findMany({
+    where: {
+      speakingSubmittedAt: { not: null },
+      question: { type: 'speaking' },
+      attempt: {
+        test: {
+          teacherId: options.teacherId,
+          ...(options.testId ? { id: options.testId } : {}),
+          ...(options.unitId ? { unitId: options.unitId } : {}),
+        },
+      },
+    },
+    select: {
+      speakingSubmittedAt: true,
+      manualScore: true,
+      speakingAiScore: true,
+      attempt: { select: { testId: true, test: { select: { id: true, title: true, unitId: true } } } },
+    },
+  });
+}
+
+type ScopedSpeakingAnswer = Awaited<ReturnType<typeof fetchScopedSpeakingAnswers>>[number];
+
+/** Teacher-override-wins effective score (T-055) — same rule `AttemptResultQuestionDTO`
+ * documents for what a student sees. Defensive `?? 0` fallback: unreachable in practice
+ * since `speakingSubmittedAt` is only ever set once `speakingAiScore` has also been
+ * written (T-054), but keeps this report from ever throwing on a row that shouldn't
+ * exist rather than silently excluding it. */
+function effectiveSpeakingScore(answer: ScopedSpeakingAnswer): number {
+  return answer.manualScore ?? answer.speakingAiScore ?? 0;
+}
+
+function addToSpeakingBucket(
+  map: Map<string, SpeakingBucketAccumulator>,
+  key: string,
+  def: Omit<SpeakingBucketAccumulator, 'attemptCount' | 'scoreSum'>,
+  answer: ScopedSpeakingAnswer,
+): void {
+  let acc = map.get(key);
+  if (!acc) {
+    acc = { ...def, attemptCount: 0, scoreSum: 0 };
+    map.set(key, acc);
+  }
+  acc.attemptCount += 1;
+  acc.scoreSum += effectiveSpeakingScore(answer);
+}
+
+function sortSpeakingBuckets(
+  entries: Array<[string, SpeakingBucketAccumulator]>,
+): Array<[string, SpeakingBucketAccumulator]> {
+  return entries.sort(([, a], [, b]) => {
+    if (a.sortKey < b.sortKey) return -1;
+    if (a.sortKey > b.sortKey) return 1;
+    return 0;
+  });
+}
+
+async function buildSpeakingTestBuckets(
+  options: ComputeSpeakingReportOptions,
+  answers: ScopedSpeakingAnswer[],
+): Promise<ReportBucketResult[]> {
+  // Canonical list of the teacher's own tests that actually contain a Speaking question
+  // (matching the same optional unit filter), so a Speaking-bearing test with zero
+  // graded answers yet still appears as a 0-row — same convention as `buildTestBuckets`.
+  const tests = await prisma.test.findMany({
+    where: {
+      teacherId: options.teacherId,
+      ...(options.testId ? { id: options.testId } : {}),
+      ...(options.unitId ? { unitId: options.unitId } : {}),
+      sections: { some: { questions: { some: { type: 'speaking' } } } },
+    },
+    select: { id: true, title: true },
+    orderBy: { title: 'asc' },
+  });
+
+  const map = new Map<string, SpeakingBucketAccumulator>();
+  for (const test of tests) {
+    map.set(test.id, {
+      label: test.title,
+      periodStart: null,
+      periodEnd: null,
+      attemptCount: 0,
+      scoreSum: 0,
+      sortKey: test.title,
+    });
+  }
+  for (const answer of answers) {
+    addToSpeakingBucket(
+      map,
+      answer.attempt.testId,
+      {
+        label: answer.attempt.test.title,
+        periodStart: null,
+        periodEnd: null,
+        sortKey: answer.attempt.test.title,
+      },
+      answer,
+    );
+  }
+
+  return sortSpeakingBuckets([...map.entries()]).map(([key, acc]) => finalizeSpeakingBucket(key, acc));
+}
+
+const UNTAGGED_SPEAKING_UNIT_KEY = 'untagged';
+
+async function buildSpeakingUnitBuckets(
+  options: ComputeSpeakingReportOptions,
+  answers: ScopedSpeakingAnswer[],
+): Promise<ReportBucketResult[]> {
+  const units = await prisma.unit.findMany({
+    where: options.unitId ? { id: options.unitId } : {},
+    select: { id: true, name: true, order: true },
+    orderBy: { order: 'asc' },
+  });
+
+  const map = new Map<string, SpeakingBucketAccumulator>();
+  for (const unit of units) {
+    map.set(unit.id, {
+      label: unit.name,
+      periodStart: null,
+      periodEnd: null,
+      attemptCount: 0,
+      scoreSum: 0,
+      sortKey: unit.order,
+    });
+  }
+  if (!options.unitId) {
+    map.set(UNTAGGED_SPEAKING_UNIT_KEY, {
+      label: 'Untagged',
+      periodStart: null,
+      periodEnd: null,
+      attemptCount: 0,
+      scoreSum: 0,
+      sortKey: Number.MAX_SAFE_INTEGER,
+    });
+  }
+
+  for (const answer of answers) {
+    const key = answer.attempt.test.unitId ?? UNTAGGED_SPEAKING_UNIT_KEY;
+    if (!map.has(key)) {
+      map.set(key, {
+        label: 'Untagged',
+        periodStart: null,
+        periodEnd: null,
+        attemptCount: 0,
+        scoreSum: 0,
+        sortKey: Number.MAX_SAFE_INTEGER,
+      });
+    }
+    addToSpeakingBucket(map, key, map.get(key)!, answer);
+  }
+
+  return sortSpeakingBuckets([...map.entries()]).map(([key, acc]) => finalizeSpeakingBucket(key, acc));
+}
+
+const UNASSIGNED_SPEAKING_SEMESTER_KEY = 'unassigned';
+
+async function buildSpeakingSemesterBuckets(
+  answers: ScopedSpeakingAnswer[],
+): Promise<ReportBucketResult[]> {
+  const periods = await prisma.academicPeriod.findMany({
+    orderBy: { startDate: 'asc' },
+    select: { id: true, name: true, startDate: true, endDate: true },
+  });
+
+  const map = new Map<string, SpeakingBucketAccumulator>();
+  for (const period of periods) {
+    map.set(period.id, {
+      label: period.name,
+      periodStart: period.startDate,
+      periodEnd: period.endDate,
+      attemptCount: 0,
+      scoreSum: 0,
+      sortKey: period.startDate.getTime(),
+    });
+  }
+  map.set(UNASSIGNED_SPEAKING_SEMESTER_KEY, {
+    label: 'Unassigned (outside any academic period)',
+    periodStart: null,
+    periodEnd: null,
+    attemptCount: 0,
+    scoreSum: 0,
+    sortKey: Number.MAX_SAFE_INTEGER,
+  });
+
+  for (const answer of answers) {
+    const submittedAt = answer.speakingSubmittedAt!;
+    const match = periods.find((p) => submittedAt >= p.startDate && submittedAt < p.endDate);
+    const key = match?.id ?? UNASSIGNED_SPEAKING_SEMESTER_KEY;
+    addToSpeakingBucket(map, key, map.get(key)!, answer);
+  }
+
+  return sortSpeakingBuckets([...map.entries()]).map(([key, acc]) => finalizeSpeakingBucket(key, acc));
+}
+
+function buildSpeakingTimeBuckets(
+  groupBy: 'week' | 'month' | 'quarter' | 'year',
+  answers: ScopedSpeakingAnswer[],
+): ReportBucketResult[] {
+  const bucketOf =
+    groupBy === 'week'
+      ? weekBucketOf
+      : groupBy === 'month'
+        ? monthBucketOf
+        : groupBy === 'quarter'
+          ? quarterBucketOf
+          : yearBucketOf;
+
+  const map = new Map<string, SpeakingBucketAccumulator>();
+  for (const answer of answers) {
+    const def = bucketOf(toHcmParts(answer.speakingSubmittedAt!));
+    if (!map.has(def.key)) {
+      map.set(def.key, {
+        label: def.label,
+        periodStart: def.periodStart,
+        periodEnd: def.periodEnd,
+        attemptCount: 0,
+        scoreSum: 0,
+        sortKey: (def.periodStart ?? new Date(0)).getTime(),
+      });
+    }
+    addToSpeakingBucket(map, def.key, map.get(def.key)!, answer);
+  }
+
+  return sortSpeakingBuckets([...map.entries()]).map(([key, acc]) => finalizeSpeakingBucket(key, acc));
+}
+
+/** Computes a Speaking report breakdown table (T-057), alongside `computeReport`/
+ * `computeGrammarReport` above — see this section's module doc comment. */
+export async function computeSpeakingReport(
+  options: ComputeSpeakingReportOptions,
+): Promise<SpeakingReportResult> {
+  const answers = await fetchScopedSpeakingAnswers(options);
+
+  let buckets: ReportBucketResult[];
+  switch (options.groupBy) {
+    case 'test':
+      buckets = await buildSpeakingTestBuckets(options, answers);
+      break;
+    case 'unit':
+      buckets = await buildSpeakingUnitBuckets(options, answers);
+      break;
+    case 'semester':
+      buckets = await buildSpeakingSemesterBuckets(answers);
+      break;
+    default:
+      buckets = buildSpeakingTimeBuckets(options.groupBy, answers);
+      break;
+  }
+
+  return {
+    groupBy: options.groupBy,
+    testId: options.testId ?? null,
+    unitId: options.unitId ?? null,
+    buckets,
+  };
+}

@@ -39,7 +39,7 @@ function TeacherDashboardPage() {
           to="/teacher/reports"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          View reports
+          View reports (Test, Unit Test, Vocabulary, Grammar, Speaking)
         </Link>
         <Link
           to="/vocab-leaderboard"
@@ -48,22 +48,10 @@ function TeacherDashboardPage() {
           Vocabulary leaderboard
         </Link>
         <Link
-          to="/teacher/vocab-ranking"
-          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-        >
-          Vocabulary monthly/yearly ranking
-        </Link>
-        <Link
           to="/teacher/grammar-topics"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
           Manage Grammar topics
-        </Link>
-        <Link
-          to="/teacher/grammar-reports"
-          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-        >
-          Grammar reports
         </Link>
         <Link
           to="/teacher/unit-tests"
