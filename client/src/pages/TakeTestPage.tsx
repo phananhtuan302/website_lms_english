@@ -353,8 +353,17 @@ function TakeTestPage() {
     if (speakingStatus[q.id] === 'submitted') return;
     if (speakingDeadlinesRef.current[q.id] == null) {
       speakingDeadlinesRef.current[q.id] = Date.now() + q.allowedResponseSeconds * 1000;
+      // T-064: tell the server this question's window has started too — it's the
+      // server-side anchor `speaking-answer` checks against, since the client countdown
+      // alone is spoofable (a direct API call has no deadline to respect otherwise).
+      // Fire-and-forget: a transient failure here just means this attempt at recording
+      // may later be rejected as "window never started," same as if the student had
+      // somehow skipped viewing the question — not a reason to block the UI.
+      if (attemptId) {
+        studentApi.startSpeakingWindow(attemptId, q.id).catch(() => undefined);
+      }
     }
-  }, [currentIndex, flatQuestions, speakingStatus]);
+  }, [attemptId, currentIndex, flatQuestions, speakingStatus]);
 
   // Enforces the Speaking countdown at expiry (T-052): auto-stops an in-progress
   // recording (which submits whatever was captured so far via `MediaRecorder.onstop` ->

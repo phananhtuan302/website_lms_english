@@ -568,6 +568,14 @@ model Answer {
   speakingAiScore     Float?
   speakingAiFeedback  String?
   speakingSubmittedAt DateTime?
+  /// T-064: when the student's response window actually started, per the server (set by
+  /// `POST .../speaking-window/start`, called by the client the moment it first shows
+  /// this question's countdown — first call wins, never overwritten). Enforces
+  /// `Question.allowedResponseSeconds` server-side rather than trusting the client-only
+  /// countdown, which was spoofable (a direct API call could submit an arbitrarily late
+  /// "recording" for a short window with no pushback). `null` until the start signal
+  /// arrives; a question with no `allowedResponseSeconds` configured never needs one.
+  speakingWindowStartedAt DateTime?
   updatedAt           DateTime  @updatedAt
 
   @@unique([attemptId, questionId])

@@ -407,6 +407,70 @@ attemptsRouter.post(
   }),
 );
 
+/** T-064: grace window added on top of `Question.allowedResponseSeconds` before a late
+ * submission is rejected, to absorb ordinary network/processing latency between the
+ * client's countdown expiring and the request actually arriving — not meant to give a
+ * student meaningfully extra recording time. */
+const SPEAKING_WINDOW_GRACE_SECONDS = 10;
+
+/** `POST /api/attempts/:attemptId/questions/:questionId/speaking-window/start` — T-064.
+ *
+ * Server-side anchor for `Question.allowedResponseSeconds` enforcement: the client calls
+ * this the moment it first shows a timed Speaking question's countdown (mirroring where
+ * `TakeTestPage.tsx` latches its own client-side deadline). Idempotent and first-call-
+ * wins (an `UPDATE ... WHERE speakingWindowStartedAt IS NULL`-style guard below) so a
+ * student can't "restart" their time budget by re-triggering it, and reconnecting/
+ * refreshing mid-question doesn't reset the clock either. Without this signal ever
+ * having arrived, `speaking-answer` below refuses to grade a timed question at all —
+ * closing the gap where a direct API call could previously submit a grade for an
+ * arbitrarily late "recording" with no server-side timing check whatsoever. */
+attemptsRouter.post(
+  '/:attemptId/questions/:questionId/speaking-window/start',
+  asyncHandler(async (req, res) => {
+    const attempt = await loadOwnAttempt(req.params.attemptId, req.user!.sub);
+    if (!attempt) {
+      res.status(404).json({ error: 'Attempt not found.' });
+      return;
+    }
+    if (attempt.status !== 'inProgress') {
+      res.status(409).json({ error: 'This attempt has already been submitted; answers can no longer be changed.' });
+      return;
+    }
+
+    const question = await prisma.question.findUnique({
+      where: { id: req.params.questionId },
+      include: { section: true },
+    });
+    if (!question || question.section.testId !== attempt.testId) {
+      res.status(404).json({ error: 'Question not found on this attempt.' });
+      return;
+    }
+    if (question.type !== 'speaking') {
+      res.status(400).json({ error: 'Only speaking questions have a response window to start.' });
+      return;
+    }
+
+    const existing = await prisma.answer.findUnique({
+      where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+    });
+    if (existing?.speakingSubmittedAt) {
+      res.status(409).json({ error: 'This speaking answer has already been submitted; its window is closed.' });
+      return;
+    }
+
+    // First-call-wins: only set the timestamp if it isn't already set, so a repeated
+    // start signal (re-render, reconnect) never pushes the deadline forward.
+    const startedAt = existing?.speakingWindowStartedAt ?? new Date();
+    await prisma.answer.upsert({
+      where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+      create: { attemptId: attempt.id, questionId: question.id, speakingWindowStartedAt: startedAt },
+      update: existing?.speakingWindowStartedAt ? {} : { speakingWindowStartedAt: startedAt },
+    });
+
+    res.status(200).json({ speakingWindowStartedAt: startedAt.toISOString() });
+  }),
+);
+
 /** `POST /api/attempts/:attemptId/questions/:questionId/speaking-answer` — T-052–T-054.
  *
  * The student's finished recording (audio + whatever draft transcript the Web Speech
@@ -460,6 +524,26 @@ attemptsRouter.post(
         error: 'This speaking answer has already been submitted and graded; it cannot be re-submitted.',
       });
       return;
+    }
+
+    // T-064: enforce `allowedResponseSeconds` server-side, not just via the client
+    // countdown. A question with no configured limit has nothing to enforce.
+    if (question.allowedResponseSeconds != null) {
+      if (!existing?.speakingWindowStartedAt) {
+        res.status(409).json({
+          error:
+            'This question’s response window was never started. Call the speaking-window/start endpoint when the question is first shown, before submitting an answer.',
+        });
+        return;
+      }
+      const elapsedSeconds = (Date.now() - existing.speakingWindowStartedAt.getTime()) / 1000;
+      const allowedWithGrace = question.allowedResponseSeconds + SPEAKING_WINDOW_GRACE_SECONDS;
+      if (elapsedSeconds > allowedWithGrace) {
+        res.status(409).json({
+          error: `The response window for this question (${question.allowedResponseSeconds}s) has expired.`,
+        });
+        return;
+      }
     }
 
     const body = req.body as Partial<SubmitSpeakingAnswerRequest>;

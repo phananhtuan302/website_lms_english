@@ -45,6 +45,13 @@ export const studentApi = {
   getResult: (attemptId: string) => apiRequest<AttemptResultDTO>(`/api/attempts/${attemptId}/result`),
 
   // --- Speaking answers (T-052–T-054) ------------------------------------------------
+  // T-064: must be called the moment a timed Speaking question is first shown, before
+  // recording/submitting — anchors the server-side response-window check.
+  startSpeakingWindow: (attemptId: string, questionId: string) =>
+    apiRequest<{ speakingWindowStartedAt: string }>(
+      `/api/attempts/${attemptId}/questions/${questionId}/speaking-window/start`,
+      { method: 'POST' },
+    ),
   submitSpeakingAnswer: (attemptId: string, questionId: string, body: SubmitSpeakingAnswerRequest) =>
     apiRequest<SubmitSpeakingAnswerResponse>(
       `/api/attempts/${attemptId}/questions/${questionId}/speaking-answer`,
