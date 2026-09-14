@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Leader — Process change: velocity mode approved by customer
+
+- Task IDs touched: None (process change)
+- What changed: Customer reviewed the pace of the first 18 tasks (each used two full independent verification passes) and asked to trade some redundancy for speed. Added `PROJECT_PLAN.md` Section 8 ("Process & Velocity Mode"): bigger batches (5–8 tasks), lighter Dev self-verification (API/DB-level, not full-browser for every sub-case), sampled (not exhaustive-adversarial) Test verification per task, adversarial regression reserved for phase-boundary milestones, and pipelining Dev(N+1) in parallel with Test(N) when tasks don't share dependencies.
+- Why / decisions made: Explicit customer instruction — see conversation. This is a standing process change, not a one-off, until the customer says otherwise at the 90–95% review. Any bug that slips through under this lighter mode gets logged as a new backlog task (same pattern as `T-061`) rather than reverting the task's `Done` status.
+- Status after this entry: All future cycles should read `PROJECT_PLAN.md` Section 8 and follow it. Currently mid-cycle: T-016/T-017 Dev batch was dispatched under the old (thorough) mode and is still running; velocity mode applies starting with its Test verification and every batch after.
+
 ## 2026-09-14 — Dev/Test — Realtime infra, curriculum tagging, result breakdown
 
 - Task IDs touched: T-015, T-018, T-020
