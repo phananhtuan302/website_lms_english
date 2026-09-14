@@ -1,9 +1,9 @@
 // Prisma schema for the English Test Platform (server).
 //
 // Scope note (T-002): originally this file only defined `User`. T-007 adds the
-// Test/Section/Question/Choice domain model (see below). Every other domain model
-// (Flashcard, Grammar, ...) is still owned by its own later backlog task and must NOT
-// be added here ahead of time.
+// Test/Section/Question/Choice domain model (see below). T-021 adds the
+// Flashcard/Vocabulary domain model. Grammar/Speaking are still owned by their own
+// later backlog tasks and must NOT be added here ahead of time.
 
 generator client {
   provider = "prisma-client-js"
@@ -43,6 +43,13 @@ model User {
   // user from being the FK target here either — the join endpoint's `requireRole('student')`
   // is what actually enforces "students only" for joining a session.
   attempts Attempt[] @relation("StudentAttempts")
+
+  // A teacher's authored flashcard sets (T-022). Same "app layer enforces the role, not
+  // the FK" note as `tests` above.
+  flashcardSets FlashcardSet[] @relation("TeacherFlashcardSets")
+
+  // A student's per-card vocabulary progress (T-021/T-023). Same note as `attempts`.
+  flashcardProgress FlashcardProgress[] @relation("StudentFlashcardProgress")
 
   @@map("users")
 }
@@ -101,12 +108,16 @@ model Test {
 /// If that assumption ever changes, adding a `teacherId` column later is a small,
 /// backwards-compatible migration — nothing about the shape below forecloses it.
 model Unit {
-  id        String   @id @default(uuid())
-  name      String
-  order     Int
-  tests     Test[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(uuid())
+  name          String
+  order         Int
+  tests         Test[]
+  // Optional curriculum tag for a flashcard set (T-021/T-022) — same `SetNull`
+  // reasoning as `Test.unitId` below: deleting a Unit should never take a teacher's
+  // flashcard sets down with it.
+  flashcardSets FlashcardSet[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@map("units")
 }
@@ -336,4 +347,117 @@ model Answer {
 
   @@unique([attemptId, questionId])
   @@map("answers")
+}
+
+// --- Vocabulary & Flashcards (T-021) -------------------------------------------------
+// Phase 3 core: a teacher-owned collection of vocabulary words (`FlashcardSet` /
+// `FlashcardCard`) plus per-student familiarity tracking (`FlashcardProgress`). Every
+// exercise sub-type built in this same batch (T-024 fill-blank, T-025 unscramble, T-026
+// listen-and-type, T-027 IPA-to-word) reads `FlashcardCard` and writes
+// `FlashcardProgress` — see that model's doc comment for why there's no separate
+// per-exercise-type log yet.
+
+/// A student's familiarity level for one card (T-021/T-023). `known` is the "mastered"
+/// end of the scale; `new` is the default for a card never reviewed at all (no row
+/// exists yet — see `FlashcardProgress`'s doc comment on how `new` without a row differs
+/// from `new` as an explicit status).
+enum FlashcardProgressStatus {
+  new
+  learning
+  known
+}
+
+/// A teacher-owned collection of vocabulary words (T-021), optionally tagged to a
+/// curriculum `Unit` (T-018) — same optional-tag pattern as `Test.unitId`, including the
+/// `SetNull` on unit delete.
+model FlashcardSet {
+  id        String          @id @default(uuid())
+  name      String
+  teacherId String
+  teacher   User            @relation("TeacherFlashcardSets", fields: [teacherId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  cards     FlashcardCard[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("flashcard_sets")
+}
+
+/// One vocabulary word/card within a `FlashcardSet` (T-021), explicitly ordered
+/// (`order`) — same convention as `Section`/`Question`. Only `term`/`meaning` are
+/// required; every other field is optional per T-021's acceptance criteria ("fields may
+/// be optional").
+///
+/// `exampleSentence` (documented choice, added ahead of T-024 since no such field
+/// existed yet): an optional sentence using this word, with the literal substring
+/// `___` (three underscores) marking where the word is blanked out for the
+/// fill-in-the-blank exercise (T-024). Validated at authoring time
+/// (`teacherFlashcards.routes.ts`) to always contain that marker when present. A card
+/// with no `exampleSentence` is simply skipped by that exercise type (T-024's
+/// acceptance criteria), never a hard error.
+///
+/// `audioUrl` convention (documented choice for T-026): a plain URL string the teacher
+/// supplies, exactly like `imageUrl` — there is no audio hosting/TTS service built or
+/// needed here, so this is content-authoring data, not a third-party integration (no
+/// `INTEGRATIONS_TODO.md` entry). Seed/demo data (`prisma/seed.ts`) uses placeholder
+/// URLs that don't resolve to real audio; the listen-and-type exercise (T-026) only
+/// requires the field to be non-null to consider a card eligible — it never validates
+/// server-side that the URL actually serves playable audio.
+///
+/// `synonyms` (documented choice for T-024): fill-in-the-blank's "any configured
+/// alternates" (per its acceptance criteria) are this card's `synonyms` list — reused
+/// rather than introducing a second free-form "alternate answers" field, since T-021's
+/// schema task didn't call for one and a synonym is, by definition, an acceptable
+/// alternate word for the blank.
+model FlashcardCard {
+  id              String              @id @default(uuid())
+  setId           String
+  set             FlashcardSet        @relation(fields: [setId], references: [id], onDelete: Cascade)
+  term            String
+  meaning         String
+  ipa             String?
+  imageUrl        String?
+  audioUrl        String?
+  exampleSentence String?
+  synonyms        String[]            @default([])
+  antonyms        String[]            @default([])
+  order           Int
+  progress        FlashcardProgress[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("flashcard_cards")
+}
+
+/// One student's familiarity/status for one `FlashcardCard` (T-021). A row is created
+/// lazily on first interaction (study-mode marking in T-023, OR the first exercise
+/// attempt in T-024–T-027) — a card with no row yet is treated as `new` by every reader,
+/// so "never reviewed" and "explicitly marked new" are indistinguishable by design (no
+/// meaningful product difference between them).
+///
+/// Documented choice: this single row IS "exercise progress" for every exercise type in
+/// this batch — there is no separate per-exercise-type attempt log here (that level of
+/// detail, e.g. "how many fill-blank attempts with what accuracy", is explicitly T-030's
+/// job, not T-021's). T-023's direct study-mode marking and T-024–T-027's
+/// answer-correctness-driven updates both read/write the exact same row per student+card
+/// — see `server/src/lib/flashcardProgress.ts`'s `advanceStatus` for the shared
+/// status-transition rule the exercise paths use (study mode sets the status directly,
+/// since the student is explicitly choosing it there).
+///
+/// `@@unique([cardId, studentId])` makes every write an upsert — one row per
+/// student+card, same pattern as `Answer.@@unique([attemptId, questionId])`.
+model FlashcardProgress {
+  id             String                  @id @default(uuid())
+  cardId         String
+  card           FlashcardCard           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User                    @relation("StudentFlashcardProgress", fields: [studentId], references: [id], onDelete: Cascade)
+  status         FlashcardProgressStatus @default(new)
+  lastReviewedAt DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([cardId, studentId])
+  @@map("flashcard_progress")
 }

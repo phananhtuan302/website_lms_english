@@ -436,6 +436,151 @@ export type UpdateAcademicPeriodRequest = CreateAcademicPeriodRequest;
 // reason every other cross-workspace shape lives here: client and server must never
 // drift on what fields exist.
 
+// --- Vocabulary & Flashcards (T-021–T-027) ------------------------------------------
+// Mirrors `server/prisma/schema.prisma`'s `FlashcardSet`/`FlashcardCard`/
+// `FlashcardProgress` models (T-021) as plain DTOs, same pattern as the Test/Section/
+// Question DTOs above.
+
+export type FlashcardProgressStatus = 'new' | 'learning' | 'known';
+
+/** A vocabulary card as the OWNING teacher sees it (T-022) — every field, including
+ * ones an exercise must never leak to a student ahead of time (there's nothing secret
+ * here; `term` itself is the "answer" for T-025/T-026/T-027). */
+export interface FlashcardCardDTO {
+  id: string;
+  term: string;
+  meaning: string;
+  ipa: string | null;
+  imageUrl: string | null;
+  audioUrl: string | null;
+  /** Optional sentence with `___` marking the blank (T-024). */
+  exampleSentence: string | null;
+  synonyms: string[];
+  antonyms: string[];
+  order: number;
+}
+
+export interface FlashcardSetSummaryDTO {
+  id: string;
+  name: string;
+  unitId: string | null;
+  unitName: string | null;
+  cardCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FlashcardSetDetailDTO {
+  id: string;
+  name: string;
+  teacherId: string;
+  unitId: string | null;
+  unit: { id: string; name: string } | null;
+  cards: FlashcardCardDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFlashcardSetRequest {
+  name: string;
+  /** Optional Unit tag (mirrors `CreateTestRequest.unitId`) — omitted/undefined leaves
+   * it untagged; explicit `null` clears an existing tag on update. */
+  unitId?: string | null;
+}
+export type UpdateFlashcardSetRequest = CreateFlashcardSetRequest;
+
+/** Body shared by create/edit-card. All fields but `term`/`meaning` are optional per
+ * T-021's acceptance criteria. Sending `synonyms`/`antonyms` replaces the full list
+ * (never a partial merge) — same "send full current state" convention as
+ * `ChoiceInput`/authoring's question choices. */
+export interface FlashcardCardInput {
+  term: string;
+  meaning: string;
+  ipa?: string | null;
+  imageUrl?: string | null;
+  audioUrl?: string | null;
+  /** If provided, must contain the literal substring `___` (the blank marker) —
+   * validated server-side, see `teacherFlashcards.routes.ts`. */
+  exampleSentence?: string | null;
+  synonyms?: string[];
+  antonyms?: string[];
+}
+export type CreateFlashcardCardRequest = FlashcardCardInput;
+export type UpdateFlashcardCardRequest = FlashcardCardInput;
+
+// --- Student flashcard study mode (T-023) -------------------------------------------
+
+/** A card as shown to a student, with the requesting student's own progress for it
+ * (`null` progressStatus = never reviewed yet, treated identically to `new` — see
+ * `FlashcardProgress`'s doc comment in schema.prisma). */
+export interface StudentFlashcardCardDTO extends FlashcardCardDTO {
+  progressStatus: FlashcardProgressStatus | null;
+  lastReviewedAt: string | null;
+}
+
+/** Documented choice: every flashcard set is visible to every student (there is no
+ * class/enrollment/assignment concept anywhere in this schema yet) — see
+ * `studentFlashcards.routes.ts`'s module doc comment. */
+export interface StudentFlashcardSetSummaryDTO {
+  id: string;
+  name: string;
+  unitId: string | null;
+  unitName: string | null;
+  cardCount: number;
+}
+
+export interface StudentFlashcardSetDetailDTO {
+  id: string;
+  name: string;
+  unitId: string | null;
+  unitName: string | null;
+  cards: StudentFlashcardCardDTO[];
+}
+
+/** Body for `PUT /api/flashcard-sets/:setId/cards/:cardId/progress` (T-023 — direct
+ * study-mode marking, e.g. "Known" / "Still learning" buttons on the flip card). */
+export interface UpdateFlashcardProgressRequest {
+  status: FlashcardProgressStatus;
+}
+
+export interface FlashcardProgressDTO {
+  cardId: string;
+  status: FlashcardProgressStatus;
+  lastReviewedAt: string | null;
+}
+
+// --- Vocabulary exercises (T-024–T-027) ---------------------------------------------
+
+export type VocabExerciseType = 'fillBlank' | 'unscramble' | 'listenAndType' | 'ipaToWord';
+
+/** One eligible prompt for a given exercise type — never includes the answer. Exactly
+ * one of `sentence` / `scrambled` / `audioUrl` / `ipa` is populated, matching `type`:
+ * - `fillBlank` -> `sentence` (the card's `exampleSentence`, blank marker intact)
+ * - `unscramble` -> `scrambled` (the term's letters, shuffled)
+ * - `listenAndType` -> `audioUrl` (the card's audio asset)
+ * - `ipaToWord` -> `ipa` (the card's IPA transcription) */
+export interface VocabExercisePromptDTO {
+  cardId: string;
+  type: VocabExerciseType;
+  sentence?: string;
+  scrambled?: string;
+  audioUrl?: string;
+  ipa?: string;
+}
+
+export interface CheckVocabExerciseRequest {
+  answer: string;
+}
+
+/** `correctAnswer` is always the card's canonical `term` — returned regardless of
+ * whether the submission was right, so the UI can show "the correct answer was ..." on
+ * a miss (immediate feedback, per T-024–T-027's acceptance criteria). */
+export interface CheckVocabExerciseResponse {
+  correct: boolean;
+  correctAnswer: string;
+  progressStatus: FlashcardProgressStatus;
+}
+
 /** One student's latest known progress within a session, keyed by `studentId` (never
  * socket id — see `sessionRealtime.ts`'s module doc comment for why) so a reconnect
  * overwrites the same entry instead of adding a second one. */

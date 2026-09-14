@@ -231,6 +231,138 @@ async function seedUnits() {
   console.log('[seed] Sample curriculum units ready (T-018).');
 }
 
+const DEMO_FLASHCARD_SET_NAME = 'Seed Demo Vocabulary Set (T-021 round-trip check)';
+
+/**
+ * Placeholder image/audio URL convention (T-021/T-026, documented choice): these are
+ * NOT real assets — no image/audio hosting or TTS service exists in this project (and
+ * none is needed; per the batch instructions, a simple placeholder string is enough, so
+ * this is a code/README-documented convention, not an `INTEGRATIONS_TODO.md` entry).
+ * `imageUrl`/`audioUrl` are just URL-shaped strings the teacher-authoring UI accepts
+ * as-is; the listen-and-type exercise (T-026) only checks that `audioUrl` is non-null to
+ * consider a card eligible, it never validates that the URL actually resolves to
+ * playable audio. Real content authoring later just means teachers pasting real hosted
+ * URLs here instead.
+ */
+function placeholderImageUrl(slug: string): string {
+  return `https://example.com/placeholder-assets/images/${slug}.png`;
+}
+function placeholderAudioUrl(slug: string): string {
+  return `https://example.com/placeholder-assets/audio/${slug}.mp3`;
+}
+
+/**
+ * Seeds one demo `FlashcardSet` (T-021) with cards deliberately varying which optional
+ * fields are populated, so the round-trip check below actually exercises "some with
+ * optional fields, some without" per T-021's acceptance criteria:
+ * - `apple`: every optional field populated (ipa, image, audio, exampleSentence,
+ *   synonyms, antonyms) — also eligible for all four T-024–T-027 exercise types.
+ * - `happy`: ipa + exampleSentence + synonyms/antonyms, but no image/audio.
+ * - `run`: audio only (eligible for T-026 listen-and-type), nothing else optional.
+ * - `book`: bare minimum — term + meaning only, every optional field left unset. Proves
+ *   optional really means optional, and this card is correctly excluded from all four
+ *   exercise types below.
+ * - `quick`: ipa + synonyms/antonyms + audio, but no exampleSentence.
+ */
+async function seedFlashcards(teacherId: string, unitId: string | null) {
+  const existing = await prisma.flashcardSet.findFirst({
+    where: { name: DEMO_FLASHCARD_SET_NAME, teacherId },
+  });
+  if (existing) {
+    console.log(`[seed] Demo flashcard set already exists (id: ${existing.id}), skipping creation.`);
+    return existing.id;
+  }
+
+  const set = await prisma.flashcardSet.create({
+    data: {
+      name: DEMO_FLASHCARD_SET_NAME,
+      teacherId,
+      unitId,
+      cards: {
+        create: [
+          {
+            term: 'apple',
+            meaning: 'A round fruit with red, green, or yellow skin and a crisp white inside.',
+            ipa: '/ˈæp.əl/',
+            imageUrl: placeholderImageUrl('apple'),
+            audioUrl: placeholderAudioUrl('apple'),
+            exampleSentence: 'She ate an ___ for breakfast.',
+            synonyms: ['pome fruit'],
+            antonyms: [],
+            order: 1,
+          },
+          {
+            term: 'happy',
+            meaning: 'Feeling or showing pleasure and contentment.',
+            ipa: '/ˈhæp.i/',
+            exampleSentence: 'The children looked ___ after winning the game.',
+            synonyms: ['glad', 'joyful'],
+            antonyms: ['sad', 'unhappy'],
+            order: 2,
+          },
+          {
+            term: 'run',
+            meaning: 'To move at a speed faster than walking, using your legs.',
+            audioUrl: placeholderAudioUrl('run'),
+            order: 3,
+          },
+          {
+            term: 'book',
+            meaning: 'A set of printed pages bound together for reading.',
+            order: 4,
+          },
+          {
+            term: 'quick',
+            meaning: 'Moving or happening fast.',
+            ipa: '/kwɪk/',
+            audioUrl: placeholderAudioUrl('quick'),
+            synonyms: ['fast', 'rapid'],
+            antonyms: ['slow'],
+            order: 5,
+          },
+        ],
+      },
+    },
+  });
+
+  console.log(`[seed] Created demo flashcard set (id: ${set.id}).`);
+  return set.id;
+}
+
+async function verifyFlashcardRoundTrip(setId: string) {
+  const set = await prisma.flashcardSet.findUniqueOrThrow({
+    where: { id: setId },
+    include: {
+      teacher: { select: { id: true, name: true, email: true } },
+      unit: { select: { id: true, name: true } },
+      cards: { orderBy: { order: 'asc' } },
+    },
+  });
+
+  console.log('\n[seed] T-021 round-trip verification — nested query result:');
+  console.log(JSON.stringify(set, null, 2));
+
+  const bySlug = Object.fromEntries(set.cards.map((c) => [c.term, c]));
+  const checks = {
+    'exactly 5 cards': set.cards.length === 5,
+    'apple has every optional field set': Boolean(
+      bySlug.apple?.ipa && bySlug.apple?.imageUrl && bySlug.apple?.audioUrl &&
+        bySlug.apple?.exampleSentence && bySlug.apple?.synonyms.length > 0,
+    ),
+    'book has every optional field null/empty': Boolean(
+      bySlug.book &&
+        bySlug.book.ipa === null &&
+        bySlug.book.imageUrl === null &&
+        bySlug.book.audioUrl === null &&
+        bySlug.book.exampleSentence === null &&
+        bySlug.book.synonyms.length === 0 &&
+        bySlug.book.antonyms.length === 0,
+    ),
+    'exampleSentence contains the blank marker': bySlug.apple?.exampleSentence?.includes('___') ?? false,
+  };
+  console.log('\n[seed] Field-intact checks:', checks);
+}
+
 async function main() {
   const teacher = await seedTeacher();
   await seedSecondTeacher();
@@ -238,6 +370,9 @@ async function main() {
   await verifyRoundTrip(testId);
   await seedAcademicPeriods();
   await seedUnits();
+  const unit = await prisma.unit.findFirst({ orderBy: { order: 'asc' } });
+  const flashcardSetId = await seedFlashcards(teacher.id, unit?.id ?? null);
+  await verifyFlashcardRoundTrip(flashcardSetId);
 }
 
 main()

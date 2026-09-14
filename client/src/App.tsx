@@ -9,10 +9,15 @@ import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
+import StudentFlashcardsPage from './pages/StudentFlashcardsPage';
+import StudentFlashcardSetPage from './pages/StudentFlashcardSetPage';
+import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
+import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
+import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
@@ -46,6 +51,11 @@ function App() {
               <Route path="/teacher/tests" element={<TeacherTestsPage />} />
               <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
               <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
+              <Route path="/teacher/flashcard-sets" element={<TeacherFlashcardsPage />} />
+              <Route
+                path="/teacher/flashcard-sets/:setId"
+                element={<TeacherFlashcardSetEditorPage />}
+              />
               <Route
                 path="/teacher/sessions/:sessionId/attempts"
                 element={<TeacherSessionAttemptsPage />}
@@ -61,6 +71,12 @@ function App() {
               <Route path="/student/dashboard" element={<StudentDashboardPage />} />
               <Route path="/student/attempts/:attemptId" element={<TakeTestPage />} />
               <Route path="/student/attempts/:attemptId/result" element={<AttemptResultPage />} />
+              <Route path="/student/flashcard-sets" element={<StudentFlashcardsPage />} />
+              <Route path="/student/flashcard-sets/:setId" element={<StudentFlashcardSetPage />} />
+              <Route
+                path="/student/flashcard-sets/:setId/exercises/:exerciseType"
+                element={<StudentVocabExercisePage />}
+              />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

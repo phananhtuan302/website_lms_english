@@ -32,13 +32,21 @@ function StudentDashboardPage() {
           Welcome, {user?.name}. Scan or open a teacher&apos;s join link to start a test — it will
           appear below once you&apos;ve joined.
         </p>
-        <button
-          type="button"
-          onClick={logout}
-          className="mt-6 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
-        >
-          Log out
-        </button>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            to="/student/flashcard-sets"
+            className="inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          >
+            Study vocabulary
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            Log out
+          </button>
+        </div>
       </div>
 
       <div>

@@ -10,11 +10,15 @@ import type {
   AttemptResultDTO,
   AttemptSummaryDTO,
   CreateAcademicPeriodRequest,
+  CreateFlashcardCardRequest,
+  CreateFlashcardSetRequest,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateSessionResponse,
   CreateTestRequest,
   CreateUnitRequest,
+  FlashcardSetDetailDTO,
+  FlashcardSetSummaryDTO,
   GenerateVariantsRequest,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
@@ -24,6 +28,8 @@ import type {
   TestVariantDTO,
   UnitDTO,
   UpdateAcademicPeriodRequest,
+  UpdateFlashcardCardRequest,
+  UpdateFlashcardSetRequest,
   UpdateQuestionRequest,
   UpdateSectionRequest,
   UpdateTestRequest,
@@ -33,6 +39,7 @@ import { apiRequest } from './apiClient';
 
 const base = '/api/teacher/tests';
 const teacherBase = '/api/teacher';
+const flashcardBase = '/api/teacher/flashcard-sets';
 
 export const teacherApi = {
   listTests: () => apiRequest<TestSummaryDTO[]>(base),
@@ -132,4 +139,33 @@ export const teacherApi = {
     }),
   deleteAcademicPeriod: (periodId: string) =>
     apiRequest<void>(`${teacherBase}/academic-periods/${periodId}`, { method: 'DELETE' }),
+
+  // --- Flashcard sets & vocabulary words (T-022) ------------------------------------
+  listFlashcardSets: () => apiRequest<FlashcardSetSummaryDTO[]>(flashcardBase),
+  createFlashcardSet: (body: CreateFlashcardSetRequest) =>
+    apiRequest<FlashcardSetDetailDTO>(flashcardBase, { method: 'POST', body: JSON.stringify(body) }),
+  getFlashcardSet: (setId: string) =>
+    apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}`),
+  updateFlashcardSet: (setId: string, body: UpdateFlashcardSetRequest) =>
+    apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteFlashcardSet: (setId: string) =>
+    apiRequest<void>(`${flashcardBase}/${setId}`, { method: 'DELETE' }),
+
+  addFlashcardCard: (setId: string, body: CreateFlashcardCardRequest) =>
+    apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateFlashcardCard: (setId: string, cardId: string, body: UpdateFlashcardCardRequest) =>
+    apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards/${cardId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteFlashcardCard: (setId: string, cardId: string) =>
+    apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards/${cardId}`, {
+      method: 'DELETE',
+    }),
 };

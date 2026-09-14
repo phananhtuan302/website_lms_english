@@ -12,6 +12,8 @@ import { teacherSessionsRouter } from './routes/teacherSessions.routes';
 import { sessionsRouter } from './routes/sessions.routes';
 import { attemptsRouter } from './routes/attempts.routes';
 import { curriculumRouter } from './routes/curriculum.routes';
+import { teacherFlashcardsRouter } from './routes/teacherFlashcards.routes';
+import { studentFlashcardsRouter } from './routes/studentFlashcards.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -62,6 +64,16 @@ app.use('/api/sessions', sessionsRouter);
 // Student-facing take-test runtime (T-012), auto-grading on submit (T-013), and the
 // student's own result view (T-014). Joining itself is the route above, not here.
 app.use('/api/attempts', attemptsRouter);
+
+// Teacher-only flashcard-set/vocabulary-word authoring (T-022). Same mount point as
+// `teacherTestsRouter`/`curriculumRouter` above — all teacher-only routes live under
+// `/api/teacher`, disambiguated by their own path prefixes.
+app.use('/api/teacher', teacherFlashcardsRouter);
+
+// Student-facing flashcard study/review mode (T-023) and vocabulary exercises
+// (T-024–T-027). See `studentFlashcards.routes.ts`'s module doc comment for why these
+// are NOT scoped under `/api/teacher` or ownership-checked per teacher.
+app.use('/api/flashcard-sets', studentFlashcardsRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

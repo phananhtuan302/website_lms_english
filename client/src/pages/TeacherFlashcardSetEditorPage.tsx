@@ -1,0 +1,177 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import type { FlashcardCardInput, FlashcardSetDetailDTO, UnitDTO } from '@platform/shared';
+import { teacherApi } from '../lib/teacherApi';
+import { ApiError } from '../lib/apiClient';
+import FlashcardCardEditor from '../components/FlashcardCardEditor';
+
+/** Default new-card shape — a sensible, editable placeholder, same convention as
+ * `TeacherTestEditorPage.tsx`'s `defaultQuestionBody`. */
+function defaultCardBody(): FlashcardCardInput {
+  return { term: 'new-word', meaning: 'meaning' };
+}
+
+/**
+ * Flashcard set editor (T-022): edit the set's name/unit tag, add/edit/delete
+ * vocabulary cards. Same structure as `TeacherTestEditorPage.tsx`.
+ */
+function TeacherFlashcardSetEditorPage() {
+  const { setId } = useParams<{ setId: string }>();
+  const [set, setSet] = useState<FlashcardSetDetailDTO | null>(null);
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [units, setUnits] = useState<UnitDTO[]>([]);
+  const [isAddingCard, setIsAddingCard] = useState(false);
+
+  const refresh = useCallback(() => {
+    if (!setId) return;
+    teacherApi
+      .getFlashcardSet(setId)
+      .then((data) => {
+        setSet(data);
+        setName(data.name);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load flashcard set.'));
+  }, [setId]);
+
+  useEffect(refresh, [refresh]);
+
+  useEffect(() => {
+    teacherApi
+      .listUnits()
+      .then(setUnits)
+      .catch(() => undefined);
+  }, []);
+
+  if (!setId) return null;
+
+  async function handleSaveName() {
+    if (!set || name.trim() === '' || name === set.name) return;
+    try {
+      const updated = await teacherApi.updateFlashcardSet(setId!, { name: name.trim() });
+      setSet(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save set name.');
+    }
+  }
+
+  async function handleSaveUnit(unitId: string | null) {
+    if (!set) return;
+    try {
+      const updated = await teacherApi.updateFlashcardSet(setId!, { name: set.name, unitId });
+      setSet(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save unit tag.');
+    }
+  }
+
+  async function handleAddCard(event: FormEvent) {
+    event.preventDefault();
+    setIsAddingCard(true);
+    setError(null);
+    try {
+      const updated = await teacherApi.addFlashcardCard(setId!, defaultCardBody());
+      setSet(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to add card.');
+    } finally {
+      setIsAddingCard(false);
+    }
+  }
+
+  async function handleSaveCard(cardId: string, body: FlashcardCardInput) {
+    const updated = await teacherApi.updateFlashcardCard(setId!, cardId, body);
+    setSet(updated);
+  }
+
+  async function handleDeleteCard(cardId: string) {
+    try {
+      const updated = await teacherApi.deleteFlashcardCard(setId!, cardId);
+      setSet(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to delete card.');
+    }
+  }
+
+  if (!set) {
+    return (
+      <div>
+        <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
+          ← Back to my flashcard sets
+        </Link>
+        {error ? (
+          <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        ) : (
+          <p className="mt-4 text-sm text-base-black/60">Loading...</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
+          ← Back to my flashcard sets
+        </Link>
+        <input
+          type="text"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onBlur={handleSaveName}
+          className="mt-2 w-full rounded-md border border-primary-200 px-3 py-2 text-2xl font-bold text-primary-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+            Unit (optional)
+            <select
+              value={set.unitId ?? ''}
+              onChange={(event) => handleSaveUnit(event.target.value === '' ? null : event.target.value)}
+              className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              <option value="">No unit</option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+      </div>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-lg font-bold text-base-black">Vocabulary cards</h2>
+        {set.cards.length === 0 && (
+          <p className="text-sm text-base-black/60">No cards yet — add one below.</p>
+        )}
+        <div className="flex flex-col gap-3">
+          {set.cards.map((card, index) => (
+            <FlashcardCardEditor
+              key={card.id}
+              card={card}
+              index={index}
+              onSave={(body) => handleSaveCard(card.id, body)}
+              onDelete={() => handleDeleteCard(card.id)}
+            />
+          ))}
+        </div>
+
+        <form onSubmit={handleAddCard}>
+          <button
+            type="submit"
+            disabled={isAddingCard}
+            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isAddingCard ? 'Adding...' : '+ Add card'}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+export default TeacherFlashcardSetEditorPage;
