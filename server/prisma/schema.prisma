@@ -1,0 +1,38 @@
+// Prisma schema for the English Test Platform (server).
+//
+// Scope note (T-002): this file intentionally only defines the `User` model plus the
+// enum it needs. It is the minimal foundation later auth work (T-005) requires. Every
+// other domain model (Test, Section, Question, Flashcard, ...) is owned by its own
+// backlog task (T-007, T-021, T-046, ...) and must NOT be added here ahead of time.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// The two account roles defined by TECH_STACK.md. Mirrors the `UserRole` type
+/// already exported from `@platform/shared` — kept as a separate Prisma enum
+/// because Prisma enums can't import a TS union, but the string values match
+/// exactly so mapping between them is a no-op.
+enum Role {
+  teacher
+  student
+}
+
+/// Base account for both teachers and students. Per PROJECT_PLAN Assumption A1,
+/// teacher accounts are created via a seed/admin script (T-005), never through
+/// public registration; that logic lives in T-005, not here.
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  name         String
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { APP_NAME, HEALTH_CHECK_PATH, type HealthCheckResponse } from '@platform/shared';
+import AppShell from './components/AppShell';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -49,19 +50,21 @@ function App() {
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white p-8 text-center">
-      <h1 className="text-4xl font-bold text-orange-600">{APP_NAME}</h1>
-      <p className="max-w-md text-slate-600">
-        Monorepo scaffold: React + TypeScript + Vite + Tailwind CSS on the client, talking to a
-        Node.js + Express + Socket.IO server, sharing types through the{' '}
-        <code className="rounded bg-slate-100 px-1 py-0.5 text-sm">@platform/shared</code>{' '}
-        workspace.
-      </p>
-      <p className={`rounded-full px-4 py-1 text-sm font-medium ${STATUS_STYLES[status]}`}>
-        {STATUS_LABEL[status]}
-        {health ? ` — ${health.service} @ ${health.timestamp}` : ''}
-      </p>
-    </main>
+    <AppShell>
+      <div className="flex flex-col items-center gap-4 rounded-xl border border-primary-100 bg-primary-50 p-8 text-center">
+        <h1 className="text-4xl font-bold text-primary-600">{APP_NAME}</h1>
+        <p className="max-w-md text-base-black/70">
+          Monorepo scaffold: React + TypeScript + Vite + Tailwind CSS on the client, talking to a
+          Node.js + Express + Socket.IO server, sharing types through the{' '}
+          <code className="rounded bg-base-white px-1 py-0.5 text-sm">@platform/shared</code>{' '}
+          workspace.
+        </p>
+        <p className={`rounded-full px-4 py-1 text-sm font-medium ${STATUS_STYLES[status]}`}>
+          {STATUS_LABEL[status]}
+          {health ? ` — ${health.service} @ ${health.timestamp}` : ''}
+        </p>
+      </div>
+    </AppShell>
   );
 }
 

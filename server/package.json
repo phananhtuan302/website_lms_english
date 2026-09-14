@@ -8,10 +8,14 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@platform/shared": "0.1.0",
+    "@prisma/client": "6.19.3",
     "cors": "2.8.6",
     "dotenv": "17.4.2",
     "express": "4.22.3",
@@ -21,6 +25,7 @@
     "@types/cors": "2.8.19",
     "@types/express": "4.17.25",
     "@types/node": "24.13.4",
+    "prisma": "6.19.3",
     "tsx": "4.23.13"
   }
 }

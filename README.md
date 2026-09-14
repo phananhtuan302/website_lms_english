@@ -2,7 +2,9 @@
 
 Web platform for an English-teaching business: teachers author tests/vocabulary content,
 students take tests (incl. live QR-join sessions) and study vocabulary. See `docs/PROJECT_PLAN.md`
-and `docs/BACKLOG.md` for the full product plan; this file only covers running the code.
+and `docs/BACKLOG.md` for the full product plan; this file only covers running the code. See
+`CONTRIBUTING.md` for durable conventions (English-only UI copy, Tailwind theme tokens) that
+every Dev cycle is held to.
 
 ## Stack & layout
 
@@ -35,13 +37,72 @@ npm install
 
 ## Environment variables
 
-- `server/.env.example` → copy to `server/.env` (git-ignored). Vars: `PORT` (default `4000`),
-  `CLIENT_ORIGIN` (default `http://localhost:5173`, used for CORS + Socket.IO).
+- `server/.env.example` → copy to `server/.env` (git-ignored). Vars:
+  - `PORT` (optional, default `4000`)
+  - `CLIENT_ORIGIN` (optional, default `http://localhost:5173`, used for CORS + Socket.IO)
+  - `DATABASE_URL` (**required**) — PostgreSQL connection string for Prisma. See
+    "Database (PostgreSQL + Prisma)" below for how to get a local database running.
+  - `JWT_SECRET` (**required**) — secret used to sign/verify auth JWTs. Auth itself lands in
+    T-005, but the server validates this is set from T-003 onward so misconfiguration fails
+    immediately at startup instead of surfacing as a confusing error later.
 - `client/.env.example` → optional, copy to `client/.env` (git-ignored) to override
-  `VITE_API_BASE_URL` (defaults to `http://localhost:4000` if not set).
+  `VITE_API_BASE_URL` (defaults to `http://localhost:4000` if not set). The client currently
+  has no required env vars.
 
-The scaffold runs with sensible defaults even without creating these `.env` files; copy the
-examples if you need non-default ports/origins.
+`PORT`/`CLIENT_ORIGIN`/`VITE_API_BASE_URL` have sensible defaults even without a `.env` file.
+`DATABASE_URL` and `JWT_SECRET` do **not** — the server refuses to start without them and prints
+exactly which one is missing (see `server/src/config/env.ts`). Try it: `rm server/.env && npm run dev:server`.
+
+## Database (PostgreSQL + Prisma)
+
+The server uses [Prisma](https://www.prisma.io/) against PostgreSQL (`server/prisma/schema.prisma`).
+Pick **one** of the two setups below for local dev, then run the migration.
+
+### Option A — native PostgreSQL (what this repo's dev environment actually uses)
+
+Assumes PostgreSQL is already installed and running as a local service (any recent version; this
+was verified against PostgreSQL 17 on Windows).
+
+1. Create a dedicated database for this project:
+   ```bash
+   createdb english_platform_dev
+   # or, from psql:
+   # CREATE DATABASE english_platform_dev;
+   ```
+2. Set `server/.env`'s `DATABASE_URL` to point at it, e.g.:
+   ```
+   DATABASE_URL="postgresql://postgres@localhost:5432/english_platform_dev?schema=public"
+   ```
+   (Adjust user/password/port to match your local install. If your Postgres uses password auth
+   rather than `trust` for localhost, include the password: `postgresql://USER:PASSWORD@localhost:5432/...`.)
+
+### Option B — Docker (no native Postgres install needed)
+
+A `docker-compose.yml` is committed at the repo root:
+
+```bash
+docker compose up -d
+```
+
+This starts Postgres 16 on `localhost:5432` with database `english_platform_dev`, user
+`postgres`, password `postgres`, and a named volume so data survives restarts. With this option,
+`server/.env`'s `DATABASE_URL` must include the password:
+
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/english_platform_dev?schema=public"
+```
+
+### Run the migration (either option)
+
+```bash
+npm run prisma:migrate -w server   # prisma migrate dev — creates/applies migrations
+npm run prisma:generate -w server  # regenerate the Prisma client after schema changes
+npm run prisma:studio -w server    # optional GUI to browse the DB at http://localhost:5555
+```
+
+`prisma migrate dev` creates the `users` table (see `server/prisma/schema.prisma` for the
+current minimal schema — just the `User` model needed as a foundation for auth; every other
+domain model is added by its own later backlog task).
 
 ## Run in dev mode
 

@@ -4,9 +4,14 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { APP_NAME, HEALTH_CHECK_PATH, type HealthCheckResponse } from '@platform/shared';
+import { loadEnv } from './config/env';
 
-const PORT = Number(process.env.PORT) || 4000;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+// Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
+// message if any are missing, before anything else in the app starts (T-003).
+const env = loadEnv();
+
+const PORT = env.PORT;
+const CLIENT_ORIGIN = env.CLIENT_ORIGIN;
 
 const app = express();
 
