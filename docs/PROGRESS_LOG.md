@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — DB schema, env validation, UI shell/theme
+
+- Task IDs touched: T-002, T-003, T-004
+- What changed: Dev added Prisma + `User` model against a real local PostgreSQL 17 (native service, `english_platform_dev` DB), plus a `docker-compose.yml` alternative; added fail-fast env validation (`server/src/config/env.ts`) for `DATABASE_URL`/`JWT_SECRET`; rewrote `docs/INTEGRATIONS_TODO.md` with the required table + `AIGradingProvider` placeholder row; built the Tailwind pastel orange-red/white/black theme, `Header`/`AppShell` components, and documented the English-only UI convention in `CONTRIBUTING.md`. Test independently re-verified all three against the real DB (direct `psql` queries, adversarial fail-fast triggering by removing env vars one at a time, headless-browser render with computed-CSS-color checks, clean-state reinstall/build/lint/typecheck) — PASS, no blocking bugs.
+- Why / decisions made: Used the machine's existing native Postgres as the primary dev path (still keeping docker-compose as a portable fallback, noted as mutually exclusive on port 5432). Kept `User` as the only new table — no speculative auth tables ahead of T-005. Test flagged two minor/non-blocking items for later attention: (1) `App.tsx`'s status badge uses Tailwind's default slate/green/red instead of a theme token (acceptable — status-semantic colors, not brand colors); (2) `npm audit` shows 3 high-severity transitive advisories in `deepmerge-ts` via Prisma CLI's own tooling (upstream, not something Dev misconfigured) — worth Dev keeping an eye on but not a fix task by itself right now.
+- Status after this entry: T-001–T-004 Done. T-005 (auth backend) and T-007 (test/question schema) are now unblocked (both depend only on already-Done tasks) and independent of each other in scope; dispatching them together with T-006 (auth frontend, depends on T-004+T-005) in one Dev session next to keep Prisma schema edits sequential rather than conflicting across parallel agents.
+
 ## 2026-09-14 — Dev/Test — Monorepo scaffold
 
 - Task IDs touched: T-001

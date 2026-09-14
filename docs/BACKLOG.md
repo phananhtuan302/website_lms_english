@@ -21,20 +21,20 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: TECH_STACK.md (architecture)
   - Acceptance Criteria: Running `npm install` at the repo root installs all workspaces (`/client`, `/server`, `/shared`) without error. Each workspace has a working TypeScript config, and `npm run build` (or equivalent per-workspace script) compiles all three without type errors. ESLint + Prettier are configured at the root and running the lint script reports zero errors on the initial scaffold. A root `README.md` (or `docs/` note) explains how to install and run client + server in dev mode.
 
-- [ ] **T-002 — PostgreSQL + Prisma init & base schema**
-  - Status: Not Started
+- [x] **T-002 — PostgreSQL + Prisma init & base schema**
+  - Status: Done
   - Depends on: T-001
   - Source: TECH_STACK.md (database)
   - Acceptance Criteria: `/server` has Prisma configured against a local PostgreSQL instance (connection via `.env`, documented setup steps for a fresh machine). `prisma migrate dev` runs cleanly and creates a `User` model (id, email, passwordHash, role enum `teacher`/`student`, name, createdAt) plus any needed base tables. `prisma studio` (or an equivalent query) shows the tables exist after migration.
 
-- [ ] **T-003 — Env/config conventions & INTEGRATIONS_TODO.md seed**
-  - Status: Not Started
+- [x] **T-003 — Env/config conventions & INTEGRATIONS_TODO.md seed**
+  - Status: Done
   - Depends on: T-001
   - Source: TECH_STACK.md (external integration rule)
   - Acceptance Criteria: `.env.example` files exist for `/server` (and `/client` if needed) listing every required variable with a comment, and the app fails fast with a clear error message if a required variable is missing. `docs/INTEGRATIONS_TODO.md` is created with a table (columns: integration name, code location, what the customer must supply, current mock/stub, how to swap in real credentials) and at least a placeholder row for the eventual AI speaking-grading provider. `.env` itself is git-ignored.
 
-- [ ] **T-004 — Tailwind theme, base app shell & English-only UI convention**
-  - Status: Not Started
+- [x] **T-004 — Tailwind theme, base app shell & English-only UI convention**
+  - Status: Done
   - Depends on: T-001
   - Source: Requirement row 1 (English UI); top-of-doc color directive in requirements-raw.md
   - Acceptance Criteria: `/client` has Tailwind configured with a theme defining a pastel orange-red primary/accent color plus white and black as base colors, used consistently (verifiable by inspecting `tailwind.config` and at least one rendered page using the theme tokens, not ad-hoc hex codes). A minimal app shell (header/nav placeholder, content area) renders. All visible text in the shell is English. This convention (English-only UI copy) is written down (e.g. in a short CONTRIBUTING note or this task's notes) so every later task is held to it during review.
