@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Vocab matching/sentence exercises, 2 vocab games
+
+- Task IDs touched: T-028, T-029, T-034, T-035
+- What changed: Dev added the matching exercise (4 modes, eligibility-filtered), use-word-in-a-sentence (heuristic word/inflection detection, all submissions stored for teacher review, never blocks progress), and two Canvas-based games (space-shooter, runner-style) sharing the existing flashcard progress/eligibility engine. Test verified (Velocity Mode) core criteria + risk cases via direct API/DB — correct pair targets cross-checked against raw card data, zero-eligible-data modes return empty lists not errors, sentence submissions persist with correct match flags, cross-teacher 404 on submission review, game completion updates `FlashcardProgress` via the same mechanism as other exercises — PASS, no bugs found.
+- Why / decisions made: matching "correct" = first-try pairing; sentence validation covers exact + simple regular inflections only (irregulars out of scope); both games use discrete lane-based mechanics rather than pixel collision, appropriate for a study aid. Dev committed this batch carefully around a concurrently-running Phase 6 agent's uncommitted edits to the same shared files (schema.prisma, shared/src/index.ts, teacherApi.ts) using targeted git staging so neither batch's work was lost.
+- Status after this entry: **Phase 3 (vocabulary/flashcards core, T-021–T-029) fully Done** except T-030 (progress tracking), which is dispatched and in progress along with T-031–T-033 (leaderboard/ranking reports) and, in a separate concurrent batch, the full Grammar module (T-046–T-050) and Phase 6 content types/integrity (T-039–T-044). Because T-039–T-044's agent began editing `flashcardProgress.ts`/`studentFlashcards.routes.ts`/`shared/src/index.ts` (files this commit also touches) partway through this Test pass, double-check on its completion that this batch's matching/sentence/game code is still intact before marking T-039–T-044 Done.
+
 ## 2026-09-14 — Dev/Test — Reporting engine v1
 
 - Task IDs touched: T-019

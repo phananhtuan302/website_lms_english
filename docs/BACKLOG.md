@@ -183,14 +183,14 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student is shown a word's IPA transcription and must type the word it represents; submission is checked case-insensitively, gives immediate feedback, and records progress. Words without an IPA field populated are excluded from this exercise type.
 
-- [ ] **T-028 — Exercise: matching (meaning / image / synonym / antonym)**
-  - Status: Not Started
+- [x] **T-028 — Exercise: matching (meaning / image / synonym / antonym)**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student can play a matching exercise in each of the four modes listed by the customer — word-to-meaning, word-to-image, word-to-synonym, word-to-antonym — presented as a set of pairs to match; the UI clearly indicates correct vs. incorrect pairings and completion state, and each completed round records exercise progress. Modes with no eligible data (e.g. a set with no words that have synonyms) are simply unavailable for that set rather than erroring.
 
-- [ ] **T-029 — Exercise: use-word-in-a-sentence**
-  - Status: Not Started
+- [x] **T-029 — Exercise: use-word-in-a-sentence**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note
   - Acceptance Criteria: A student is prompted to write a sentence using a given vocabulary word and submits free text. Since correctness isn't objectively checkable, the system at minimum validates the target word appears in the submission (simple heuristic) and stores the submission for teacher visibility; it does not block progress on a "wrong" answer. This is explicitly not AI-graded (see PROJECT_PLAN Assumption A3 — AI grading is Speaking-only).
@@ -221,14 +221,14 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 15
   - Acceptance Criteria: Same as T-032 but bucketed by year. Selecting different years with seeded multi-year data produces different, correct rankings for each year.
 
-- [ ] **T-034 — Vocab game: space-shooter style word game**
-  - Status: Not Started
+- [x] **T-034 — Vocab game: space-shooter style word game**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note ("game học vocab kiểu Quizlet — bắn tàu vũ trụ")
   - Acceptance Criteria: A student can play a space-shooter-style game (built with React + Canvas/DOM per TECH_STACK.md, no external game-engine dependency) where correctly matching/answering vocabulary from a chosen flashcard set advances play (e.g. destroys the right target) and wrong answers have a visible penalty. Completing a round records an exercise-progress entry for that set, consistent with T-030's tracking.
 
-- [ ] **T-035 — Vocab game: mario-style runner word game**
-  - Status: Not Started
+- [x] **T-035 — Vocab game: mario-style runner word game**
+  - Status: Done
   - Depends on: T-021
   - Source: Requirement row 11 note ("...mario,...")
   - Acceptance Criteria: A student can play a side-scrolling/runner-style game where progressing requires correctly answering vocabulary prompts from a chosen set; same completion/progress-recording behavior as T-034.
