@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Mobile-responsive polish (T-059)
+
+- Task IDs touched: T-059
+- What changed: Dev found the root cause was the shared `Header.tsx` (rendered on every page via `AppShell`), whose unwrapped nav row overflowed to 548-634px at a 375px viewport, causing horizontal scroll on every page including the two named flows. Fixed with additive `flex-wrap`/`sm:flex-nowrap` Tailwind classes (no DOM/structure/text changes, to avoid colliding with the concurrent T-060 E2E-suite work). Test independently re-verified at 375×667 on the join/login/register gate and the take-test flow (all 3 objective question types, detected by type not assumed order) — no overflow, all controls in-bounds and clickable — plus a 1280px desktop sanity check confirming the header is visually unchanged above the `sm:` breakpoint. PASS, no bugs found.
+- Why / decisions made: none beyond the fix itself.
+- Status after this entry: T-059 Done. Only **T-060 (full Playwright E2E suite)** remains — the very last backlog item, in progress, may land partially given the approaching customer deadline (see LEADER OPERATING NOTE at top of this file).
+
 ## 2026-09-15 — Dev/Test — Unified teacher reporting hub + Speaking report engine (T-057), deployment placeholder (T-058)
 
 - Task IDs touched: T-057, T-058

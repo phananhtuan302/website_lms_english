@@ -381,8 +381,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: TECH_STACK.md (deployment note); Assumption A9
   - Acceptance Criteria: `docs/INTEGRATIONS_TODO.md` has an entry for hosting/domain/CI-CD explicitly stating none was specified by the customer, what would be needed to choose one (e.g. domain name, hosting budget/provider preference), and that local dev is the supported mode until then. No actual infrastructure is provisioned by this task.
 
-- [ ] **T-059 — Mobile-responsive polish for QR-join & test-taking flows**
-  - Status: Not Started
+- [x] **T-059 — Mobile-responsive polish for QR-join & test-taking flows**
+  - Status: Done
   - Depends on: T-011, T-012
   - Source: Requirement row 4 (QR is scanned via phone camera)
   - Acceptance Criteria: The join page and the test-taking UI are usable on a common mobile viewport (e.g. 375px width) without horizontal scrolling or clipped controls, verified on at least the join flow and the question-answering flow for each objective question type.
