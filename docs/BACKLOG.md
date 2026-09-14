@@ -291,8 +291,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 20
   - Acceptance Criteria: While a student has any test in progress (any `testType`, including ones from earlier phases — MVP test, Unit Test, Vocabulary Check, Listening, Mock Test), switching away from the tab or window (`visibilitychange`/`blur`) triggers a visible on-screen notice to the student and is recorded on the attempt (e.g. a tab-switch count/timestamp log) visible to the teacher afterward. This is implemented once in the shared test-taking session component (T-012) so it automatically covers every test type without per-content-type changes.
 
-- [ ] **T-045 — Mock Test composition**
-  - Status: Not Started
+- [x] **T-045 — Mock Test composition**
+  - Status: Done
   - Depends on: T-008, T-039, T-041, T-042
   - Source: Tab-list note "Mock test"; Assumption A4
   - Acceptance Criteria: The `Test` model's `testType` field supports `mockTest`, and the authoring UI (T-008) lets a teacher assemble a single test whose sections mix Reading, Listening, Writing, and standard objective/vocab-sourced questions. Taking and grading such a test reuses T-012/T-013/T-042 as appropriate per section — no separate mock-test-only runtime is built.

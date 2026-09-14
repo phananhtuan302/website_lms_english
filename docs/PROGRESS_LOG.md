@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Mock Test composition (Phase 6 fully closed out)
+
+- Task IDs touched: T-045
+- What changed: Dev confirmed Mock Test composition required essentially no new engine code — Reading/Listening/Writing/objective/Speaking content types were already content-type-agnostic from prior phases (Guiding Principle 6 held up in practice), and added only minimal glue (a `TEST_TYPE_LABELS` badge on teacher/student test listings). Test independently re-verified with its own fixture (including a deliberately wrong answer to check partial-credit math, not just the all-correct path) plus the highest-risk case — combining T-064's Speaking time-window enforcement with a multi-content-type test — confirming an on-time Speaking answer inside a Mock Test succeeds while a late one is still correctly rejected. Grepped the runtime/grading/result-view code for any `testType` special-casing and found none — genuinely one shared engine. PASS; only a cosmetic lint issue (2 unused vars in the committed verify script) was found and fixed directly by the Leader, re-verified with a clean 22/22 re-run.
+- Why / decisions made: no new ambiguities — this task was mostly verification that earlier phases' "one engine" discipline actually paid off.
+- Status after this entry: **Phase 6 area fully closed (T-039–T-045 all Done).** The ONLY remaining backlog is Phase 9 (T-057–T-060), the final hardening milestone.
+
 ## 2026-09-15 — Leader — Direct fix: T-064 Speaking response-window server-side enforcement
 
 - Task IDs touched: T-064
