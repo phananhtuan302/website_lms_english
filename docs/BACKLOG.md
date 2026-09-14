@@ -39,22 +39,22 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Requirement row 1 (English UI); top-of-doc color directive in requirements-raw.md
   - Acceptance Criteria: `/client` has Tailwind configured with a theme defining a pastel orange-red primary/accent color plus white and black as base colors, used consistently (verifiable by inspecting `tailwind.config` and at least one rendered page using the theme tokens, not ad-hoc hex codes). A minimal app shell (header/nav placeholder, content area) renders. All visible text in the shell is English. This convention (English-only UI copy) is written down (e.g. in a short CONTRIBUTING note or this task's notes) so every later task is held to it during review.
 
-- [ ] **T-005 — Auth backend: register/login, JWT, roles**
-  - Status: Not Started
+- [x] **T-005 — Auth backend: register/login, JWT, roles**
+  - Status: Done
   - Depends on: T-002, T-003
   - Source: Requirement row 2; Assumption A1
   - Acceptance Criteria: REST endpoints exist for student self-registration (email/password/name) and login for both roles, returning a signed JWT containing user id + role. Passwords are hashed with bcrypt (never stored/returned in plaintext). A role-based middleware exists that rejects requests to teacher-only routes from a student token (403) and vice versa where applicable. Teacher accounts cannot be created via the public registration endpoint (verified by calling it with `role: teacher` and confirming it's rejected or ignored); a documented seed script creates at least one teacher account for local dev.
 
-- [ ] **T-006 — Auth frontend: login/register UI, session handling, route guards**
-  - Status: Not Started
+- [x] **T-006 — Auth frontend: login/register UI, session handling, route guards**
+  - Status: Done
   - Depends on: T-004, T-005
   - Source: Requirement row 2
   - Acceptance Criteria: A student can register and log in through the UI; a seeded teacher can log in through the same login form (no register option shown/usable for teacher role). The JWT is persisted (e.g. localStorage) and attached to authenticated API calls. Navigating to a teacher-only or student-only page while logged in as the wrong role (or logged out) redirects to an appropriate page instead of rendering protected content. Logout clears the session and blocks further access to protected pages.
 
 ## Phase 1 — MVP Core Loop
 
-- [ ] **T-007 — DB schema: Test, Section, Question, Choice (objective types)**
-  - Status: Not Started
+- [x] **T-007 — DB schema: Test, Section, Question, Choice (objective types)**
+  - Status: Done
   - Depends on: T-002
   - Source: Requirement row 3
   - Acceptance Criteria: Prisma models exist for `Test` (owned by a teacher), `Section`, `Question` (with a `type` enum including at minimum `multipleChoice`, `trueFalse`, `fillBlank`), and `Choice`/accepted-answer data as appropriate per type. A migration applies cleanly. Seed/test data can create a `Test` with at least one `Section` containing one question of each of the three types, and querying it back returns the full nested structure.
@@ -392,3 +392,11 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-014, T-030, T-037, T-041, T-043, T-054
   - Source: TECH_STACK.md (testing strategy)
   - Acceptance Criteria: Automated Playwright tests cover, at minimum end to end: teacher login → create test → generate variants → start session with QR → student login → join → take test → auto-grade → both see result; a flashcard study + one exercise type; a Unit Test + its report; a Listening session with teacher-controlled playback; Writing anti-paste triggering; and a Speaking submission graded by the mock provider. The suite runs via a single documented command and passes on a clean checkout.
+
+## Phase 0 (follow-up) — Bugs found during QA
+
+- [ ] **T-061 — Global JSON error-handling middleware (stop stack-trace leakage)**
+  - Status: Not Started
+  - Depends on: T-001
+  - Source: QA finding during T-005/T-006/T-007 verification (2026-09-14)
+  - Acceptance Criteria: `/server` registers a 4-arg Express error-handling middleware (after all routes) that catches unhandled errors (incl. malformed-JSON body-parser errors) and returns a clean JSON error body (e.g. `{ "error": "..." }`) with an appropriate status code — never an HTML page or a raw stack trace/file path, regardless of `NODE_ENV`. Repro to fix: `curl -s -i -X POST http://localhost:4000/api/auth/register -H "Content-Type: application/json" -d '{not valid json'` must return clean JSON, not Express's default HTML+stacktrace error page. Verified on at least one other route too (not just `/api/auth/register`), and confirm a genuinely unexpected thrown error (e.g. a temporarily-injected `throw` in a route handler) is also caught and returns clean JSON rather than crashing the process.

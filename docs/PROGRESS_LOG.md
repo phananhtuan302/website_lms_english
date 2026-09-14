@@ -16,6 +16,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-14 — Dev/Test — Auth (backend+frontend) and test-content schema
+
+- Task IDs touched: T-005, T-006, T-007
+- What changed: Dev added the `Test`/`Section`/`Question`/`Choice` schema (fillBlank uses a plain `acceptedAnswers String[]`, documented inline) with a seed script proving round-trip nested queries against the real DB; JWT-based auth backend (register student-only, login both roles, bcrypt, role middleware, seeded dev teacher) with a documented rejection of `role: teacher` on public registration; auth frontend (React Router, login/register pages, `ProtectedRoute`, persisted JWT, logout). Test independently re-verified everything against the real running app and real Postgres — adversarial JWT tampering (tampered signature, forged role, `alg: none`) all correctly rejected; UI route guards, session persistence across reload, and invalid-token auto-logout all verified with a live Playwright session — PASS.
+- Why / decisions made: Wrong-role UI access redirects to a dedicated `/unauthorized` page (not the user's own dashboard) for explicit testability — a Dev judgment call, not a customer-facing behavior concern. Test found one real bug (not part of T-005/006/007's acceptance criteria, logged separately): malformed JSON to any endpoint returns Express's default HTML error page with a full stack trace and absolute file paths, because no global error-handling middleware exists yet. Logged as new task **T-061** rather than blocking these three tasks' Done status, since it's a pre-existing gap from T-001's scaffold, not something T-005/006/007 introduced.
+- Status after this entry: T-001–T-007 Done. T-061 (error middleware fix) added as Not Started, low effort, will bundle into an upcoming Dev batch. T-008 (teacher test authoring) is now the next unblocked task, starting the sequential MVP-core-loop chain T-008→T-009→T-010→T-011→T-012→T-013→T-014; dispatching T-008/T-009/T-010 (teacher-side: authoring, variant shuffle, QR session) as one Dev batch next since they're inherently sequential and touch overlapping code.
+
 ## 2026-09-14 — Dev/Test — DB schema, env validation, UI shell/theme
 
 - Task IDs touched: T-002, T-003, T-004
