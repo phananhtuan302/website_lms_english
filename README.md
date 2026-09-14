@@ -42,9 +42,10 @@ npm install
   - `CLIENT_ORIGIN` (optional, default `http://localhost:5173`, used for CORS + Socket.IO)
   - `DATABASE_URL` (**required**) — PostgreSQL connection string for Prisma. See
     "Database (PostgreSQL + Prisma)" below for how to get a local database running.
-  - `JWT_SECRET` (**required**) — secret used to sign/verify auth JWTs. Auth itself lands in
-    T-005, but the server validates this is set from T-003 onward so misconfiguration fails
-    immediately at startup instead of surfacing as a confusing error later.
+  - `JWT_SECRET` (**required**) — secret used to sign/verify auth JWTs (T-005).
+  - `SEED_TEACHER_EMAIL` / `SEED_TEACHER_PASSWORD` / `SEED_TEACHER_NAME` (all optional, have
+    dev-only defaults) — credentials `npm run seed -w server` uses for the one teacher account
+    it provisions. See "Seed data" below.
 - `client/.env.example` → optional, copy to `client/.env` (git-ignored) to override
   `VITE_API_BASE_URL` (defaults to `http://localhost:4000` if not set). The client currently
   has no required env vars.
@@ -100,9 +101,37 @@ npm run prisma:generate -w server  # regenerate the Prisma client after schema c
 npm run prisma:studio -w server    # optional GUI to browse the DB at http://localhost:5555
 ```
 
-`prisma migrate dev` creates the `users` table (see `server/prisma/schema.prisma` for the
-current minimal schema — just the `User` model needed as a foundation for auth; every other
-domain model is added by its own later backlog task).
+`prisma migrate dev` creates the `users` table plus the `tests` / `sections` / `questions` /
+`choices` tables added by T-007 (see `server/prisma/schema.prisma`).
+
+### Seed data (dev-only teacher account)
+
+There is no public teacher self-registration (see `docs/PROJECT_PLAN.md` Assumption A1), so a
+seed script provisions one for local dev/testing, plus a demo `Test` used to verify T-007's
+nested Test/Section/Question/Choice structure round-trips correctly:
+
+```bash
+npm run seed -w server   # also runnable as: npx prisma db seed (run from server/)
+```
+
+Idempotent — safe to re-run. Prints the teacher credentials it used (default
+`teacher@example.com` / `teacher-dev-password123`, overridable via `SEED_TEACHER_EMAIL` /
+`SEED_TEACHER_PASSWORD` / `SEED_TEACHER_NAME` in `server/.env`, see `server/.env.example`).
+
+## Auth (T-005 / T-006)
+
+- REST endpoints: `POST /api/auth/register` (student self-registration only — a `role` field
+  other than `"student"` is rejected), `POST /api/auth/login` (works for both roles), and
+  `GET /api/auth/me` (re-validates a stored token). Passwords are hashed with bcrypt; JWTs
+  carry the user id + role and are signed with `JWT_SECRET`.
+- `server/src/middleware/auth.ts` exports `requireAuth` and `requireRole(...roles)` for
+  protecting routes; `server/src/routes/demo.routes.ts` has a minimal teacher-only and
+  student-only route demonstrating them (delete once real protected routes exist).
+- The client (`/client/src/context/AuthContext.tsx`) persists the JWT in `localStorage` and
+  attaches it to API calls via `lib/apiClient.ts`. `components/ProtectedRoute.tsx` redirects a
+  logged-out visitor to `/login` and a wrong-role visitor to `/unauthorized`. Try it at
+  `/login`, `/register`, `/teacher/dashboard`, `/student/dashboard` (the latter two are
+  placeholder pages proving the guard works; real content lands in later tasks).
 
 ## Run in dev mode
 
