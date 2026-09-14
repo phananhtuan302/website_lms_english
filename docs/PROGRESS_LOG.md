@@ -2,6 +2,9 @@
 
 Append-only history of what changed, across all future Dev/Test/BA/Leader cycles. Since each agent invocation shares no memory with the others, this file (together with `PROJECT_PLAN.md` and `BACKLOG.md`) is the team's only continuity mechanism.
 
+> **⏱ LEADER OPERATING NOTE (not a project fact, Dev/Test agents can ignore this box) — set 2026-09-15 01:29 (Asia/Ho_Chi_Minh):**
+> The customer asked the Leader to keep autonomously orchestrating for **3 more hours**, until **2026-09-15 04:29** (Asia/Ho_Chi_Minh / SEAST). If the full backlog (`BACKLOG.md`) is not 100% Done/Won't-Do by that timestamp, the Leader must: stop dispatching any new Dev/Test agents, stop any Dev/Test agents still in flight at that moment (accepting the loss of their uncommitted in-progress work), write a comprehensive status report (what's Done, what's in-flight and its state, what's not started), deliver it to the customer, and halt the autonomous loop entirely (no further auto-continuation) until the customer explicitly says to resume. This box should be updated/removed by the Leader once that checkpoint is reached or the customer gives new instructions.
+
 **Entry format** — add a new entry at the top (most recent first), one per work session:
 
 ```
