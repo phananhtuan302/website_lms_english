@@ -65,3 +65,158 @@ export interface AuthTokenPayload {
   role: UserRole;
   email: string;
 }
+
+// --- Test authoring (T-008) -------------------------------------------------------
+// Shared shapes for the teacher test-authoring API. Mirrors `server/prisma/schema.prisma`
+// (Test/Section/Question/Choice) but as plain DTOs, never the Prisma model directly.
+
+/** Matches the Prisma `QuestionType` enum (T-007) — kept as a literal union here since
+ * Prisma enums can't be imported into client code. */
+export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank';
+
+export interface ChoiceDTO {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  order: number;
+}
+
+export interface QuestionDTO {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  order: number;
+  /** Only meaningful for `fillBlank`; empty array for the other types. */
+  acceptedAnswers: string[];
+  /** Only meaningful for `multipleChoice`/`trueFalse`; empty array for `fillBlank`. */
+  choices: ChoiceDTO[];
+}
+
+export interface SectionDTO {
+  id: string;
+  title: string;
+  order: number;
+  questions: QuestionDTO[];
+}
+
+/** Row shape for the teacher's "my tests" list — no nested content, just enough to
+ * render a list and link into the editor. */
+export interface TestSummaryDTO {
+  id: string;
+  title: string;
+  sectionCount: number;
+  questionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Full nested shape returned by the single-test editor endpoint. */
+export interface TestDetailDTO {
+  id: string;
+  title: string;
+  teacherId: string;
+  sections: SectionDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTestRequest {
+  title: string;
+}
+
+export interface UpdateTestRequest {
+  title: string;
+}
+
+export interface CreateSectionRequest {
+  title: string;
+}
+
+export interface UpdateSectionRequest {
+  title: string;
+}
+
+/** Body for the section-reorder endpoint: the full list of that test's section ids, in
+ * the new desired order (index in the array = new `order`, 1-based). */
+export interface ReorderSectionsRequest {
+  orderedSectionIds: string[];
+}
+
+/** Body shared by create/update question. A choice without `id` is a new choice; a
+ * choice with `id` updates that existing row; any existing choice id NOT present in
+ * the array is deleted. `order` is implied by array position, not sent explicitly. */
+export interface ChoiceInput {
+  id?: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface CreateQuestionRequest {
+  type: QuestionType;
+  prompt: string;
+  /** Required (non-empty) for multipleChoice/trueFalse, ignored for fillBlank. */
+  choices?: ChoiceInput[];
+  /** Required (non-empty) for fillBlank, ignored otherwise. */
+  acceptedAnswers?: string[];
+}
+
+export type UpdateQuestionRequest = CreateQuestionRequest;
+
+/** Body for the question-reorder endpoint, scoped to one section. */
+export interface ReorderQuestionsRequest {
+  orderedQuestionIds: string[];
+}
+
+// --- Test variants / "mã đề" (T-009) ----------------------------------------------
+
+/** One shuffled question-order + choice-order layout, generated from an authored test.
+ * See `server/prisma/schema.prisma`'s `TestVariant.layout` doc comment for the exact
+ * shape stored server-side — this DTO is what the teacher-facing list/detail endpoints
+ * return over HTTP. */
+export interface TestVariantDTO {
+  id: string;
+  testId: string;
+  code: string;
+  createdAt: string;
+  layout: {
+    sections: Array<{ sectionId: string; questionIds: string[] }>;
+    choiceOrder: Record<string, string[]>;
+  };
+}
+
+export interface GenerateVariantsRequest {
+  /** How many new variants to generate in this call. Defaults to 2 server-side (the
+   * AC's "at least 2 base variants") if omitted. */
+  count?: number;
+}
+
+// --- QR-join sessions (T-010) ------------------------------------------------------
+
+export type SessionStatus = 'active' | 'closed';
+
+export interface TestSessionDTO {
+  id: string;
+  testId: string;
+  manualCode: string;
+  status: SessionStatus;
+  createdAt: string;
+  closedAt: string | null;
+  /** Relative join URL, e.g. `/join/<token>` — see `server/src/routes/teacherSessions.routes.ts`
+   * for why a relative path (no scheme/host) is the documented choice here. */
+  joinUrl: string;
+}
+
+/** Response for session creation only — includes the QR code as a data: URL (base64
+ * PNG) and the raw token, neither of which the list/detail endpoints need to repeat. */
+export interface CreateSessionResponse extends TestSessionDTO {
+  joinToken: string;
+  qrCodeDataUrl: string;
+}
+
+/** Response for the public join-token-check endpoint (`GET /api/sessions/join/:token`). */
+export interface JoinTokenCheckResponse {
+  valid: true;
+  testId: string;
+  testTitle: string;
+  sessionId: string;
+}

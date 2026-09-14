@@ -56,13 +56,15 @@ enum QuestionType {
 /// (generic/unitTest/vocabularyCheck/...), Unit tagging, and time limits belong to the
 /// later backlog tasks that actually need them (T-018, T-036, T-038, ...).
 model Test {
-  id        String    @id @default(uuid())
+  id        String        @id @default(uuid())
   title     String
   teacherId String
-  teacher   User      @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher   User          @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
   sections  Section[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  variants  TestVariant[]
+  sessions  TestSession[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   @@map("tests")
 }
@@ -119,4 +121,63 @@ model Choice {
   order      Int
 
   @@map("choices")
+}
+
+/// A generated shuffle ordering ("mã đề") for an authored test (T-009). Stores only
+/// *presentation order* — which question appears in which position, and which choice
+/// appears in which position within that question. Correctness itself always lives on
+/// `Choice.isCorrect`, looked up by id, so it is completely unaffected by shuffling:
+/// grading (T-013, later) never needs to know a variant exists at all, it only needs
+/// the choice id the student picked.
+///
+/// `layout` shape (documented here since Prisma's `Json` type can't express it in the
+/// schema itself) — see `server/src/lib/variantShuffle.ts` for the matching TS type:
+/// ```
+/// {
+///   sections: Array<{ sectionId: string; questionIds: string[] }>;
+///   choiceOrder: Record<string, string[]>; // questionId -> shuffled choice ids
+/// }
+/// ```
+/// Documented choice (T-009 "your call, document it"): only *question order within
+/// each section* and *choice order within each question* are shuffled. Section order
+/// itself is left as authored, since sections typically carry meaning (e.g. "Reading",
+/// "Listening") that shouldn't be scrambled relative to each other.
+model TestVariant {
+  id        String   @id @default(uuid())
+  testId    String
+  test      Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  code      String
+  layout    Json
+  createdAt DateTime @default(now())
+
+  @@unique([testId, code])
+  @@map("test_variants")
+}
+
+/// Status of a `TestSession` (T-010). `closed` sessions no longer accept new joins.
+enum SessionStatus {
+  active
+  closed
+}
+
+/// A live/joinable "session" a teacher starts for one of their tests (T-010): a unique
+/// join token (embedded in the QR code's join URL) plus a short manual-entry fallback
+/// code for when scanning isn't possible.
+///
+/// Documented choice (T-010 "your call, document it"): a session's token stops working
+/// for new joins in TWO cases — (1) the teacher explicitly closes it, or (2) the
+/// teacher starts a new session for the same test, which automatically closes any
+/// other still-active session(s) for that test. Either path sets `status: closed` (and
+/// `closedAt`); the public join-token-check endpoint then rejects it.
+model TestSession {
+  id         String        @id @default(uuid())
+  testId     String
+  test       Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  joinToken  String        @unique
+  manualCode String
+  status     SessionStatus @default(active)
+  createdAt  DateTime      @default(now())
+  closedAt   DateTime?
+
+  @@map("test_sessions")
 }

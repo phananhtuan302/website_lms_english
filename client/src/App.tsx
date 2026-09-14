@@ -8,6 +8,8 @@ import NotFoundPage from './pages/NotFoundPage';
 import RegisterPage from './pages/RegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
+import TeacherTestsPage from './pages/TeacherTestsPage';
+import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 
 /**
@@ -31,6 +33,8 @@ function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+              <Route path="/teacher/tests" element={<TeacherTestsPage />} />
+              <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>

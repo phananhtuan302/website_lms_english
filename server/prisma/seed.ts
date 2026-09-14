@@ -15,6 +15,13 @@
  *    fillBlank) — this is T-007's required round-trip proof. It then re-queries that
  *    test with nested includes (sections -> questions -> choices) and prints the full
  *    structure so you can see the exact shape a later API/UI will consume.
+ * 3. Creates (or reuses) a SECOND teacher account (`SEED_TEACHER_2_*`). This is a
+ *    permanent dev fixture, not a leftover — T-008's acceptance criteria requires
+ *    proving cross-teacher isolation (teacher A can't edit teacher B's test), which
+ *    needs at least two real teacher accounts to test against at any time, not just
+ *    during one verification session. Kept here (rather than deleted after use) so the
+ *    next person/agent who needs to re-verify authoring/variant/session ownership
+ *    checks doesn't have to reconstruct this fixture from scratch.
  *
  * Idempotent: safe to run multiple times — it looks up existing rows by a stable key
  * (email for the user, title+teacherId for the test) instead of blindly inserting
@@ -30,7 +37,33 @@ const SEED_TEACHER_EMAIL = process.env.SEED_TEACHER_EMAIL ?? 'teacher@example.co
 const SEED_TEACHER_PASSWORD = process.env.SEED_TEACHER_PASSWORD ?? 'teacher-dev-password123';
 const SEED_TEACHER_NAME = process.env.SEED_TEACHER_NAME ?? 'Demo Teacher';
 
+// Second teacher fixture (T-008) — see doc comment above. Only used for
+// cross-teacher-isolation testing; no demo test is seeded for this one on purpose, so
+// "teacher 2 has zero tests of their own" stays a stable, predictable starting point.
+const SEED_TEACHER_2_EMAIL = process.env.SEED_TEACHER_2_EMAIL ?? 'teacher2@example.com';
+const SEED_TEACHER_2_PASSWORD = process.env.SEED_TEACHER_2_PASSWORD ?? 'teacher2-dev-password123';
+const SEED_TEACHER_2_NAME = process.env.SEED_TEACHER_2_NAME ?? 'Demo Teacher Two';
+
 const DEMO_TEST_TITLE = 'Seed Demo Test (T-007 round-trip check)';
+
+async function seedSecondTeacher() {
+  const passwordHash = await bcrypt.hash(SEED_TEACHER_2_PASSWORD, 12);
+
+  await prisma.user.upsert({
+    where: { email: SEED_TEACHER_2_EMAIL },
+    update: {},
+    create: {
+      email: SEED_TEACHER_2_EMAIL,
+      name: SEED_TEACHER_2_NAME,
+      role: 'teacher',
+      passwordHash,
+    },
+  });
+
+  console.log('[seed] Second teacher account ready (cross-teacher-isolation fixture, T-008):');
+  console.log(`  email:    ${SEED_TEACHER_2_EMAIL}`);
+  console.log(`  password: ${SEED_TEACHER_2_PASSWORD}\n`);
+}
 
 async function seedTeacher() {
   const passwordHash = await bcrypt.hash(SEED_TEACHER_PASSWORD, 12);
@@ -151,6 +184,7 @@ async function verifyRoundTrip(testId: string) {
 
 async function main() {
   const teacher = await seedTeacher();
+  await seedSecondTeacher();
   const testId = await seedDemoTest(teacher.id);
   await verifyRoundTrip(testId);
 }
