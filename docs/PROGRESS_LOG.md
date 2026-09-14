@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Leader — Direct fix: T-064 Speaking response-window server-side enforcement
+
+- Task IDs touched: T-064
+- What changed: Fixed directly by the Leader (well-scoped exam-integrity fix, verified personally rather than via a full Dev/Test cycle). Added `Answer.speakingWindowStartedAt` and `POST /api/attempts/:attemptId/questions/:questionId/speaking-window/start` (first-call-wins, mirrors where the client already latches its own countdown deadline in `TakeTestPage.tsx`). The speaking-answer submit handler now rejects (409) if the window was never started, or if the submission arrives more than `allowedResponseSeconds + 10s grace` after it started. Verified live against the exact QA repro (never start, wait 8s, submit for a 5s question → now 409 instead of 200), a legitimate on-time flow (start then submit within the window → 200 with a real mock grade), and a late-after-start case (start, wait past window+grace → 409).
+- Why / decisions made: 10s grace period chosen to absorb ordinary network/processing latency without giving meaningfully extra recording time. Done carefully alongside a concurrently-running Dev agent (T-045) that had uncommitted changes to some of the same files (`schema.prisma`, `studentApi.ts`) — diffed before staging to confirm only this fix's own additive changes were committed, none of T-045's in-progress work.
+- Status after this entry: T-064 Done. Remaining backlog: T-045 (Mock Test, Dev in progress), T-057–T-060 (Phase 9 hardening milestone).
+
 ## 2026-09-15 — Dev/Test — Speaking module + AI grading (Phase 8 complete, one gap logged)
 
 - Task IDs touched: T-051, T-052, T-053, T-054, T-055, T-056
