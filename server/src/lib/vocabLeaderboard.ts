@@ -4,19 +4,17 @@
  * scoring function appropriate to their scope, defined here, rather than three separate
  * ad-hoc implementations.
  *
- * Score formula (documented choice, per T-031's "pick a simple, documented weighting"):
+ * Score formula (customer-requested revision, 2026-09-15 — was additive, now multiplicative):
  *
- *   score = accuracyPercent (0-100) + correctCount * POINTS_PER_CORRECT_CARD
+ *   score = accuracyPercent (0-100) * correctCount * POINTS_PER_CORRECT_CARD
  *
  * where `accuracyPercent` is the student's exercise accuracy (correct / total attempts,
  * as a 0-100 number, 0 when there were no attempts) and `correctCount` is a volume
- * measure — "how much vocabulary have they actually gotten right" — weighted by
- * `POINTS_PER_CORRECT_CARD` so that real practice volume clearly outweighs a small
- * accuracy difference (e.g. one extra correct card is worth more than a 1-2% accuracy
- * swing), matching the backlog's "exercise accuracy + volume of cards learned" framing.
- * `POINTS_PER_CORRECT_CARD = 10` is an arbitrary but documented constant — easy to
- * hand-verify (10 points per correct card is simple mental math) and not tied to any
- * particular scale in the rest of the app.
+ * measure — "how much vocabulary have they actually gotten right." Multiplying (rather
+ * than adding) means both factors must be genuinely strong to score well — zero accuracy
+ * or zero mastered cards zeroes out the whole score, not just one term of a sum.
+ * `POINTS_PER_CORRECT_CARD = 10` is an arbitrary but documented constant, unchanged from
+ * the original formula, not tied to any particular scale elsewhere in the app.
  *
  * Class scoping (T-077, Phase 12): both functions below now take a required `classId` and
  * rank ONLY students in that one class — never the whole student body, even though the
@@ -127,7 +125,7 @@ export async function computeAllTimeLeaderboard(classId: string): Promise<VocabL
     const totalAttempts = attemptMap.get(student.id) ?? 0;
     const correctAttempts = correctMap.get(student.id) ?? 0;
     const accuracyPercent = accuracyOf(correctAttempts, totalAttempts);
-    const score = round1((accuracyPercent ?? 0) + knownCardCount * POINTS_PER_CORRECT_CARD);
+    const score = round1((accuracyPercent ?? 0) * knownCardCount * POINTS_PER_CORRECT_CARD);
     return {
       studentId: student.id,
       studentName: student.name,
@@ -182,7 +180,7 @@ export async function computePeriodLeaderboard(
     .filter(([studentId]) => studentNameById.has(studentId))
     .map(([studentId, acc]) => {
       const accuracyPercent = accuracyOf(acc.correct, acc.total);
-      const score = round1((accuracyPercent ?? 0) + acc.correct * POINTS_PER_CORRECT_CARD);
+      const score = round1((accuracyPercent ?? 0) * acc.correct * POINTS_PER_CORRECT_CARD);
       return {
         studentId,
         studentName: studentNameById.get(studentId)!,

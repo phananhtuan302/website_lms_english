@@ -885,7 +885,7 @@
   },
   "vocabLeaderboard": {
     "heading": "Vocabulary leaderboard",
-    "subtitle": "Ranked by score = exercise accuracy (%) + 10 points per card known. All-time standings across every student.",
+    "subtitle": "Ranked by score = exercise accuracy (%) x 10 points per card known. All-time standings across every student.",
     "loadError": "Failed to load leaderboard.",
     "colRank": "Rank",
     "colStudent": "Student",

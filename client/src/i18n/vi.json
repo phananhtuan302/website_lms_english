@@ -876,7 +876,7 @@
   },
   "vocabLeaderboard": {
     "heading": "Bảng xếp hạng từ vựng",
-    "subtitle": "Xếp hạng theo điểm = độ chính xác bài luyện tập (%) + 10 điểm cho mỗi thẻ đã thuộc. Thành tích toàn thời gian của tất cả học sinh.",
+    "subtitle": "Xếp hạng theo điểm = độ chính xác bài luyện tập (%) x 10 điểm cho mỗi thẻ đã thuộc. Thành tích toàn thời gian của tất cả học sinh.",
     "loadError": "Không thể tải bảng xếp hạng.",
     "colRank": "Hạng",
     "colStudent": "Học sinh",
