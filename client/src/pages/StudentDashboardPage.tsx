@@ -24,10 +24,10 @@ function StudentDashboardPage() {
       .listMyAttempts()
       .then(setAttempts)
       .catch((err) => setError(err instanceof ApiError ? err.message : t('studentDashboard.loadFailed')));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `t` is stable in practice
-    // (i18next only re-creates it on a real language change, which never happens
-    // mid-session per PROJECT_PLAN Guiding Principle 3); re-running this fetch on every
-    // `t` identity change would be pure noise, not a real dependency.
+    // `t` is stable in practice (i18next only re-creates it on a real language change,
+    // which never happens mid-session per PROJECT_PLAN Guiding Principle 3); re-running
+    // this fetch on every `t` identity change would be pure noise, not a real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
