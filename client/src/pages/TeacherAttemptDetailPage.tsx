@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -28,6 +29,7 @@ interface GradeDraft {
 function TeacherAttemptDetailPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [result, setResult] = useState<AttemptResultDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, GradeDraft>>({});
@@ -70,7 +72,8 @@ function TeacherAttemptDetailPage() {
           return next;
         });
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load this attempt.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherAttemptDetail.loadFailed')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId]);
 
   useEffect(loadResult, [loadResult]);
@@ -82,7 +85,7 @@ function TeacherAttemptDetailPage() {
     if (!draft || draft.scoreText.trim() === '' || Number.isNaN(score) || score < 0 || (maxScore != null && score > maxScore)) {
       setGradingErrors((prev) => ({
         ...prev,
-        [questionId]: `Score must be a number between 0 and ${maxScore ?? '?'}.`,
+        [questionId]: t('teacherAttemptDetail.scoreRangeError', { max: maxScore ?? '?' }),
       }));
       return;
     }
@@ -97,7 +100,7 @@ function TeacherAttemptDetailPage() {
     } catch (err) {
       setGradingErrors((prev) => ({
         ...prev,
-        [questionId]: err instanceof ApiError ? err.message : 'Failed to save this grade.',
+        [questionId]: err instanceof ApiError ? err.message : t('teacherAttemptDetail.saveGradeFailed'),
       }));
     } finally {
       setSavingQuestionId(null);
@@ -113,13 +116,13 @@ function TeacherAttemptDetailPage() {
   }
 
   if (!result) {
-    return <p className="text-center text-base-black/60">Loading...</p>;
+    return <p className="text-center text-base-black/60">{t('common.loading')}</p>;
   }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <button type="button" onClick={() => navigate(-1)} className="self-start text-sm text-primary-600 hover:underline">
-        ← Back to attempts
+        {t('teacherAttemptDetail.backToAttempts')}
       </button>
 
       <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
@@ -129,17 +132,18 @@ function TeacherAttemptDetailPage() {
           <>
             <p className="mt-2 text-4xl font-bold text-primary-700">{result.scorePercent}%</p>
             <p className="mt-1 text-sm text-base-black/70">
-              {result.correctCount} out of {result.totalCount} correct
+              {t('teacherAttemptDetail.correctOutOf', { correct: result.correctCount, total: result.totalCount })}
             </p>
             {result.timeTakenSeconds !== null && (
               <p className="mt-1 text-xs text-base-black/50">
-                Time taken: {Math.floor(result.timeTakenSeconds / 60)}:
-                {String(result.timeTakenSeconds % 60).padStart(2, '0')}
+                {t('teacherAttemptDetail.timeTaken', {
+                  time: `${Math.floor(result.timeTakenSeconds / 60)}:${String(result.timeTakenSeconds % 60).padStart(2, '0')}`,
+                })}
               </p>
             )}
           </>
         ) : (
-          <p className="mt-2 text-lg font-semibold text-base-black/60">Still in progress — not yet submitted</p>
+          <p className="mt-2 text-lg font-semibold text-base-black/60">{t('teacherAttemptDetail.stillInProgress')}</p>
         )}
       </div>
 
@@ -155,20 +159,19 @@ function TeacherAttemptDetailPage() {
         {result.tabSwitchCount > 0 ? (
           <>
             <p className="font-semibold">
-              Tab switch / window exit detected {result.tabSwitchCount} time
-              {result.tabSwitchCount === 1 ? '' : 's'} during this attempt.
+              {t('teacherAttemptDetail.tabSwitchDetected', { count: result.tabSwitchCount })}
             </p>
             <p className="mt-1 text-xs text-red-700/80">
               {result.tabSwitchLog.map((ts) => new Date(ts).toLocaleTimeString()).join(', ')}
             </p>
           </>
         ) : (
-          <p>No tab switches or window exits were detected during this attempt.</p>
+          <p>{t('teacherAttemptDetail.noTabSwitches')}</p>
         )}
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold text-base-black">Question review</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherAttemptDetail.questionReview')}</h2>
         {result.questions.map((q) => (
           <div
             key={q.questionId}
@@ -182,19 +185,19 @@ function TeacherAttemptDetailPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <p className="font-medium text-base-black">
-                Q{q.order}. {q.prompt}
+                {t('teacherAttemptDetail.questionNumber', { order: q.order })} {q.prompt}
               </p>
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
-                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : 'Not graded yet'}
+                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : t('teacherAttemptDetail.notGradedYet')}
                 </span>
               ) : q.type === 'speaking' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
                   {q.manualScore != null
-                    ? `${q.manualScore} / ${SPEAKING_SCORE_SCALE} (teacher)`
+                    ? t('teacherAttemptDetail.speakingScoreTeacher', { score: q.manualScore, scale: SPEAKING_SCORE_SCALE })
                     : q.speakingAiScore != null
-                      ? `${q.speakingAiScore} / ${SPEAKING_SCORE_SCALE} (AI)`
-                      : 'Not submitted yet'}
+                      ? t('teacherAttemptDetail.speakingScoreAi', { score: q.speakingAiScore, scale: SPEAKING_SCORE_SCALE })
+                      : t('teacherAttemptDetail.notSubmittedYet')}
                 </span>
               ) : (
                 q.isCorrect !== null && (
@@ -203,7 +206,7 @@ function TeacherAttemptDetailPage() {
                       q.isCorrect ? 'bg-green-600 text-base-white' : 'bg-red-600 text-base-white'
                     }`}
                   >
-                    {q.isCorrect ? 'Correct' : 'Incorrect'}
+                    {q.isCorrect ? t('teacherAttemptDetail.correct') : t('teacherAttemptDetail.incorrect')}
                   </span>
                 )
               )}
@@ -212,11 +215,11 @@ function TeacherAttemptDetailPage() {
             {q.type === 'essay' ? (
               <div className="mt-2 flex flex-col gap-3 text-sm text-base-black/80">
                 <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-base-white p-3">
-                  {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer submitted)</em>}
+                  {q.textAnswer?.trim() ? q.textAnswer : <em>{t('teacherAttemptDetail.noAnswerSubmitted')}</em>}
                 </div>
                 <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
                   <label className="flex flex-col gap-1 text-xs font-medium text-base-black">
-                    Score (out of {q.essayMaxScore})
+                    {t('teacherAttemptDetail.scoreOutOf', { max: q.essayMaxScore })}
                     <input
                       type="number"
                       min={0}
@@ -232,7 +235,7 @@ function TeacherAttemptDetailPage() {
                     />
                   </label>
                   <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-base-black">
-                    Comment (optional)
+                    {t('teacherAttemptDetail.commentOptional')}
                     <input
                       type="text"
                       value={drafts[q.questionId]?.comment ?? ''}
@@ -242,7 +245,7 @@ function TeacherAttemptDetailPage() {
                           [q.questionId]: { scoreText: prev[q.questionId]?.scoreText ?? '', comment: event.target.value },
                         }))
                       }
-                      placeholder="Feedback for the student"
+                      placeholder={t('teacherAttemptDetail.feedbackPlaceholder')}
                       className="min-w-[12rem] rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                     />
                   </label>
@@ -252,14 +255,16 @@ function TeacherAttemptDetailPage() {
                     disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
                     className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {savingQuestionId === q.questionId ? 'Saving...' : 'Save grade'}
+                    {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveGrade')}
                   </button>
                 </div>
                 {gradingErrors[q.questionId] && (
                   <p className="text-xs text-red-600">{gradingErrors[q.questionId]}</p>
                 )}
                 {q.manualComment && (
-                  <p className="text-xs italic text-base-black/60">Comment: {q.manualComment}</p>
+                  <p className="text-xs italic text-base-black/60">
+                    {t('teacherAttemptDetail.commentLine', { comment: q.manualComment })}
+                  </p>
                 )}
               </div>
             ) : q.type === 'speaking' ? (
@@ -267,20 +272,20 @@ function TeacherAttemptDetailPage() {
                 {q.speakingAudioData ? (
                   <audio controls src={q.speakingAudioData} className="w-full" />
                 ) : (
-                  <p className="italic text-base-black/50">(no recording submitted)</p>
+                  <p className="italic text-base-black/50">{t('teacherAttemptDetail.noRecordingSubmitted')}</p>
                 )}
                 <div className="rounded-md border border-primary-100 bg-base-white p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
-                    Draft transcript (Web Speech API)
+                    {t('teacherAttemptDetail.draftTranscriptLabel')}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap">
-                    {q.speakingTranscript?.trim() ? q.speakingTranscript : <em>(no transcript)</em>}
+                    {q.speakingTranscript?.trim() ? q.speakingTranscript : <em>{t('teacherAttemptDetail.noTranscript')}</em>}
                   </p>
                 </div>
                 {q.speakingAiFeedback && (
                   <div className="rounded-md border border-primary-100 bg-primary-50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
-                      Mock AI grading (T-051)
+                      {t('teacherAttemptDetail.mockAiGradingLabel')}
                     </p>
                     <p className="mt-1">{q.speakingAiFeedback}</p>
                   </div>
@@ -288,7 +293,7 @@ function TeacherAttemptDetailPage() {
                 {q.speakingAudioData ? (
                   <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
                     <label className="flex flex-col gap-1 text-xs font-medium text-base-black">
-                      Override score (out of {SPEAKING_SCORE_SCALE})
+                      {t('teacherAttemptDetail.overrideScoreOutOf', { scale: SPEAKING_SCORE_SCALE })}
                       <input
                         type="number"
                         min={0}
@@ -304,7 +309,7 @@ function TeacherAttemptDetailPage() {
                       />
                     </label>
                     <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-base-black">
-                      Override feedback (optional)
+                      {t('teacherAttemptDetail.overrideFeedbackOptional')}
                       <input
                         type="text"
                         value={drafts[q.questionId]?.comment ?? ''}
@@ -314,7 +319,7 @@ function TeacherAttemptDetailPage() {
                             [q.questionId]: { scoreText: prev[q.questionId]?.scoreText ?? '', comment: event.target.value },
                           }))
                         }
-                        placeholder="Feedback for the student (leave blank to keep the AI feedback above)"
+                        placeholder={t('teacherAttemptDetail.overrideFeedbackPlaceholder')}
                         className="min-w-[12rem] rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                       />
                     </label>
@@ -324,25 +329,32 @@ function TeacherAttemptDetailPage() {
                       disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
                       className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {savingQuestionId === q.questionId ? 'Saving...' : 'Save override'}
+                      {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveOverride')}
                     </button>
                   </div>
                 ) : (
                   <p className="text-xs text-base-black/50">
-                    Nothing to override yet — the student hasn&apos;t submitted a recording for this question.
+                    {t('teacherAttemptDetail.nothingToOverrideYet')}
                   </p>
                 )}
                 {gradingErrors[q.questionId] && (
                   <p className="text-xs text-red-600">{gradingErrors[q.questionId]}</p>
                 )}
                 {q.manualComment && (
-                  <p className="text-xs italic text-base-black/60">Teacher override comment: {q.manualComment}</p>
+                  <p className="text-xs italic text-base-black/60">
+                    {t('teacherAttemptDetail.teacherOverrideCommentLine', { comment: q.manualComment })}
+                  </p>
                 )}
               </div>
             ) : q.type === 'fillBlank' ? (
               <div className="mt-2 text-sm text-base-black/80">
-                <p>Student&apos;s answer: {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer)</em>}</p>
-                <p>Accepted answer(s): {q.acceptedAnswers.join(', ')}</p>
+                <p>
+                  {t('teacherAttemptDetail.studentAnswerPrefix')}{' '}
+                  {q.textAnswer?.trim() ? q.textAnswer : <em>{t('teacherAttemptDetail.noAnswer')}</em>}
+                </p>
+                <p>
+                  {t('teacherAttemptDetail.acceptedAnswersPrefix')} {q.acceptedAnswers.join(', ')}
+                </p>
               </div>
             ) : (
               <ul className="mt-2 flex flex-col gap-1 text-sm">
@@ -360,12 +372,12 @@ function TeacherAttemptDetailPage() {
                       }`}
                     >
                       {choice.text}
-                      {isSelected && " (student's answer)"}
-                      {choice.isCorrect && ' (correct answer)'}
+                      {isSelected && t('teacherAttemptDetail.studentAnswerSuffix')}
+                      {choice.isCorrect && t('teacherAttemptDetail.correctAnswerSuffix')}
                     </li>
                   );
                 })}
-                {!q.selectedChoiceId && <li className="text-base-black/50">(no answer selected)</li>}
+                {!q.selectedChoiceId && <li className="text-base-black/50">{t('teacherAttemptDetail.noAnswerSelected')}</li>}
               </ul>
             )}
           </div>

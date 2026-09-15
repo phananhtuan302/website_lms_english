@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
@@ -27,6 +28,7 @@ function JoinPage() {
   const { token } = useParams<{ token: string }>();
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [checkState, setCheckState] = useState<'checking' | 'valid' | 'error'>('checking');
   const [testTitle, setTestTitle] = useState('');
@@ -46,10 +48,11 @@ function JoinPage() {
       })
       .catch((err) => {
         setCheckError(
-          err instanceof ApiError ? err.message : 'Could not check this join link. Please try again.',
+          err instanceof ApiError ? err.message : t('join.checkFailed'),
         );
         setCheckState('error');
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const attemptJoin = useCallback(() => {
@@ -70,8 +73,9 @@ function JoinPage() {
       .catch((err) => {
         hasJoinedRef.current = false;
         setIsJoining(false);
-        setJoinError(err instanceof ApiError ? err.message : 'Failed to join this session.');
+        setJoinError(err instanceof ApiError ? err.message : t('join.joinFailed'));
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, navigate]);
 
   // Auto-join once the token is confirmed valid and we know this is a logged-in student.
@@ -85,18 +89,18 @@ function JoinPage() {
   if (!token) return null;
 
   if (checkState === 'checking' || isLoading) {
-    return <p className="text-center text-base-black/60">Checking join link...</p>;
+    return <p className="text-center text-base-black/60">{t('join.checkingLink')}</p>;
   }
 
   if (checkState === 'error') {
     return (
       <div className="mx-auto max-w-md rounded-xl border border-primary-100 bg-primary-50 p-8 text-center">
-        <h1 className="text-xl font-bold text-primary-700">Can&apos;t join this test</h1>
+        <h1 className="text-xl font-bold text-primary-700">{t('join.cantJoinHeading')}</h1>
         <p role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {checkError}
         </p>
         <Link to="/" className="mt-4 inline-block text-sm font-medium text-primary-600 hover:underline">
-          Go home
+          {t('join.goHome')}
         </Link>
       </div>
     );
@@ -106,12 +110,12 @@ function JoinPage() {
 
   return (
     <div className="mx-auto max-w-md rounded-xl border border-primary-100 bg-primary-50 p-8 text-center">
-      <h1 className="text-xl font-bold text-primary-700">Join &quot;{testTitle}&quot;</h1>
+      <h1 className="text-xl font-bold text-primary-700">{t('join.heading', { title: testTitle })}</h1>
 
       {!user && (
         <>
           <p className="mt-3 text-sm text-base-black/70">
-            Log in or create a student account to join this test.
+            {t('join.loginPrompt')}
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
@@ -119,14 +123,14 @@ function JoinPage() {
               state={joinState}
               className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
-              Log in
+              {t('header.logIn')}
             </Link>
             <Link
               to="/register"
               state={joinState}
               className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
             >
-              Create a student account
+              {t('home.createStudentAccount')}
             </Link>
           </div>
         </>
@@ -134,14 +138,13 @@ function JoinPage() {
 
       {user?.role === 'teacher' && (
         <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          Teacher accounts can&apos;t join a test as a student. Log in with a student account to
-          join this test.
+          {t('join.teacherCannotJoin')}
         </p>
       )}
 
       {user?.role === 'student' && (
         <>
-          {isJoining && <p className="mt-4 text-sm text-base-black/60">Joining...</p>}
+          {isJoining && <p className="mt-4 text-sm text-base-black/60">{t('join.joining')}</p>}
           {joinError && (
             <div className="mt-4">
               <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -152,7 +155,7 @@ function JoinPage() {
                 onClick={attemptJoin}
                 className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
               >
-                Try again
+                {t('join.tryAgain')}
               </button>
             </div>
           )}

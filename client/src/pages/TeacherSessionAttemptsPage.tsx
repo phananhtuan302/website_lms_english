@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { AttemptSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
-
-const STATUS_LABEL: Record<AttemptSummaryDTO['status'], string> = {
-  inProgress: 'In progress',
-  submitted: 'Submitted',
-};
 
 /** `null` (never submitted — see `AttemptSummaryDTO.timeTakenSeconds`'s doc comment,
  * T-017) renders as an em dash rather than "0:00", so an abandoned attempt reads as
@@ -29,6 +25,7 @@ function formatDuration(seconds: number | null): string {
 function TeacherSessionAttemptsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [attempts, setAttempts] = useState<AttemptSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +34,8 @@ function TeacherSessionAttemptsPage() {
     teacherApi
       .listSessionAttempts(sessionId)
       .then(setAttempts)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load attempts.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherSessionAttempts.loadFailed')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   const testTitle = attempts?.[0]?.testTitle;
@@ -51,20 +49,21 @@ function TeacherSessionAttemptsPage() {
           onClick={() => (testId ? navigate(`/teacher/tests/${testId}`) : navigate(-1))}
           className="text-sm text-primary-600 hover:underline"
         >
-          ← Back to test
+          {t('teacherSessionAttempts.backToTest')}
         </button>
         {sessionId && (
           <Link
             to={`/teacher/sessions/${sessionId}/live`}
             className="text-sm font-medium text-primary-600 hover:underline"
           >
-            Live monitor →
+            {t('teacherSessionAttempts.liveMonitor')}
           </Link>
         )}
       </div>
 
       <h1 className="mt-2 text-2xl font-bold text-primary-700">
-        Session attempts{testTitle ? ` — ${testTitle}` : ''}
+        {t('teacherSessionAttempts.heading')}
+        {testTitle ? ` — ${testTitle}` : ''}
       </h1>
 
       {error && (
@@ -73,10 +72,10 @@ function TeacherSessionAttemptsPage() {
         </p>
       )}
 
-      {attempts === null && !error && <p className="mt-4 text-sm text-base-black/60">Loading...</p>}
+      {attempts === null && !error && <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>}
 
       {attempts?.length === 0 && (
-        <p className="mt-4 text-sm text-base-black/60">No students have joined this session yet.</p>
+        <p className="mt-4 text-sm text-base-black/60">{t('teacherSessionAttempts.noAttempts')}</p>
       )}
 
       {attempts && attempts.length > 0 && (
@@ -84,12 +83,12 @@ function TeacherSessionAttemptsPage() {
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-primary-50 text-xs font-semibold uppercase text-primary-700">
               <tr>
-                <th className="px-4 py-3">Student</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Score</th>
-                <th className="px-4 py-3">Time taken</th>
-                <th className="px-4 py-3">Started</th>
-                <th className="px-4 py-3">Flags</th>
+                <th className="px-4 py-3">{t('teacherSessionAttempts.columns.student')}</th>
+                <th className="px-4 py-3">{t('teacherSessionAttempts.columns.status')}</th>
+                <th className="px-4 py-3">{t('teacherSessionAttempts.columns.score')}</th>
+                <th className="px-4 py-3">{t('teacherSessionAttempts.columns.timeTaken')}</th>
+                <th className="px-4 py-3">{t('teacherSessionAttempts.columns.started')}</th>
+                <th className="px-4 py-3">{t('teacherSessionAttempts.columns.flags')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -106,7 +105,9 @@ function TeacherSessionAttemptsPage() {
                         attempt.status === 'submitted' ? 'text-green-700' : 'text-primary-600'
                       }
                     >
-                      {STATUS_LABEL[attempt.status]}
+                      {attempt.status === 'submitted'
+                        ? t('teacherSessionAttempts.status.submitted')
+                        : t('teacherSessionAttempts.status.inProgress')}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -123,7 +124,7 @@ function TeacherSessionAttemptsPage() {
                   <td className="px-4 py-3">
                     {attempt.tabSwitchCount > 0 ? (
                       <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                        {attempt.tabSwitchCount} tab switch{attempt.tabSwitchCount === 1 ? '' : 'es'}
+                        {t('teacherSessionAttempts.tabSwitchCount', { count: attempt.tabSwitchCount })}
                       </span>
                     ) : (
                       <span className="text-xs text-base-black/40">—</span>
@@ -134,7 +135,7 @@ function TeacherSessionAttemptsPage() {
                       to={`/teacher/attempts/${attempt.attemptId}`}
                       className="font-medium text-primary-600 hover:underline"
                     >
-                      View detail →
+                      {t('teacherSessionAttempts.viewDetail')}
                     </Link>
                   </td>
                 </tr>

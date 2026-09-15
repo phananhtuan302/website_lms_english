@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
@@ -13,6 +14,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function AttemptResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
+  const { t } = useTranslation();
   const [result, setResult] = useState<AttemptResultDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,8 +24,9 @@ function AttemptResultPage() {
       .getResult(attemptId)
       .then(setResult)
       .catch((err) =>
-        setError(err instanceof ApiError ? err.message : 'Failed to load this result.'),
+        setError(err instanceof ApiError ? err.message : t('attemptResult.loadFailed')),
       );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId]);
 
   if (error) {
@@ -38,7 +41,7 @@ function AttemptResultPage() {
   }
 
   if (!result) {
-    return <p className="text-center text-base-black/60">Loading result...</p>;
+    return <p className="text-center text-base-black/60">{t('attemptResult.loadingResult')}</p>;
   }
 
   return (
@@ -47,17 +50,21 @@ function AttemptResultPage() {
         <h1 className="text-xl font-bold text-primary-700">{result.testTitle}</h1>
         <p className="mt-2 text-4xl font-bold text-primary-700">{result.scorePercent}%</p>
         <p className="mt-1 text-sm text-base-black/70">
-          {result.correctCount} out of {result.totalCount} correct
+          {t('attemptResult.correctOutOf', { correct: result.correctCount, total: result.totalCount })}
         </p>
         <p className="mt-1 text-xs text-base-black/50">
-          Submitted {result.submittedAt ? new Date(result.submittedAt).toLocaleString() : ''}
+          {t('attemptResult.submittedAt', {
+            date: result.submittedAt ? new Date(result.submittedAt).toLocaleString() : '',
+          })}
           {result.timeTakenSeconds !== null &&
-            ` · Time taken: ${Math.floor(result.timeTakenSeconds / 60)}:${String(result.timeTakenSeconds % 60).padStart(2, '0')}`}
+            t('attemptResult.timeTakenSuffix', {
+              time: `${Math.floor(result.timeTakenSeconds / 60)}:${String(result.timeTakenSeconds % 60).padStart(2, '0')}`,
+            })}
         </p>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold text-base-black">Question review</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('attemptResult.questionReview')}</h2>
         {result.questions.map((q) => (
           <div
             key={q.questionId}
@@ -71,11 +78,11 @@ function AttemptResultPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <p className="font-medium text-base-black">
-                Q{q.order}. {q.prompt}
+                {t('attemptResult.questionNumber', { order: q.order })} {q.prompt}
               </p>
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
-                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : 'Awaiting grading'}
+                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : t('attemptResult.awaitingGrading')}
                 </span>
               ) : q.type === 'speaking' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
@@ -86,7 +93,7 @@ function AttemptResultPage() {
                     ? `${q.manualScore} / ${SPEAKING_SCORE_SCALE}`
                     : q.speakingAiScore != null
                       ? `${q.speakingAiScore} / ${SPEAKING_SCORE_SCALE}`
-                      : 'Not yet submitted'}
+                      : t('attemptResult.notYetSubmitted')}
                 </span>
               ) : (
                 <span
@@ -94,7 +101,7 @@ function AttemptResultPage() {
                     q.isCorrect ? 'bg-green-600 text-base-white' : 'bg-red-600 text-base-white'
                   }`}
                 >
-                  {q.isCorrect ? 'Correct' : 'Incorrect'}
+                  {q.isCorrect ? t('attemptResult.correct') : t('attemptResult.incorrect')}
                 </span>
               )}
             </div>
@@ -102,16 +109,16 @@ function AttemptResultPage() {
             {q.type === 'essay' ? (
               <div className="mt-2 flex flex-col gap-2 text-sm text-base-black/80">
                 <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-primary-50 p-3">
-                  {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer submitted)</em>}
+                  {q.textAnswer?.trim() ? q.textAnswer : <em>{t('attemptResult.noAnswerSubmitted')}</em>}
                 </div>
                 {q.manualComment && (
                   <p className="text-xs italic text-base-black/60">
-                    Teacher&apos;s comment: {q.manualComment}
+                    {t('attemptResult.teacherCommentLine', { comment: q.manualComment })}
                   </p>
                 )}
                 {q.manualScore == null && (
                   <p className="text-xs text-base-black/50">
-                    Your teacher hasn&apos;t graded this essay yet.
+                    {t('attemptResult.essayNotGradedYet')}
                   </p>
                 )}
               </div>
@@ -120,25 +127,31 @@ function AttemptResultPage() {
                 {q.speakingAudioData ? (
                   <audio controls src={q.speakingAudioData} className="w-full" />
                 ) : (
-                  <p className="italic text-base-black/50">(you did not submit a recording for this question)</p>
+                  <p className="italic text-base-black/50">{t('attemptResult.noRecordingSubmitted')}</p>
                 )}
                 {/* Teacher override wins once present (T-055); otherwise show the
                     AI/mock feedback (T-054) — same "teacher value wins" rule as the
                     score badge above. */}
                 {(q.manualComment ?? q.speakingAiFeedback) && (
                   <p className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-base-black/70">
-                    {q.manualComment ? 'Teacher’s feedback: ' : 'Feedback: '}
-                    {q.manualComment ?? q.speakingAiFeedback}
+                    {q.manualComment
+                      ? t('attemptResult.teacherFeedbackLine', { feedback: q.manualComment })
+                      : t('attemptResult.feedbackLine', { feedback: q.speakingAiFeedback })}
                   </p>
                 )}
                 {q.speakingAudioData && q.manualScore == null && q.speakingAiScore == null && (
-                  <p className="text-xs text-base-black/50">This recording hasn&apos;t been graded yet.</p>
+                  <p className="text-xs text-base-black/50">{t('attemptResult.recordingNotGradedYet')}</p>
                 )}
               </div>
             ) : q.type === 'fillBlank' ? (
               <div className="mt-2 text-sm text-base-black/80">
-                <p>Your answer: {q.textAnswer?.trim() ? q.textAnswer : <em>(no answer)</em>}</p>
-                <p>Accepted answer(s): {q.acceptedAnswers.join(', ')}</p>
+                <p>
+                  {t('attemptResult.yourAnswerPrefix')}{' '}
+                  {q.textAnswer?.trim() ? q.textAnswer : <em>{t('attemptResult.noAnswer')}</em>}
+                </p>
+                <p>
+                  {t('attemptResult.acceptedAnswersPrefix')} {q.acceptedAnswers.join(', ')}
+                </p>
               </div>
             ) : (
               <ul className="mt-2 flex flex-col gap-1 text-sm">
@@ -156,13 +169,13 @@ function AttemptResultPage() {
                       }`}
                     >
                       {choice.text}
-                      {isSelected && ' (your answer)'}
-                      {choice.isCorrect && ' (correct answer)'}
+                      {isSelected && t('attemptResult.yourAnswerSuffix')}
+                      {choice.isCorrect && t('attemptResult.correctAnswerSuffix')}
                     </li>
                   );
                 })}
                 {!q.selectedChoiceId && (
-                  <li className="text-base-black/50">(no answer selected)</li>
+                  <li className="text-base-black/50">{t('attemptResult.noAnswerSelected')}</li>
                 )}
               </ul>
             )}
@@ -174,7 +187,7 @@ function AttemptResultPage() {
         to="/student/dashboard"
         className="self-center text-sm font-medium text-primary-600 hover:underline"
       >
-        ← Back to dashboard
+        {t('attemptResult.backToDashboard')}
       </Link>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TEST_TYPE_LABELS, type PracticeTestSummaryDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
@@ -17,6 +18,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function StudentPracticeTestsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [tests, setTests] = useState<PracticeTestSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startingTestId, setStartingTestId] = useState<string | null>(null);
@@ -25,7 +27,8 @@ function StudentPracticeTestsPage() {
     studentApi
       .listPracticeTests()
       .then(setTests)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load tests.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentPracticeTests.loadTestsFailed')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleStartPractice(testId: string) {
@@ -39,7 +42,7 @@ function StudentPracticeTestsPage() {
           : `/student/attempts/${res.attemptId}`;
       navigate(destination);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to start self-practice.');
+      setError(err instanceof ApiError ? err.message : t('studentPracticeTests.startPracticeFailed'));
       setStartingTestId(null);
     }
   }
@@ -48,13 +51,11 @@ function StudentPracticeTestsPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
         <Link to="/student/dashboard" className="text-sm text-primary-600 hover:underline">
-          ← Back to dashboard
+          {t('studentPracticeTests.backToDashboard')}
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-primary-700">Practice a test at home</h1>
+        <h1 className="mt-2 text-2xl font-bold text-primary-700">{t('studentPracticeTests.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">
-          Take any test on your own, outside of a live in-class session. For a Listening test,
-          you control your own Play button here (up to any limit your teacher set) — the same test
-          taken live in class is controlled by your teacher instead.
+          {t('studentPracticeTests.description')}
         </p>
       </div>
 
@@ -64,8 +65,8 @@ function StudentPracticeTestsPage() {
         </p>
       )}
 
-      {tests === null && !error && <p className="text-sm text-base-black/60">Loading...</p>}
-      {tests?.length === 0 && <p className="text-sm text-base-black/60">No tests are available yet.</p>}
+      {tests === null && !error && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+      {tests?.length === 0 && <p className="text-sm text-base-black/60">{t('studentPracticeTests.noTests')}</p>}
 
       <ul className="flex flex-col gap-2">
         {tests?.map((test) => (
@@ -87,7 +88,7 @@ function StudentPracticeTestsPage() {
               disabled={startingTestId === test.id}
               className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {startingTestId === test.id ? 'Starting...' : 'Practice →'}
+              {startingTestId === test.id ? t('studentPracticeTests.starting') : t('studentPracticeTests.practice')}
             </button>
           </li>
         ))}

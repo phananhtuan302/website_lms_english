@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { Socket } from 'socket.io-client';
 import type { CreateSessionResponse, LiveStudentProgressDTO, TestDetailDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -34,6 +35,7 @@ interface TeacherJoinAck {
  */
 function TeacherLiveSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { t } = useTranslation();
 
   const [session, setSession] = useState<CreateSessionResponse | null>(null);
   const [test, setTest] = useState<TestDetailDTO | null>(null);
@@ -60,7 +62,8 @@ function TeacherLiveSessionPage() {
         return teacherApi.getTest(data.testId);
       })
       .then(setTest)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load session.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherLiveSession.loadSessionFailed')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   useEffect(() => {
@@ -74,7 +77,7 @@ function TeacherLiveSessionPage() {
       socket.emit('teacher:join', { sessionId }, (ack: TeacherJoinAck) => {
         if (cancelled) return;
         if (!ack.ok) {
-          setError(ack.error ?? 'Failed to join this session’s live monitor.');
+          setError(ack.error ?? t('teacherLiveSession.joinFailed'));
           return;
         }
         const byStudentId: Record<string, LiveStudentProgressDTO> = {};
@@ -99,7 +102,7 @@ function TeacherLiveSessionPage() {
 
     socket.on('connect_error', (err: Error) => {
       if (!cancelled) {
-        setError(`Realtime connection failed: ${err.message}`);
+        setError(t('teacherLiveSession.realtimeConnectionFailed', { message: err.message }));
       }
     });
 
@@ -108,6 +111,7 @@ function TeacherLiveSessionPage() {
       socket.disconnect();
       socketRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   /** T-041: broadcasts a `teacher:playAudio` press for one Listening section to every
@@ -117,14 +121,16 @@ function TeacherLiveSessionPage() {
    * `TakeTestPage.tsx`'s `audio:play` listener). */
   function handlePlayAudio(sectionId: string) {
     if (!sessionId) return;
-    setPlaybackStatus((prev) => ({ ...prev, [sectionId]: 'Playing…' }));
+    setPlaybackStatus((prev) => ({ ...prev, [sectionId]: t('teacherLiveSession.playing') }));
     socketRef.current?.emit(
       'teacher:playAudio',
       { sessionId, sectionId },
       (ack: { ok: boolean; error?: string }) => {
         setPlaybackStatus((prev) => ({
           ...prev,
-          [sectionId]: ack.ok ? 'Played for all connected students.' : (ack.error ?? 'Failed to play.'),
+          [sectionId]: ack.ok
+            ? t('teacherLiveSession.playedForAll')
+            : (ack.error ?? t('teacherLiveSession.playFailed')),
         }));
       },
     );
@@ -142,14 +148,16 @@ function TeacherLiveSessionPage() {
           to={`/teacher/sessions/${sessionId}/attempts`}
           className="text-sm text-primary-600 hover:underline"
         >
-          ← Back to attempts
+          {t('teacherLiveSession.backToAttempts')}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-primary-700">
-          Live monitor{test ? ` — ${test.title}` : ''}
+          {t('teacherLiveSession.heading')}
+          {test ? ` — ${test.title}` : ''}
         </h1>
         {session && (
           <p className="mt-1 text-sm text-base-black/60">
-            Session code <span className="font-mono font-semibold">{session.manualCode}</span>
+            {t('teacherLiveSession.sessionCodeLabel')}{' '}
+            <span className="font-mono font-semibold">{session.manualCode}</span>
           </p>
         )}
       </div>
@@ -162,17 +170,15 @@ function TeacherLiveSessionPage() {
 
       {isClosed && (
         <p className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-700">
-          This session is closed. The table below reflects the final state — no further live
-          updates will appear.
+          {t('teacherLiveSession.sessionClosedNotice')}
         </p>
       )}
 
       {listeningSections.length > 0 && (
         <section className="rounded-xl border border-primary-200 p-4">
-          <h2 className="text-lg font-bold text-base-black">Listening playback control</h2>
+          <h2 className="text-lg font-bold text-base-black">{t('teacherLiveSession.listeningPlaybackControlHeading')}</h2>
           <p className="mt-1 text-sm text-base-black/60">
-            Students in this live session do not see a Play button of their own (T-041) — press
-            Play below to play a section's audio on every connected student's screen at once.
+            {t('teacherLiveSession.listeningPlaybackDescription')}
           </p>
           <ul className="mt-3 flex flex-col gap-2">
             {listeningSections.map((section) => (
@@ -191,7 +197,7 @@ function TeacherLiveSessionPage() {
                     disabled={isClosed}
                     className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    ▶ Play for students
+                    {t('teacherLiveSession.playForStudents')}
                   </button>
                 </div>
               </li>
@@ -202,8 +208,7 @@ function TeacherLiveSessionPage() {
 
       {rows.length === 0 && !error && (
         <p className="text-sm text-base-black/60">
-          No students connected yet. This updates live as students join and progress through the
-          test — no need to refresh.
+          {t('teacherLiveSession.noStudentsConnected')}
         </p>
       )}
 
@@ -212,10 +217,10 @@ function TeacherLiveSessionPage() {
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-primary-50 text-xs font-semibold uppercase text-primary-700">
               <tr>
-                <th className="px-4 py-3">Student</th>
-                <th className="px-4 py-3">Current question</th>
-                <th className="px-4 py-3">Progress</th>
-                <th className="px-4 py-3">Last update</th>
+                <th className="px-4 py-3">{t('teacherLiveSession.columns.student')}</th>
+                <th className="px-4 py-3">{t('teacherLiveSession.columns.currentQuestion')}</th>
+                <th className="px-4 py-3">{t('teacherLiveSession.columns.progress')}</th>
+                <th className="px-4 py-3">{t('teacherLiveSession.columns.lastUpdate')}</th>
               </tr>
             </thead>
             <tbody>
@@ -226,7 +231,10 @@ function TeacherLiveSessionPage() {
                   <tr key={s.studentId} className="border-t border-primary-100">
                     <td className="px-4 py-3 font-medium text-base-black">{s.studentName}</td>
                     <td className="px-4 py-3 text-base-black/80">
-                      {s.currentQuestionIndex + 1} of {s.totalQuestions || '—'}
+                      {t('teacherLiveSession.currentQuestionOf', {
+                        current: s.currentQuestionIndex + 1,
+                        total: s.totalQuestions || '—',
+                      })}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
