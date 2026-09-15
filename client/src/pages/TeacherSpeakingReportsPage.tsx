@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type {
   SpeakingReportGroupBy,
   SpeakingReportResponseDTO,
@@ -8,14 +9,14 @@ import type {
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
-const GROUP_BY_OPTIONS: Array<{ value: SpeakingReportGroupBy; label: string }> = [
-  { value: 'test', label: 'Test' },
-  { value: 'unit', label: 'Unit' },
-  { value: 'week', label: 'Week (ISO, Mon–Sun)' },
-  { value: 'month', label: 'Month' },
-  { value: 'quarter', label: 'Quarter' },
-  { value: 'semester', label: 'Academic period (semester)' },
-  { value: 'year', label: 'Year' },
+const GROUP_BY_OPTIONS: Array<{ value: SpeakingReportGroupBy; labelKey: string }> = [
+  { value: 'test', labelKey: 'teacherSpeakingReports.groupByOptions.test' },
+  { value: 'unit', labelKey: 'teacherSpeakingReports.groupByOptions.unit' },
+  { value: 'week', labelKey: 'teacherSpeakingReports.groupByOptions.week' },
+  { value: 'month', labelKey: 'teacherSpeakingReports.groupByOptions.month' },
+  { value: 'quarter', labelKey: 'teacherSpeakingReports.groupByOptions.quarter' },
+  { value: 'semester', labelKey: 'teacherSpeakingReports.groupByOptions.semester' },
+  { value: 'year', labelKey: 'teacherSpeakingReports.groupByOptions.year' },
 ];
 
 /**
@@ -29,6 +30,7 @@ const GROUP_BY_OPTIONS: Array<{ value: SpeakingReportGroupBy; label: string }> =
  * duration (see the engine's doc comment for the full reasoning).
  */
 function TeacherSpeakingReportsPage() {
+  const { t } = useTranslation();
   const [groupBy, setGroupBy] = useState<SpeakingReportGroupBy>('month');
   const [testId, setTestId] = useState('');
   const [unitId, setUnitId] = useState('');
@@ -52,24 +54,20 @@ function TeacherSpeakingReportsPage() {
       })
       .catch((err) => {
         setReport(null);
-        setError(err instanceof ApiError ? err.message : 'Failed to load report.');
+        setError(err instanceof ApiError ? err.message : t('teacherSpeakingReports.loadFailed'));
       });
   }, [groupBy, testId, unitId]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">Speaking reports</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          Average effective Speaking score (teacher override when set, else the AI/mock grade) and
-          graded-answer count, across your Speaking questions. Choose a granularity below; optionally
-          narrow to one test and/or one unit.
-        </p>
+        <h1 className="text-2xl font-bold text-primary-700">{t('teacherSpeakingReports.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherSpeakingReports.description')}</p>
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Group by
+          {t('teacherSpeakingReports.groupByLabel')}
           <select
             value={groupBy}
             onChange={(event) => setGroupBy(event.target.value as SpeakingReportGroupBy)}
@@ -77,20 +75,20 @@ function TeacherSpeakingReportsPage() {
           >
             {GROUP_BY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Test (optional filter)
+          {t('teacherSpeakingReports.testFilterLabel')}
           <select
             value={testId}
             onChange={(event) => setTestId(event.target.value)}
             className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">All tests</option>
+            <option value="">{t('teacherSpeakingReports.allTests')}</option>
             {tests.map((test) => (
               <option key={test.id} value={test.id}>
                 {test.title}
@@ -100,13 +98,13 @@ function TeacherSpeakingReportsPage() {
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Unit (optional filter)
+          {t('teacherSpeakingReports.unitFilterLabel')}
           <select
             value={unitId}
             onChange={(event) => setUnitId(event.target.value)}
             className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">All units</option>
+            <option value="">{t('teacherSpeakingReports.allUnits')}</option>
             {units.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.name}
@@ -117,23 +115,27 @@ function TeacherSpeakingReportsPage() {
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !report && <p className="text-sm text-base-black/60">Loading report...</p>}
+      {!error && !report && (
+        <p className="text-sm text-base-black/60">{t('teacherSpeakingReports.loadingReport')}</p>
+      )}
 
       {!error && report && (
         <section className="overflow-x-auto rounded-xl border border-primary-200">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50 text-left text-xs font-semibold uppercase tracking-wide text-primary-700">
               <tr>
-                <th className="px-4 py-3">{GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label}</th>
-                <th className="px-4 py-3">Graded answers</th>
-                <th className="px-4 py-3">Average Speaking score</th>
+                <th className="px-4 py-3">
+                  {t(GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.labelKey ?? '')}
+                </th>
+                <th className="px-4 py-3">{t('teacherSpeakingReports.gradedAnswersColumn')}</th>
+                <th className="px-4 py-3">{t('teacherSpeakingReports.averageScoreColumn')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-100">
               {report.buckets.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-4 text-center text-base-black/60">
-                    No graded Speaking answers for this selection yet.
+                    {t('teacherSpeakingReports.noData')}
                   </td>
                 </tr>
               )}

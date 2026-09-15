@@ -1,24 +1,25 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ReportGroupBy, ReportResponseDTO, TestSummaryDTO, TestType, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
-const GROUP_BY_OPTIONS: Array<{ value: ReportGroupBy; label: string }> = [
-  { value: 'test', label: 'Test' },
-  { value: 'unit', label: 'Unit' },
-  { value: 'week', label: 'Week (ISO, Mon–Sun)' },
-  { value: 'month', label: 'Month' },
-  { value: 'quarter', label: 'Quarter' },
-  { value: 'semester', label: 'Academic period (semester)' },
-  { value: 'year', label: 'Year' },
+const GROUP_BY_OPTIONS: Array<{ value: ReportGroupBy; labelKey: string }> = [
+  { value: 'test', labelKey: 'teacherReports.groupByOptions.test' },
+  { value: 'unit', labelKey: 'teacherReports.groupByOptions.unit' },
+  { value: 'week', labelKey: 'teacherReports.groupByOptions.week' },
+  { value: 'month', labelKey: 'teacherReports.groupByOptions.month' },
+  { value: 'quarter', labelKey: 'teacherReports.groupByOptions.quarter' },
+  { value: 'semester', labelKey: 'teacherReports.groupByOptions.semester' },
+  { value: 'year', labelKey: 'teacherReports.groupByOptions.year' },
 ];
 
-const TEST_TYPE_OPTIONS: Array<{ value: TestType; label: string }> = [
-  { value: 'generic', label: 'Generic' },
-  { value: 'unitTest', label: 'Unit Test' },
-  { value: 'vocabularyCheck', label: 'Vocabulary Check' },
-  { value: 'listeningTest', label: 'Listening' },
-  { value: 'mockTest', label: 'Mock Test' },
+const TEST_TYPE_OPTIONS: Array<{ value: TestType; labelKey: string }> = [
+  { value: 'generic', labelKey: 'teacherReports.testTypeOptions.generic' },
+  { value: 'unitTest', labelKey: 'teacherReports.testTypeOptions.unitTest' },
+  { value: 'vocabularyCheck', labelKey: 'teacherReports.testTypeOptions.vocabularyCheck' },
+  { value: 'listeningTest', labelKey: 'teacherReports.testTypeOptions.listeningTest' },
+  { value: 'mockTest', labelKey: 'teacherReports.testTypeOptions.mockTest' },
 ];
 
 interface TeacherReportsPageProps {
@@ -49,6 +50,7 @@ interface TeacherReportsPageProps {
  * see `fixedTestType`'s doc comment above for how the two differ.
  */
 function TeacherReportsPage({ fixedTestType, heading, description }: TeacherReportsPageProps) {
+  const { t } = useTranslation();
   const [groupBy, setGroupBy] = useState<ReportGroupBy>('month');
   const [testId, setTestId] = useState('');
   const [unitId, setUnitId] = useState('');
@@ -84,23 +86,22 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
       })
       .catch((err) => {
         setReport(null);
-        setError(err instanceof ApiError ? err.message : 'Failed to load report.');
+        setError(err instanceof ApiError ? err.message : t('teacherReports.loadFailed'));
       });
   }, [groupBy, testId, unitId, testType, fixedTestType]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">{heading ?? 'Reports'}</h1>
+        <h1 className="text-2xl font-bold text-primary-700">{heading ?? t('teacherReports.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">
-          {description ??
-            "Average score, average time taken, and attempt count across your tests, counting only submitted attempts. Choose a granularity below; optionally narrow to one test and/or one unit."}
+          {description ?? t('teacherReports.description')}
         </p>
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Group by
+          {t('teacherReports.groupByLabel')}
           <select
             value={groupBy}
             onChange={(event) => setGroupBy(event.target.value as ReportGroupBy)}
@@ -108,20 +109,20 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
           >
             {GROUP_BY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Test (optional filter)
+          {t('teacherReports.testFilterLabel')}
           <select
             value={testId}
             onChange={(event) => setTestId(event.target.value)}
             className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">All tests</option>
+            <option value="">{t('teacherReports.allTests')}</option>
             {tests.map((test) => (
               <option key={test.id} value={test.id}>
                 {test.title}
@@ -131,13 +132,13 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Unit (optional filter)
+          {t('teacherReports.unitFilterLabel')}
           <select
             value={unitId}
             onChange={(event) => setUnitId(event.target.value)}
             className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">All units</option>
+            <option value="">{t('teacherReports.allUnits')}</option>
             {units.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.name}
@@ -148,16 +149,16 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
 
         {!fixedTestType && (
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Test type (optional filter)
+            {t('teacherReports.testTypeFilterLabel')}
             <select
               value={testType}
               onChange={(event) => setTestType(event.target.value as TestType | '')}
               className="w-52 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
-              <option value="">All test types</option>
+              <option value="">{t('teacherReports.allTestTypes')}</option>
               {TEST_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </option>
               ))}
             </select>
@@ -166,24 +167,26 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !report && <p className="text-sm text-base-black/60">Loading report...</p>}
+      {!error && !report && <p className="text-sm text-base-black/60">{t('teacherReports.loadingReport')}</p>}
 
       {!error && report && (
         <section className="overflow-x-auto rounded-xl border border-primary-200">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50 text-left text-xs font-semibold uppercase tracking-wide text-primary-700">
               <tr>
-                <th className="px-4 py-3">{GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label}</th>
-                <th className="px-4 py-3">Attempts</th>
-                <th className="px-4 py-3">Average score</th>
-                <th className="px-4 py-3">Average time taken</th>
+                <th className="px-4 py-3">
+                  {t(GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.labelKey ?? '')}
+                </th>
+                <th className="px-4 py-3">{t('teacherReports.attemptsColumn')}</th>
+                <th className="px-4 py-3">{t('teacherReports.averageScoreColumn')}</th>
+                <th className="px-4 py-3">{t('teacherReports.averageTimeTakenColumn')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-100">
               {report.buckets.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-4 text-center text-base-black/60">
-                    No data for this selection yet.
+                    {t('teacherReports.noData')}
                   </td>
                 </tr>
               )}

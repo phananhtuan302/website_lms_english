@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AcademicPeriodDTO, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -22,6 +23,7 @@ function toHcmDateInputValue(iso: string): string {
  * edit-in-place fields and a delete button. No drag-to-reorder, no pagination.
  */
 function TeacherCurriculumPage() {
+  const { t } = useTranslation();
   const [units, setUnits] = useState<UnitDTO[] | null>(null);
   const [unitError, setUnitError] = useState<string | null>(null);
   const [newUnitName, setNewUnitName] = useState('');
@@ -38,7 +40,7 @@ function TeacherCurriculumPage() {
       .listUnits()
       .then(setUnits)
       .catch((err) =>
-        setUnitError(err instanceof ApiError ? err.message : 'Failed to load units.'),
+        setUnitError(err instanceof ApiError ? err.message : t('teacherCurriculum.units.loadFailed')),
       );
   }
 
@@ -47,7 +49,9 @@ function TeacherCurriculumPage() {
       .listAcademicPeriods()
       .then(setPeriods)
       .catch((err) =>
-        setPeriodError(err instanceof ApiError ? err.message : 'Failed to load academic periods.'),
+        setPeriodError(
+          err instanceof ApiError ? err.message : t('teacherCurriculum.periods.loadFailed'),
+        ),
       );
   }
 
@@ -59,7 +63,7 @@ function TeacherCurriculumPage() {
     const name = newUnitName.trim();
     const order = Number(newUnitOrder);
     if (!name || !Number.isInteger(order)) {
-      setUnitError('Unit name and a whole-number order are required.');
+      setUnitError(t('teacherCurriculum.units.validationError'));
       return;
     }
     try {
@@ -69,7 +73,7 @@ function TeacherCurriculumPage() {
       setUnitError(null);
       loadUnits();
     } catch (err) {
-      setUnitError(err instanceof ApiError ? err.message : 'Failed to create unit.');
+      setUnitError(err instanceof ApiError ? err.message : t('teacherCurriculum.units.createFailed'));
     }
   }
 
@@ -79,7 +83,7 @@ function TeacherCurriculumPage() {
       setUnitError(null);
       loadUnits();
     } catch (err) {
-      setUnitError(err instanceof ApiError ? err.message : 'Failed to save unit.');
+      setUnitError(err instanceof ApiError ? err.message : t('teacherCurriculum.units.saveFailed'));
     }
   }
 
@@ -88,7 +92,7 @@ function TeacherCurriculumPage() {
       await teacherApi.deleteUnit(unitId);
       loadUnits();
     } catch (err) {
-      setUnitError(err instanceof ApiError ? err.message : 'Failed to delete unit.');
+      setUnitError(err instanceof ApiError ? err.message : t('teacherCurriculum.units.deleteFailed'));
     }
   }
 
@@ -96,7 +100,7 @@ function TeacherCurriculumPage() {
     event.preventDefault();
     const name = newPeriodName.trim();
     if (!name || !newPeriodStart || !newPeriodEnd) {
-      setPeriodError('Name, start date, and end date are all required.');
+      setPeriodError(t('teacherCurriculum.periods.validationError'));
       return;
     }
     try {
@@ -111,7 +115,9 @@ function TeacherCurriculumPage() {
       setPeriodError(null);
       loadPeriods();
     } catch (err) {
-      setPeriodError(err instanceof ApiError ? err.message : 'Failed to create academic period.');
+      setPeriodError(
+        err instanceof ApiError ? err.message : t('teacherCurriculum.periods.createFailed'),
+      );
     }
   }
 
@@ -126,7 +132,9 @@ function TeacherCurriculumPage() {
       setPeriodError(null);
       loadPeriods();
     } catch (err) {
-      setPeriodError(err instanceof ApiError ? err.message : 'Failed to save academic period.');
+      setPeriodError(
+        err instanceof ApiError ? err.message : t('teacherCurriculum.periods.saveFailed'),
+      );
     }
   }
 
@@ -135,37 +143,36 @@ function TeacherCurriculumPage() {
       await teacherApi.deleteAcademicPeriod(periodId);
       loadPeriods();
     } catch (err) {
-      setPeriodError(err instanceof ApiError ? err.message : 'Failed to delete academic period.');
+      setPeriodError(
+        err instanceof ApiError ? err.message : t('teacherCurriculum.periods.deleteFailed'),
+      );
     }
   }
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">Curriculum</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          Units and academic periods (semesters) are shared across every teacher account. Tag a test
-          with a Unit from its editor page.
-        </p>
+        <h1 className="text-2xl font-bold text-primary-700">{t('teacherCurriculum.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherCurriculum.description')}</p>
       </div>
 
       <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">Units</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherCurriculum.units.heading')}</h2>
         {unitError && <p className="mt-2 text-sm text-red-700">{unitError}</p>}
 
         <form onSubmit={handleCreateUnit} className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Name
+            {t('teacherCurriculum.units.nameLabel')}
             <input
               type="text"
               value={newUnitName}
               onChange={(event) => setNewUnitName(event.target.value)}
-              placeholder="e.g. Unit 3 — Food & Drink"
+              placeholder={t('teacherCurriculum.units.namePlaceholder')}
               className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Order
+            {t('teacherCurriculum.units.orderLabel')}
             <input
               type="number"
               value={newUnitOrder}
@@ -178,13 +185,15 @@ function TeacherCurriculumPage() {
             type="submit"
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
-            Add unit
+            {t('teacherCurriculum.units.addButton')}
           </button>
         </form>
 
         <ul className="mt-4 flex flex-col gap-2">
-          {units === null && <p className="text-sm text-base-black/60">Loading...</p>}
-          {units?.length === 0 && <p className="text-sm text-base-black/60">No units yet.</p>}
+          {units === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+          {units?.length === 0 && (
+            <p className="text-sm text-base-black/60">{t('teacherCurriculum.units.empty')}</p>
+          )}
           {units?.map((unit) => (
             <UnitRow
               key={unit.id}
@@ -197,25 +206,23 @@ function TeacherCurriculumPage() {
       </section>
 
       <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">Academic periods (semesters)</h2>
-        <p className="mt-1 text-xs text-base-black/50">
-          Dates are treated as calendar days in the fixed Asia/Ho_Chi_Minh timezone.
-        </p>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherCurriculum.periods.heading')}</h2>
+        <p className="mt-1 text-xs text-base-black/50">{t('teacherCurriculum.periods.timezoneNote')}</p>
         {periodError && <p className="mt-2 text-sm text-red-700">{periodError}</p>}
 
         <form onSubmit={handleCreatePeriod} className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Name
+            {t('teacherCurriculum.periods.nameLabel')}
             <input
               type="text"
               value={newPeriodName}
               onChange={(event) => setNewPeriodName(event.target.value)}
-              placeholder="e.g. Semester 1 2026"
+              placeholder={t('teacherCurriculum.periods.namePlaceholder')}
               className="w-56 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Start date
+            {t('teacherCurriculum.periods.startDateLabel')}
             <input
               type="date"
               value={newPeriodStart}
@@ -224,7 +231,7 @@ function TeacherCurriculumPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            End date
+            {t('teacherCurriculum.periods.endDateLabel')}
             <input
               type="date"
               value={newPeriodEnd}
@@ -236,14 +243,14 @@ function TeacherCurriculumPage() {
             type="submit"
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
-            Add period
+            {t('teacherCurriculum.periods.addButton')}
           </button>
         </form>
 
         <ul className="mt-4 flex flex-col gap-2">
-          {periods === null && <p className="text-sm text-base-black/60">Loading...</p>}
+          {periods === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
           {periods?.length === 0 && (
-            <p className="text-sm text-base-black/60">No academic periods yet.</p>
+            <p className="text-sm text-base-black/60">{t('teacherCurriculum.periods.empty')}</p>
           )}
           {periods?.map((period) => (
             <PeriodRow
@@ -268,6 +275,7 @@ function UnitRow({
   onSave: (unit: UnitDTO, name: string, order: number) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(unit.name);
   const [order, setOrder] = useState(String(unit.order));
 
@@ -310,7 +318,7 @@ function UnitRow({
         onClick={onDelete}
         className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
       >
-        Delete
+        {t('teacherCurriculum.units.deleteButton')}
       </button>
     </li>
   );
@@ -325,6 +333,7 @@ function PeriodRow({
   onSave: (period: AcademicPeriodDTO, name: string, startDate: string, endDate: string) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(period.name);
   const [startDate, setStartDate] = useState(toHcmDateInputValue(period.startDate));
   const [endDate, setEndDate] = useState(toHcmDateInputValue(period.endDate));
@@ -370,7 +379,7 @@ function PeriodRow({
         onClick={onDelete}
         className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
       >
-        Delete
+        {t('teacherCurriculum.periods.deleteButton')}
       </button>
     </li>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import TeacherGrammarReportsPage from './TeacherGrammarReportsPage';
 import TeacherReportsPage from './TeacherReportsPage';
 import TeacherSpeakingReportsPage from './TeacherSpeakingReportsPage';
@@ -7,12 +8,12 @@ import TeacherVocabRankingPage from './TeacherVocabRankingPage';
 
 type ReportModule = 'test' | 'unitTest' | 'vocabulary' | 'grammar' | 'speaking';
 
-const MODULE_TABS: Array<{ value: ReportModule; label: string }> = [
-  { value: 'test', label: 'Test' },
-  { value: 'unitTest', label: 'Unit Test' },
-  { value: 'vocabulary', label: 'Vocabulary' },
-  { value: 'grammar', label: 'Grammar' },
-  { value: 'speaking', label: 'Speaking' },
+const MODULE_TABS: Array<{ value: ReportModule; labelKey: string }> = [
+  { value: 'test', labelKey: 'teacherReportsHub.tabs.test' },
+  { value: 'unitTest', labelKey: 'teacherReportsHub.tabs.unitTest' },
+  { value: 'vocabulary', labelKey: 'teacherReportsHub.tabs.vocabulary' },
+  { value: 'grammar', labelKey: 'teacherReportsHub.tabs.grammar' },
+  { value: 'speaking', labelKey: 'teacherReportsHub.tabs.speaking' },
 ];
 
 /**
@@ -33,19 +34,20 @@ const MODULE_TABS: Array<{ value: ReportModule; label: string }> = [
  * work unchanged — this hub is additive, not a replacement of those routes.
  */
 function TeacherReportsHubPage() {
+  const { t } = useTranslation();
   const [activeModule, setActiveModule] = useState<ReportModule>('test');
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">Reports</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          One place for every module's reporting. Pick a module, then a period granularity — every
-          number below is computed by the same reporting engine used throughout the app.
-        </p>
+        <h1 className="text-2xl font-bold text-primary-700">{t('teacherReportsHub.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherReportsHub.description')}</p>
       </div>
 
-      <nav aria-label="Report module" className="flex flex-wrap gap-2 border-b border-primary-200 pb-2">
+      <nav
+        aria-label={t('teacherReportsHub.navAriaLabel')}
+        className="flex flex-wrap gap-2 border-b border-primary-200 pb-2"
+      >
         {MODULE_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -57,7 +59,7 @@ function TeacherReportsHubPage() {
                 : 'rounded-md border border-primary-200 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50'
             }
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </nav>
@@ -67,8 +69,8 @@ function TeacherReportsHubPage() {
       {activeModule === 'unitTest' && (
         <TeacherReportsPage
           fixedTestType="unitTest"
-          heading="Unit Test reports"
-          description="Average score, average time taken, and attempt count across your Unit Tests only, counting only submitted attempts. Choose a granularity below; optionally narrow to one test and/or one unit."
+          heading={t('teacherReportsHub.unitTest.heading')}
+          description={t('teacherReportsHub.unitTest.description')}
         />
       )}
 
@@ -76,9 +78,9 @@ function TeacherReportsHubPage() {
         <div className="flex flex-col gap-4">
           <TeacherVocabRankingPage />
           <p className="text-sm text-base-black/60">
-            Looking for all-time standings instead of one period?{' '}
+            {t('teacherReportsHub.vocabulary.leaderboardPrompt')}{' '}
             <Link to="/vocab-leaderboard" className="font-medium text-primary-700 underline">
-              View the all-time vocabulary leaderboard
+              {t('teacherReportsHub.vocabulary.leaderboardLink')}
             </Link>
             .
           </p>
