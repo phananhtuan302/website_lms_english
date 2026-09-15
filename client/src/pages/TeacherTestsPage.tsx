@@ -40,6 +40,9 @@ function TeacherTestsPage() {
       );
   }
 
+  // `t` is stable in practice (site-wide, admin-controlled language — PROJECT_PLAN
+  // Guiding Principle 3/Assumption A13), safe to omit from this dependency list.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadTests, []);
 
   async function handleCreate(event: FormEvent) {

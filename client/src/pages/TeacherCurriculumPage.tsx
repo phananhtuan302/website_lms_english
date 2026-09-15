@@ -55,7 +55,11 @@ function TeacherCurriculumPage() {
       );
   }
 
+  // `t` is stable in practice (site-wide, admin-controlled language, resolved once at
+  // startup — PROJECT_PLAN Guiding Principle 3/Assumption A13), so it's safe to omit here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadUnits, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadPeriods, []);
 
   async function handleCreateUnit(event: FormEvent) {

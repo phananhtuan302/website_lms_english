@@ -38,6 +38,10 @@ function AdminUsersPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : t('adminUsers.errors.loadFailed')));
   }
 
+  // `t` is stable in practice (i18next only changes it on a real language change, which
+  // never happens mid-session — this app's language is an admin-controlled site-wide
+  // setting resolved once at startup, see PROJECT_PLAN Guiding Principle 3/Assumption A13).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadUsers, [roleFilter, search]);
 
   function handleSearchSubmit(event: FormEvent) {

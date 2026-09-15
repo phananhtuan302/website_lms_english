@@ -56,6 +56,9 @@ function TeacherSpeakingReportsPage() {
         setReport(null);
         setError(err instanceof ApiError ? err.message : t('teacherSpeakingReports.loadFailed'));
       });
+    // `t` is stable in practice (site-wide, admin-controlled language — PROJECT_PLAN
+    // Guiding Principle 3/Assumption A13), safe to omit from this dependency list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupBy, testId, unitId]);
 
   return (
