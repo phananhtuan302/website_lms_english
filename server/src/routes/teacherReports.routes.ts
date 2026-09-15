@@ -21,7 +21,21 @@ import {
 
 export const teacherReportsRouter = Router();
 
-teacherReportsRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed here — NOT because this batch extends full reporting
+// oversight to admin (that is T-072's scope: "scores/attempts management"), but because
+// this router is mounted at the SAME `/api/teacher` prefix as `teacherGrammarRouter`/
+// `teacherVocabProgressRouter` (both extended for admin in this batch) and Express tries
+// every router mounted at a shared prefix in registration order — this router's blanket
+// `.use()` auth check runs for ANY `/api/teacher/*` request that reaches it, even ones
+// destined for a router mounted later, and a role mismatch here would 403 the request
+// before it ever got a chance to reach that later router. Leaving this at `'teacher'`
+// only was found (via live verification) to silently 403 admin's Grammar-topic and
+// vocab-progress requests despite those routers' OWN checks correctly allowing admin —
+// this is a required unblocking fix, not scope creep. Internal ownership checks below
+// (e.g. narrowing by `testId`) are UNCHANGED — an admin caller gets their own (likely
+// empty) report data by default, same "harmless empty own-data" pattern as every other
+// not-yet-fully-admin-scoped list endpoint in this codebase.
+teacherReportsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 const TEST_TYPE_VALUES: TestType[] = ['generic', 'unitTest', 'vocabularyCheck', 'listeningTest', 'mockTest'];
 

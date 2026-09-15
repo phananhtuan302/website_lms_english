@@ -2,6 +2,11 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminFlashcardSetsPage from './pages/AdminFlashcardSetsPage';
+import AdminGrammarTopicsPage from './pages/AdminGrammarTopicsPage';
+import AdminTestsPage from './pages/AdminTestsPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 import AttemptResultPage from './pages/AttemptResultPage';
 import HomePage from './pages/HomePage';
 import JoinPage from './pages/JoinPage';
@@ -68,7 +73,12 @@ function App() {
                 handles the logged-out case itself (see JoinPage's doc comment). */}
             <Route path="/join/:token" element={<JoinPage />} />
 
-            <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
+            {/* T-071: `admin` also allowed here — admin reuses these EXACT teacher pages
+                (e.g. the test/flashcard-set/grammar-topic editors) to manage ANY
+                teacher's content, rather than a parallel admin-only editor UI. The
+                server-side ownership checks behind every one of these pages' API calls
+                were extended the same way (see `server/src/lib/authz.ts`). */}
+            <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
               <Route path="/teacher/tests" element={<TeacherTestsPage />} />
               <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
@@ -114,6 +124,18 @@ function App() {
               {/* Vocabulary Check generation (T-038): pick target student(s), generate,
                   and see previously-generated checks. */}
               <Route path="/teacher/vocabulary-checks" element={<TeacherVocabularyChecksPage />} />
+            </Route>
+
+            {/* Admin-only role/auth foundation (T-069), user management (T-070), and
+                content-oversight "browse everything" lists (T-071). Actually editing one
+                specific Test/Flashcard set/Grammar topic happens on the teacher routes
+                above (now admin-accessible too), not here. */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/tests" element={<AdminTestsPage />} />
+              <Route path="/admin/flashcard-sets" element={<AdminFlashcardSetsPage />} />
+              <Route path="/admin/grammar-topics" element={<AdminGrammarTopicsPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>

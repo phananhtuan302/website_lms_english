@@ -38,7 +38,10 @@ import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
 
 export const teacherTestsRouter = Router();
 
-teacherTestsRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed (PROJECT_PLAN Assumption A12) — every ownership check
+// below goes through `requireOwnedTest`, which lets an admin caller manage ANY
+// teacher's test, reusing these exact routes rather than a parallel admin-only API.
+teacherTestsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlank', 'essay', 'speaking'];
 
@@ -382,7 +385,7 @@ teacherTestsRouter.get(
 teacherTestsRouter.get(
   '/tests/:testId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const nested = await fetchNestedTest(test.id);
@@ -393,7 +396,7 @@ teacherTestsRouter.get(
 teacherTestsRouter.patch(
   '/tests/:testId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const body = req.body as Partial<UpdateTestRequest>;
@@ -444,7 +447,7 @@ teacherTestsRouter.patch(
 teacherTestsRouter.delete(
   '/tests/:testId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     await prisma.test.delete({ where: { id: test.id } });
@@ -457,7 +460,7 @@ teacherTestsRouter.delete(
 teacherTestsRouter.post(
   '/tests/:testId/sections',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const body = req.body as Partial<CreateSectionRequest>;
@@ -496,7 +499,7 @@ teacherTestsRouter.post(
 teacherTestsRouter.patch(
   '/tests/:testId/sections/:sectionId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const section = await prisma.section.findUnique({ where: { id: req.params.sectionId } });
@@ -537,7 +540,7 @@ teacherTestsRouter.patch(
 teacherTestsRouter.delete(
   '/tests/:testId/sections/:sectionId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const section = await prisma.section.findUnique({ where: { id: req.params.sectionId } });
@@ -555,7 +558,7 @@ teacherTestsRouter.delete(
 teacherTestsRouter.put(
   '/tests/:testId/sections/reorder',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const body = req.body as Partial<ReorderSectionsRequest>;
@@ -603,7 +606,7 @@ async function loadOwnedSection(testId: string, sectionId: string) {
 teacherTestsRouter.post(
   '/tests/:testId/sections/:sectionId/questions',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const section = await loadOwnedSection(test.id, req.params.sectionId);
@@ -659,7 +662,7 @@ teacherTestsRouter.post(
 teacherTestsRouter.patch(
   '/tests/:testId/sections/:sectionId/questions/:questionId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const section = await loadOwnedSection(test.id, req.params.sectionId);
@@ -744,7 +747,7 @@ teacherTestsRouter.patch(
 teacherTestsRouter.delete(
   '/tests/:testId/sections/:sectionId/questions/:questionId',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const section = await loadOwnedSection(test.id, req.params.sectionId);
@@ -768,7 +771,7 @@ teacherTestsRouter.delete(
 teacherTestsRouter.put(
   '/tests/:testId/sections/:sectionId/questions/reorder',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const section = await loadOwnedSection(test.id, req.params.sectionId);
@@ -814,7 +817,7 @@ teacherTestsRouter.put(
 teacherTestsRouter.post(
   '/tests/:testId/variants',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const body = req.body as Partial<GenerateVariantsRequest>;
@@ -849,7 +852,7 @@ teacherTestsRouter.post(
 teacherTestsRouter.get(
   '/tests/:testId/variants',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const variants = await prisma.testVariant.findMany({

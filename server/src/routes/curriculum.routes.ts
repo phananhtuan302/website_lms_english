@@ -27,7 +27,11 @@ import { asyncHandler } from '../lib/asyncHandler';
 
 export const curriculumRouter = Router();
 
-curriculumRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed (PROJECT_PLAN Assumption A12). Units/AcademicPeriods are
+// already global (not owned per-teacher, see this file's module doc comment) — the
+// existing CRUD below already applies identically to every caller, so admin needs
+// nothing beyond this role-gate extension to fully manage them through these same routes.
+curriculumRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 // --- Units ---------------------------------------------------------------------------
 

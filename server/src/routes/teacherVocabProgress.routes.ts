@@ -24,7 +24,11 @@ import { hcmMonthRange, hcmYearRange } from '../lib/reporting';
 
 export const teacherVocabProgressRouter = Router();
 
-teacherVocabProgressRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed (PROJECT_PLAN Assumption A12) — reachable from the
+// flashcard-set editor page's "View progress" link, which admin now reuses as-is for
+// ANY teacher's set (`requireOwnedFlashcardSet` below already covers the one
+// ownership-scoped endpoint in this file; the ranking endpoints are class-wide already).
+teacherVocabProgressRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 // --- Per-set progress: per-student + per-class (T-030) --------------------------------
 
@@ -43,7 +47,7 @@ teacherVocabProgressRouter.use(requireAuth, requireRole('teacher'));
 teacherVocabProgressRouter.get(
   '/flashcard-sets/:setId/progress',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
     const cards = await prisma.flashcardCard.findMany({

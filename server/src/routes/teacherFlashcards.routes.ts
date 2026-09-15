@@ -24,7 +24,10 @@ import { requireOwnedFlashcardSet } from '../lib/ownedFlashcardSet';
 
 export const teacherFlashcardsRouter = Router();
 
-teacherFlashcardsRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed (PROJECT_PLAN Assumption A12) — see
+// `teacherTests.routes.ts`'s identical note; `requireOwnedFlashcardSet` is what lets
+// admin manage ANY teacher's flashcard set through these same routes.
+teacherFlashcardsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 // --- Serialization -------------------------------------------------------------------
 
@@ -156,7 +159,7 @@ teacherFlashcardsRouter.get(
 teacherFlashcardsRouter.get(
   '/flashcard-sets/:setId',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
     res.status(200).json(await fetchDetail(set.id));
   }),
@@ -165,7 +168,7 @@ teacherFlashcardsRouter.get(
 teacherFlashcardsRouter.patch(
   '/flashcard-sets/:setId',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
     const body = req.body as Partial<UpdateFlashcardSetRequest>;
@@ -191,7 +194,7 @@ teacherFlashcardsRouter.patch(
 teacherFlashcardsRouter.delete(
   '/flashcard-sets/:setId',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
     await prisma.flashcardSet.delete({ where: { id: set.id } });
     res.status(204).send();
@@ -209,7 +212,7 @@ async function loadOwnedCard(setId: string, cardId: string) {
 teacherFlashcardsRouter.post(
   '/flashcard-sets/:setId/cards',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
     const body = req.body as Partial<CreateFlashcardCardRequest>;
@@ -246,7 +249,7 @@ teacherFlashcardsRouter.post(
 teacherFlashcardsRouter.patch(
   '/flashcard-sets/:setId/cards/:cardId',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
     const card = await loadOwnedCard(set.id, req.params.cardId);
@@ -283,7 +286,7 @@ teacherFlashcardsRouter.patch(
 teacherFlashcardsRouter.delete(
   '/flashcard-sets/:setId/cards/:cardId',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
     const card = await loadOwnedCard(set.id, req.params.cardId);
@@ -307,7 +310,7 @@ teacherFlashcardsRouter.delete(
 teacherFlashcardsRouter.get(
   '/flashcard-sets/:setId/sentence-submissions',
   asyncHandler(async (req, res) => {
-    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!.sub, res);
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
     const submissions = await prisma.vocabSentenceSubmission.findMany({

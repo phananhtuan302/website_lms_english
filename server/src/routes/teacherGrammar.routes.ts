@@ -2,9 +2,10 @@
  * Teacher Grammar-topic authoring (T-046/T-047): CRUD for a teacher's own
  * `GrammarTopic` (theory content) and its `GrammarExercise`/`GrammarChoice` practice
  * exercises, plus the T-050 Grammar reporting endpoint. Same shape as
- * `teacherFlashcards.routes.ts` — every route here is teacher-only
- * (`requireRole('teacher')`) and every route touching a specific topic enforces
- * ownership via `requireOwnedGrammarTopic` (404 for another teacher's topic, same
+ * `teacherFlashcards.routes.ts` — every route here allows `teacher` or `admin`
+ * (`requireRole('teacher', 'admin')`, extended 2026-09-15 for T-071) and every route
+ * touching a specific topic enforces ownership-or-admin via `requireOwnedGrammarTopic`
+ * (404 for another teacher's topic when the caller isn't that teacher or an admin, same
  * "don't reveal existence" reasoning as `requireOwnedFlashcardSet`/`requireOwnedTest`).
  */
 
@@ -33,7 +34,12 @@ import {
 
 export const teacherGrammarRouter = Router();
 
-teacherGrammarRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed (PROJECT_PLAN Assumption A12) — see
+// `teacherTests.routes.ts`'s identical note; `requireOwnedGrammarTopic` is what lets
+// admin manage ANY teacher's Grammar topic through these same routes. (The
+// `/grammar-reports` endpoint below stays scoped to the calling teacher's own topics
+// either way — Grammar reporting oversight is T-072's scope, not this batch's.)
+teacherGrammarRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 /** Objective-only per T-048's acceptance criteria — `essay` is a valid `QuestionType`
  * value at the DB level (the enum is reused as-is, see schema.prisma's module doc
@@ -192,7 +198,7 @@ teacherGrammarRouter.get(
 teacherGrammarRouter.get(
   '/grammar-topics/:topicId',
   asyncHandler(async (req, res) => {
-    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!.sub, res);
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
     res.status(200).json(await fetchDetail(topic.id));
   }),
@@ -201,7 +207,7 @@ teacherGrammarRouter.get(
 teacherGrammarRouter.patch(
   '/grammar-topics/:topicId',
   asyncHandler(async (req, res) => {
-    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!.sub, res);
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
 
     const body = req.body as Partial<UpdateGrammarTopicRequest>;
@@ -236,7 +242,7 @@ teacherGrammarRouter.patch(
 teacherGrammarRouter.delete(
   '/grammar-topics/:topicId',
   asyncHandler(async (req, res) => {
-    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!.sub, res);
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
     await prisma.grammarTopic.delete({ where: { id: topic.id } });
     res.status(204).send();
@@ -257,7 +263,7 @@ async function loadOwnedExercise(topicId: string, exerciseId: string) {
 teacherGrammarRouter.post(
   '/grammar-topics/:topicId/exercises',
   asyncHandler(async (req, res) => {
-    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!.sub, res);
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
 
     const body = req.body as Partial<CreateGrammarExerciseRequest>;
@@ -302,7 +308,7 @@ teacherGrammarRouter.post(
 teacherGrammarRouter.patch(
   '/grammar-topics/:topicId/exercises/:exerciseId',
   asyncHandler(async (req, res) => {
-    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!.sub, res);
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
 
     const exercise = await loadOwnedExercise(topic.id, req.params.exerciseId);
@@ -371,7 +377,7 @@ teacherGrammarRouter.patch(
 teacherGrammarRouter.delete(
   '/grammar-topics/:topicId/exercises/:exerciseId',
   asyncHandler(async (req, res) => {
-    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!.sub, res);
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
 
     const exercise = await loadOwnedExercise(topic.id, req.params.exerciseId);

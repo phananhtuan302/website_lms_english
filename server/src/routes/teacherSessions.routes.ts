@@ -27,6 +27,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedTest } from '../lib/ownedTest';
+import { isAdminOrOwner } from '../lib/authz';
 import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { loadEnv } from '../config/env';
 import { fetchNestedTest } from '../lib/testQueries';
@@ -35,7 +36,12 @@ import { markSessionClosed } from '../realtime/sessionRealtime';
 
 export const teacherSessionsRouter = Router();
 
-teacherSessionsRouter.use(requireAuth, requireRole('teacher'));
+// T-071: `admin` also allowed — this router hosts session/attempt views reachable from
+// the same test editor page a teacher uses (`TeacherTestEditorPage.tsx`), which admin
+// now reuses as-is (Assumption A12) to manage ANY teacher's test. Every ownership check
+// below already goes through `requireOwnedTest`/`isAdminOrOwner`, so admin transparently
+// sees/manages sessions and attempts for a test it doesn't itself own.
+teacherSessionsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 function buildJoinUrl(token: string): string {
   const { CLIENT_ORIGIN } = loadEnv();
@@ -83,7 +89,7 @@ function toSessionDTO(session: {
 teacherSessionsRouter.post(
   '/tests/:testId/sessions',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const joinToken = generateJoinToken();
@@ -127,7 +133,7 @@ teacherSessionsRouter.post(
 teacherSessionsRouter.get(
   '/tests/:testId/sessions',
   asyncHandler(async (req, res) => {
-    const test = await requireOwnedTest(req.params.testId, req.user!.sub, res);
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
     const sessions = await prisma.testSession.findMany({
@@ -139,12 +145,12 @@ teacherSessionsRouter.get(
   }),
 );
 
-async function loadOwnedSession(sessionId: string, teacherId: string) {
+async function loadOwnedSession(sessionId: string, user: { sub: string; role: string }) {
   const session = await prisma.testSession.findUnique({
     where: { id: sessionId },
     include: { test: true },
   });
-  if (!session || session.test.teacherId !== teacherId) {
+  if (!session || !isAdminOrOwner(user, session.test.teacherId)) {
     return null;
   }
   return session;
@@ -156,7 +162,7 @@ async function loadOwnedSession(sessionId: string, teacherId: string) {
 teacherSessionsRouter.get(
   '/sessions/:sessionId',
   asyncHandler(async (req, res) => {
-    const session = await loadOwnedSession(req.params.sessionId, req.user!.sub);
+    const session = await loadOwnedSession(req.params.sessionId, req.user!);
     if (!session) {
       res.status(404).json({ error: 'Session not found.' });
       return;
@@ -180,7 +186,7 @@ teacherSessionsRouter.get(
 teacherSessionsRouter.post(
   '/sessions/:sessionId/close',
   asyncHandler(async (req, res) => {
-    const session = await loadOwnedSession(req.params.sessionId, req.user!.sub);
+    const session = await loadOwnedSession(req.params.sessionId, req.user!);
     if (!session) {
       res.status(404).json({ error: 'Session not found.' });
       return;
@@ -214,7 +220,7 @@ teacherSessionsRouter.post(
 teacherSessionsRouter.get(
   '/sessions/:sessionId/attempts',
   asyncHandler(async (req, res) => {
-    const session = await loadOwnedSession(req.params.sessionId, req.user!.sub);
+    const session = await loadOwnedSession(req.params.sessionId, req.user!);
     if (!session) {
       res.status(404).json({ error: 'Session not found.' });
       return;
@@ -259,7 +265,7 @@ teacherSessionsRouter.get(
       where: { id: req.params.attemptId },
       include: { student: true, test: { select: { id: true, title: true, teacherId: true } } },
     });
-    if (!attempt || attempt.test.teacherId !== req.user!.sub) {
+    if (!attempt || !isAdminOrOwner(req.user!, attempt.test.teacherId)) {
       res.status(404).json({ error: 'Attempt not found.' });
       return;
     }
@@ -323,7 +329,7 @@ teacherSessionsRouter.patch(
       where: { id: req.params.attemptId },
       include: { test: { select: { teacherId: true } } },
     });
-    if (!attempt || attempt.test.teacherId !== req.user!.sub) {
+    if (!attempt || !isAdminOrOwner(req.user!, attempt.test.teacherId)) {
       res.status(404).json({ error: 'Attempt not found.' });
       return;
     }
