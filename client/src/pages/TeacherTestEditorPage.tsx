@@ -100,6 +100,9 @@ function TeacherTestEditorPage() {
   const [timeLimitText, setTimeLimitText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [newSectionTitle, setNewSectionTitle] = useState('');
+  // T-090: inline errors for the section image/audio file pickers below, keyed by
+  // `${sectionId}:${field}` so each field shows its own message independently.
+  const [sectionUploadErrors, setSectionUploadErrors] = useState<Record<string, string>>({});
 
   const [units, setUnits] = useState<UnitDTO[]>([]);
 
@@ -263,6 +266,55 @@ function TeacherTestEditorPage() {
         err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveSectionContentFailed'),
       );
     }
+  }
+
+  // T-090: this project has never used real file/object storage — following the same
+  // precedent as Speaking's `Answer.speakingAudioData` (see `TakeTestPage.tsx`'s
+  // `blobToDataUrl`), a file picked here is read client-side via `FileReader` into a
+  // base64 `data:` URL string and written straight into the SAME `passageImageUrl`/
+  // `audioUrl` text field the URL input above already uses — no schema change, no
+  // upload endpoint. 5 MB keeps the resulting string (base64 inflates raw bytes by
+  // ~33%) from bloating the section-update payload and the `Section` row, while still
+  // comfortably fitting a passage image or a short audio clip.
+  const MAX_SECTION_UPLOAD_BYTES = 5 * 1024 * 1024;
+  const MAX_SECTION_UPLOAD_MB = 5;
+
+  function handleSectionFileUpload(
+    section: SectionDTO,
+    field: 'passageImageUrl' | 'audioUrl',
+    file: File | null,
+  ) {
+    if (!file) return;
+    const errorKey = `${section.id}:${field}`;
+    if (file.size > MAX_SECTION_UPLOAD_BYTES) {
+      setSectionUploadErrors((prev) => ({
+        ...prev,
+        [errorKey]: t('teacherTestEditor.sections.uploadTooLarge', { limitMb: MAX_SECTION_UPLOAD_MB }),
+      }));
+      return;
+    }
+    setSectionUploadErrors((prev) => {
+      if (!(errorKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[errorKey];
+      return next;
+    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== 'string') return;
+      void handleUpdateSectionContent(
+        section,
+        field === 'passageImageUrl' ? { passageImageUrl: dataUrl } : { audioUrl: dataUrl },
+      );
+    };
+    reader.onerror = () => {
+      setSectionUploadErrors((prev) => ({
+        ...prev,
+        [errorKey]: t('teacherTestEditor.sections.uploadReadFailed'),
+      }));
+    };
+    reader.readAsDataURL(file);
   }
 
   async function handleDeleteSection(sectionId: string) {
@@ -567,6 +619,23 @@ function TeacherTestEditorPage() {
                     placeholder={t('teacherTestEditor.sections.urlPlaceholder')}
                     className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                   />
+                  <span className="text-xs font-normal text-base-black/50">
+                    {t('teacherTestEditor.sections.orUploadFile')}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      handleSectionFileUpload(section, 'passageImageUrl', event.target.files?.[0] ?? null);
+                      event.target.value = '';
+                    }}
+                    className="text-xs text-base-black/70 file:mr-2 file:rounded-md file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-700 hover:file:bg-primary-200"
+                  />
+                  {sectionUploadErrors[`${section.id}:passageImageUrl`] && (
+                    <span className="text-xs font-normal text-red-600">
+                      {sectionUploadErrors[`${section.id}:passageImageUrl`]}
+                    </span>
+                  )}
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
                   {t('teacherTestEditor.sections.audioUrlLabel')}
@@ -579,6 +648,23 @@ function TeacherTestEditorPage() {
                     placeholder={t('teacherTestEditor.sections.urlPlaceholder')}
                     className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                   />
+                  <span className="text-xs font-normal text-base-black/50">
+                    {t('teacherTestEditor.sections.orUploadFile')}
+                  </span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(event) => {
+                      handleSectionFileUpload(section, 'audioUrl', event.target.files?.[0] ?? null);
+                      event.target.value = '';
+                    }}
+                    className="text-xs text-base-black/70 file:mr-2 file:rounded-md file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-700 hover:file:bg-primary-200"
+                  />
+                  {sectionUploadErrors[`${section.id}:audioUrl`] && (
+                    <span className="text-xs font-normal text-red-600">
+                      {sectionUploadErrors[`${section.id}:audioUrl`]}
+                    </span>
+                  )}
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
                   {t('teacherTestEditor.sections.maxPlaysLabel')}
