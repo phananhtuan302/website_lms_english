@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { MatchingMode, MatchingPairDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
-
-const MODE_META: Record<MatchingMode, { label: string; tabLabel: string }> = {
-  meaning: { label: 'Word to meaning', tabLabel: 'Meaning' },
-  image: { label: 'Word to image', tabLabel: 'Image' },
-  synonym: { label: 'Word to synonym', tabLabel: 'Synonym' },
-  antonym: { label: 'Word to antonym', tabLabel: 'Antonym' },
-};
 
 const MODES: MatchingMode[] = ['meaning', 'image', 'synonym', 'antonym'];
 
@@ -43,6 +37,25 @@ function shuffled<T>(items: T[]): T[] {
  * one-tile round.
  */
 function StudentVocabMatchingPage() {
+  const { t } = useTranslation();
+  const MODE_META: Record<MatchingMode, { label: string; tabLabel: string }> = {
+    meaning: {
+      label: t('studentVocabMatching.modes.meaning.label'),
+      tabLabel: t('studentVocabMatching.modes.meaning.tabLabel'),
+    },
+    image: {
+      label: t('studentVocabMatching.modes.image.label'),
+      tabLabel: t('studentVocabMatching.modes.image.tabLabel'),
+    },
+    synonym: {
+      label: t('studentVocabMatching.modes.synonym.label'),
+      tabLabel: t('studentVocabMatching.modes.synonym.tabLabel'),
+    },
+    antonym: {
+      label: t('studentVocabMatching.modes.antonym.label'),
+      tabLabel: t('studentVocabMatching.modes.antonym.tabLabel'),
+    },
+  };
   const { setId } = useParams<{ setId: string }>();
   const [mode, setMode] = useState<MatchingMode>('meaning');
   const [pairs, setPairs] = useState<MatchingPairDTO[] | null>(null);
@@ -88,7 +101,11 @@ function StudentVocabMatchingPage() {
         setLeftOrder(shuffled(loaded));
         setRightOrder(shuffled(loaded));
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load matching round.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentVocabMatching.loadFailed')));
+    // `t` is stable in practice (i18next only re-creates it on a real language change,
+    // which never happens mid-session); re-running this fetch on every `t` identity
+    // change would be pure noise, not a real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setId, mode, reloadKey]);
 
   const allMatched = useMemo(
@@ -103,7 +120,7 @@ function StudentVocabMatchingPage() {
     flashcardApi
       .completeMatching(setId, mode, { results })
       .then(() => setCompleted(true))
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to save your progress.'))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentVocabMatching.saveFailed')))
       .finally(() => {
         isSubmittingRef.current = false;
       });
@@ -142,19 +159,20 @@ function StudentVocabMatchingPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentVocabMatching.backToSet')}
         </Link>
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-primary-700">Matching</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          Click a word on the left, then its match on the right. Modes with no eligible words
-          for this set aren't shown as playable.
-        </p>
+        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabMatching.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentVocabMatching.instructions')}</p>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Matching mode">
+      <div
+        className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label={t('studentVocabMatching.modeTablistLabel')}
+      >
         {MODES.map((m) => (
           <button
             key={m}
@@ -180,20 +198,19 @@ function StudentVocabMatchingPage() {
       )}
 
       {pairs === null && !error ? (
-        <p className="text-center text-base-black/60">Loading...</p>
+        <p className="text-center text-base-black/60">{t('common.loading')}</p>
       ) : pairs !== null && pairs.length < 2 ? (
         <p className="text-sm text-base-black/60">
-          Not enough eligible words in this set for the &quot;{MODE_META[mode].label}&quot; mode
-          (they're missing the data it needs, e.g. synonyms or an image). Try another mode.
+          {t('studentVocabMatching.notEnoughWords', { modeLabel: MODE_META[mode].label })}
         </p>
       ) : (
         pairs !== null && (
           <>
             {completed ? (
               <div className="flex flex-col items-center gap-4 rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
-                <h2 className="text-lg font-bold text-primary-700">Round complete!</h2>
+                <h2 className="text-lg font-bold text-primary-700">{t('studentVocabMatching.roundComplete')}</h2>
                 <p className="text-base-black/70">
-                  {correctCount} of {pairs.length} pairs matched correctly on the first try.
+                  {t('studentVocabMatching.resultLine', { correct: correctCount, total: pairs.length })}
                 </p>
                 <div className="flex gap-3">
                   <button
@@ -201,13 +218,13 @@ function StudentVocabMatchingPage() {
                     onClick={restart}
                     className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
                   >
-                    Play again
+                    {t('studentVocabMatching.playAgain')}
                   </button>
                   <Link
                     to={`/student/flashcard-sets/${setId}`}
                     className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
                   >
-                    Back to set
+                    {t('studentVocabMatching.backToSetButton')}
                   </Link>
                 </div>
               </div>
@@ -250,7 +267,11 @@ function StudentVocabMatchingPage() {
                       }`}
                     >
                       {mode === 'image' ? (
-                        <img src={p.target} alt="match target" className="h-12 w-full object-contain" />
+                        <img
+                          src={p.target}
+                          alt={t('studentVocabMatching.matchTargetAlt')}
+                          className="h-12 w-full object-contain"
+                        />
                       ) : (
                         p.target
                       )}

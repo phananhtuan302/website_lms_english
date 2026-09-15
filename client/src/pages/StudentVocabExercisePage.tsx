@@ -1,30 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { CheckVocabExerciseResponse, VocabExercisePromptDTO, VocabExerciseType } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
 
-const EXERCISE_META: Record<VocabExerciseType, { title: string; instructions: string }> = {
-  fillBlank: {
-    title: 'Fill in the blank',
-    instructions: 'Type the missing word to complete the sentence.',
-  },
-  unscramble: {
-    title: 'Unscramble the word',
-    instructions: 'Reorder the letters below to spell the correct word.',
-  },
-  listenAndType: {
-    title: 'Listen and type',
-    instructions: 'Press play and type the word you hear.',
-  },
-  ipaToWord: {
-    title: 'IPA to word',
-    instructions: 'Read the phonetic transcription and type the word it represents.',
-  },
-};
+const EXERCISE_TYPES: VocabExerciseType[] = ['fillBlank', 'unscramble', 'listenAndType', 'ipaToWord'];
 
 function isVocabExerciseType(value: string | undefined): value is VocabExerciseType {
-  return !!value && value in EXERCISE_META;
+  return !!value && (EXERCISE_TYPES as string[]).includes(value);
 }
 
 /**
@@ -41,6 +25,25 @@ function isVocabExerciseType(value: string | undefined): value is VocabExerciseT
  * already used everywhere else in this codebase (T-013's fill-blank grading).
  */
 function StudentVocabExercisePage() {
+  const { t } = useTranslation();
+  const EXERCISE_META: Record<VocabExerciseType, { title: string; instructions: string }> = {
+    fillBlank: {
+      title: t('studentVocabExercise.types.fillBlank.title'),
+      instructions: t('studentVocabExercise.types.fillBlank.instructions'),
+    },
+    unscramble: {
+      title: t('studentVocabExercise.types.unscramble.title'),
+      instructions: t('studentVocabExercise.types.unscramble.instructions'),
+    },
+    listenAndType: {
+      title: t('studentVocabExercise.types.listenAndType.title'),
+      instructions: t('studentVocabExercise.types.listenAndType.instructions'),
+    },
+    ipaToWord: {
+      title: t('studentVocabExercise.types.ipaToWord.title'),
+      instructions: t('studentVocabExercise.types.ipaToWord.instructions'),
+    },
+  };
   const { setId, exerciseType } = useParams<{ setId: string; exerciseType: string }>();
   const [prompts, setPrompts] = useState<VocabExercisePromptDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,11 +60,15 @@ function StudentVocabExercisePage() {
     flashcardApi
       .listExercisePrompts(setId, exerciseType)
       .then(setPrompts)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load exercise.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentVocabExercise.loadFailed')));
+    // `t` is stable in practice (i18next only re-creates it on a real language change,
+    // which never happens mid-session); re-running this fetch on every `t` identity
+    // change would be pure noise, not a real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setId, exerciseType]);
 
   if (!setId || !isVocabExerciseType(exerciseType)) {
-    return <p className="text-center text-base-black/60">Unknown exercise type.</p>;
+    return <p className="text-center text-base-black/60">{t('studentVocabExercise.unknownType')}</p>;
   }
 
   const meta = EXERCISE_META[exerciseType];
@@ -75,18 +82,17 @@ function StudentVocabExercisePage() {
   }
 
   if (prompts === null) {
-    return <p className="text-center text-base-black/60">Loading...</p>;
+    return <p className="text-center text-base-black/60">{t('common.loading')}</p>;
   }
 
   if (prompts.length === 0) {
     return (
       <div className="mx-auto max-w-xl">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentVocabExercise.backToSet')}
         </Link>
         <p className="mt-4 text-sm text-base-black/60">
-          No cards in this set are eligible for the &quot;{meta.title}&quot; exercise yet (they're
-          missing the data it needs, e.g. an example sentence or audio).
+          {t('studentVocabExercise.noEligibleCards', { title: meta.title })}
         </p>
       </div>
     );
@@ -95,15 +101,17 @@ function StudentVocabExercisePage() {
   if (index >= prompts.length) {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-bold text-primary-700">{meta.title} — done!</h1>
+        <h1 className="text-xl font-bold text-primary-700">
+          {t('studentVocabExercise.doneHeading', { title: meta.title })}
+        </h1>
         <p className="text-base-black/70">
-          You got {correctCount} of {attemptedCount} correct.
+          {t('studentVocabExercise.resultLine', { correct: correctCount, total: attemptedCount })}
         </p>
         <Link
           to={`/student/flashcard-sets/${setId}`}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
-          Back to set
+          {t('studentVocabExercise.backToSetButton')}
         </Link>
       </div>
     );
@@ -123,7 +131,7 @@ function StudentVocabExercisePage() {
       setAttemptedCount((n) => n + 1);
       if (response.correct) setCorrectCount((n) => n + 1);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to check your answer.');
+      setError(err instanceof ApiError ? err.message : t('studentVocabExercise.checkFailed'));
     } finally {
       setIsChecking(false);
     }
@@ -139,10 +147,10 @@ function StudentVocabExercisePage() {
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentVocabExercise.backToSet')}
         </Link>
         <span className="text-sm text-base-black/60">
-          {index + 1} of {prompts.length}
+          {t('studentVocabExercise.progress', { current: index + 1, total: prompts.length })}
         </span>
       </div>
 
@@ -167,9 +175,9 @@ function StudentVocabExercisePage() {
               type="button"
               onClick={() => audioRef.current?.play().catch(() => undefined)}
               className="rounded-full bg-primary-500 px-6 py-3 text-lg font-semibold text-base-white transition-colors hover:bg-primary-600"
-              aria-label="Play audio"
+              aria-label={t('studentVocabExercise.playAudio')}
             >
-              ▶ Play
+              {t('studentVocabExercise.playButton')}
             </button>
           </div>
         )}
@@ -190,7 +198,7 @@ function StudentVocabExercisePage() {
             type="text"
             value={answer}
             onChange={(event) => setAnswer(event.target.value)}
-            placeholder="Type your answer"
+            placeholder={t('studentVocabExercise.typeYourAnswer')}
             autoFocus
             className="flex-1 rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
@@ -199,7 +207,7 @@ function StudentVocabExercisePage() {
             disabled={!answer.trim() || isChecking}
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isChecking ? 'Checking...' : 'Check'}
+            {isChecking ? t('studentVocabExercise.checking') : t('studentVocabExercise.check')}
           </button>
         </form>
       ) : (
@@ -211,14 +219,20 @@ function StudentVocabExercisePage() {
               : 'border-red-200 bg-red-50 text-red-700'
           }`}
         >
-          <p className="font-semibold">{result.correct ? 'Correct!' : 'Not quite.'}</p>
-          {!result.correct && <p className="mt-1">The correct answer was: {result.correctAnswer}</p>}
+          <p className="font-semibold">
+            {result.correct ? t('studentVocabExercise.correct') : t('studentVocabExercise.notQuite')}
+          </p>
+          {!result.correct && (
+            <p className="mt-1">
+              {t('studentVocabExercise.correctAnswerWas', { answer: result.correctAnswer })}
+            </p>
+          )}
           <button
             type="button"
             onClick={handleNext}
             className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
-            {index + 1 < prompts.length ? 'Next →' : 'Finish'}
+            {index + 1 < prompts.length ? t('studentVocabExercise.next') : t('studentVocabExercise.finish')}
           </button>
         </div>
       )}

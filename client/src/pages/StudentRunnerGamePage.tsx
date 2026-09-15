@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { GameWordDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
@@ -67,6 +68,16 @@ function pickDecoys(words: GameWordDTO[], target: GameWordDTO, n: number): GameW
  * minutes of dev time worth of gameplay depth is fine" scope for this task.
  */
 function StudentRunnerGamePage() {
+  const { t } = useTranslation();
+  // Resolved once per render into plain strings so they can be used from event
+  // handlers and the render-loop closures below without calling `t()` outside the
+  // component body (React hooks can only be invoked at the top of the component).
+  const strings = {
+    loadFailed: t('studentRunnerGame.loadFailed'),
+    correctMessage: t('studentRunnerGame.correctMessage'),
+    wrongMessage: (label: string) => t('studentRunnerGame.wrongMessage', { label }),
+    livesNone: t('studentRunnerGame.livesNone'),
+  };
   const { setId } = useParams<{ setId: string }>();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
@@ -148,13 +159,13 @@ function StudentRunnerGamePage() {
     if (correct) {
       setScore((s) => s + 1);
       flashRef.current = 'correct';
-      setRoundMessage('Correct! 🏃');
+      setRoundMessage(strings.correctMessage);
     } else {
       livesRef.current -= 1;
       setLives(livesRef.current);
       flashRef.current = 'wrong';
       const correctGate = gatesRef.current.find((g) => g.cardId === correctCardIdRef.current);
-      setRoundMessage(`Oops — the right word was "${correctGate?.label ?? ''}".`);
+      setRoundMessage(strings.wrongMessage(correctGate?.label ?? ''));
     }
     roundLockRef.current = true;
     setTimeout(advanceOrEnd, ROUND_PAUSE_MS);
@@ -184,9 +195,13 @@ function StudentRunnerGamePage() {
         setPhase('playing');
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : 'Failed to load this game.');
+        setError(err instanceof ApiError ? err.message : strings.loadFailed);
         setPhase('error');
       });
+    // `strings` is derived from `t`, stable in practice (i18next only re-creates it on
+    // a real language change, which never happens mid-session); re-running this fetch
+    // on every `strings` identity change would be pure noise, not a real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setId]);
 
   useEffect(() => {
@@ -276,12 +291,12 @@ function StudentRunnerGamePage() {
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <div className="flex items-center justify-between">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentRunnerGame.backToSet')}
         </Link>
-        <h1 className="text-lg font-bold text-primary-700">Word Runner</h1>
+        <h1 className="text-lg font-bold text-primary-700">{t('studentRunnerGame.title')}</h1>
       </div>
 
-      {phase === 'loading' && <p className="text-center text-base-black/60">Loading...</p>}
+      {phase === 'loading' && <p className="text-center text-base-black/60">{t('common.loading')}</p>}
 
       {phase === 'error' && (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -290,23 +305,28 @@ function StudentRunnerGamePage() {
       )}
 
       {phase === 'unavailable' && (
-        <p className="text-sm text-base-black/60">
-          This set needs at least 2 words to play. Add more vocabulary to this set first.
-        </p>
+        <p className="text-sm text-base-black/60">{t('studentRunnerGame.unavailable')}</p>
       )}
 
       {(phase === 'playing' || phase === 'gameover') && (
         <>
           <div className="flex items-center justify-between text-sm font-semibold text-base-black">
             <span>
-              Round {Math.min(roundNumber, totalRounds)} / {totalRounds}
+              {t('studentRunnerGame.roundLabel', {
+                current: Math.min(roundNumber, totalRounds),
+                total: totalRounds,
+              })}
             </span>
-            <span>Score: {score}</span>
-            <span>Lives: {'❤️'.repeat(Math.max(lives, 0)) || 'None'}</span>
+            <span>{t('studentRunnerGame.scoreLabel', { score })}</span>
+            <span>
+              {t('studentRunnerGame.livesLabel', {
+                hearts: '❤️'.repeat(Math.max(lives, 0)) || strings.livesNone,
+              })}
+            </span>
           </div>
 
           <p className="text-center text-base font-semibold text-base-black">
-            Run into the word that means: <span className="text-primary-700">{promptMeaning}</span>
+            {t('studentRunnerGame.promptLabel')} <span className="text-primary-700">{promptMeaning}</span>
           </p>
 
           <canvas
@@ -314,7 +334,7 @@ function StudentRunnerGamePage() {
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
             className="mx-auto rounded-lg border border-primary-300"
-            aria-label="Runner game canvas"
+            aria-label={t('studentRunnerGame.canvasLabel')}
           />
 
           {roundMessage && (
@@ -330,31 +350,33 @@ function StudentRunnerGamePage() {
                 onClick={() => moveLane(-1)}
                 className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
               >
-                ▲ Jump up
+                {t('studentRunnerGame.jumpUp')}
               </button>
               <button
                 type="button"
                 onClick={() => moveLane(1)}
                 className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
               >
-                ▼ Duck down
+                {t('studentRunnerGame.duckDown')}
               </button>
             </div>
           )}
-          <p className="text-center text-xs text-base-black/50">Keyboard: ↑ / ↓ to switch lanes.</p>
+          <p className="text-center text-xs text-base-black/50">{t('studentRunnerGame.keyboardHint')}</p>
 
           {phase === 'gameover' && (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
               <h2 className="text-lg font-bold text-primary-700">
-                {lives > 0 ? 'Run complete!' : 'Game over!'}
+                {lives > 0
+                  ? t('studentRunnerGame.runCompleteHeading')
+                  : t('studentRunnerGame.gameOverHeading')}
               </h2>
               <p className="text-base-black/70">
-                Score: {score} / {answeredCount} words answered.
+                {t('studentRunnerGame.finalScoreLine', { score, answered: answeredCount })}
               </p>
               <p className="text-xs text-base-black/50">
-                {saveStatus === 'saving' && 'Saving your progress...'}
-                {saveStatus === 'saved' && 'Progress saved.'}
-                {saveStatus === 'failed' && 'Could not save progress — please try again later.'}
+                {saveStatus === 'saving' && t('studentRunnerGame.saving')}
+                {saveStatus === 'saved' && t('studentRunnerGame.saved')}
+                {saveStatus === 'failed' && t('studentRunnerGame.saveFailed')}
               </p>
               <div className="flex gap-3">
                 <button
@@ -362,13 +384,13 @@ function StudentRunnerGamePage() {
                   onClick={() => window.location.reload()}
                   className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white hover:bg-primary-600"
                 >
-                  Play again
+                  {t('studentRunnerGame.playAgain')}
                 </button>
                 <Link
                   to={`/student/flashcard-sets/${setId}`}
                   className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
                 >
-                  Back to set
+                  {t('studentRunnerGame.backToSetButton')}
                 </Link>
               </div>
             </div>

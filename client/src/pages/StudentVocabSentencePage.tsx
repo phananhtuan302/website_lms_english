@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { SentencePromptDTO, SubmitSentenceResponse } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
@@ -16,6 +17,7 @@ import { ApiError } from '../lib/apiClient';
  * `GET /flashcard-sets/:setId/sentence-submissions`).
  */
 function StudentVocabSentencePage() {
+  const { t } = useTranslation();
   const { setId } = useParams<{ setId: string }>();
   const [prompts, setPrompts] = useState<SentencePromptDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,11 @@ function StudentVocabSentencePage() {
     flashcardApi
       .listSentencePrompts(setId)
       .then(setPrompts)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load words.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentVocabSentence.loadFailed')));
+    // `t` is stable in practice (i18next only re-creates it on a real language change,
+    // which never happens mid-session); re-running this fetch on every `t` identity
+    // change would be pure noise, not a real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setId]);
 
   if (!setId) return null;
@@ -43,16 +49,16 @@ function StudentVocabSentencePage() {
   }
 
   if (prompts === null) {
-    return <p className="text-center text-base-black/60">Loading...</p>;
+    return <p className="text-center text-base-black/60">{t('common.loading')}</p>;
   }
 
   if (prompts.length === 0) {
     return (
       <div className="mx-auto max-w-xl">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentVocabSentence.backToSet')}
         </Link>
-        <p className="mt-4 text-sm text-base-black/60">This set has no words yet.</p>
+        <p className="mt-4 text-sm text-base-black/60">{t('studentVocabSentence.noWords')}</p>
       </div>
     );
   }
@@ -60,13 +66,15 @@ function StudentVocabSentencePage() {
   if (index >= prompts.length) {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-bold text-primary-700">All done!</h1>
-        <p className="text-base-black/70">You wrote a sentence for all {prompts.length} words.</p>
+        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabSentence.allDoneHeading')}</h1>
+        <p className="text-base-black/70">
+          {t('studentVocabSentence.allDoneMessage', { count: prompts.length })}
+        </p>
         <Link
           to={`/student/flashcard-sets/${setId}`}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
-          Back to set
+          {t('studentVocabSentence.backToSetButton')}
         </Link>
       </div>
     );
@@ -82,7 +90,7 @@ function StudentVocabSentencePage() {
       const response = await flashcardApi.submitSentence(setId!, prompt.cardId, { sentence });
       setResult(response);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to submit your sentence.');
+      setError(err instanceof ApiError ? err.message : t('studentVocabSentence.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -98,18 +106,16 @@ function StudentVocabSentencePage() {
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentVocabSentence.backToSet')}
         </Link>
         <span className="text-sm text-base-black/60">
-          {index + 1} of {prompts.length}
+          {t('studentVocabSentence.progress', { current: index + 1, total: prompts.length })}
         </span>
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-primary-700">Use it in a sentence</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          Write a sentence that uses the word below. There's no wrong answer here — just give it a try.
-        </p>
+        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabSentence.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentVocabSentence.instructions')}</p>
       </div>
 
       <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
@@ -128,7 +134,7 @@ function StudentVocabSentencePage() {
           <textarea
             value={sentence}
             onChange={(event) => setSentence(event.target.value)}
-            placeholder={`Write a sentence using "${prompt.term}"...`}
+            placeholder={t('studentVocabSentence.placeholder', { term: prompt.term })}
             autoFocus
             rows={3}
             className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
@@ -138,7 +144,7 @@ function StudentVocabSentencePage() {
             disabled={!sentence.trim() || isSubmitting}
             className="self-end rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+            {isSubmitting ? t('studentVocabSentence.submitting') : t('studentVocabSentence.submit')}
           </button>
         </form>
       ) : (
@@ -152,15 +158,15 @@ function StudentVocabSentencePage() {
         >
           <p className="font-semibold">
             {result.containsWord
-              ? `Nice — your sentence uses "${prompt.term}"!`
-              : `Saved. We didn't spot "${prompt.term}" in there, but that's OK — your teacher can still see it.`}
+              ? t('studentVocabSentence.feedbackCorrect', { term: prompt.term })
+              : t('studentVocabSentence.feedbackSaved', { term: prompt.term })}
           </p>
           <button
             type="button"
             onClick={handleNext}
             className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
-            {index + 1 < prompts.length ? 'Next →' : 'Finish'}
+            {index + 1 < prompts.length ? t('studentVocabSentence.next') : t('studentVocabSentence.finish')}
           </button>
         </div>
       )}

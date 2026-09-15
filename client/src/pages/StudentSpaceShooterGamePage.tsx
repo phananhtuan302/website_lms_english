@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { GameWordDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
@@ -77,6 +78,16 @@ function pickDecoys(words: GameWordDTO[], target: GameWordDTO, n: number): GameW
  * a static mockup, without needing physics-grade collision tuning.
  */
 function StudentSpaceShooterGamePage() {
+  const { t } = useTranslation();
+  // Resolved once per render into plain strings so they can be used from event
+  // handlers and the render-loop closures below without calling `t()` outside the
+  // component body (React hooks can only be invoked at the top of the component).
+  const strings = {
+    loadFailed: t('studentSpaceShooterGame.loadFailed'),
+    correctMessage: t('studentSpaceShooterGame.correctMessage'),
+    wrongMessage: (label: string) => t('studentSpaceShooterGame.wrongMessage', { label }),
+    livesNone: t('studentSpaceShooterGame.livesNone'),
+  };
   const { setId } = useParams<{ setId: string }>();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
@@ -160,12 +171,12 @@ function StudentSpaceShooterGamePage() {
     setAnsweredCount(resultsRef.current.length);
     if (bullet.correct) {
       setScore((s) => s + 1);
-      setRoundMessage('Correct! 🎯');
+      setRoundMessage(strings.correctMessage);
     } else {
       livesRef.current -= 1;
       setLives(livesRef.current);
-      const correctTarget = targetsRef.current.find((t) => t.cardId === correctCardIdRef.current);
-      setRoundMessage(`Not quite — the right meaning was "${correctTarget?.label ?? ''}".`);
+      const correctTarget = targetsRef.current.find((target) => target.cardId === correctCardIdRef.current);
+      setRoundMessage(strings.wrongMessage(correctTarget?.label ?? ''));
     }
     roundLockRef.current = true;
     setTimeout(advanceOrEnd, ROUND_PAUSE_MS);
@@ -173,7 +184,7 @@ function StudentSpaceShooterGamePage() {
 
   function fire() {
     if (phaseRef.current !== 'playing' || roundLockRef.current || bulletRef.current) return;
-    const hit = targetsRef.current.find((t) => t.lane === laneRef.current);
+    const hit = targetsRef.current.find((target) => target.lane === laneRef.current);
     bulletRef.current = { lane: laneRef.current, y: SHIP_Y, correct: hit?.cardId === correctCardIdRef.current };
   }
 
@@ -202,9 +213,13 @@ function StudentSpaceShooterGamePage() {
         setPhase('playing');
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : 'Failed to load this game.');
+        setError(err instanceof ApiError ? err.message : strings.loadFailed);
         setPhase('error');
       });
+    // `strings` is derived from `t`, stable in practice (i18next only re-creates it on
+    // a real language change, which never happens mid-session); re-running this fetch
+    // on every `strings` identity change would be pure noise, not a real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setId]);
 
   // Keyboard controls.
@@ -229,9 +244,9 @@ function StudentSpaceShooterGamePage() {
       lastTsRef.current = ts;
 
       if (phaseRef.current === 'playing') {
-        for (const t of targetsRef.current) {
-          t.y += TARGET_FALL_SPEED * dt;
-          if (t.y > CANVAS_HEIGHT) t.y = -TARGET_HEIGHT;
+        for (const target of targetsRef.current) {
+          target.y += TARGET_FALL_SPEED * dt;
+          if (target.y > CANVAS_HEIGHT) target.y = -TARGET_HEIGHT;
         }
         if (bulletRef.current) {
           bulletRef.current.y -= BULLET_SPEED * dt;
@@ -256,14 +271,20 @@ function StudentSpaceShooterGamePage() {
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
       // Falling targets.
-      for (const t of targetsRef.current) {
-        ctx.fillStyle = t.cardId === correctCardIdRef.current ? '#f97362' : '#f97362';
+      for (const target of targetsRef.current) {
+        ctx.fillStyle = target.cardId === correctCardIdRef.current ? '#f97362' : '#f97362';
         ctx.fillStyle = '#f8b4a3';
-        ctx.fillRect(LANE_X[t.lane], t.y, LANE_WIDTH, TARGET_HEIGHT);
+        ctx.fillRect(LANE_X[target.lane], target.y, LANE_WIDTH, TARGET_HEIGHT);
         ctx.fillStyle = '#1a1030';
         ctx.font = '13px sans-serif';
         ctx.textAlign = 'center';
-        wrapText(ctx, t.label, LANE_X[t.lane] + LANE_WIDTH / 2, t.y + TARGET_HEIGHT / 2 + 4, LANE_WIDTH - 10);
+        wrapText(
+          ctx,
+          target.label,
+          LANE_X[target.lane] + LANE_WIDTH / 2,
+          target.y + TARGET_HEIGHT / 2 + 4,
+          LANE_WIDTH - 10,
+        );
       }
 
       // Ship.
@@ -314,12 +335,12 @@ function StudentSpaceShooterGamePage() {
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <div className="flex items-center justify-between">
         <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to set
+          {t('studentSpaceShooterGame.backToSet')}
         </Link>
-        <h1 className="text-lg font-bold text-primary-700">Space Shooter</h1>
+        <h1 className="text-lg font-bold text-primary-700">{t('studentSpaceShooterGame.title')}</h1>
       </div>
 
-      {phase === 'loading' && <p className="text-center text-base-black/60">Loading...</p>}
+      {phase === 'loading' && <p className="text-center text-base-black/60">{t('common.loading')}</p>}
 
       {phase === 'error' && (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -328,23 +349,28 @@ function StudentSpaceShooterGamePage() {
       )}
 
       {phase === 'unavailable' && (
-        <p className="text-sm text-base-black/60">
-          This set needs at least 2 words to play. Add more vocabulary to this set first.
-        </p>
+        <p className="text-sm text-base-black/60">{t('studentSpaceShooterGame.unavailable')}</p>
       )}
 
       {(phase === 'playing' || phase === 'gameover') && (
         <>
           <div className="flex items-center justify-between text-sm font-semibold text-base-black">
             <span>
-              Round {Math.min(roundNumber, totalRounds)} / {totalRounds}
+              {t('studentSpaceShooterGame.roundLabel', {
+                current: Math.min(roundNumber, totalRounds),
+                total: totalRounds,
+              })}
             </span>
-            <span>Score: {score}</span>
-            <span>Lives: {'❤️'.repeat(Math.max(lives, 0)) || 'None'}</span>
+            <span>{t('studentSpaceShooterGame.scoreLabel', { score })}</span>
+            <span>
+              {t('studentSpaceShooterGame.livesLabel', {
+                hearts: '❤️'.repeat(Math.max(lives, 0)) || strings.livesNone,
+              })}
+            </span>
           </div>
 
           <p className="text-center text-base font-semibold text-base-black">
-            Shoot the meaning of: <span className="text-primary-700">{promptTerm}</span>
+            {t('studentSpaceShooterGame.promptLabel')} <span className="text-primary-700">{promptTerm}</span>
           </p>
 
           <canvas
@@ -352,7 +378,7 @@ function StudentSpaceShooterGamePage() {
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
             className="mx-auto rounded-lg border border-primary-300"
-            aria-label="Space shooter game canvas"
+            aria-label={t('studentSpaceShooterGame.canvasLabel')}
           />
 
           {roundMessage && (
@@ -368,40 +394,40 @@ function StudentSpaceShooterGamePage() {
                 onClick={() => moveLane(-1)}
                 className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
               >
-                ◀ Move
+                {t('studentSpaceShooterGame.moveLeft')}
               </button>
               <button
                 type="button"
                 onClick={fire}
                 className="rounded-md bg-primary-500 px-6 py-2 text-sm font-semibold text-base-white hover:bg-primary-600"
               >
-                Fire
+                {t('studentSpaceShooterGame.fire')}
               </button>
               <button
                 type="button"
                 onClick={() => moveLane(1)}
                 className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
               >
-                Move ▶
+                {t('studentSpaceShooterGame.moveRight')}
               </button>
             </div>
           )}
-          <p className="text-center text-xs text-base-black/50">
-            Keyboard: ← / → to move, Space or ↑ to fire.
-          </p>
+          <p className="text-center text-xs text-base-black/50">{t('studentSpaceShooterGame.keyboardHint')}</p>
 
           {phase === 'gameover' && (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
               <h2 className="text-lg font-bold text-primary-700">
-                {lives > 0 ? 'Round complete!' : 'Game over!'}
+                {lives > 0
+                  ? t('studentSpaceShooterGame.roundCompleteHeading')
+                  : t('studentSpaceShooterGame.gameOverHeading')}
               </h2>
               <p className="text-base-black/70">
-                Score: {score} / {answeredCount} words answered.
+                {t('studentSpaceShooterGame.finalScoreLine', { score, answered: answeredCount })}
               </p>
               <p className="text-xs text-base-black/50">
-                {saveStatus === 'saving' && 'Saving your progress...'}
-                {saveStatus === 'saved' && 'Progress saved.'}
-                {saveStatus === 'failed' && 'Could not save progress — please try again later.'}
+                {saveStatus === 'saving' && t('studentSpaceShooterGame.saving')}
+                {saveStatus === 'saved' && t('studentSpaceShooterGame.saved')}
+                {saveStatus === 'failed' && t('studentSpaceShooterGame.saveFailed')}
               </p>
               <div className="flex gap-3">
                 <button
@@ -409,13 +435,13 @@ function StudentSpaceShooterGamePage() {
                   onClick={() => window.location.reload()}
                   className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white hover:bg-primary-600"
                 >
-                  Play again
+                  {t('studentSpaceShooterGame.playAgain')}
                 </button>
                 <Link
                   to={`/student/flashcard-sets/${setId}`}
                   className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
                 >
-                  Back to set
+                  {t('studentSpaceShooterGame.backToSetButton')}
                 </Link>
               </div>
             </div>
