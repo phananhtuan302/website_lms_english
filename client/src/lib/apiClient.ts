@@ -6,7 +6,17 @@
 
 // Exported (T-016) so `lib/socket.ts` connects Socket.IO to the exact same origin as
 // every REST call, instead of re-deriving/duplicating the "where's the API" logic.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+//
+// Defaults to '' (same-origin as the page) rather than a hardcoded `http://localhost:4000`
+// — fixed 2026-09-15 after a real customer-reported failure (`TypeError: Failed to
+// fetch`, no CORS message at all) traced to a remote/sandboxed dev setup where only the
+// client's own port is forwarded to the user's actual browser, so a literal
+// `localhost:4000` in client JS pointed at the wrong machine's port 4000. `vite.config.ts`
+// proxies `/api` and `/socket.io` from the client's own port to the real API server, so
+// same-origin relative paths always resolve correctly regardless of what's forwarded.
+// Set `VITE_API_BASE_URL` explicitly only when the client and API are genuinely served
+// from different origins (e.g. a future production deployment without a shared proxy).
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 const TOKEN_STORAGE_KEY = 'auth_token';
 

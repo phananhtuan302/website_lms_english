@@ -28,7 +28,11 @@ export function createSessionSocket(): Socket {
   if (!token) {
     throw new Error('Cannot open a realtime connection while logged out.');
   }
-  return io(API_BASE_URL, {
+  // `io()` with no URL connects to the current page's own origin — required when
+  // `API_BASE_URL` is '' (same-origin default, see `apiClient.ts`), since `io('')` is not
+  // equivalent and does not fall back to the page origin the way an empty/omitted
+  // argument does.
+  return io(API_BASE_URL || undefined, {
     auth: { token },
     transports: ['websocket'],
   });
