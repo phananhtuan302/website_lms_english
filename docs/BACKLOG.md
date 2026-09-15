@@ -479,8 +479,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 12 — Class-Based Organization (customer request, 2026-09-15)
 
-- [ ] **T-074 — Class schema, teacher class management, student registration class picker**
-  - Status: Not Started
+- [x] **T-074 — Class schema, teacher class management, student registration class picker**
+  - Status: Done
   - Depends on: T-005, T-006
   - Source: Customer request 2026-09-15; PROJECT_PLAN.md Assumption A14
   - Acceptance Criteria: `Class` model (`id`, `name`, `teacherId`, `createdAt`). Teacher CRUD for their own classes (list/create/rename/delete) at `/teacher/classes`. Public `GET /api/classes` (id, name, owning teacher's name — no sensitive data) for the registration picker. `User` gets a `classId` field; the student registration form gets a required "Select your class" dropdown populated from that public endpoint, and the account is created with that `classId`. A student cannot register without picking a class (clear validation error, not a silent default). Verify: a teacher creates 2 classes; a new student registers picking one; the student's `classId` persists and is visible on their own profile/dashboard somewhere reasonable (even just a label).
@@ -508,3 +508,9 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-076, T-077
   - Source: Customer request 2026-09-15 — phase-boundary milestone per PROJECT_PLAN.md Section 8
   - Acceptance Criteria: A dedicated, genuinely adversarial pass (not the lighter per-task sampling used elsewhere) proving a student in Class B can never see, join, self-practice, appear on a leaderboard, or show up in a report scoped to Class A — even when both classes share the same teacher and the exact same underlying Test/FlashcardSet/GrammarTopic row, and even via direct API calls with a valid JWT (not just "hidden in the UI"). Covers every content type and every reporting/leaderboard surface touched by `T-076`/`T-077`. Full existing `npm run test:e2e` suite still passes (update/extend it if the core flows now require picking/assuming a class). Any gap found is fixed before this task is marked Done, not deferred to a follow-up task, given this is the customer's explicit "không sử dụng db của nhau" (classes must never share data) requirement.
+
+- [ ] **T-079 — TeacherClassesPage: name input doesn't revert display after a rejected rename**
+  - Status: Not Started
+  - Depends on: T-074
+  - Source: QA finding during T-074 verification (2026-09-15)
+  - Acceptance Criteria: Same root cause and fix as `T-073` (`AdminUsersPage.tsx`), now also found in `TeacherClassesPage.tsx`'s `ClassRow`: `name` is seeded into local `useState` once from props with no re-sync, so if a rename is rejected (e.g. 404 because the class was deleted concurrently elsewhere), the input keeps showing the locally-typed rejected value instead of reverting to the real server state or the row disappearing. No data-integrity issue — display-only. Fix by reverting local state (or re-fetching the list) on a failed rename, and — since this exact bug has now appeared twice independently — consider whether the same stale-local-state pattern exists anywhere else editable-row-list pages follow (grep for the same `useState(prop.value)`-with-no-resync shape) and fix any other instances found in the same pass.

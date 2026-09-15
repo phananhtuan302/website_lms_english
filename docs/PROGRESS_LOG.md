@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Class schema, teacher class management, registration class picker (Phase 12 foundation)
+
+- Task IDs touched: T-074
+- What changed: Dev added `Class` (one owning teacher per class, no co-teaching) and `User.classId` (student-only, permanent per Assumption A14), teacher-only class CRUD (`/teacher/classes`, same ownership pattern as curriculum/flashcards/grammar), a public `GET /api/classes` for the registration picker (no sensitive data), and made `classId` a required, validated field on student registration. Updated `e2e/global-setup.ts` to pick a class during registration (required for the whole E2E suite to keep passing). Test independently re-verified cross-teacher isolation, registration validation (missing/invalid/valid classId, checked against the raw DB not just the API response), the delete-class-with-students lockout (409, verified nothing was actually affected), a real end-to-end browser registration flow, and full en/vi key-parity plus natural Vietnamese phrasing for every new string. PASS, with one minor cosmetic bug found (same root cause as the already-logged T-073) — logged as T-079, not blocking.
+- Why / decisions made: deleting a class with students assigned is blocked outright (409) rather than auto-reassigning them, since there's no safe signal for which other class to move them to — matches Assumption A14's "permanent unless a teacher/admin explicitly acts" membership model.
+- Status after this entry: T-074 Done, T-079 logged (low priority, same class of bug as T-073). Next: T-075 (content-to-class assignment + consolidated "My Content" management page + data migration for existing dev/seed data) — the customer's explicitly-corrected design (content authored once, assigned to classes, never re-authored per class).
+
 ## 2026-09-15 — Dev/Test — Admin scores/attempts management + language Settings page (Phase 11 complete)
 
 - Task IDs touched: T-072
