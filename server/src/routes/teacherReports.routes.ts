@@ -10,6 +10,7 @@ import type { ReportResponseDTO, SpeakingReportResponseDTO, TestType } from '@pl
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
+import { isAdminOrOwner } from '../lib/authz';
 import {
   computeReport,
   computeSpeakingReport,
@@ -32,10 +33,24 @@ export const teacherReportsRouter = Router();
 // before it ever got a chance to reach that later router. Leaving this at `'teacher'`
 // only was found (via live verification) to silently 403 admin's Grammar-topic and
 // vocab-progress requests despite those routers' OWN checks correctly allowing admin —
-// this is a required unblocking fix, not scope creep. Internal ownership checks below
-// (e.g. narrowing by `testId`) are UNCHANGED — an admin caller gets their own (likely
-// empty) report data by default, same "harmless empty own-data" pattern as every other
-// not-yet-fully-admin-scoped list endpoint in this codebase.
+// this is a required unblocking fix, not scope creep.
+//
+// Internal ownership checks below (narrowing by `testId`) use `isAdminOrOwner` (T-078
+// fix — see that helper's doc comment): previously a raw `test.teacherId !== req.user!.sub`
+// comparison 404'd admin for ANY `testId` it didn't itself own, inconsistent with every
+// other `requireOwnedTest`-style check in this codebase, which all let admin through.
+// Once past that check, the resolved test's OWN `teacherId` (not `req.user!.sub`) is fed
+// into `computeReport`/`computeSpeakingReport` as the scoping teacherId — passing admin's
+// own `sub` there instead (which owns no tests) would have ANDed against the narrowed
+// `testId` and always returned zero rows even after the ownership check was fixed, since
+// `fetchScopedAttempts` filters `test.teacherId` and `test.id` together, not as
+// alternatives. For a `teacher` caller this is a no-op (`test.teacherId` already equals
+// `req.user!.sub` by construction, or the ownership check above already rejected the
+// request), so this only changes behavior for `admin`. Admin's UNNARROWED default view
+// (no `testId` given) is still `req.user!.sub`-scoped, i.e. empty — same intentional
+// "harmless empty own-data" pattern as every other not-yet-fully-admin-scoped list
+// endpoint in this codebase; broader admin-wide reporting oversight is out of this
+// task's scope.
 teacherReportsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 const TEST_TYPE_VALUES: TestType[] = ['generic', 'unitTest', 'vocabularyCheck', 'listeningTest', 'mockTest'];
@@ -61,16 +76,19 @@ teacherReportsRouter.get(
 
     const testIdRaw = req.query.testId;
     let testId: string | null = null;
+    let testOwnerId: string | null = null;
     if (typeof testIdRaw === 'string' && testIdRaw.trim() !== '') {
       const test = await prisma.test.findUnique({ where: { id: testIdRaw } });
-      if (!test || test.teacherId !== req.user!.sub) {
+      if (!test || !isAdminOrOwner(req.user!, test.teacherId)) {
         // Same "identical 404 for not-found-or-not-yours" convention as
         // `requireOwnedTest` — a teacher probing another teacher's test id via this
-        // query param learns nothing beyond "not found".
+        // query param learns nothing beyond "not found". `isAdminOrOwner` (T-078 fix)
+        // lets admin narrow by ANY test id, matching every other ownership check.
         res.status(404).json({ error: 'Test not found.' });
         return;
       }
       testId = test.id;
+      testOwnerId = test.teacherId;
     }
 
     const unitIdRaw = req.query.unitId;
@@ -107,7 +125,11 @@ teacherReportsRouter.get(
     }
 
     const result = await computeReport({
-      teacherId: req.user!.sub,
+      // T-078 fix: the narrowed test's OWN owner when one was given (see this router's
+      // module doc comment for why `req.user!.sub` alone would silently zero out an
+      // admin's narrowed-by-testId report even after the ownership check above allows
+      // it through) — otherwise the caller's own id, unchanged.
+      teacherId: testOwnerId ?? req.user!.sub,
       groupBy: groupByRaw,
       testId,
       unitId,
@@ -147,13 +169,15 @@ teacherReportsRouter.get(
 
     const testIdRaw = req.query.testId;
     let testId: string | null = null;
+    let testOwnerId: string | null = null;
     if (typeof testIdRaw === 'string' && testIdRaw.trim() !== '') {
       const test = await prisma.test.findUnique({ where: { id: testIdRaw } });
-      if (!test || test.teacherId !== req.user!.sub) {
+      if (!test || !isAdminOrOwner(req.user!, test.teacherId)) {
         res.status(404).json({ error: 'Test not found.' });
         return;
       }
       testId = test.id;
+      testOwnerId = test.teacherId;
     }
 
     const unitIdRaw = req.query.unitId;
@@ -174,7 +198,8 @@ teacherReportsRouter.get(
     }
 
     const result = await computeSpeakingReport({
-      teacherId: req.user!.sub,
+      // T-078 fix — see `/reports` above for the full reasoning.
+      teacherId: testOwnerId ?? req.user!.sub,
       groupBy: groupByRaw,
       testId,
       unitId,

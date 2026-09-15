@@ -38,12 +38,26 @@ teacherVocabProgressRouter.use(requireAuth, requireRole('teacher', 'admin'));
  * only, same 404-for-not-found-or-not-yours convention as every other owned-set route).
  *
  * Documented choice (see `TeacherVocabProgressDTO`'s doc comment in `@platform/shared`
- * for the full reasoning): `students` includes EVERY student account, not just ones
- * who've touched this set, so a teacher can see who has zero activity ("hasn't
- * practiced" per the acceptance criteria) as a visibly-zero row rather than a silent
- * absence. `classSummary` rolls up the exact same per-student rows into class-wide
- * totals — there is no smaller Class/cohort subdivision in this schema (every set is
- * visible to every student), so "the class" is the full student roster.
+ * for the full reasoning): `students` includes EVERY student in the roster below, not
+ * just ones who've touched this set, so a teacher can see who has zero activity
+ * ("hasn't practiced" per the acceptance criteria) as a visibly-zero row rather than a
+ * silent absence. `classSummary` rolls up the exact same per-student rows into a
+ * class-wide total.
+ *
+ * Roster scoping (T-083 fix, Phase 12 — this predates T-076/T-077's own class-scoping
+ * pass but is exactly the class of bug that work exists to catch): `students` used to be
+ * `prisma.user.findMany({ where: { role: 'student' } })` — literally every student
+ * account system-wide, not scoped to this teacher OR even this set's assigned class(es),
+ * a stale holdover from before `Class` (T-074) existed at all (see the removed doc
+ * comment this replaces, which claimed "every set is visible to every student" — no
+ * longer true since T-075/T-076). Fixed to the calling teacher's OWN students only
+ * (every student in ANY of this teacher's own classes, via the `class.teacherId`
+ * relation — not narrowed further to just the classes this particular set happens to be
+ * assigned to, matching this task's "the calling teacher's own students" framing rather
+ * than a stricter per-set scope), with the standard admin-sees-everyone bypass
+ * (`isAdminOrOwner`'s convention, same "admin has oversight of everything" reasoning
+ * `reportClassScope.ts`'s `resolveTeacherClassId` already documents for this exact
+ * roster-vs-admin split).
  */
 teacherVocabProgressRouter.get(
   '/flashcard-sets/:setId/progress',
@@ -58,7 +72,10 @@ teacherVocabProgressRouter.get(
     const cardIds = cards.map((c) => c.id);
 
     const students = await prisma.user.findMany({
-      where: { role: 'student' },
+      where: {
+        role: 'student',
+        ...(req.user!.role === 'admin' ? {} : { class: { teacherId: req.user!.sub } }),
+      },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });

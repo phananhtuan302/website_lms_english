@@ -28,6 +28,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedGrammarTopic } from '../lib/ownedGrammarTopic';
+import { isAdminOrOwner } from '../lib/authz';
 import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import {
   computeGrammarReport,
@@ -465,13 +466,23 @@ teacherGrammarRouter.get(
 
     const topicIdRaw = req.query.topicId;
     let topicId: string | null = null;
+    let topicOwnerId: string | null = null;
     if (typeof topicIdRaw === 'string' && topicIdRaw.trim() !== '') {
       const topic = await prisma.grammarTopic.findUnique({ where: { id: topicIdRaw } });
-      if (!topic || topic.teacherId !== req.user!.sub) {
+      // T-078 fix: `isAdminOrOwner` (not a raw `!== req.user!.sub` comparison) — a raw
+      // comparison 404'd admin for ANY topicId it didn't itself author, inconsistent
+      // with `requireOwnedGrammarTopic`'s own admin bypass used everywhere else in this
+      // file. See `teacherReports.routes.ts`'s matching fix for why the resolved topic's
+      // OWN `teacherId` (not `req.user!.sub`) is also fed into `computeGrammarReport`
+      // below — passing admin's own id instead would silently zero out the report even
+      // after this check lets admin through, since `fetchScopedGrammarAttempts` filters
+      // `topic.teacherId` and `topicId` together, not as alternatives.
+      if (!topic || !isAdminOrOwner(req.user!, topic.teacherId)) {
         res.status(404).json({ error: 'Grammar topic not found.' });
         return;
       }
       topicId = topic.id;
+      topicOwnerId = topic.teacherId;
     }
 
     const studentIdRaw = req.query.studentId;
@@ -494,7 +505,9 @@ teacherGrammarRouter.get(
 
     const result = await computeGrammarReport({
       groupBy: groupByRaw,
-      teacherId: req.user!.sub,
+      // T-078 fix: the narrowed topic's OWN owner when one was given — see the
+      // `topicOwnerId` assignment above for why.
+      teacherId: topicOwnerId ?? req.user!.sub,
       topicId,
       studentId,
       classId: scope.classId,
