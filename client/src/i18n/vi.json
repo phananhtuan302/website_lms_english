@@ -126,6 +126,108 @@
   "appShell": {
     "footer": "Nền tảng Kiểm tra Tiếng Anh — bản phát triển nội bộ"
   },
+  "teacherTestEditor": {
+    "backToTests": "← Quay lại bài kiểm tra của tôi",
+    "loadFailed": "Không thể tải bài kiểm tra.",
+    "defaultQuestions": {
+      "trueFalsePrompt": "Câu hỏi đúng/sai mới",
+      "trueOption": "Đúng",
+      "falseOption": "Sai",
+      "fillBlankPrompt": "Câu hỏi điền vào chỗ trống mới",
+      "fillBlankDefaultAnswer": "đáp án",
+      "essayPrompt": "Câu hỏi tự luận mới",
+      "speakingPrompt": "Câu hỏi nói mới",
+      "multipleChoicePrompt": "Câu hỏi trắc nghiệm mới",
+      "optionA": "Lựa chọn A",
+      "optionB": "Lựa chọn B"
+    },
+    "testTypes": {
+      "generic": "Chung",
+      "unitTest": "Kiểm tra Unit",
+      "vocabularyCheck": "Kiểm tra từ vựng",
+      "listeningTest": "Kiểm tra Nghe",
+      "mockTest": "Thi thử"
+    },
+    "settings": {
+      "timeLimitLabel": "Thời gian làm bài (phút, không bắt buộc)",
+      "timeLimitPlaceholder": "Không giới hạn",
+      "timeLimitInvalid": "Thời gian làm bài phải là số phút nguyên, hoặc để trống nếu không giới hạn.",
+      "unitLabel": "Unit (không bắt buộc, T-018)",
+      "noUnit": "Không thuộc Unit nào",
+      "testTypeLabel": "Loại bài kiểm tra (T-036)",
+      "publishedLabel": "Đã xuất bản (hiển thị cho học sinh trong mục \"Kiểm tra Unit\")",
+      "viewUnitLeaderboard": "Xem bảng xếp hạng của Unit này →"
+    },
+    "errors": {
+      "saveTitleFailed": "Không thể lưu tiêu đề.",
+      "saveTimeLimitFailed": "Không thể lưu thời gian làm bài.",
+      "saveUnitFailed": "Không thể lưu gắn thẻ Unit.",
+      "saveTestTypeFailed": "Không thể lưu loại bài kiểm tra.",
+      "savePublishedFailed": "Không thể lưu trạng thái xuất bản.",
+      "addSectionFailed": "Không thể thêm phần.",
+      "saveSectionTitleFailed": "Không thể lưu tiêu đề phần.",
+      "saveSectionContentFailed": "Không thể lưu nội dung phần.",
+      "deleteSectionFailed": "Không thể xóa phần.",
+      "reorderSectionsFailed": "Không thể sắp xếp lại thứ tự các phần.",
+      "addQuestionFailed": "Không thể thêm câu hỏi.",
+      "deleteQuestionFailed": "Không thể xóa câu hỏi.",
+      "reorderQuestionsFailed": "Không thể sắp xếp lại thứ tự câu hỏi.",
+      "generateVariantsFailed": "Không thể tạo mã đề.",
+      "startSessionFailed": "Không thể bắt đầu phiên làm bài.",
+      "closeSessionFailed": "Không thể đóng phiên làm bài."
+    },
+    "sections": {
+      "heading": "Các phần & câu hỏi",
+      "empty": "Chưa có phần nào — thêm một phần ở bên dưới.",
+      "moveUp": "Di chuyển phần lên",
+      "moveDown": "Di chuyển phần xuống",
+      "delete": "Xóa phần",
+      "contentSummary": "Đoạn văn đọc hiểu / Âm thanh nghe (không bắt buộc)",
+      "passageTextLabel": "Nội dung đoạn văn (T-039)",
+      "passageTextPlaceholder": "Dán đoạn văn đọc hiểu vào đây — sẽ hiển thị cho học sinh phía trên các câu hỏi của phần này.",
+      "passageImageUrlLabel": "URL hình ảnh đoạn văn (không bắt buộc)",
+      "audioUrlLabel": "URL âm thanh (T-040/T-041, quy ước tạm thời giống âm thanh thẻ từ vựng)",
+      "urlPlaceholder": "https://...",
+      "maxPlaysLabel": "Số lần phát tối đa khi tự luyện tại nhà (để trống = không giới hạn)",
+      "maxPlaysPlaceholder": "Không giới hạn",
+      "addMultipleChoice": "+ Trắc nghiệm",
+      "addTrueFalse": "+ Đúng/Sai",
+      "addFillBlank": "+ Điền vào chỗ trống",
+      "addEssay": "+ Tự luận (Viết)",
+      "addSpeaking": "+ Nói",
+      "newSectionTitleLabel": "Tiêu đề phần mới",
+      "newSectionTitlePlaceholder": "VD: Đọc hiểu",
+      "addSection": "Thêm phần"
+    },
+    "variants": {
+      "heading": "Mã đề bài kiểm tra",
+      "description": "Mỗi mã đề sẽ xáo trộn thứ tự câu hỏi (trong từng phần) và thứ tự các lựa chọn (trong từng câu hỏi), trong khi vẫn giữ nguyên đáp án đúng của mỗi câu hỏi.",
+      "generate": "Tạo thêm 2 mã đề",
+      "generating": "Đang tạo...",
+      "empty": "Chưa có mã đề nào được tạo.",
+      "code": "Mã đề {{code}}"
+    },
+    "sessions": {
+      "heading": "Phiên tham gia bằng mã QR",
+      "description": "Bắt đầu một phiên mới sẽ tự động đóng phiên đang hoạt động trước đó của bài kiểm tra này.",
+      "start": "Bắt đầu phiên mới",
+      "starting": "Đang bắt đầu...",
+      "qrCodeAlt": "Mã QR để tham gia {{title}}",
+      "scanOrJoin": "Quét mã QR, hoặc dùng liên kết tham gia:",
+      "manualFallbackCode": "Mã dự phòng nhập tay:",
+      "statusLabel": "Trạng thái: {{status}}",
+      "statusValues": {
+        "active": "Đang hoạt động",
+        "closed": "Đã đóng"
+      },
+      "codeLabel": "Mã",
+      "startedAt": "bắt đầu lúc {{date}}",
+      "liveMonitor": "Giám sát trực tiếp",
+      "viewAttempts": "Xem lượt làm bài",
+      "close": "Đóng",
+      "empty": "Chưa có phiên nào được bắt đầu."
+    }
+  },
   "teacherTests": {
     "heading": "Bài kiểm tra của tôi",
     "subtitle": "Tạo và chỉnh sửa bài kiểm tra của bạn. Học sinh và phiên làm bài được thêm từ trang riêng của từng bài kiểm tra.",

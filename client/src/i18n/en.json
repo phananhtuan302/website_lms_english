@@ -126,6 +126,108 @@
   "appShell": {
     "footer": "English Test Platform — local development build"
   },
+  "teacherTestEditor": {
+    "backToTests": "← Back to my tests",
+    "loadFailed": "Failed to load test.",
+    "defaultQuestions": {
+      "trueFalsePrompt": "New true/false question",
+      "trueOption": "True",
+      "falseOption": "False",
+      "fillBlankPrompt": "New fill-in-the-blank question",
+      "fillBlankDefaultAnswer": "answer",
+      "essayPrompt": "New essay question",
+      "speakingPrompt": "New speaking question",
+      "multipleChoicePrompt": "New multiple-choice question",
+      "optionA": "Option A",
+      "optionB": "Option B"
+    },
+    "testTypes": {
+      "generic": "Generic",
+      "unitTest": "Unit Test",
+      "vocabularyCheck": "Vocabulary Check",
+      "listeningTest": "Listening Test",
+      "mockTest": "Mock Test"
+    },
+    "settings": {
+      "timeLimitLabel": "Time limit (minutes, optional)",
+      "timeLimitPlaceholder": "No limit",
+      "timeLimitInvalid": "Time limit must be a whole number of minutes, or left blank for no limit.",
+      "unitLabel": "Unit (optional, T-018)",
+      "noUnit": "No unit",
+      "testTypeLabel": "Test type (T-036)",
+      "publishedLabel": "Published (visible to students in \"Unit Tests\")",
+      "viewUnitLeaderboard": "View this unit's leaderboard →"
+    },
+    "errors": {
+      "saveTitleFailed": "Failed to save title.",
+      "saveTimeLimitFailed": "Failed to save time limit.",
+      "saveUnitFailed": "Failed to save unit tag.",
+      "saveTestTypeFailed": "Failed to save test type.",
+      "savePublishedFailed": "Failed to save published status.",
+      "addSectionFailed": "Failed to add section.",
+      "saveSectionTitleFailed": "Failed to save section title.",
+      "saveSectionContentFailed": "Failed to save section content.",
+      "deleteSectionFailed": "Failed to delete section.",
+      "reorderSectionsFailed": "Failed to reorder sections.",
+      "addQuestionFailed": "Failed to add question.",
+      "deleteQuestionFailed": "Failed to delete question.",
+      "reorderQuestionsFailed": "Failed to reorder questions.",
+      "generateVariantsFailed": "Failed to generate variants.",
+      "startSessionFailed": "Failed to start session.",
+      "closeSessionFailed": "Failed to close session."
+    },
+    "sections": {
+      "heading": "Sections & questions",
+      "empty": "No sections yet — add one below.",
+      "moveUp": "Move section up",
+      "moveDown": "Move section down",
+      "delete": "Delete section",
+      "contentSummary": "Reading passage / Listening audio (optional)",
+      "passageTextLabel": "Passage text (T-039)",
+      "passageTextPlaceholder": "Paste the reading passage here — shown to students above this section's questions.",
+      "passageImageUrlLabel": "Passage image URL (optional)",
+      "audioUrlLabel": "Audio URL (T-040/T-041, placeholder convention like flashcard audio)",
+      "urlPlaceholder": "https://...",
+      "maxPlaysLabel": "Max plays for home self-practice (blank = unlimited)",
+      "maxPlaysPlaceholder": "Unlimited",
+      "addMultipleChoice": "+ Multiple choice",
+      "addTrueFalse": "+ True/False",
+      "addFillBlank": "+ Fill in the blank",
+      "addEssay": "+ Essay (Writing)",
+      "addSpeaking": "+ Speaking",
+      "newSectionTitleLabel": "New section title",
+      "newSectionTitlePlaceholder": "e.g. Reading Comprehension",
+      "addSection": "Add section"
+    },
+    "variants": {
+      "heading": "Test variants (\"mã đề\")",
+      "description": "Each variant shuffles question order (within each section) and choice order (within each question) while keeping the correct answer for every question intact.",
+      "generate": "Generate 2 more variants",
+      "generating": "Generating...",
+      "empty": "No variants generated yet.",
+      "code": "Mã đề {{code}}"
+    },
+    "sessions": {
+      "heading": "QR join sessions",
+      "description": "Starting a new session automatically closes any previous active session for this test.",
+      "start": "Start new session",
+      "starting": "Starting...",
+      "qrCodeAlt": "QR code to join {{title}}",
+      "scanOrJoin": "Scan the QR code, or use the join link:",
+      "manualFallbackCode": "Manual fallback code:",
+      "statusLabel": "Status: {{status}}",
+      "statusValues": {
+        "active": "Active",
+        "closed": "Closed"
+      },
+      "codeLabel": "Code",
+      "startedAt": "started {{date}}",
+      "liveMonitor": "Live monitor",
+      "viewAttempts": "View attempts",
+      "close": "Close",
+      "empty": "No sessions started yet."
+    }
+  },
   "teacherTests": {
     "heading": "My tests",
     "subtitle": "Create and edit your own tests. Students and sessions are added from a specific test's page.",

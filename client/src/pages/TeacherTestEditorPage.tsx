@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type {
   CreateSessionResponse,
   QuestionType,
@@ -12,23 +14,29 @@ import type {
   UpdateQuestionRequest,
   UpdateSectionRequest,
 } from '@platform/shared';
-
-/** Every value `Test.testType` supports (T-036/T-038, Assumption A4) — plain labels for
- * the authoring dropdown below. */
-const TEST_TYPE_OPTIONS: Array<{ value: TestType; label: string }> = [
-  { value: 'generic', label: 'Generic' },
-  { value: 'unitTest', label: 'Unit Test' },
-  { value: 'vocabularyCheck', label: 'Vocabulary Check' },
-  { value: 'listeningTest', label: 'Listening Test' },
-  { value: 'mockTest', label: 'Mock Test' },
-];
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import QuestionEditor from '../components/QuestionEditor';
 
+/** Every value `Test.testType` supports (T-036/T-038, Assumption A4) — the authoring
+ * dropdown below resolves each value's label via `t('teacherTestEditor.testTypes.*')`
+ * (T-068) so the option text stays in sync with the site-wide language setting. */
+const TEST_TYPE_VALUES: TestType[] = [
+  'generic',
+  'unitTest',
+  'vocabularyCheck',
+  'listeningTest',
+  'mockTest',
+];
+
 /** Default shape for a brand-new question of a given type — a sensible, editable
- * starting point rather than an empty/invalid one, so it saves successfully right away. */
-function defaultQuestionBody(type: QuestionType): {
+ * starting point rather than an empty/invalid one, so it saves successfully right away.
+ * Takes `t` (T-068) since this seed prompt/choice text is visible to the teacher until
+ * they edit it, and this function lives outside the component (no hook access there). */
+function defaultQuestionBody(
+  type: QuestionType,
+  t: TFunction,
+): {
   type: QuestionType;
   prompt: string;
   choices?: { text: string; isCorrect: boolean }[];
@@ -39,28 +47,40 @@ function defaultQuestionBody(type: QuestionType): {
   if (type === 'trueFalse') {
     return {
       type,
-      prompt: 'New true/false question',
+      prompt: t('teacherTestEditor.defaultQuestions.trueFalsePrompt'),
       choices: [
-        { text: 'True', isCorrect: true },
-        { text: 'False', isCorrect: false },
+        { text: t('teacherTestEditor.defaultQuestions.trueOption'), isCorrect: true },
+        { text: t('teacherTestEditor.defaultQuestions.falseOption'), isCorrect: false },
       ],
     };
   }
   if (type === 'fillBlank') {
-    return { type, prompt: 'New fill-in-the-blank question', acceptedAnswers: ['answer'] };
+    return {
+      type,
+      prompt: t('teacherTestEditor.defaultQuestions.fillBlankPrompt'),
+      acceptedAnswers: [t('teacherTestEditor.defaultQuestions.fillBlankDefaultAnswer')],
+    };
   }
   if (type === 'essay') {
-    return { type, prompt: 'New essay question', essayMaxScore: 10 };
+    return {
+      type,
+      prompt: t('teacherTestEditor.defaultQuestions.essayPrompt'),
+      essayMaxScore: 10,
+    };
   }
   if (type === 'speaking') {
-    return { type, prompt: 'New speaking question', allowedResponseSeconds: 60 };
+    return {
+      type,
+      prompt: t('teacherTestEditor.defaultQuestions.speakingPrompt'),
+      allowedResponseSeconds: 60,
+    };
   }
   return {
     type,
-    prompt: 'New multiple-choice question',
+    prompt: t('teacherTestEditor.defaultQuestions.multipleChoicePrompt'),
     choices: [
-      { text: 'Option A', isCorrect: true },
-      { text: 'Option B', isCorrect: false },
+      { text: t('teacherTestEditor.defaultQuestions.optionA'), isCorrect: true },
+      { text: t('teacherTestEditor.defaultQuestions.optionB'), isCorrect: false },
     ],
   };
 }
@@ -74,6 +94,7 @@ function defaultQuestionBody(type: QuestionType): {
 function TeacherTestEditorPage() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [test, setTest] = useState<TestDetailDTO | null>(null);
   const [title, setTitle] = useState('');
   const [timeLimitText, setTimeLimitText] = useState('');
@@ -100,8 +121,10 @@ function TeacherTestEditorPage() {
         setTitle(data.title);
         setTimeLimitText(data.timeLimitMinutes != null ? String(data.timeLimitMinutes) : '');
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load test.'));
-  }, [testId]);
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : t('teacherTestEditor.loadFailed')),
+      );
+  }, [testId, t]);
 
   useEffect(refreshTest, [refreshTest]);
 
@@ -133,7 +156,7 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.updateTest(testId!, { title: title.trim() });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save title.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveTitleFailed'));
     }
   }
 
@@ -146,7 +169,7 @@ function TeacherTestEditorPage() {
       timeLimitMinutes !== null &&
       (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1)
     ) {
-      setError('Time limit must be a whole number of minutes, or left blank for no limit.');
+      setError(t('teacherTestEditor.settings.timeLimitInvalid'));
       setTimeLimitText(test.timeLimitMinutes != null ? String(test.timeLimitMinutes) : '');
       return;
     }
@@ -155,7 +178,7 @@ function TeacherTestEditorPage() {
       setTest(updated);
       setTimeLimitText(updated.timeLimitMinutes != null ? String(updated.timeLimitMinutes) : '');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save time limit.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveTimeLimitFailed'));
     }
   }
 
@@ -167,7 +190,7 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.updateTest(testId!, { title: test.title, unitId });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save unit tag.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveUnitFailed'));
     }
   }
 
@@ -180,7 +203,7 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.updateTest(testId!, { title: test.title, testType });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save test type.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveTestTypeFailed'));
     }
   }
 
@@ -192,7 +215,7 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.updateTest(testId!, { title: test.title, published });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save published status.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.savePublishedFailed'));
     }
   }
 
@@ -205,7 +228,7 @@ function TeacherTestEditorPage() {
       setTest(updated);
       setNewSectionTitle('');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to add section.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.addSectionFailed'));
     }
   }
 
@@ -215,7 +238,9 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.updateSection(testId!, sectionId, { title: value.trim() });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save section title.');
+      setError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveSectionTitleFailed'),
+      );
     }
   }
 
@@ -234,7 +259,9 @@ function TeacherTestEditorPage() {
       });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save section content.');
+      setError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveSectionContentFailed'),
+      );
     }
   }
 
@@ -243,7 +270,7 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.deleteSection(testId!, sectionId);
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete section.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.deleteSectionFailed'));
     }
   }
 
@@ -258,7 +285,9 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.reorderSections(testId!, { orderedSectionIds: ids });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to reorder sections.');
+      setError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.reorderSectionsFailed'),
+      );
     }
   }
 
@@ -267,11 +296,11 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.createQuestion(
         testId!,
         sectionId,
-        defaultQuestionBody(type),
+        defaultQuestionBody(type, t),
       );
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to add question.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.addQuestionFailed'));
     }
   }
 
@@ -289,7 +318,7 @@ function TeacherTestEditorPage() {
       const updated = await teacherApi.deleteQuestion(testId!, sectionId, questionId);
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete question.');
+      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.deleteQuestionFailed'));
     }
   }
 
@@ -311,7 +340,9 @@ function TeacherTestEditorPage() {
       });
       setTest(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to reorder questions.');
+      setError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.reorderQuestionsFailed'),
+      );
     }
   }
 
@@ -323,7 +354,9 @@ function TeacherTestEditorPage() {
       const all = await teacherApi.listVariants(testId!);
       setVariants(all);
     } catch (err) {
-      setVariantError(err instanceof ApiError ? err.message : 'Failed to generate variants.');
+      setVariantError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.generateVariantsFailed'),
+      );
     } finally {
       setIsGeneratingVariants(false);
     }
@@ -338,7 +371,9 @@ function TeacherTestEditorPage() {
       const all = await teacherApi.listSessions(testId!);
       setSessions(all);
     } catch (err) {
-      setSessionError(err instanceof ApiError ? err.message : 'Failed to start session.');
+      setSessionError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.startSessionFailed'),
+      );
     } finally {
       setIsStartingSession(false);
     }
@@ -353,7 +388,9 @@ function TeacherTestEditorPage() {
         setCurrentSession({ ...currentSession, status: 'closed' });
       }
     } catch (err) {
-      setSessionError(err instanceof ApiError ? err.message : 'Failed to close session.');
+      setSessionError(
+        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.closeSessionFailed'),
+      );
     }
   }
 
@@ -361,7 +398,7 @@ function TeacherTestEditorPage() {
     return (
       <div>
         <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
-          ← Back to my tests
+          {t('teacherTestEditor.backToTests')}
         </Link>
         {error ? (
           <p
@@ -371,7 +408,7 @@ function TeacherTestEditorPage() {
             {error}
           </p>
         ) : (
-          <p className="mt-4 text-sm text-base-black/60">Loading...</p>
+          <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
         )}
       </div>
     );
@@ -381,7 +418,7 @@ function TeacherTestEditorPage() {
     <div className="flex flex-col gap-8">
       <div>
         <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
-          ← Back to my tests
+          {t('teacherTestEditor.backToTests')}
         </Link>
         <input
           type="text"
@@ -392,19 +429,19 @@ function TeacherTestEditorPage() {
         />
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            Time limit (minutes, optional)
+            {t('teacherTestEditor.settings.timeLimitLabel')}
             <input
               type="number"
               min={1}
               value={timeLimitText}
               onChange={(event) => setTimeLimitText(event.target.value)}
               onBlur={handleSaveTimeLimit}
-              placeholder="No limit"
+              placeholder={t('teacherTestEditor.settings.timeLimitPlaceholder')}
               className="w-32 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            Unit (optional, T-018)
+            {t('teacherTestEditor.settings.unitLabel')}
             <select
               value={test.unitId ?? ''}
               onChange={(event) =>
@@ -412,7 +449,7 @@ function TeacherTestEditorPage() {
               }
               className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
-              <option value="">No unit</option>
+              <option value="">{t('teacherTestEditor.settings.noUnit')}</option>
               {units.map((unit) => (
                 <option key={unit.id} value={unit.id}>
                   {unit.name}
@@ -421,15 +458,15 @@ function TeacherTestEditorPage() {
             </select>
           </label>
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            Test type (T-036)
+            {t('teacherTestEditor.settings.testTypeLabel')}
             <select
               value={test.testType}
               onChange={(event) => handleSaveTestType(event.target.value as TestType)}
               className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
-              {TEST_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {TEST_TYPE_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`teacherTestEditor.testTypes.${value}`)}
                 </option>
               ))}
             </select>
@@ -442,7 +479,7 @@ function TeacherTestEditorPage() {
                 onChange={(event) => handleSavePublished(event.target.checked)}
                 className="h-4 w-4 rounded border-primary-300 text-primary-600 focus:ring-primary-200"
               />
-              Published (visible to students in "Unit Tests")
+              {t('teacherTestEditor.settings.publishedLabel')}
             </label>
           )}
           {test.testType === 'unitTest' && test.unitId && (
@@ -450,7 +487,7 @@ function TeacherTestEditorPage() {
               to={`/units/${test.unitId}/leaderboard`}
               className="text-sm font-medium text-primary-600 hover:underline"
             >
-              View this unit's leaderboard →
+              {t('teacherTestEditor.settings.viewUnitLeaderboard')}
             </Link>
           )}
         </div>
@@ -458,9 +495,9 @@ function TeacherTestEditorPage() {
       </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-bold text-base-black">Sections &amp; questions</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sections.heading')}</h2>
         {test.sections.length === 0 && (
-          <p className="text-sm text-base-black/60">No sections yet — add one below.</p>
+          <p className="text-sm text-base-black/60">{t('teacherTestEditor.sections.empty')}</p>
         )}
         {test.sections.map((section, sectionIndex) => (
           <div key={section.id} className="rounded-xl border border-primary-200 bg-primary-50 p-4">
@@ -478,7 +515,7 @@ function TeacherTestEditorPage() {
                   type="button"
                   onClick={() => handleMoveSection(section.id, 'up')}
                   disabled={sectionIndex === 0}
-                  aria-label="Move section up"
+                  aria-label={t('teacherTestEditor.sections.moveUp')}
                   className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   ↑
@@ -487,7 +524,7 @@ function TeacherTestEditorPage() {
                   type="button"
                   onClick={() => handleMoveSection(section.id, 'down')}
                   disabled={sectionIndex === test.sections.length - 1}
-                  aria-label="Move section down"
+                  aria-label={t('teacherTestEditor.sections.moveDown')}
                   className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   ↓
@@ -497,54 +534,54 @@ function TeacherTestEditorPage() {
                   onClick={() => handleDeleteSection(section.id)}
                   className="ml-2 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
-                  Delete section
+                  {t('teacherTestEditor.sections.delete')}
                 </button>
               </div>
             </div>
 
             <details className="mt-3 rounded-lg border border-primary-100 bg-base-white p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-primary-600">
-                Reading passage / Listening audio (optional)
+                {t('teacherTestEditor.sections.contentSummary')}
               </summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-sm font-medium text-base-black sm:col-span-2">
-                  Passage text (T-039)
+                  {t('teacherTestEditor.sections.passageTextLabel')}
                   <textarea
                     defaultValue={section.passageText ?? ''}
                     onBlur={(event) =>
                       handleUpdateSectionContent(section, { passageText: event.target.value || null })
                     }
                     rows={3}
-                    placeholder="Paste the reading passage here — shown to students above this section's questions."
+                    placeholder={t('teacherTestEditor.sections.passageTextPlaceholder')}
                     className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                  Passage image URL (optional)
+                  {t('teacherTestEditor.sections.passageImageUrlLabel')}
                   <input
                     type="text"
                     defaultValue={section.passageImageUrl ?? ''}
                     onBlur={(event) =>
                       handleUpdateSectionContent(section, { passageImageUrl: event.target.value || null })
                     }
-                    placeholder="https://..."
+                    placeholder={t('teacherTestEditor.sections.urlPlaceholder')}
                     className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                  Audio URL (T-040/T-041, placeholder convention like flashcard audio)
+                  {t('teacherTestEditor.sections.audioUrlLabel')}
                   <input
                     type="text"
                     defaultValue={section.audioUrl ?? ''}
                     onBlur={(event) =>
                       handleUpdateSectionContent(section, { audioUrl: event.target.value || null })
                     }
-                    placeholder="https://..."
+                    placeholder={t('teacherTestEditor.sections.urlPlaceholder')}
                     className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                  Max plays for home self-practice (blank = unlimited)
+                  {t('teacherTestEditor.sections.maxPlaysLabel')}
                   <input
                     type="number"
                     min={1}
@@ -554,7 +591,7 @@ function TeacherTestEditorPage() {
                         maxPlayCount: event.target.value.trim() === '' ? null : Number(event.target.value),
                       })
                     }
-                    placeholder="Unlimited"
+                    placeholder={t('teacherTestEditor.sections.maxPlaysPlaceholder')}
                     className="w-40 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                   />
                 </label>
@@ -581,35 +618,35 @@ function TeacherTestEditorPage() {
                 onClick={() => handleAddQuestion(section.id, 'multipleChoice')}
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
-                + Multiple choice
+                {t('teacherTestEditor.sections.addMultipleChoice')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'trueFalse')}
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
-                + True/False
+                {t('teacherTestEditor.sections.addTrueFalse')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'fillBlank')}
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
-                + Fill in the blank
+                {t('teacherTestEditor.sections.addFillBlank')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'essay')}
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
-                + Essay (Writing)
+                {t('teacherTestEditor.sections.addEssay')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'speaking')}
                 className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
               >
-                + Speaking
+                {t('teacherTestEditor.sections.addSpeaking')}
               </button>
             </div>
           </div>
@@ -617,12 +654,12 @@ function TeacherTestEditorPage() {
 
         <form onSubmit={handleAddSection} className="flex items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            New section title
+            {t('teacherTestEditor.sections.newSectionTitleLabel')}
             <input
               type="text"
               value={newSectionTitle}
               onChange={(event) => setNewSectionTitle(event.target.value)}
-              placeholder="e.g. Reading Comprehension"
+              placeholder={t('teacherTestEditor.sections.newSectionTitlePlaceholder')}
               className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
@@ -631,16 +668,15 @@ function TeacherTestEditorPage() {
             disabled={!newSectionTitle.trim()}
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Add section
+            {t('teacherTestEditor.sections.addSection')}
           </button>
         </form>
       </section>
 
       <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">Test variants ("mã đề")</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.variants.heading')}</h2>
         <p className="mt-1 text-sm text-base-black/60">
-          Each variant shuffles question order (within each section) and choice order (within each
-          question) while keeping the correct answer for every question intact.
+          {t('teacherTestEditor.variants.description')}
         </p>
         <button
           type="button"
@@ -648,7 +684,9 @@ function TeacherTestEditorPage() {
           disabled={isGeneratingVariants}
           className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isGeneratingVariants ? 'Generating...' : 'Generate 2 more variants'}
+          {isGeneratingVariants
+            ? t('teacherTestEditor.variants.generating')
+            : t('teacherTestEditor.variants.generate')}
         </button>
         {variantError && <p className="mt-2 text-sm text-red-700">{variantError}</p>}
         <ul className="mt-4 flex flex-wrap gap-2">
@@ -657,19 +695,19 @@ function TeacherTestEditorPage() {
               key={variant.id}
               className="rounded-full bg-primary-100 px-4 py-1.5 text-sm font-semibold text-primary-700"
             >
-              Mã đề {variant.code}
+              {t('teacherTestEditor.variants.code', { code: variant.code })}
             </li>
           ))}
           {variants.length === 0 && (
-            <p className="text-sm text-base-black/60">No variants generated yet.</p>
+            <p className="text-sm text-base-black/60">{t('teacherTestEditor.variants.empty')}</p>
           )}
         </ul>
       </section>
 
       <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">QR join sessions</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sessions.heading')}</h2>
         <p className="mt-1 text-sm text-base-black/60">
-          Starting a new session automatically closes any previous active session for this test.
+          {t('teacherTestEditor.sessions.description')}
         </p>
         <button
           type="button"
@@ -677,7 +715,9 @@ function TeacherTestEditorPage() {
           disabled={isStartingSession}
           className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isStartingSession ? 'Starting...' : 'Start new session'}
+          {isStartingSession
+            ? t('teacherTestEditor.sessions.starting')
+            : t('teacherTestEditor.sessions.start')}
         </button>
         {sessionError && <p className="mt-2 text-sm text-red-700">{sessionError}</p>}
 
@@ -685,22 +725,24 @@ function TeacherTestEditorPage() {
           <div className="mt-4 flex flex-col items-start gap-3 rounded-lg border border-primary-200 bg-primary-50 p-4 sm:flex-row sm:items-center">
             <img
               src={currentSession.qrCodeDataUrl}
-              alt={`QR code to join ${test.title}`}
+              alt={t('teacherTestEditor.sessions.qrCodeAlt', { title: test.title })}
               className="h-40 w-40 rounded-md border border-primary-200 bg-base-white p-2"
             />
             <div>
-              <p className="text-sm text-base-black/70">Scan the QR code, or use the join link:</p>
+              <p className="text-sm text-base-black/70">{t('teacherTestEditor.sessions.scanOrJoin')}</p>
               <p className="mt-1 break-all font-mono text-sm text-primary-700">
                 {currentSession.joinUrl}
               </p>
               <p className="mt-2 text-sm text-base-black/70">
-                Manual fallback code:{' '}
+                {t('teacherTestEditor.sessions.manualFallbackCode')}{' '}
                 <span className="font-mono text-lg font-bold tracking-widest text-primary-700">
                   {currentSession.manualCode}
                 </span>
               </p>
               <p className="mt-1 text-xs uppercase text-base-black/50">
-                Status: {currentSession.status}
+                {t('teacherTestEditor.sessions.statusLabel', {
+                  status: t(`teacherTestEditor.sessions.statusValues.${currentSession.status}`),
+                })}
               </p>
             </div>
           </div>
@@ -713,13 +755,17 @@ function TeacherTestEditorPage() {
               className="flex items-center justify-between rounded-md border border-primary-100 px-3 py-2 text-sm"
             >
               <span>
-                Code <span className="font-mono font-semibold">{session.manualCode}</span> ·{' '}
+                {t('teacherTestEditor.sessions.codeLabel')}{' '}
+                <span className="font-mono font-semibold">{session.manualCode}</span> ·{' '}
                 <span
                   className={session.status === 'active' ? 'text-green-700' : 'text-base-black/50'}
                 >
-                  {session.status}
+                  {t(`teacherTestEditor.sessions.statusValues.${session.status}`)}
                 </span>{' '}
-                · started {new Date(session.createdAt).toLocaleString()}
+                ·{' '}
+                {t('teacherTestEditor.sessions.startedAt', {
+                  date: new Date(session.createdAt).toLocaleString(),
+                })}
               </span>
               <span className="flex items-center gap-3">
                 <button
@@ -727,14 +773,14 @@ function TeacherTestEditorPage() {
                   onClick={() => navigate(`/teacher/sessions/${session.id}/live`)}
                   className="text-xs font-medium text-primary-600 hover:underline"
                 >
-                  Live monitor
+                  {t('teacherTestEditor.sessions.liveMonitor')}
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate(`/teacher/sessions/${session.id}/attempts`)}
                   className="text-xs font-medium text-primary-600 hover:underline"
                 >
-                  View attempts
+                  {t('teacherTestEditor.sessions.viewAttempts')}
                 </button>
                 {session.status === 'active' && (
                   <button
@@ -742,14 +788,14 @@ function TeacherTestEditorPage() {
                     onClick={() => handleCloseSession(session.id)}
                     className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                   >
-                    Close
+                    {t('teacherTestEditor.sessions.close')}
                   </button>
                 )}
               </span>
             </li>
           ))}
           {sessions.length === 0 && (
-            <p className="text-sm text-base-black/60">No sessions started yet.</p>
+            <p className="text-sm text-base-black/60">{t('teacherTestEditor.sessions.empty')}</p>
           )}
         </ul>
       </section>
