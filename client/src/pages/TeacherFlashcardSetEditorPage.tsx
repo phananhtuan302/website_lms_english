@@ -168,6 +168,8 @@ function TeacherFlashcardSetEditorPage() {
         {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       </div>
 
+      <FlashcardExcelImportPanel setId={setId} onImported={setSet} />
+
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-bold text-base-black">{t('teacherFlashcardSetEditor.cardsHeading')}</h2>
         {set.cards.length === 0 && (
@@ -194,8 +196,6 @@ function TeacherFlashcardSetEditorPage() {
             {isAddingCard ? t('teacherFlashcardSetEditor.addingCard') : t('teacherFlashcardSetEditor.addCardButton')}
           </button>
         </form>
-
-        <FlashcardExcelImportPanel setId={setId} onImported={setSet} />
       </section>
 
       <section className="flex flex-col gap-3">
