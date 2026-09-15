@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev — Lock a student into an in-progress test attempt
+
+- Task IDs touched: T-091
+- What changed: a new `AttemptLockContext` (three-file split mirroring `AuthContext`'s existing convention) tracks, for student accounts only, whether any `Attempt` is currently `status: 'inProgress'` (re-checked via the existing `GET /api/attempts` on every route change — no new endpoint). While locked, `Header.tsx` hides every nav link, the dashboard link, and the log-out button, replacing them with an inline notice; a route-level effect force-redirects (`replace`) back to `/student/attempts/:id` for that exact attempt on ANY navigation attempt — typed URLs, browser back/forward, anything — since detection is server-derived, not a local flag a student could clear to escape it.
+- Why / decisions made: the task's own acceptance criteria flagged a specific race condition up front — clearing the lock only via the next passive route-triggered re-fetch would leave a window right after submit where the student could be incorrectly bounced back to the take-test screen instead of seeing their own result. Fixed by having `TakeTestPage.tsx` call the context's `clearLock()` synchronously the moment `submitAttempt()` resolves (and on the two other paths where an attempt turns out to already be submitted), before navigating to the result page — verified for real with an extra settle-time wait in Dev's test script, not just assumed correct from reading the code. Scope was deliberately kept to the `Attempt`-based take-test runtime only — T-089's "Tự kiểm tra" self-check quiz and every other student activity (flashcards, Grammar, games) never creates an `Attempt` row, so this lock naturally doesn't and shouldn't apply to them.
+- Status after this entry: T-091 Done, commit `e6748eb`. Nothing further queued as of this entry.
+
 ## 2026-09-15 — Dev/Leader — File upload for Section media, "test1" authored as a full IELTS mock test
 
 - Task IDs touched: T-090
