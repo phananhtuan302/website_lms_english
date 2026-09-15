@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev — Wire T-087's detailed report into the Reports hub
+
+- Task IDs touched: T-088
+- What changed: `TeacherReportsPage.tsx` (shared by the "Bài kiểm tra" and "Kiểm tra Unit" tabs) and `TeacherSpeakingReportsPage.tsx` ("Nói" tab) each gained a "Xem báo cáo chi tiết" link, shown only when a specific test is selected in their existing `testId` filter, pointing at T-087's `/teacher/tests/:testId/report` page with the currently-viewed `classId` carried through as a query param. `TeacherTestAttemptsReportPage.tsx`/`useTeacherClasses.ts` were extended (`initialClassId`, backward-compatible) so that hand-off actually pre-scopes the class instead of leaving it unpicked. Dev verified live across all 3 tabs (link absence on "all tests", correct href, correct class pre-selection after navigating) with throwaway tests cleaned up after. No independent Test agent dispatched, matching the customer's standing "keep verification scoped and light" request.
+- Why / decisions made: this closes out T-088 without touching the "Từ vựng"/"Ngữ pháp" tabs, per the scope note already recorded in `docs/BACKLOG.md` — those use a different aggregate-log data shape with no single per-submission score to rank by, and building an equivalent for them was explicitly deferred as separate future work unless requested.
+- Status after this entry: T-088 Done, commit `87aeb81`. **This is the last of the currently-queued customer feature requests (T-085 through T-088) — nothing is left in the active queue as of this entry.**
+
 ## 2026-09-15 — Dev/Leader — Vocabulary Check redesign, test report + delete, small UX fixes
 
 - Task IDs touched: T-086, T-087
