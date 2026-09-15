@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Bulk Excel import for flashcard set cards
+
+- Task IDs touched: T-085
+- What changed: Dev added client-side `.xlsx`/`.xls` parsing (SheetJS `xlsx`) with a live preview (valid rows vs. per-row errors) and a downloadable header-only template, wired into `TeacherFlashcardSetEditorPage.tsx`, submitting to a new `POST /flashcard-sets/:setId/cards/bulk` endpoint. The endpoint re-validates every row server-side with the exact same rules the existing single-card route already enforces, caps at 500 rows, and uses partial-success atomicity (valid rows are saved even when others fail, with `{row, message}` errors for the rest) — documented in the route's own comment as the more forgiving choice for a realistic "a few bad rows in an otherwise-good spreadsheet" failure mode. Test independently re-verified with its own 48-check adversarial script (order continuity, mixed valid/invalid batches with correct row indices, the 500/501 cap boundary, cross-tenant 404, auth/role checks, malformed bodies) — all PASS.
+- Why / decisions made: **process change requested by the customer during this task** — verification is now scoped to the feature just built, not a full-system regression pass, per explicit feedback that re-checking the whole system on every small addition is too slow/costly. Applied starting with this task's Test pass (skipped the full `npm run test:e2e` run entirely) and going forward for scoped, self-contained changes. Also newly relevant: the shared dev database now holds real customer data (see below), so the sandbox's own permission classifier already blocks broad mutating operations like a full e2e suite run against it — a second, independent reason full-suite runs are no longer routine.
+- Status after this entry: T-085 Done. Separately (not a task, an operational action at the customer's request): the shared dev database was reset to remove all prior demo/QA data and now holds one real admin, one real teacher (`teacher.1a1@example.com`), one real class ("1A1"), and 40 real student accounts — full credentials handed to the customer directly (gitignored `class-1A1-credentials.csv`, never committed). The e2e suite's own fixture accounts (`teacher@example.com`, "Class 6A"/"Class 6B", a demo Test/FlashcardSet/GrammarTopic, sample Units) were separately restored afterward since `global-setup.ts` depends on them existing — confirmed not to overlap with or affect the real "1A1" data.
+
 ## 2026-09-15 — Dev+QA/Test — Adversarial cross-class isolation pass — Phase 12 complete
 
 - Task IDs touched: T-078, T-083
