@@ -25,13 +25,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// The two account roles defined by TECH_STACK.md. Mirrors the `UserRole` type
-/// already exported from `@platform/shared` — kept as a separate Prisma enum
-/// because Prisma enums can't import a TS union, but the string values match
-/// exactly so mapping between them is a no-op.
+/// The account roles defined by TECH_STACK.md, extended 2026-09-15 (T-069, Phase 11,
+/// PROJECT_PLAN Assumption A12) with `admin`. Mirrors the `UserRole` type already
+/// exported from `@platform/shared` — kept as a separate Prisma enum because Prisma
+/// enums can't import a TS union, but the string values match exactly so mapping
+/// between them is a no-op.
 enum Role {
   teacher
   student
+  /// One seeded account only (`admin@example.com` / `123456`, Assumption A12). Bypasses
+  /// every per-teacher ownership check in the system rather than owning a separate
+  /// parallel data set — see `server/src/lib/authz.ts`'s `isAdminOrOwner` for the single
+  /// shared rule every ownership-check helper (`ownedTest.ts`, `ownedFlashcardSet.ts`,
+  /// `ownedGrammarTopic.ts`, ...) applies.
+  admin
 }
 
 /// Base account for both teachers and students. Per PROJECT_PLAN Assumption A1,
@@ -908,4 +915,40 @@ model GrammarExerciseAttempt {
   @@index([topicId])
   @@index([createdAt])
   @@map("grammar_exercise_attempts")
+}
+
+// --- Site-wide settings (T-067, Phase 10 Vietnamese localization) -------------------
+// A single global, admin-controlled setting: the current UI language. This is NOT a
+// per-user preference and there is NO public switcher anywhere in the product
+// (PROJECT_PLAN Guiding Principle 3, Assumption A13) — every visitor, logged in or not,
+// sees the same admin-chosen language.
+
+/// The two supported UI languages (Assumption A13). Mirrors the `SiteLanguage` string
+/// union this task also adds to `@platform/shared` — same "Prisma enum can't import a TS
+/// union, string values match exactly" convention as `Role`/`UserRole`.
+enum SiteLanguage {
+  en
+  vi
+}
+
+/// Singleton settings row (T-067). `id` is always the fixed string `"singleton"` — there
+/// is exactly one row, ever; every read/write targets `id: SETTINGS_ID` (see the
+/// matching constant in `server/src/routes/settings.routes.ts`) rather than modeling
+/// this as a keyed table with lookups. `language` defaults to `en` per Assumption A13
+/// ("English is the default until an admin changes it").
+///
+/// THIS TASK (T-067) ONLY BUILDS THE READ SIDE: `GET /api/settings` (public, no auth —
+/// see `server/src/routes/settings.routes.ts`) so even a logged-out visitor sees the
+/// current language before logging in. The WRITE side is explicitly a FUTURE task
+/// (T-072, Admin Settings page — someone else's job) — writing to this setting is simply
+/// `prisma.settings.upsert({ where: { id: SETTINGS_ID }, update: { language }, create: {
+/// id: SETTINGS_ID, language } })`, gated behind `requireAuth, requireRole('admin')` on a
+/// new `PATCH /api/admin/settings` route. Nothing about this shape needs to change for
+/// that endpoint to be trivial to add.
+model Settings {
+  id        String       @id @default("singleton")
+  language  SiteLanguage @default(en)
+  updatedAt DateTime     @updatedAt
+
+  @@map("settings")
 }

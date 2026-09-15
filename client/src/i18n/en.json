@@ -1,0 +1,120 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "logOut": "Log out",
+    "goToHomePage": "Go to home page"
+  },
+  "roles": {
+    "teacher": "Teacher",
+    "student": "Student"
+  },
+  "header": {
+    "dashboard": "Dashboard",
+    "register": "Register",
+    "logIn": "Log in",
+    "logOut": "Log out",
+    "nav": {
+      "teacher": {
+        "myTests": "My Tests",
+        "flashcards": "Flashcards",
+        "grammar": "Grammar",
+        "unitTests": "Unit Tests",
+        "vocabularyCheck": "Vocabulary Check",
+        "curriculum": "Curriculum",
+        "reports": "Reports"
+      },
+      "student": {
+        "practiceTests": "Practice Tests",
+        "flashcards": "Flashcards",
+        "grammar": "Grammar",
+        "unitTests": "Unit Tests",
+        "vocabularyCheck": "Vocabulary Check",
+        "leaderboard": "Leaderboard"
+      }
+    }
+  },
+  "home": {
+    "subtitle": "Test, learn, and track progress in English — tests with QR check-in, vocabulary and grammar practice, and Speaking with instant feedback, all in one place for teachers and students.",
+    "goToDashboard": "Go to your dashboard",
+    "createStudentAccount": "Create a student account",
+    "logIn": "Log in",
+    "highlights": {
+      "tests": {
+        "title": "Tests & QR check-in",
+        "description": "Teachers author tests with shuffled question variants; students join in class by scanning a QR code or self-practice anytime."
+      },
+      "vocabGrammar": {
+        "title": "Vocabulary & Grammar",
+        "description": "Flashcards, six exercise types, arcade-style games, and a full Grammar module with theory, practice, and reports."
+      },
+      "speaking": {
+        "title": "Speaking, graded",
+        "description": "Record spoken answers in-browser and get an instant score and feedback."
+      },
+      "progress": {
+        "title": "Progress for everyone",
+        "description": "Live in-class monitoring for teachers, and reports, rankings, and leaderboards for every module."
+      }
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "genericError": "Something went wrong. Please try again.",
+    "login": {
+      "heading": "Log in",
+      "submitting": "Logging in...",
+      "submit": "Log in",
+      "newStudentPrompt": "New student?",
+      "createAccountLink": "Create an account"
+    },
+    "register": {
+      "heading": "Create a student account",
+      "name": "Name",
+      "passwordHint": "At least {{count}} characters.",
+      "submitting": "Creating account...",
+      "submit": "Create account",
+      "alreadyHaveAccount": "Already have an account?",
+      "logInLink": "Log in",
+      "teacherNote": "Teacher accounts are provisioned by the school, not through self-registration — ask your administrator if you need one."
+    }
+  },
+  "unauthorized": {
+    "heading": "Access denied",
+    "message": "You don't have permission to view that page with your current account."
+  },
+  "notFound": {
+    "heading": "Page not found",
+    "message": "The page you're looking for doesn't exist."
+  },
+  "teacherDashboard": {
+    "heading": "Teacher dashboard",
+    "welcome": "Welcome, {{name}}.",
+    "manageTests": "Manage my tests",
+    "manageCurriculum": "Manage curriculum (Units & Academic Periods)",
+    "manageFlashcards": "Manage flashcard sets & vocabulary",
+    "viewReports": "View reports (Test, Unit Test, Vocabulary, Grammar, Speaking)",
+    "vocabLeaderboard": "Vocabulary leaderboard",
+    "manageGrammar": "Manage Grammar topics",
+    "unitTests": "Unit Tests",
+    "vocabularyCheck": "Vocabulary Check"
+  },
+  "studentDashboard": {
+    "heading": "Student dashboard",
+    "welcome": "Welcome, {{name}}. Scan or open a teacher's join link to start a test — it will appear below once you've joined.",
+    "studyVocabulary": "Study vocabulary",
+    "practiceAtHome": "Practice a test at home",
+    "myVocabProgress": "My vocabulary progress",
+    "vocabLeaderboard": "Vocabulary leaderboard",
+    "studyGrammar": "Study Grammar",
+    "unitTests": "Unit Tests",
+    "vocabularyCheck": "Vocabulary Check",
+    "myAttemptsHeading": "My test attempts",
+    "loadFailed": "Failed to load your attempts.",
+    "noAttempts": "You haven't joined any tests yet.",
+    "scoreLine": "Score: {{percent}}% ({{correct}}/{{total}})",
+    "inProgress": "In progress",
+    "viewResult": "View result →",
+    "resumeTest": "Resume test →"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "common": {
+    "loading": "Đang tải...",
+    "logOut": "Đăng xuất",
+    "goToHomePage": "Về trang chủ"
+  },
+  "roles": {
+    "teacher": "Giáo viên",
+    "student": "Học sinh"
+  },
+  "header": {
+    "dashboard": "Trang tổng quan",
+    "register": "Đăng ký",
+    "logIn": "Đăng nhập",
+    "logOut": "Đăng xuất",
+    "nav": {
+      "teacher": {
+        "myTests": "Bài kiểm tra của tôi",
+        "flashcards": "Thẻ từ vựng",
+        "grammar": "Ngữ pháp",
+        "unitTests": "Kiểm tra Unit",
+        "vocabularyCheck": "Kiểm tra từ vựng",
+        "curriculum": "Chương trình học",
+        "reports": "Báo cáo"
+      },
+      "student": {
+        "practiceTests": "Luyện tập",
+        "flashcards": "Thẻ từ vựng",
+        "grammar": "Ngữ pháp",
+        "unitTests": "Kiểm tra Unit",
+        "vocabularyCheck": "Kiểm tra từ vựng",
+        "leaderboard": "Bảng xếp hạng"
+      }
+    }
+  },
+  "home": {
+    "subtitle": "Kiểm tra, học tập và theo dõi tiến độ tiếng Anh — bài kiểm tra với điểm danh bằng mã QR, luyện từ vựng và ngữ pháp, cùng phần Nói được chấm điểm tức thì, tất cả trong một nền tảng dành cho cả giáo viên và học sinh.",
+    "goToDashboard": "Đi đến trang tổng quan của bạn",
+    "createStudentAccount": "Tạo tài khoản học sinh",
+    "logIn": "Đăng nhập",
+    "highlights": {
+      "tests": {
+        "title": "Bài kiểm tra & Điểm danh QR",
+        "description": "Giáo viên soạn bài kiểm tra với các mã đề được xáo trộn ngẫu nhiên; học sinh tham gia lớp học bằng cách quét mã QR hoặc tự luyện tập bất cứ lúc nào."
+      },
+      "vocabGrammar": {
+        "title": "Từ vựng & Ngữ pháp",
+        "description": "Thẻ từ vựng, sáu dạng bài luyện tập, các trò chơi phong cách arcade, và học phần Ngữ pháp đầy đủ với lý thuyết, luyện tập và báo cáo."
+      },
+      "speaking": {
+        "title": "Luyện Nói, có chấm điểm",
+        "description": "Ghi âm câu trả lời ngay trên trình duyệt và nhận điểm số cùng nhận xét tức thì."
+      },
+      "progress": {
+        "title": "Tiến độ cho mọi người",
+        "description": "Giám sát trực tiếp trong lớp học dành cho giáo viên, cùng báo cáo, xếp hạng và bảng thành tích cho mọi học phần."
+      }
+    }
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Mật khẩu",
+    "genericError": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "login": {
+      "heading": "Đăng nhập",
+      "submitting": "Đang đăng nhập...",
+      "submit": "Đăng nhập",
+      "newStudentPrompt": "Học sinh mới?",
+      "createAccountLink": "Tạo tài khoản"
+    },
+    "register": {
+      "heading": "Tạo tài khoản học sinh",
+      "name": "Họ và tên",
+      "passwordHint": "Tối thiểu {{count}} ký tự.",
+      "submitting": "Đang tạo tài khoản...",
+      "submit": "Tạo tài khoản",
+      "alreadyHaveAccount": "Đã có tài khoản?",
+      "logInLink": "Đăng nhập",
+      "teacherNote": "Tài khoản giáo viên do trung tâm cấp, không thể tự đăng ký — vui lòng liên hệ quản trị viên nếu bạn cần một tài khoản."
+    }
+  },
+  "unauthorized": {
+    "heading": "Truy cập bị từ chối",
+    "message": "Tài khoản hiện tại của bạn không có quyền truy cập trang này."
+  },
+  "notFound": {
+    "heading": "Không tìm thấy trang",
+    "message": "Trang bạn đang tìm kiếm không tồn tại."
+  },
+  "teacherDashboard": {
+    "heading": "Trang tổng quan giáo viên",
+    "welcome": "Chào mừng, {{name}}.",
+    "manageTests": "Quản lý bài kiểm tra của tôi",
+    "manageCurriculum": "Quản lý chương trình học (Unit & Học kỳ)",
+    "manageFlashcards": "Quản lý bộ thẻ từ vựng",
+    "viewReports": "Xem báo cáo (Bài kiểm tra, Kiểm tra Unit, Từ vựng, Ngữ pháp, Nói)",
+    "vocabLeaderboard": "Bảng xếp hạng từ vựng",
+    "manageGrammar": "Quản lý chủ đề ngữ pháp",
+    "unitTests": "Kiểm tra Unit",
+    "vocabularyCheck": "Kiểm tra từ vựng"
+  },
+  "studentDashboard": {
+    "heading": "Trang tổng quan học sinh",
+    "welcome": "Chào mừng, {{name}}. Quét mã hoặc mở liên kết tham gia của giáo viên để bắt đầu bài kiểm tra — bài kiểm tra sẽ hiện ở bên dưới ngay sau khi bạn tham gia.",
+    "studyVocabulary": "Học từ vựng",
+    "practiceAtHome": "Luyện tập bài kiểm tra tại nhà",
+    "myVocabProgress": "Tiến độ từ vựng của tôi",
+    "vocabLeaderboard": "Bảng xếp hạng từ vựng",
+    "studyGrammar": "Học ngữ pháp",
+    "unitTests": "Kiểm tra Unit",
+    "vocabularyCheck": "Kiểm tra từ vựng",
+    "myAttemptsHeading": "Các lần làm bài của tôi",
+    "loadFailed": "Không thể tải danh sách bài đã làm.",
+    "noAttempts": "Bạn chưa tham gia bài kiểm tra nào.",
+    "scoreLine": "Điểm: {{percent}}% ({{correct}}/{{total}})",
+    "inProgress": "Đang làm bài",
+    "viewResult": "Xem kết quả →",
+    "resumeTest": "Tiếp tục làm bài →"
+  }
+}

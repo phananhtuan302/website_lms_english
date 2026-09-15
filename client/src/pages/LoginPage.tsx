@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
+import { dashboardPathForRole } from '../lib/roles';
 
 interface LocationState {
   from?: { pathname: string };
@@ -14,6 +16,7 @@ interface LocationState {
  */
 function LoginPage() {
   const { login, user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -34,12 +37,7 @@ function LoginPage() {
   // the join page).
   if (user) {
     const from = (location.state as LocationState | null)?.from?.pathname;
-    return (
-      <Navigate
-        to={from ?? (user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard')}
-        replace
-      />
-    );
+    return <Navigate to={from ?? dashboardPathForRole(user.role)} replace />;
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -49,11 +47,9 @@ function LoginPage() {
     try {
       const loggedInUser = await login({ email, password });
       const from = (location.state as LocationState | null)?.from?.pathname;
-      const fallback =
-        loggedInUser.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
-      navigate(from ?? fallback, { replace: true });
+      navigate(from ?? dashboardPathForRole(loggedInUser.role), { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setError(err instanceof ApiError ? err.message : t('auth.genericError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -61,10 +57,10 @@ function LoginPage() {
 
   return (
     <div className="mx-auto max-w-sm">
-      <h1 className="mb-6 text-2xl font-bold text-primary-700">Log in</h1>
+      <h1 className="mb-6 text-2xl font-bold text-primary-700">{t('auth.login.heading')}</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Email
+          {t('auth.email')}
           <input
             type="email"
             required
@@ -75,7 +71,7 @@ function LoginPage() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Password
+          {t('auth.password')}
           <input
             type="password"
             required
@@ -100,14 +96,14 @@ function LoginPage() {
           disabled={isSubmitting}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Logging in...' : 'Log in'}
+          {isSubmitting ? t('auth.login.submitting') : t('auth.login.submit')}
         </button>
       </form>
 
       <p className="mt-4 text-sm text-base-black/70">
-        New student?{' '}
+        {t('auth.login.newStudentPrompt')}{' '}
         <Link to="/register" className="font-medium text-primary-600 hover:underline">
-          Create an account
+          {t('auth.login.createAccountLink')}
         </Link>
       </p>
     </div>

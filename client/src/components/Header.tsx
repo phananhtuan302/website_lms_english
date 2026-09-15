@@ -1,8 +1,22 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { APP_NAME } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
+import { dashboardPathForRole } from '../lib/roles';
 
 interface NavItem {
+  labelKey: string;
+  to: string;
+}
+
+/** Plain-string nav item for the admin role (T-069) — deliberately NOT run through the
+ * `labelKey`/`t()` i18n pattern the teacher/student items above use: this codebase's i18n
+ * sweep (T-067/T-068) is a separate, concurrently-running batch of work scoped to
+ * specific pages, and Admin is brand new in this batch — writing plain English here
+ * (same as every other not-yet-swept page in the app) lets that same later sweep find and
+ * wrap these labels too, rather than this task reaching into the i18n resource files
+ * itself. */
+interface PlainNavItem {
   label: string;
   to: string;
 }
@@ -15,24 +29,37 @@ interface NavItem {
  * the persistent top nav a user actually tries first). Mirrors the link set already on
  * `TeacherDashboardPage`/`StudentDashboardPage` so the same feature has the same label in
  * both places.
+ *
+ * Labels are i18n keys (T-067), not raw strings — resolved via `t()` at render time so
+ * the site-wide language setting (never a per-user switcher, see PROJECT_PLAN Guiding
+ * Principle 3) is respected here too.
  */
 const TEACHER_NAV_ITEMS: NavItem[] = [
-  { label: 'My Tests', to: '/teacher/tests' },
-  { label: 'Flashcards', to: '/teacher/flashcard-sets' },
-  { label: 'Grammar', to: '/teacher/grammar-topics' },
-  { label: 'Unit Tests', to: '/teacher/unit-tests' },
-  { label: 'Vocabulary Check', to: '/teacher/vocabulary-checks' },
-  { label: 'Curriculum', to: '/teacher/curriculum' },
-  { label: 'Reports', to: '/teacher/reports' },
+  { labelKey: 'header.nav.teacher.myTests', to: '/teacher/tests' },
+  { labelKey: 'header.nav.teacher.flashcards', to: '/teacher/flashcard-sets' },
+  { labelKey: 'header.nav.teacher.grammar', to: '/teacher/grammar-topics' },
+  { labelKey: 'header.nav.teacher.unitTests', to: '/teacher/unit-tests' },
+  { labelKey: 'header.nav.teacher.vocabularyCheck', to: '/teacher/vocabulary-checks' },
+  { labelKey: 'header.nav.teacher.curriculum', to: '/teacher/curriculum' },
+  { labelKey: 'header.nav.teacher.reports', to: '/teacher/reports' },
 ];
 
 const STUDENT_NAV_ITEMS: NavItem[] = [
-  { label: 'Practice Tests', to: '/student/practice' },
-  { label: 'Flashcards', to: '/student/flashcard-sets' },
-  { label: 'Grammar', to: '/student/grammar-topics' },
-  { label: 'Unit Tests', to: '/student/unit-tests' },
-  { label: 'Vocabulary Check', to: '/student/vocabulary-checks' },
-  { label: 'Leaderboard', to: '/vocab-leaderboard' },
+  { labelKey: 'header.nav.student.practiceTests', to: '/student/practice' },
+  { labelKey: 'header.nav.student.flashcards', to: '/student/flashcard-sets' },
+  { labelKey: 'header.nav.student.grammar', to: '/student/grammar-topics' },
+  { labelKey: 'header.nav.student.unitTests', to: '/student/unit-tests' },
+  { labelKey: 'header.nav.student.vocabularyCheck', to: '/student/vocabulary-checks' },
+  { labelKey: 'header.nav.student.leaderboard', to: '/vocab-leaderboard' },
+];
+
+/** Admin nav set (T-069/T-071) — shown only when `user.role === 'admin'`, mirroring the
+ * teacher/student arrays above in shape and intent (one item per top-level admin area). */
+const ADMIN_NAV_ITEMS: PlainNavItem[] = [
+  { label: 'Users', to: '/admin/users' },
+  { label: 'Tests', to: '/admin/tests' },
+  { label: 'Flashcard sets', to: '/admin/flashcard-sets' },
+  { label: 'Grammar topics', to: '/admin/grammar-topics' },
 ];
 
 /**
@@ -45,12 +72,18 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
  * Logged-out visitors get NO feature nav items — every one of them sits behind
  * `ProtectedRoute` and would just bounce a logged-out click to `/login` anyway, which
  * reads as "broken" rather than "please log in first." Register/Log in are enough.
+ *
+ * `APP_NAME` (the brand name) is deliberately NOT run through `t()` (T-067) — a product
+ * name/wordmark isn't translated content, same convention as any real brand name.
  */
 function Header() {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   const location = useLocation();
-  const dashboardPath = user?.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
-  const navItems = user?.role === 'teacher' ? TEACHER_NAV_ITEMS : user?.role === 'student' ? STUDENT_NAV_ITEMS : [];
+  const dashboardPath = user ? dashboardPathForRole(user.role) : '/student/dashboard';
+  const navItems =
+    user?.role === 'teacher' ? TEACHER_NAV_ITEMS : user?.role === 'student' ? STUDENT_NAV_ITEMS : [];
+  const adminNavItems = user?.role === 'admin' ? ADMIN_NAV_ITEMS : [];
 
   return (
     <header className="border-b border-primary-200 bg-base-white">
@@ -68,11 +101,22 @@ function Header() {
                   aria-current={location.pathname === dashboardPath ? 'page' : undefined}
                   className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
-                  Dashboard
+                  {t('header.dashboard')}
                 </Link>
               </li>
             )}
             {navItems.map((item) => (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  aria-current={location.pathname.startsWith(item.to) ? 'page' : undefined}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                >
+                  {t(item.labelKey)}
+                </Link>
+              </li>
+            ))}
+            {adminNavItems.map((item) => (
               <li key={item.to}>
                 <Link
                   to={item.to}
@@ -90,14 +134,16 @@ function Header() {
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-base-black/70">
               {user.name}{' '}
-              <span className="text-xs font-medium uppercase text-primary-600">({user.role})</span>
+              <span className="text-xs font-medium uppercase text-primary-600">
+                ({user.role === 'teacher' || user.role === 'student' ? t(`roles.${user.role}`) : user.role})
+              </span>
             </span>
             <button
               type="button"
               onClick={logout}
               className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
-              Log out
+              {t('header.logOut')}
             </button>
           </div>
         ) : (
@@ -106,13 +152,13 @@ function Header() {
               to="/register"
               className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700"
             >
-              Register
+              {t('header.register')}
             </Link>
             <Link
               to="/login"
               className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
-              Log in
+              {t('header.logIn')}
             </Link>
           </div>
         )}

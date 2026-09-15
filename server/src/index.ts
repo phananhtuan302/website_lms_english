@@ -24,6 +24,9 @@ import { teacherUnitTestsRouter } from './routes/teacherUnitTests.routes';
 import { teacherVocabularyCheckRouter } from './routes/teacherVocabularyCheck.routes';
 import { studentAssignedTestsRouter } from './routes/studentAssignedTests.routes';
 import { unitLeaderboardRouter } from './routes/unitLeaderboard.routes';
+import { settingsRouter } from './routes/settings.routes';
+import { adminUsersRouter } from './routes/adminUsers.routes';
+import { adminContentRouter } from './routes/adminContent.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -55,6 +58,12 @@ app.get(HEALTH_CHECK_PATH, (_req, res) => {
   };
   res.status(200).json(body);
 });
+
+// Public site-wide settings (T-067, Phase 10 localization): currently just the global
+// UI language, readable by anyone — including a logged-out visitor — with no auth
+// header at all. See `settings.routes.ts`'s module doc comment for the documented
+// write-side (Admin-only, T-072) this DB shape is ready for.
+app.use('/api/settings', settingsRouter);
 
 // Auth endpoints (T-005): student self-registration + login for both roles.
 app.use('/api/auth', authRouter);
@@ -137,6 +146,15 @@ app.use('/api/student', studentAssignedTestsRouter);
 // `computeReport` engine. Own top-level mount point (`/api/units`), distinct from
 // `/api/teacher/units` (curriculum Unit CRUD, T-018) — see that router's doc comment.
 app.use('/api/units', unitLeaderboardRouter);
+
+// Admin-only user management (T-070) + content-oversight "browse everything" list views
+// (T-071). Own top-level mount point (`/api/admin`), distinct from `/api/teacher` — the
+// actual per-item view/edit/delete for Tests/Flashcard sets/Grammar topics reuses the
+// EXISTING `/api/teacher/...` routers above, which now also accept an admin caller (see
+// each router's own doc comment for the `requireRole('teacher', 'admin')` + ownership-
+// check extension) — only the admin-only roster + browse-all lists live here.
+app.use('/api/admin', adminUsersRouter);
+app.use('/api/admin', adminContentRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

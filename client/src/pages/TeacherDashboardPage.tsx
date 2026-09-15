@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 
 /**
@@ -10,60 +11,63 @@ import { useAuth } from '../context/useAuth';
  */
 function TeacherDashboardPage() {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="rounded-xl border border-primary-100 bg-primary-50 p-8">
-      <h1 className="text-2xl font-bold text-primary-700">Teacher dashboard</h1>
-      <p className="mt-2 text-base-black/70">Welcome, {user?.name}.</p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('teacherDashboard.heading')}</h1>
+      <p className="mt-2 text-base-black/70">
+        {t('teacherDashboard.welcome', { name: user?.name })}
+      </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           to="/teacher/tests"
           className="inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
-          Manage my tests
+          {t('teacherDashboard.manageTests')}
         </Link>
         <Link
           to="/teacher/curriculum"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Manage curriculum (Units &amp; Academic Periods)
+          {t('teacherDashboard.manageCurriculum')}
         </Link>
         <Link
           to="/teacher/flashcard-sets"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Manage flashcard sets &amp; vocabulary
+          {t('teacherDashboard.manageFlashcards')}
         </Link>
         <Link
           to="/teacher/reports"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          View reports (Test, Unit Test, Vocabulary, Grammar, Speaking)
+          {t('teacherDashboard.viewReports')}
         </Link>
         <Link
           to="/vocab-leaderboard"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Vocabulary leaderboard
+          {t('teacherDashboard.vocabLeaderboard')}
         </Link>
         <Link
           to="/teacher/grammar-topics"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Manage Grammar topics
+          {t('teacherDashboard.manageGrammar')}
         </Link>
         <Link
           to="/teacher/unit-tests"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Unit Tests
+          {t('teacherDashboard.unitTests')}
         </Link>
         <Link
           to="/teacher/vocabulary-checks"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Vocabulary Check
+          {t('teacherDashboard.vocabularyCheck')}
         </Link>
       </div>
 
@@ -73,7 +77,7 @@ function TeacherDashboardPage() {
           onClick={logout}
           className="mt-6 rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Log out
+          {t('common.logOut')}
         </button>
       </div>
     </div>

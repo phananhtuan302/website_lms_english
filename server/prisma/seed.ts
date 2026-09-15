@@ -54,6 +54,35 @@ const SEED_TEACHER_2_NAME = process.env.SEED_TEACHER_2_NAME ?? 'Demo Teacher Two
 
 const DEMO_TEST_TITLE = 'Seed Demo Test (T-007 round-trip check)';
 
+// Admin account (T-069, PROJECT_PLAN Assumption A12) — exactly one seeded admin, with
+// the LITERAL credentials the customer specified: `admin@example.com` / `123456`. This
+// is an intentional local-dev credential (same security posture as the seeded teacher
+// accounts above, not a production secret) and is deliberately NOT overridable via env
+// vars the way the teacher fixtures are — Assumption A12 pins this exact email/password
+// so every fresh checkout has the same, documented admin login.
+const SEED_ADMIN_EMAIL = 'admin@example.com';
+const SEED_ADMIN_PASSWORD = '123456';
+const SEED_ADMIN_NAME = 'Admin';
+
+async function seedAdmin() {
+  const passwordHash = await bcrypt.hash(SEED_ADMIN_PASSWORD, 12);
+
+  await prisma.user.upsert({
+    where: { email: SEED_ADMIN_EMAIL },
+    update: {},
+    create: {
+      email: SEED_ADMIN_EMAIL,
+      name: SEED_ADMIN_NAME,
+      role: 'admin',
+      passwordHash,
+    },
+  });
+
+  console.log('\n[seed] Admin account ready (T-069, Assumption A12 — fixed dev credentials):');
+  console.log(`  email:    ${SEED_ADMIN_EMAIL}`);
+  console.log(`  password: ${SEED_ADMIN_PASSWORD}\n`);
+}
+
 async function seedSecondTeacher() {
   const passwordHash = await bcrypt.hash(SEED_TEACHER_2_PASSWORD, 12);
 
@@ -468,7 +497,26 @@ async function verifyGrammarRoundTrip(topicId: string) {
   console.log('\n[seed] Field-intact checks:', checks);
 }
 
+/**
+ * Site-wide language setting (T-067, Phase 10 localization). Idempotent `upsert` against
+ * the fixed singleton id (`'singleton'`, matching `Settings.id`'s `@default` in
+ * schema.prisma and `SETTINGS_ID` in `server/src/routes/settings.routes.ts`) — creates
+ * the row defaulted to `'en'` if it doesn't exist yet, and leaves an already-set value
+ * (e.g. an admin previously flipped it to `'vi'` via `T-072`'s future write endpoint)
+ * untouched on every subsequent seed run, since seeding must never silently clobber a
+ * real admin-made setting.
+ */
+async function seedSettings() {
+  await prisma.settings.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: { id: 'singleton', language: 'en' },
+  });
+  console.log("[seed] Site-wide Settings row ready (T-067, language defaults to 'en').");
+}
+
 async function main() {
+  await seedAdmin();
   const teacher = await seedTeacher();
   await seedSecondTeacher();
   const testId = await seedDemoTest(teacher.id);
@@ -480,6 +528,7 @@ async function main() {
   await verifyFlashcardRoundTrip(flashcardSetId);
   const grammarTopicId = await seedGrammarTopic(teacher.id, unit?.id ?? null);
   await verifyGrammarRoundTrip(grammarTopicId);
+  await seedSettings();
 }
 
 main()

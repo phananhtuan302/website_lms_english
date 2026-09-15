@@ -4,9 +4,12 @@
  * package.
  */
 
-/** The two user roles defined by TECH_STACK.md. Used by both auth (server) and route guards
- * (client) in later tasks; for T-001 it is exported to prove the shared-types pattern works. */
-export type UserRole = 'teacher' | 'student';
+/** The user roles defined by TECH_STACK.md, extended 2026-09-15 (T-069, Phase 11) with
+ * `admin` — one seeded account (PROJECT_PLAN Assumption A12) with full CRUD over every
+ * `User` and oversight/CRUD over every content entity, bypassing per-teacher ownership
+ * checks everywhere rather than owning a separate parallel data set. Used by both auth
+ * (server) and route guards (client). */
+export type UserRole = 'teacher' | 'student' | 'admin';
 
 /** Human-readable product name, shown in the client UI and in server startup/health output. */
 export const APP_NAME = 'English Test Platform';
@@ -1474,4 +1477,101 @@ export interface TeacherStudentSummaryDTO {
   id: string;
   name: string;
   email: string;
+}
+
+// --- Admin: user management (T-070) -------------------------------------------------
+// Admin-only endpoints under `/api/admin/users`. This is the ONLY place besides the seed
+// script (`server/prisma/seed.ts`) that can create a `teacher` or `admin` account — see
+// PROJECT_PLAN Assumption A1 (superseded)/A12.
+
+export interface AdminUserDTO {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+/** Body for `GET /api/admin/users` query params (not a request body, but shared here for
+ * symmetry with every other request-shape export) — `role` narrows by exact role,
+ * `search` matches a case-insensitive substring of name OR email. Both optional; omitting
+ * either returns every user. */
+export interface AdminListUsersQuery {
+  role?: UserRole;
+  search?: string;
+}
+
+/** Body for `POST /api/admin/users`. Unlike public registration (`RegisterRequest`,
+ * student-only), `role` is required and may be ANY of the three roles — this endpoint
+ * (plus the seed script) is the only way to create a `teacher` or `admin` account. */
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  name: string;
+  role: UserRole;
+}
+
+/** Body for `PATCH /api/admin/users/:userId` — name/email/role only; password changes go
+ * through the dedicated reset-password endpoint below instead, so a plain profile edit
+ * can never accidentally clear/change a password. */
+export interface UpdateUserRequest {
+  email: string;
+  name: string;
+  role: UserRole;
+}
+
+/** Body for `POST /api/admin/users/:userId/reset-password` — sets a new password
+ * directly (no email-verification flow, no current-password confirmation needed since
+ * only an admin can call this), per T-070's acceptance criteria. */
+export interface ResetPasswordRequest {
+  password: string;
+}
+
+// --- Admin: content oversight (T-071) ------------------------------------------------
+// "Browse everything" admin-only list views under `/api/admin/*`, one per entity type
+// the existing teacher-only list endpoints never needed to show ownership for. Each row
+// links into the EXISTING teacher-side editor page (`/teacher/tests/:id`,
+// `/teacher/flashcard-sets/:id`, `/teacher/grammar-topics/:id`) — see those routers'
+// ownership-check helpers (`requireOwnedTest`/`requireOwnedFlashcardSet`/
+// `requireOwnedGrammarTopic`, all extended via `isAdminOrOwner`) for why an admin caller
+// can open ANY of these ids there, not just ones an admin account itself authored.
+
+/** Extends `TestSummaryDTO` with the owning teacher's identity — the one thing the
+ * teacher-only "my tests" list never needed to show (a teacher only ever sees their own
+ * tests, so "owned by" is always implicit there). */
+export interface AdminTestSummaryDTO extends TestSummaryDTO {
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+}
+
+export interface AdminFlashcardSetSummaryDTO extends FlashcardSetSummaryDTO {
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+}
+
+export interface AdminGrammarTopicSummaryDTO extends GrammarTopicSummaryDTO {
+  teacherId: string;
+  teacherName: string;
+  teacherEmail: string;
+}
+
+// --- Site-wide language setting (T-067, Phase 10 Vietnamese localization) -----------
+// Mirrors `server/prisma/schema.prisma`'s `Settings`/`SiteLanguage` singleton. See that
+// model's doc comment for the full read/write split: this task (T-067) only builds the
+// read side; writing this setting is T-072's job (Admin Settings page), reusing this
+// exact same `SiteLanguage` type for its request body.
+
+/** The two supported UI languages (PROJECT_PLAN Assumption A13). Mirrors the Prisma
+ * `SiteLanguage` enum — same "string union, Prisma enums can't be imported into client
+ * code" convention as `UserRole`/`TestType`. */
+export type SiteLanguage = 'en' | 'vi';
+
+/** Response for `GET /api/settings` (T-067, PUBLIC — no auth required). This is the
+ * single site-wide language every client, logged in or not, must render in — there is
+ * deliberately no per-user override or public switcher anywhere in this contract (see
+ * PROJECT_PLAN Guiding Principle 3). */
+export interface SettingsDTO {
+  language: SiteLanguage;
 }

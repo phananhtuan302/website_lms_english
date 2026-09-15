@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
+import { dashboardPathForRole } from '../lib/roles';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -21,6 +23,7 @@ interface LocationState {
  */
 function RegisterPage() {
   const { register, user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,12 +40,7 @@ function RegisterPage() {
   // below takes effect — both must target the same place or they race).
   if (user) {
     const from = (location.state as LocationState | null)?.from?.pathname;
-    return (
-      <Navigate
-        to={from ?? (user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard')}
-        replace
-      />
-    );
+    return <Navigate to={from ?? dashboardPathForRole(user.role)} replace />;
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -54,7 +52,7 @@ function RegisterPage() {
       const from = (location.state as LocationState | null)?.from?.pathname;
       navigate(from ?? '/student/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setError(err instanceof ApiError ? err.message : t('auth.genericError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -62,10 +60,10 @@ function RegisterPage() {
 
   return (
     <div className="mx-auto max-w-sm">
-      <h1 className="mb-6 text-2xl font-bold text-primary-700">Create a student account</h1>
+      <h1 className="mb-6 text-2xl font-bold text-primary-700">{t('auth.register.heading')}</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Name
+          {t('auth.register.name')}
           <input
             type="text"
             required
@@ -76,7 +74,7 @@ function RegisterPage() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Email
+          {t('auth.email')}
           <input
             type="email"
             required
@@ -87,7 +85,7 @@ function RegisterPage() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Password
+          {t('auth.password')}
           <input
             type="password"
             required
@@ -98,7 +96,7 @@ function RegisterPage() {
             className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
           <span className="text-xs font-normal text-base-black/50">
-            At least {MIN_PASSWORD_LENGTH} characters.
+            {t('auth.register.passwordHint', { count: MIN_PASSWORD_LENGTH })}
           </span>
         </label>
 
@@ -116,20 +114,17 @@ function RegisterPage() {
           disabled={isSubmitting}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Creating account...' : 'Create account'}
+          {isSubmitting ? t('auth.register.submitting') : t('auth.register.submit')}
         </button>
       </form>
 
       <p className="mt-4 text-sm text-base-black/70">
-        Already have an account?{' '}
+        {t('auth.register.alreadyHaveAccount')}{' '}
         <Link to="/login" className="font-medium text-primary-600 hover:underline">
-          Log in
+          {t('auth.register.logInLink')}
         </Link>
       </p>
-      <p className="mt-2 text-xs text-base-black/50">
-        Teacher accounts are provisioned by the school, not through self-registration — ask your
-        administrator if you need one.
-      </p>
+      <p className="mt-2 text-xs text-base-black/50">{t('auth.register.teacherNote')}</p>
     </div>
   );
 }
