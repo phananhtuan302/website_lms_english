@@ -21,6 +21,7 @@
     "register": "Đăng ký",
     "logIn": "Đăng nhập",
     "logOut": "Đăng xuất",
+    "attemptLockNotice": "Bạn đang làm bài dở, hãy nộp bài trước khi rời khỏi trang",
     "nav": {
       "teacher": {
         "myTests": "Bài kiểm tra của tôi",

@@ -21,6 +21,7 @@
     "register": "Register",
     "logIn": "Log in",
     "logOut": "Log out",
+    "attemptLockNotice": "You have an in-progress test — submit it before leaving this page.",
     "nav": {
       "teacher": {
         "myTests": "My Tests",

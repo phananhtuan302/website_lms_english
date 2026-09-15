@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { AttemptLockProvider } from './context/AttemptLockContext';
 import AdminAttemptsPage from './pages/AdminAttemptsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminFlashcardSetsPage from './pages/AdminFlashcardSetsPage';
@@ -61,6 +62,11 @@ import VocabLeaderboardPage from './pages/VocabLeaderboardPage';
  * Routing + session provider (T-006). `AuthProvider` wraps everything so `Header` (in
  * `AppShell`) and every page can read the current session via `useAuth`.
  *
+ * `AttemptLockProvider` (T-091) sits inside `AuthProvider` (needs `user.role`) and
+ * wraps `AppShell` so both `Header` (nav/logout) and the routed page content share the
+ * same in-progress-attempt lock state and its route-level force-redirect. It needs
+ * `useLocation`/`useNavigate`, so it must render inside `BrowserRouter` too.
+ *
  * `/teacher/dashboard` and `/student/dashboard` are placeholder pages proving the
  * route guard works end to end — later tasks (T-008, T-011+) replace their contents,
  * not their route/guard wiring.
@@ -69,169 +75,195 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppShell>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
-            {/* Public join-gate (T-011) — deliberately outside ProtectedRoute; it
+        <AttemptLockProvider>
+          <AppShell>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/unauthorized" element={<UnauthorizedPage />} />
+              {/* Public join-gate (T-011) — deliberately outside ProtectedRoute; it
                 handles the logged-out case itself (see JoinPage's doc comment). */}
-            <Route path="/join/:token" element={<JoinPage />} />
+              <Route path="/join/:token" element={<JoinPage />} />
 
-            {/* T-071: `admin` also allowed here — admin reuses these EXACT teacher pages
+              {/* T-071: `admin` also allowed here — admin reuses these EXACT teacher pages
                 (e.g. the test/flashcard-set/grammar-topic editors) to manage ANY
                 teacher's content, rather than a parallel admin-only editor UI. The
                 server-side ownership checks behind every one of these pages' API calls
                 were extended the same way (see `server/src/lib/authz.ts`). */}
-            <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
-              <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
-              <Route path="/teacher/tests" element={<TeacherTestsPage />} />
-              <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
-              {/* Per-test attempt report (T-087): ranked list of every submitted
+              <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
+                <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+                <Route path="/teacher/tests" element={<TeacherTestsPage />} />
+                <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
+                {/* Per-test attempt report (T-087): ranked list of every submitted
                   attempt of one test, across all sessions AND self-practice. Drills
                   into the existing `/teacher/attempts/:attemptId` route below. */}
-              <Route
-                path="/teacher/tests/:testId/report"
-                element={<TeacherTestAttemptsReportPage />}
-              />
-              <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
-              {/* Class management (T-074, Phase 12): create/rename/delete the teacher's
+                <Route
+                  path="/teacher/tests/:testId/report"
+                  element={<TeacherTestAttemptsReportPage />}
+                />
+                <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
+                {/* Class management (T-074, Phase 12): create/rename/delete the teacher's
                   own cohorts/sections. Registration's class picker reads the PUBLIC
                   `/api/classes` list, not this teacher-only page. */}
-              <Route path="/teacher/classes" element={<TeacherClassesPage />} />
-              {/* Consolidated "My Content" management page (T-075, Phase 12): assign any
+                <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+                {/* Consolidated "My Content" management page (T-075, Phase 12): assign any
                   of the teacher's own Tests/FlashcardSets/GrammarTopics to any of their
                   classes without opening that item's full editor. */}
-              <Route path="/teacher/content" element={<TeacherContentPage />} />
-              <Route path="/teacher/flashcard-sets" element={<TeacherFlashcardsPage />} />
-              <Route
-                path="/teacher/flashcard-sets/:setId"
-                element={<TeacherFlashcardSetEditorPage />}
-              />
-              {/* Per-student/per-class vocabulary progress for one owned set (T-030). */}
-              <Route
-                path="/teacher/flashcard-sets/:setId/progress"
-                element={<TeacherFlashcardSetProgressPage />}
-              />
-              <Route
-                path="/teacher/sessions/:sessionId/attempts"
-                element={<TeacherSessionAttemptsPage />}
-              />
-              <Route
-                path="/teacher/sessions/:sessionId/live"
-                element={<TeacherLiveSessionPage />}
-              />
-              <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
-              {/* Unified reporting area (T-057): module switcher (Test/Unit Test/
+                <Route path="/teacher/content" element={<TeacherContentPage />} />
+                <Route path="/teacher/flashcard-sets" element={<TeacherFlashcardsPage />} />
+                <Route
+                  path="/teacher/flashcard-sets/:setId"
+                  element={<TeacherFlashcardSetEditorPage />}
+                />
+                {/* Per-student/per-class vocabulary progress for one owned set (T-030). */}
+                <Route
+                  path="/teacher/flashcard-sets/:setId/progress"
+                  element={<TeacherFlashcardSetProgressPage />}
+                />
+                <Route
+                  path="/teacher/sessions/:sessionId/attempts"
+                  element={<TeacherSessionAttemptsPage />}
+                />
+                <Route
+                  path="/teacher/sessions/:sessionId/live"
+                  element={<TeacherLiveSessionPage />}
+                />
+                <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
+                {/* Unified reporting area (T-057): module switcher (Test/Unit Test/
                   Vocabulary/Grammar/Speaking) over the same reporting engines each
                   module already used standalone. */}
-              <Route path="/teacher/reports" element={<TeacherReportsHubPage />} />
-              {/* Vocabulary monthly (T-032) / yearly (T-033) ranking report. */}
-              <Route path="/teacher/vocab-ranking" element={<TeacherVocabRankingPage />} />
-              {/* Grammar topic authoring: theory content (T-047) + practice exercises
+                <Route path="/teacher/reports" element={<TeacherReportsHubPage />} />
+                {/* Vocabulary monthly (T-032) / yearly (T-033) ranking report. */}
+                <Route path="/teacher/vocab-ranking" element={<TeacherVocabRankingPage />} />
+                {/* Grammar topic authoring: theory content (T-047) + practice exercises
                   (T-048). */}
-              <Route path="/teacher/grammar-topics" element={<TeacherGrammarPage />} />
-              <Route
-                path="/teacher/grammar-topics/:topicId"
-                element={<TeacherGrammarTopicEditorPage />}
-              />
-              {/* Grammar reports (T-050), reusing T-019's engine additively. */}
-              <Route path="/teacher/grammar-reports" element={<TeacherGrammarReportsPage />} />
-              {/* Unit Test management (T-036): grouped-by-Unit listing of this
+                <Route path="/teacher/grammar-topics" element={<TeacherGrammarPage />} />
+                <Route
+                  path="/teacher/grammar-topics/:topicId"
+                  element={<TeacherGrammarTopicEditorPage />}
+                />
+                {/* Grammar reports (T-050), reusing T-019's engine additively. */}
+                <Route path="/teacher/grammar-reports" element={<TeacherGrammarReportsPage />} />
+                {/* Unit Test management (T-036): grouped-by-Unit listing of this
                   teacher's own `testType: unitTest` tests. Tagging/publishing a test as
                   a Unit Test happens in the regular test editor above. */}
-              <Route path="/teacher/unit-tests" element={<TeacherUnitTestsPage />} />
-              {/* Vocabulary Check generation (T-038): pick target student(s), generate,
+                <Route path="/teacher/unit-tests" element={<TeacherUnitTestsPage />} />
+                {/* Vocabulary Check generation (T-038): pick target student(s), generate,
                   and see previously-generated checks. */}
-              <Route path="/teacher/vocabulary-checks" element={<TeacherVocabularyChecksPage />} />
-            </Route>
+                <Route
+                  path="/teacher/vocabulary-checks"
+                  element={<TeacherVocabularyChecksPage />}
+                />
+              </Route>
 
-            {/* Admin-only role/auth foundation (T-069), user management (T-070), and
+              {/* Admin-only role/auth foundation (T-069), user management (T-070), and
                 content-oversight "browse everything" lists (T-071). Actually editing one
                 specific Test/Flashcard set/Grammar topic happens on the teacher routes
                 above (now admin-accessible too), not here. */}
-            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-              <Route path="/admin/users" element={<AdminUsersPage />} />
-              <Route path="/admin/tests" element={<AdminTestsPage />} />
-              <Route path="/admin/flashcard-sets" element={<AdminFlashcardSetsPage />} />
-              <Route path="/admin/grammar-topics" element={<AdminGrammarTopicsPage />} />
-              {/* Scores/attempts management (T-072a): system-wide attempt browse +
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/tests" element={<AdminTestsPage />} />
+                <Route path="/admin/flashcard-sets" element={<AdminFlashcardSetsPage />} />
+                <Route path="/admin/grammar-topics" element={<AdminGrammarTopicsPage />} />
+                {/* Scores/attempts management (T-072a): system-wide attempt browse +
                   delete. Drilling into one attempt reuses the teacher route above
                   (`/teacher/attempts/:attemptId`, already admin-accessible). */}
-              <Route path="/admin/attempts" element={<AdminAttemptsPage />} />
-              {/* Site-wide language Settings page (T-072b) — the ONLY place in the
+                <Route path="/admin/attempts" element={<AdminAttemptsPage />} />
+                {/* Site-wide language Settings page (T-072b) — the ONLY place in the
                   product that can change the language everyone sees. */}
-              <Route path="/admin/settings" element={<AdminSettingsPage />} />
-            </Route>
+                <Route path="/admin/settings" element={<AdminSettingsPage />} />
+              </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['student']} />}>
-              <Route path="/student/dashboard" element={<StudentDashboardPage />} />
-              {/* Home self-practice picker (T-040) — starts/resumes a standalone attempt
+              <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+                <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+                {/* Home self-practice picker (T-040) — starts/resumes a standalone attempt
                   for any test, outside a teacher-run QR/live session. */}
-              <Route path="/student/practice" element={<StudentPracticeTestsPage />} />
-              <Route path="/student/attempts/:attemptId" element={<TakeTestPage />} />
-              <Route path="/student/attempts/:attemptId/result" element={<AttemptResultPage />} />
-              <Route path="/student/flashcard-sets" element={<StudentFlashcardsPage />} />
-              <Route path="/student/flashcard-sets/:setId" element={<StudentFlashcardSetPage />} />
-              {/* Own vocabulary progress across every studied set (T-030). */}
-              <Route path="/student/vocab-progress" element={<StudentVocabProgressPage />} />
-              <Route
-                path="/student/flashcard-sets/:setId/exercises/:exerciseType"
-                element={<StudentVocabExercisePage />}
-              />
-              {/* Matching exercise (T-028), use-in-a-sentence (T-029), and the two vocab
+                <Route path="/student/practice" element={<StudentPracticeTestsPage />} />
+                <Route path="/student/attempts/:attemptId" element={<TakeTestPage />} />
+                <Route path="/student/attempts/:attemptId/result" element={<AttemptResultPage />} />
+                <Route path="/student/flashcard-sets" element={<StudentFlashcardsPage />} />
+                <Route
+                  path="/student/flashcard-sets/:setId"
+                  element={<StudentFlashcardSetPage />}
+                />
+                {/* Own vocabulary progress across every studied set (T-030). */}
+                <Route path="/student/vocab-progress" element={<StudentVocabProgressPage />} />
+                <Route
+                  path="/student/flashcard-sets/:setId/exercises/:exerciseType"
+                  element={<StudentVocabExercisePage />}
+                />
+                {/* Matching exercise (T-028), use-in-a-sentence (T-029), and the two vocab
                   games (T-034 space shooter, T-035 runner) — same "generic feature,
                   routed off :setId" shape as the exercise route above. */}
-              <Route path="/student/flashcard-sets/:setId/matching" element={<StudentVocabMatchingPage />} />
-              <Route path="/student/flashcard-sets/:setId/sentence" element={<StudentVocabSentencePage />} />
-              <Route
-                path="/student/flashcard-sets/:setId/games/space-shooter"
-                element={<StudentSpaceShooterGamePage />}
-              />
-              <Route path="/student/flashcard-sets/:setId/games/runner" element={<StudentRunnerGamePage />} />
-              {/* "Tự kiểm tra" self-check quiz (T-089) — a completely different,
+                <Route
+                  path="/student/flashcard-sets/:setId/matching"
+                  element={<StudentVocabMatchingPage />}
+                />
+                <Route
+                  path="/student/flashcard-sets/:setId/sentence"
+                  element={<StudentVocabSentencePage />}
+                />
+                <Route
+                  path="/student/flashcard-sets/:setId/games/space-shooter"
+                  element={<StudentSpaceShooterGamePage />}
+                />
+                <Route
+                  path="/student/flashcard-sets/:setId/games/runner"
+                  element={<StudentRunnerGamePage />}
+                />
+                {/* "Tự kiểm tra" self-check quiz (T-089) — a completely different,
                   student-initiated feature from the unrelated teacher-assigned "Kiểm tra
                   từ vựng" (Vocabulary Check) route mounted separately below. */}
-              <Route path="/student/flashcard-sets/:setId/self-check" element={<StudentVocabSelfCheckPage />} />
+                <Route
+                  path="/student/flashcard-sets/:setId/self-check"
+                  element={<StudentVocabSelfCheckPage />}
+                />
 
-              {/* Grammar: browse topics + read theory (T-047), practice exercises
+                {/* Grammar: browse topics + read theory (T-047), practice exercises
                   (T-048), and the Grammar game (T-049). */}
-              <Route path="/student/grammar-topics" element={<StudentGrammarPage />} />
-              <Route path="/student/grammar-topics/:topicId" element={<StudentGrammarTopicPage />} />
-              <Route
-                path="/student/grammar-topics/:topicId/practice"
-                element={<StudentGrammarExercisePage />}
-              />
-              <Route
-                path="/student/grammar-topics/:topicId/games/space-shooter"
-                element={<StudentGrammarSpaceShooterGamePage />}
-              />
+                <Route path="/student/grammar-topics" element={<StudentGrammarPage />} />
+                <Route
+                  path="/student/grammar-topics/:topicId"
+                  element={<StudentGrammarTopicPage />}
+                />
+                <Route
+                  path="/student/grammar-topics/:topicId/practice"
+                  element={<StudentGrammarExercisePage />}
+                />
+                <Route
+                  path="/student/grammar-topics/:topicId/games/space-shooter"
+                  element={<StudentGrammarSpaceShooterGamePage />}
+                />
 
-              {/* Unit Tests I can take (T-036) — grouped by curriculum unit, gated by
+                {/* Unit Tests I can take (T-036) — grouped by curriculum unit, gated by
                   `Test.published`. "Take"/"Resume" reuse the self-practice start
                   endpoint, same as `/student/practice`. */}
-              <Route path="/student/unit-tests" element={<StudentUnitTestsPage />} />
-              {/* Vocabulary Checks assigned to me (T-038) — 15-minute checks generated
+                <Route path="/student/unit-tests" element={<StudentUnitTestsPage />} />
+                {/* Vocabulary Checks assigned to me (T-038) — 15-minute checks generated
                   from vocabulary I've already studied. */}
-              <Route path="/student/vocabulary-checks" element={<StudentVocabularyChecksPage />} />
-            </Route>
+                <Route
+                  path="/student/vocabulary-checks"
+                  element={<StudentVocabularyChecksPage />}
+                />
+              </Route>
 
-            {/* Vocabulary leaderboard (T-031) — visible to BOTH roles, so it's its own
+              {/* Vocabulary leaderboard (T-031) — visible to BOTH roles, so it's its own
                 route block with both roles allowed, rather than duplicated under
                 /teacher and /student. */}
-            <Route element={<ProtectedRoute allowedRoles={['teacher', 'student']} />}>
-              <Route path="/vocab-leaderboard" element={<VocabLeaderboardPage />} />
-              {/* Unit Test report & leaderboard (T-037) — visible to both roles, same
+              <Route element={<ProtectedRoute allowedRoles={['teacher', 'student']} />}>
+                <Route path="/vocab-leaderboard" element={<VocabLeaderboardPage />} />
+                {/* Unit Test report & leaderboard (T-037) — visible to both roles, same
                   "own route block with both roles allowed" pattern as the vocabulary
                   leaderboard above. */}
-              <Route path="/units/:unitId/leaderboard" element={<UnitLeaderboardPage />} />
-            </Route>
+                <Route path="/units/:unitId/leaderboard" element={<UnitLeaderboardPage />} />
+              </Route>
 
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </AppShell>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </AppShell>
+        </AttemptLockProvider>
       </AuthProvider>
     </BrowserRouter>
   );

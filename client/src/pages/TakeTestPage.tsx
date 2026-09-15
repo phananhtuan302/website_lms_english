@@ -6,6 +6,7 @@ import type { AttemptDetailDTO, AttemptQuestionDTO, LiveAudioPlayEventDTO } from
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import { createSessionSocket } from '../lib/socket';
+import { useAttemptLock } from '../context/useAttemptLock';
 
 /** Reading (T-039) / Listening (T-040/T-041) content, denormalized from the enclosing
  * section onto every question in it — same "carry the section field down" pattern
@@ -65,6 +66,11 @@ function TakeTestPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  // T-091: the take-test runtime is the ONE place that knows the instant an attempt
+  // stops being `inProgress` (a successful submit), so it proactively clears the lock
+  // itself rather than letting `AttemptLockContext`'s route-change re-check catch up —
+  // see `handleSubmit` below for the race condition this avoids.
+  const { clearLock } = useAttemptLock();
 
   const [attempt, setAttempt] = useState<AttemptDetailDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -143,7 +149,11 @@ function TakeTestPage() {
       .then((data) => {
         if (data.status === 'submitted') {
           // Already submitted (e.g. re-opened this URL after finishing, or submitted
-          // from another tab) — no editing allowed, go straight to the result.
+          // from another tab) — no editing allowed, go straight to the result. Also
+          // clears the lock (T-091) proactively, same reasoning as `handleSubmit`
+          // below: don't wait on the route-change re-check to notice this attempt is
+          // no longer `inProgress` before navigating off of it.
+          clearLock();
           navigate(`/student/attempts/${data.id}/result`, { replace: true });
           return;
         }
@@ -177,7 +187,7 @@ function TakeTestPage() {
       .catch((err) => {
         setLoadError(err instanceof ApiError ? err.message : t('takeTest.loadAttemptError'));
       });
-  }, [attemptId, navigate, t]);
+  }, [attemptId, navigate, t, clearLock]);
 
   useEffect(loadAttempt, [loadAttempt]);
 
@@ -642,20 +652,32 @@ function TakeTestPage() {
       try {
         await flushPendingSaves();
         await studentApi.submitAttempt(attemptId);
+        // T-091 critical race condition: clear the lock SYNCHRONOUSLY, immediately on
+        // submit success, before navigating to the result page. If this instead relied
+        // solely on `AttemptLockContext`'s route-change-triggered `listMyAttempts()`
+        // re-check, that re-check is async and could still resolve to "locked" for a
+        // moment right as the navigation below lands on the result page — which would
+        // incorrectly force-redirect the student back to this now-finished attempt's
+        // take-test screen instead of letting them see their own result. The server is
+        // still the source of truth: `refreshLock()` runs naturally on the very next
+        // route change (this navigation) and confirms the same now-unlocked state.
+        clearLock();
         navigate(`/student/attempts/${attemptId}/result`, { replace: true });
       } catch (err) {
         hasSubmittedRef.current = false;
         setIsSubmitting(false);
         if (err instanceof ApiError && err.status === 409) {
           // Already submitted (e.g. auto-submit fired in another tab, or a double
-          // click race) — the result already exists, just go see it.
+          // click race) — the result already exists, just go see it. Same race
+          // condition as the success path above, same fix.
+          clearLock();
           navigate(`/student/attempts/${attemptId}/result`, { replace: true });
           return;
         }
         setSubmitError(err instanceof ApiError ? err.message : t('takeTest.submitTestError'));
       }
     },
-    [attemptId, answeredCount, totalQuestions, flushPendingSaves, navigate, t],
+    [attemptId, answeredCount, totalQuestions, flushPendingSaves, navigate, t, clearLock],
   );
 
   // Auto-submit when the timer reaches zero (documented choice: a visible timer that

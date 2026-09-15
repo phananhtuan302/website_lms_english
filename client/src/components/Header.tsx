@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { APP_NAME } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
+import { useAttemptLock } from '../context/useAttemptLock';
 import { dashboardPathForRole } from '../lib/roles';
 
 interface NavItem {
@@ -65,15 +66,31 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
  *
  * `APP_NAME` (the brand name) is deliberately NOT run through `t()` (T-067) — a product
  * name/wordmark isn't translated content, same convention as any real brand name.
+ *
+ * T-091: while `useAttemptLock()` reports a locked in-progress attempt (student role
+ * only — see that context), the nav items/dashboard link and the log-out button are
+ * replaced entirely by an inline message, rather than merely disabled — a determined
+ * student couldn't click their way around a disabled link anyway, but the message is
+ * also what tells them WHY nav suddenly stopped working. The app name/logo stays
+ * visible either way; it isn't part of the lock (there's no route behind it that
+ * escapes the take-test screen — `/` just redirects, and the force-redirect effect in
+ * `AttemptLockContext` bounces right back).
  */
 function Header() {
   const { user, logout } = useAuth();
+  const { lockedAttemptId } = useAttemptLock();
   const { t } = useTranslation();
   const location = useLocation();
   const dashboardPath = user ? dashboardPathForRole(user.role) : '/student/dashboard';
-  const navItems =
-    user?.role === 'teacher' ? TEACHER_NAV_ITEMS : user?.role === 'student' ? STUDENT_NAV_ITEMS : [];
-  const adminNavItems = user?.role === 'admin' ? ADMIN_NAV_ITEMS : [];
+  const isLocked = lockedAttemptId !== null;
+  const navItems = isLocked
+    ? []
+    : user?.role === 'teacher'
+      ? TEACHER_NAV_ITEMS
+      : user?.role === 'student'
+        ? STUDENT_NAV_ITEMS
+        : [];
+  const adminNavItems = isLocked ? [] : user?.role === 'admin' ? ADMIN_NAV_ITEMS : [];
 
   return (
     <header className="border-b border-primary-200 bg-base-white">
@@ -84,7 +101,7 @@ function Header() {
 
         <nav aria-label={t('header.mainNavAriaLabel')}>
           <ul className="flex flex-wrap items-center gap-1 sm:gap-2">
-            {user && (
+            {!isLocked && user && (
               <li>
                 <Link
                   to={dashboardPath}
@@ -120,7 +137,12 @@ function Header() {
           </ul>
         </nav>
 
-        {user ? (
+        {isLocked ? (
+          // T-091: no logout, no nav — just the reason why, in place of both.
+          <p role="status" className="text-sm font-medium text-primary-700">
+            {t('header.attemptLockNotice')}
+          </p>
+        ) : user ? (
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-base-black/70">
               {user.name}{' '}
