@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { StudentFlashcardSetSummaryDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
@@ -10,6 +11,7 @@ import { ApiError } from '../lib/apiClient';
  * enrollment/assignment filter yet.
  */
 function StudentFlashcardsPage() {
+  const { t } = useTranslation();
   const [sets, setSets] = useState<StudentFlashcardSetSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,16 +19,13 @@ function StudentFlashcardsPage() {
     flashcardApi
       .listSets()
       .then(setSets)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load flashcard sets.'));
-  }, []);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentFlashcards.loadError')));
+  }, [t]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">Vocabulary</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Study a flashcard set, then practice with fill-in-the-blank, unscramble, listen-and-type, or
-        IPA-to-word exercises.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('studentFlashcards.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('studentFlashcards.subtitle')}</p>
 
       {error && (
         <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -35,9 +34,9 @@ function StudentFlashcardsPage() {
       )}
 
       <ul className="mt-6 flex flex-col gap-3">
-        {sets === null && !error && <p className="text-sm text-base-black/60">Loading...</p>}
+        {sets === null && !error && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
         {sets?.length === 0 && (
-          <p className="text-sm text-base-black/60">No flashcard sets available yet.</p>
+          <p className="text-sm text-base-black/60">{t('studentFlashcards.emptyState')}</p>
         )}
         {sets?.map((set) => (
           <li key={set.id}>
@@ -48,7 +47,7 @@ function StudentFlashcardsPage() {
               <div>
                 <p className="font-semibold text-primary-700">{set.name}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {set.cardCount} card{set.cardCount === 1 ? '' : 's'}
+                  {t('studentFlashcards.cardCount', { count: set.cardCount })}
                   {set.unitName && (
                     <>
                       {' '}
@@ -60,7 +59,7 @@ function StudentFlashcardsPage() {
                   )}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Study →</span>
+              <span className="text-sm font-medium text-primary-600">{t('studentFlashcards.studyLink')}</span>
             </Link>
           </li>
         ))}

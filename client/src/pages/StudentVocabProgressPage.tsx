@@ -1,19 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { StudentVocabProgressDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  fillBlank: 'Fill in the blank',
-  unscramble: 'Unscramble',
-  listenAndType: 'Listen and type',
-  ipaToWord: 'IPA to word',
-  matching: 'Matching',
-  sentence: 'Use in a sentence',
-  spaceShooter: 'Space shooter game',
-  runner: 'Runner game',
-};
 
 /**
  * Student's own vocabulary progress view (T-030): per-set known/learning/new card
@@ -22,6 +12,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
  * appear here (only ones with at least some recorded progress).
  */
 function StudentVocabProgressPage() {
+  const { t } = useTranslation();
   const [progress, setProgress] = useState<StudentVocabProgressDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,30 +20,28 @@ function StudentVocabProgressPage() {
     flashcardApi
       .getMyProgress()
       .then(setProgress)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load your progress.'));
-  }, []);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentVocabProgress.loadError')));
+  }, [t]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">My vocabulary progress</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          How many cards you know per set, and your accuracy on each exercise type.
-        </p>
+        <h1 className="text-2xl font-bold text-primary-700">{t('studentVocabProgress.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentVocabProgress.subtitle')}</p>
       </div>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !progress && <p className="text-sm text-base-black/60">Loading...</p>}
+      {!error && !progress && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
 
       {progress && (
         <>
           <section>
-            <h2 className="text-lg font-bold text-base-black">By flashcard set</h2>
+            <h2 className="text-lg font-bold text-base-black">{t('studentVocabProgress.bySetHeading')}</h2>
             {progress.sets.length === 0 && (
               <p className="mt-2 text-sm text-base-black/60">
-                You haven&apos;t started studying any set yet.{' '}
+                {t('studentVocabProgress.noSetsStarted')}{' '}
                 <Link to="/student/flashcard-sets" className="text-primary-600 hover:underline">
-                  Browse flashcard sets →
+                  {t('studentVocabProgress.browseSetsLink')}
                 </Link>
               </p>
             )}
@@ -72,10 +61,10 @@ function StudentVocabProgressPage() {
                     {set.unitName && <span className="ml-2 text-xs text-base-black/50">({set.unitName})</span>}
                   </div>
                   <div className="flex gap-4 text-xs text-base-black/70">
-                    <span>Known: <strong className="text-base-black">{set.knownCount}</strong></span>
-                    <span>Learning: <strong className="text-base-black">{set.learningCount}</strong></span>
-                    <span>New: <strong className="text-base-black">{set.newCount}</strong></span>
-                    <span>Total: {set.cardCount}</span>
+                    <span>{t('studentVocabProgress.knownLabel')} <strong className="text-base-black">{set.knownCount}</strong></span>
+                    <span>{t('studentVocabProgress.learningLabel')} <strong className="text-base-black">{set.learningCount}</strong></span>
+                    <span>{t('studentVocabProgress.newLabel')} <strong className="text-base-black">{set.newCount}</strong></span>
+                    <span>{t('studentVocabProgress.totalLabel')} {set.cardCount}</span>
                   </div>
                 </li>
               ))}
@@ -83,22 +72,22 @@ function StudentVocabProgressPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-base-black">By exercise type (all sets)</h2>
+            <h2 className="text-lg font-bold text-base-black">{t('studentVocabProgress.byExerciseHeading')}</h2>
             <div className="mt-3 overflow-x-auto rounded-xl border border-primary-200">
               <table className="min-w-full divide-y divide-primary-100 text-sm">
                 <thead className="bg-primary-50 text-left text-xs font-semibold uppercase tracking-wide text-primary-700">
                   <tr>
-                    <th className="px-4 py-3">Exercise type</th>
-                    <th className="px-4 py-3">Attempted</th>
-                    <th className="px-4 py-3">Correct</th>
-                    <th className="px-4 py-3">Accuracy</th>
+                    <th className="px-4 py-3">{t('studentVocabProgress.colExerciseType')}</th>
+                    <th className="px-4 py-3">{t('studentVocabProgress.colAttempted')}</th>
+                    <th className="px-4 py-3">{t('studentVocabProgress.colCorrect')}</th>
+                    <th className="px-4 py-3">{t('studentVocabProgress.colAccuracy')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary-100">
                   {progress.activityStats.map((stat) => (
                     <tr key={stat.type}>
                       <td className="px-4 py-3 font-medium text-base-black">
-                        {ACTIVITY_LABELS[stat.type] ?? stat.type}
+                        {t(`studentVocabProgress.activity.${stat.type}`, { defaultValue: stat.type })}
                       </td>
                       <td className="px-4 py-3 text-base-black/80">{stat.attempted}</td>
                       <td className="px-4 py-3 text-base-black/80">{stat.correct}</td>

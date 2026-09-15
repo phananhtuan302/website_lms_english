@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type {
   FlashcardCardInput,
   FlashcardSetDetailDTO,
@@ -21,6 +22,7 @@ function defaultCardBody(): FlashcardCardInput {
  * vocabulary cards. Same structure as `TeacherTestEditorPage.tsx`.
  */
 function TeacherFlashcardSetEditorPage() {
+  const { t } = useTranslation();
   const { setId } = useParams<{ setId: string }>();
   const [set, setSet] = useState<FlashcardSetDetailDTO | null>(null);
   const [name, setName] = useState('');
@@ -37,7 +39,7 @@ function TeacherFlashcardSetEditorPage() {
         setSet(data);
         setName(data.name);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load flashcard set.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherFlashcardSetEditor.loadError')));
   }, [setId]);
 
   useEffect(refresh, [refresh]);
@@ -65,7 +67,7 @@ function TeacherFlashcardSetEditorPage() {
       const updated = await teacherApi.updateFlashcardSet(setId!, { name: name.trim() });
       setSet(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save set name.');
+      setError(err instanceof ApiError ? err.message : t('teacherFlashcardSetEditor.saveNameError'));
     }
   }
 
@@ -75,7 +77,7 @@ function TeacherFlashcardSetEditorPage() {
       const updated = await teacherApi.updateFlashcardSet(setId!, { name: set.name, unitId });
       setSet(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save unit tag.');
+      setError(err instanceof ApiError ? err.message : t('teacherFlashcardSetEditor.saveUnitError'));
     }
   }
 
@@ -87,7 +89,7 @@ function TeacherFlashcardSetEditorPage() {
       const updated = await teacherApi.addFlashcardCard(setId!, defaultCardBody());
       setSet(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to add card.');
+      setError(err instanceof ApiError ? err.message : t('teacherFlashcardSetEditor.addCardError'));
     } finally {
       setIsAddingCard(false);
     }
@@ -103,7 +105,7 @@ function TeacherFlashcardSetEditorPage() {
       const updated = await teacherApi.deleteFlashcardCard(setId!, cardId);
       setSet(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete card.');
+      setError(err instanceof ApiError ? err.message : t('teacherFlashcardSetEditor.deleteCardError'));
     }
   }
 
@@ -111,14 +113,14 @@ function TeacherFlashcardSetEditorPage() {
     return (
       <div>
         <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
-          ← Back to my flashcard sets
+          {t('teacherFlashcardSetEditor.backToSets')}
         </Link>
         {error ? (
           <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </p>
         ) : (
-          <p className="mt-4 text-sm text-base-black/60">Loading...</p>
+          <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
         )}
       </div>
     );
@@ -129,10 +131,10 @@ function TeacherFlashcardSetEditorPage() {
       <div>
         <div className="flex items-center justify-between">
           <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
-            ← Back to my flashcard sets
+            {t('teacherFlashcardSetEditor.backToSets')}
           </Link>
           <Link to={`/teacher/flashcard-sets/${setId}/progress`} className="text-sm font-medium text-primary-600 hover:underline">
-            View student progress →
+            {t('teacherFlashcardSetEditor.viewProgress')}
           </Link>
         </div>
         <input
@@ -144,13 +146,13 @@ function TeacherFlashcardSetEditorPage() {
         />
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            Unit (optional)
+            {t('teacherFlashcardSetEditor.unitLabel')}
             <select
               value={set.unitId ?? ''}
               onChange={(event) => handleSaveUnit(event.target.value === '' ? null : event.target.value)}
               className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
-              <option value="">No unit</option>
+              <option value="">{t('teacherFlashcardSetEditor.noUnitOption')}</option>
               {units.map((unit) => (
                 <option key={unit.id} value={unit.id}>
                   {unit.name}
@@ -163,9 +165,9 @@ function TeacherFlashcardSetEditorPage() {
       </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-bold text-base-black">Vocabulary cards</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherFlashcardSetEditor.cardsHeading')}</h2>
         {set.cards.length === 0 && (
-          <p className="text-sm text-base-black/60">No cards yet — add one below.</p>
+          <p className="text-sm text-base-black/60">{t('teacherFlashcardSetEditor.noCardsEmpty')}</p>
         )}
         <div className="flex flex-col gap-3">
           {set.cards.map((card, index) => (
@@ -185,37 +187,37 @@ function TeacherFlashcardSetEditorPage() {
             disabled={isAddingCard}
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isAddingCard ? 'Adding...' : '+ Add card'}
+            {isAddingCard ? t('teacherFlashcardSetEditor.addingCard') : t('teacherFlashcardSetEditor.addCardButton')}
           </button>
         </form>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-bold text-base-black">
-          Student &quot;use it in a sentence&quot; submissions
+          {t('teacherFlashcardSetEditor.submissionsHeading')}
         </h2>
-        <p className="text-sm text-base-black/60">
-          Read-only — these are never AI- or auto-graded (PROJECT_PLAN Assumption A3), just
-          stored so you can see what students wrote.
-        </p>
+        <p className="text-sm text-base-black/60">{t('teacherFlashcardSetEditor.submissionsSubtitle')}</p>
         {submissions === null ? (
-          <p className="text-sm text-base-black/60">Loading...</p>
+          <p className="text-sm text-base-black/60">{t('common.loading')}</p>
         ) : submissions.length === 0 ? (
-          <p className="text-sm text-base-black/60">No submissions yet.</p>
+          <p className="text-sm text-base-black/60">{t('teacherFlashcardSetEditor.noSubmissions')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {submissions.map((s) => (
               <li key={s.id} className="rounded-md border border-primary-200 p-3 text-sm">
                 <div className="flex items-center justify-between text-xs text-base-black/50">
                   <span>
-                    {s.studentName} — word: <span className="font-semibold">{s.term}</span>
+                    {t('teacherFlashcardSetEditor.submissionWordPrefix', { name: s.studentName })}{' '}
+                    <span className="font-semibold">{s.term}</span>
                   </span>
                   <span
                     className={
                       s.containsWord ? 'font-semibold text-green-700' : 'font-semibold text-base-black/50'
                     }
                   >
-                    {s.containsWord ? 'used the word' : 'word not detected'}
+                    {s.containsWord
+                      ? t('teacherFlashcardSetEditor.usedWord')
+                      : t('teacherFlashcardSetEditor.wordNotDetected')}
                   </span>
                 </div>
                 <p className="mt-1 text-base-black">{s.sentence}</p>

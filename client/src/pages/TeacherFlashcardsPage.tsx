@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { FlashcardSetSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -11,6 +12,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function TeacherFlashcardsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [sets, setSets] = useState<FlashcardSetSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -20,7 +22,7 @@ function TeacherFlashcardsPage() {
     teacherApi
       .listFlashcardSets()
       .then(setSets)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load flashcard sets.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherFlashcards.loadError')));
   }
 
   useEffect(loadSets, []);
@@ -36,26 +38,24 @@ function TeacherFlashcardsPage() {
       const created = await teacherApi.createFlashcardSet({ name });
       navigate(`/teacher/flashcard-sets/${created.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create flashcard set.');
+      setError(err instanceof ApiError ? err.message : t('teacherFlashcards.createError'));
       setIsCreating(false);
     }
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">My flashcard sets</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Create vocabulary sets for students to study and practice.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('teacherFlashcards.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('teacherFlashcards.subtitle')}</p>
 
       <form onSubmit={handleCreate} className="mt-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          New set name
+          {t('teacherFlashcards.newSetNameLabel')}
           <input
             type="text"
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
-            placeholder="e.g. Unit 3 Vocabulary"
+            placeholder={t('teacherFlashcards.newSetNamePlaceholder')}
             className="w-72 rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
@@ -64,7 +64,7 @@ function TeacherFlashcardsPage() {
           disabled={isCreating || !newName.trim()}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isCreating ? 'Creating...' : 'Create set'}
+          {isCreating ? t('teacherFlashcards.creating') : t('teacherFlashcards.createSet')}
         </button>
       </form>
 
@@ -75,9 +75,9 @@ function TeacherFlashcardsPage() {
       )}
 
       <ul className="mt-8 flex flex-col gap-3">
-        {sets === null && <p className="text-sm text-base-black/60">Loading...</p>}
+        {sets === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
         {sets?.length === 0 && (
-          <p className="text-sm text-base-black/60">No flashcard sets yet — create your first one above.</p>
+          <p className="text-sm text-base-black/60">{t('teacherFlashcards.emptyState')}</p>
         )}
         {sets?.map((set) => (
           <li key={set.id}>
@@ -88,7 +88,7 @@ function TeacherFlashcardsPage() {
               <div>
                 <p className="font-semibold text-primary-700">{set.name}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {set.cardCount} card{set.cardCount === 1 ? '' : 's'}
+                  {t('teacherFlashcards.cardCount', { count: set.cardCount })}
                   {set.unitName && (
                     <>
                       {' '}
@@ -100,7 +100,7 @@ function TeacherFlashcardsPage() {
                   )}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Open editor →</span>
+              <span className="text-sm font-medium text-primary-600">{t('teacherFlashcards.openEditor')}</span>
             </Link>
           </li>
         ))}

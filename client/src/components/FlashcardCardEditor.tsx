@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { FlashcardCardDTO, FlashcardCardInput } from '@platform/shared';
 
 interface FlashcardCardEditorProps {
@@ -15,6 +16,7 @@ interface FlashcardCardEditorProps {
  * happens when a field loses focus.
  */
 function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEditorProps) {
+  const { t } = useTranslation();
   const [term, setTerm] = useState(card.term);
   const [meaning, setMeaning] = useState(card.meaning);
   const [ipa, setIpa] = useState(card.ipa ?? '');
@@ -50,7 +52,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
       setSaveError(null);
       await onSave(currentBody());
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save card.');
+      setSaveError(err instanceof Error ? err.message : t('flashcardCardEditor.saveError'));
     }
   }
 
@@ -58,20 +60,20 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
     <div className="rounded-lg border border-primary-100 bg-base-white p-4">
       <div className="flex items-start justify-between gap-3">
         <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
-          Card {index + 1}
+          {t('flashcardCardEditor.cardLabel', { number: index + 1 })}
         </span>
         <button
           type="button"
           onClick={onDelete}
           className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
         >
-          Delete
+          {t('flashcardCardEditor.delete')}
         </button>
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Term
+          {t('flashcardCardEditor.termLabel')}
           <input
             type="text"
             value={term}
@@ -81,7 +83,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Meaning
+          {t('flashcardCardEditor.meaningLabel')}
           <input
             type="text"
             value={meaning}
@@ -91,18 +93,18 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          IPA (optional)
+          {t('flashcardCardEditor.ipaLabel')}
           <input
             type="text"
             value={ipa}
             onChange={(e) => setIpa(e.target.value)}
             onBlur={() => void save()}
-            placeholder="/ˈæp.əl/"
+            placeholder={t('flashcardCardEditor.ipaPlaceholder')}
             className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Image URL (optional)
+          {t('flashcardCardEditor.imageUrlLabel')}
           <input
             type="text"
             value={imageUrl}
@@ -112,7 +114,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Audio URL (optional — enables the listen-and-type exercise)
+          {t('flashcardCardEditor.audioUrlLabel')}
           <input
             type="text"
             value={audioUrl}
@@ -122,18 +124,18 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Example sentence (optional — use ___ for the blank)
+          {t('flashcardCardEditor.exampleSentenceLabel')}
           <input
             type="text"
             value={exampleSentence}
             onChange={(e) => setExampleSentence(e.target.value)}
             onBlur={() => void save()}
-            placeholder="She ate an ___ for breakfast."
+            placeholder={t('flashcardCardEditor.exampleSentencePlaceholder')}
             className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Synonyms (comma-separated, optional)
+          {t('flashcardCardEditor.synonymsLabel')}
           <input
             type="text"
             value={synonymsText}
@@ -143,7 +145,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Antonyms (comma-separated, optional)
+          {t('flashcardCardEditor.antonymsLabel')}
           <input
             type="text"
             value={antonymsText}
