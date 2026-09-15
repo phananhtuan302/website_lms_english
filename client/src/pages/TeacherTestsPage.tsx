@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TEST_TYPE_LABELS, type TestSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -24,6 +25,7 @@ function formatAverageDuration(seconds: number): string {
  */
 function TeacherTestsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [tests, setTests] = useState<TestSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
@@ -33,7 +35,9 @@ function TeacherTestsPage() {
     teacherApi
       .listTests()
       .then(setTests)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load tests.'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : t('teacherTests.loadFailed')),
+      );
   }
 
   useEffect(loadTests, []);
@@ -49,26 +53,24 @@ function TeacherTestsPage() {
       const created = await teacherApi.createTest({ title });
       navigate(`/teacher/tests/${created.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create test.');
+      setError(err instanceof ApiError ? err.message : t('teacherTests.createFailed'));
       setIsCreating(false);
     }
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">My tests</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Create and edit your own tests. Students and sessions are added from a specific test's page.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('teacherTests.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('teacherTests.subtitle')}</p>
 
       <form onSubmit={handleCreate} className="mt-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          New test title
+          {t('teacherTests.newTestTitleLabel')}
           <input
             type="text"
             value={newTitle}
             onChange={(event) => setNewTitle(event.target.value)}
-            placeholder="e.g. Unit 3 Grammar Quiz"
+            placeholder={t('teacherTests.newTestTitlePlaceholder')}
             className="w-72 rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
@@ -77,7 +79,7 @@ function TeacherTestsPage() {
           disabled={isCreating || !newTitle.trim()}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isCreating ? 'Creating...' : 'Create test'}
+          {isCreating ? t('teacherTests.creating') : t('teacherTests.createButton')}
         </button>
       </form>
 
@@ -91,9 +93,9 @@ function TeacherTestsPage() {
       )}
 
       <ul className="mt-8 flex flex-col gap-3">
-        {tests === null && <p className="text-sm text-base-black/60">Loading...</p>}
+        {tests === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
         {tests?.length === 0 && (
-          <p className="text-sm text-base-black/60">No tests yet — create your first one above.</p>
+          <p className="text-sm text-base-black/60">{t('teacherTests.emptyState')}</p>
         )}
         {tests?.map((test) => (
           <li key={test.id}>
@@ -104,10 +106,11 @@ function TeacherTestsPage() {
               <div>
                 <p className="font-semibold text-primary-700">{test.title}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {test.sectionCount} section{test.sectionCount === 1 ? '' : 's'} ·{' '}
-                  {test.questionCount} question
-                  {test.questionCount === 1 ? '' : 's'} · updated{' '}
-                  {new Date(test.updatedAt).toLocaleString()}
+                  {t('teacherTests.sectionCount', { count: test.sectionCount })} ·{' '}
+                  {t('teacherTests.questionCount', { count: test.questionCount })} ·{' '}
+                  {t('teacherTests.updatedAt', {
+                    date: new Date(test.updatedAt).toLocaleString(),
+                  })}
                   {test.unitName && (
                     <>
                       {' '}
@@ -128,18 +131,17 @@ function TeacherTestsPage() {
                   )}
                 </p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {test.averageTimeTakenSeconds !== null ? (
-                    <>
-                      Average time taken: {formatAverageDuration(test.averageTimeTakenSeconds)} (
-                      {test.completedAttemptCount} completed attempt
-                      {test.completedAttemptCount === 1 ? '' : 's'})
-                    </>
-                  ) : (
-                    'Average time taken: — (no completed attempts yet)'
-                  )}
+                  {test.averageTimeTakenSeconds !== null
+                    ? t('teacherTests.averageTimeTaken', {
+                        duration: formatAverageDuration(test.averageTimeTakenSeconds),
+                        count: test.completedAttemptCount,
+                      })
+                    : t('teacherTests.averageTimeTakenNone')}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Open editor →</span>
+              <span className="text-sm font-medium text-primary-600">
+                {t('teacherTests.openEditor')}
+              </span>
             </Link>
           </li>
         ))}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type {
   ChoiceInput,
   QuestionDTO,
@@ -24,6 +25,7 @@ interface QuestionEditorProps {
  * FULL current state, since choices are reconciled as a whole array server-side).
  */
 function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: QuestionEditorProps) {
+  const { t } = useTranslation();
   const [prompt, setPrompt] = useState(question.prompt);
   const [type, setType] = useState<QuestionType>(question.type);
   const [choices, setChoices] = useState<ChoiceInput[]>(
@@ -77,7 +79,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
       setSaveError(null);
       await onSave(body);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save question.');
+      setSaveError(err instanceof Error ? err.message : t('questionEditor.saveFailed'));
     }
   }
 
@@ -86,8 +88,8 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
     let nextChoices = choices;
     if (newType === 'trueFalse') {
       nextChoices = [
-        { text: 'True', isCorrect: true },
-        { text: 'False', isCorrect: false },
+        { text: t('questionEditor.trueLabel'), isCorrect: true },
+        { text: t('questionEditor.falseLabel'), isCorrect: false },
       ];
       setChoices(nextChoices);
     } else if (newType === 'multipleChoice' && choices.length < 2) {
@@ -153,25 +155,25 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
   }
 
   const typeLabel: Record<QuestionType, string> = {
-    multipleChoice: 'Multiple choice',
-    trueFalse: 'True / False',
-    fillBlank: 'Fill in the blank',
-    essay: 'Essay (Writing)',
-    speaking: 'Speaking',
+    multipleChoice: t('questionEditor.types.multipleChoice'),
+    trueFalse: t('questionEditor.types.trueFalse'),
+    fillBlank: t('questionEditor.types.fillBlank'),
+    essay: t('questionEditor.types.essay'),
+    speaking: t('questionEditor.types.speaking'),
   };
 
   return (
     <div className="rounded-lg border border-primary-100 bg-base-white p-4">
       <div className="flex items-start justify-between gap-3">
         <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
-          Q{index + 1} · {typeLabel[type]}
+          {t('questionEditor.questionHeading', { number: index + 1, type: typeLabel[type] })}
         </span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => onMove('up')}
             disabled={index === 0}
-            aria-label="Move question up"
+            aria-label={t('questionEditor.moveUpAriaLabel')}
             className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↑
@@ -180,7 +182,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             type="button"
             onClick={() => onMove('down')}
             disabled={index === count - 1}
-            aria-label="Move question down"
+            aria-label={t('questionEditor.moveDownAriaLabel')}
             className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↓
@@ -189,26 +191,26 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             value={type}
             onChange={(event) => handleTypeChange(event.target.value as QuestionType)}
             className="ml-2 rounded-md border border-primary-200 px-2 py-1 text-xs"
-            aria-label="Question type"
+            aria-label={t('questionEditor.questionTypeAriaLabel')}
           >
-            <option value="multipleChoice">Multiple choice</option>
-            <option value="trueFalse">True / False</option>
-            <option value="fillBlank">Fill in the blank</option>
-            <option value="essay">Essay (Writing)</option>
-            <option value="speaking">Speaking</option>
+            <option value="multipleChoice">{t('questionEditor.types.multipleChoice')}</option>
+            <option value="trueFalse">{t('questionEditor.types.trueFalse')}</option>
+            <option value="fillBlank">{t('questionEditor.types.fillBlank')}</option>
+            <option value="essay">{t('questionEditor.types.essay')}</option>
+            <option value="speaking">{t('questionEditor.types.speaking')}</option>
           </select>
           <button
             type="button"
             onClick={onDelete}
             className="ml-2 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
           >
-            Delete
+            {t('questionEditor.deleteButton')}
           </button>
         </div>
       </div>
 
       <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-        Prompt
+        {t('questionEditor.promptLabel')}
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -220,19 +222,19 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
 
       {type === 'fillBlank' ? (
         <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-          Accepted answers (comma-separated)
+          {t('questionEditor.acceptedAnswersLabel')}
           <input
             type="text"
             value={acceptedAnswersText}
             onChange={(event) => setAcceptedAnswersText(event.target.value)}
             onBlur={() => void save()}
-            placeholder="e.g. Paris, paris"
+            placeholder={t('questionEditor.acceptedAnswersPlaceholder')}
             className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
       ) : type === 'essay' ? (
         <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-          Max score (teacher grades manually out of this many points, T-042)
+          {t('questionEditor.essayMaxScoreLabel')}
           <input
             type="number"
             min={1}
@@ -242,14 +244,13 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             className="w-32 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
           <span className="text-xs font-normal text-base-black/50">
-            The student submits free text; there are no choices or an auto-graded answer for this
-            question type.
+            {t('questionEditor.essayHint')}
           </span>
         </label>
       ) : type === 'speaking' ? (
         <div className="mt-3 flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Response time allowed (seconds, T-052)
+            {t('questionEditor.speakingResponseTimeLabel')}
             <input
               type="number"
               min={5}
@@ -261,26 +262,24 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Prompt audio URL (optional)
+            {t('questionEditor.speakingPromptAudioLabel')}
             <input
               type="text"
               value={promptAudioUrl}
               onChange={(event) => setPromptAudioUrl(event.target.value)}
               onBlur={() => void save()}
-              placeholder="https://... (leave blank for a text-only prompt)"
+              placeholder={t('questionEditor.speakingPromptAudioPlaceholder')}
               className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
           <span className="text-xs font-normal text-base-black/50">
-            The student records a spoken answer in-browser within the time allowed, and it is
-            graded automatically (Mock AI grading, T-051) — you can review and override the score
-            afterward from the attempt detail page.
+            {t('questionEditor.speakingHint')}
           </span>
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           <span className="text-sm font-medium text-base-black">
-            Choices (select the correct one)
+            {t('questionEditor.choicesLabel')}
           </span>
           {choices.map((choice, choiceIndex) => (
             <div key={choice.id ?? `new-${choiceIndex}`} className="flex items-center gap-2">
@@ -289,7 +288,9 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
                 name={`correct-${question.id}`}
                 checked={choice.isCorrect}
                 onChange={() => markCorrect(choiceIndex)}
-                aria-label={`Mark choice ${choiceIndex + 1} as correct`}
+                aria-label={t('questionEditor.markCorrectAriaLabel', {
+                  number: choiceIndex + 1,
+                })}
               />
               <input
                 type="text"
@@ -303,10 +304,12 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
                 <button
                   type="button"
                   onClick={() => removeChoice(choiceIndex)}
-                  aria-label={`Remove choice ${choiceIndex + 1}`}
+                  aria-label={t('questionEditor.removeChoiceAriaLabel', {
+                    number: choiceIndex + 1,
+                  })}
                   className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
-                  Remove
+                  {t('questionEditor.removeButton')}
                 </button>
               )}
             </div>
@@ -317,7 +320,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
               onClick={addChoice}
               className="self-start rounded-md border border-primary-200 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
             >
-              + Add choice
+              {t('questionEditor.addChoiceButton')}
             </button>
           )}
         </div>
