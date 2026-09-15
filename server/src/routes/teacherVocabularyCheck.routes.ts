@@ -196,10 +196,11 @@ teacherVocabularyCheckRouter.post(
       throw err;
     }
 
+    // Default title (used whenever the teacher leaves the title field blank): unit name
+    // + date, WITHOUT the target student names — a group generation with many students
+    // previously produced an unreadably long default (customer complaint, 2026-09-15).
     const requestedTitle = typeof body.title === 'string' ? body.title.trim() : '';
-    const title =
-      requestedTitle ||
-      `Vocabulary Check — ${new Date().toISOString().slice(0, 10)} (${students.map((s) => s.name).join(', ')})`;
+    const title = requestedTitle || `${unit.name} — ${new Date().toISOString().slice(0, 10)}`;
 
     const testId = await prisma.$transaction(async (tx) => {
       const test = await tx.test.create({

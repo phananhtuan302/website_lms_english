@@ -35,6 +35,7 @@ function TeacherVocabularyChecksPage() {
   const [unitId, setUnitId] = useState('');
   const [questionCount, setQuestionCount] = useState('');
   const [timeLimitMinutes, setTimeLimitMinutes] = useState('15');
+  const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -80,6 +81,13 @@ function TeacherVocabularyChecksPage() {
     });
   }
 
+  const allStudentsSelected = students !== null && students.length > 0 && selectedIds.size === students.length;
+
+  function toggleSelectAll() {
+    if (!students) return;
+    setSelectedIds(allStudentsSelected ? new Set() : new Set(students.map((s) => s.id)));
+  }
+
   const parsedQuestionCount = Number(questionCount);
   const parsedTimeLimitMinutes = Number(timeLimitMinutes);
   const canSubmit =
@@ -104,11 +112,13 @@ function TeacherVocabularyChecksPage() {
         unitId,
         questionCount: parsedQuestionCount,
         timeLimitMinutes: parsedTimeLimitMinutes,
+        title: title.trim() || undefined,
       });
       setSelectedIds(new Set());
       setUnitId('');
       setQuestionCount('');
       setTimeLimitMinutes('15');
+      setTitle('');
       reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('teacherVocabularyChecks.generateFailed'));
@@ -144,6 +154,17 @@ function TeacherVocabularyChecksPage() {
         )}
         {students?.length === 0 && (
           <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.noStudents')}</p>
+        )}
+        {students && students.length > 0 && (
+          <label className="mt-2 flex items-center gap-2 text-sm font-medium text-base-black">
+            <input
+              type="checkbox"
+              checked={allStudentsSelected}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-primary-300 text-primary-600 focus:ring-primary-200"
+            />
+            {t('teacherVocabularyChecks.selectAll')}
+          </label>
         )}
         <ul className="mt-3 flex flex-col gap-2">
           {students?.map((student) => (
@@ -207,6 +228,17 @@ function TeacherVocabularyChecksPage() {
             />
           </label>
         </div>
+
+        <label className="mt-4 flex flex-col gap-1 text-sm text-base-black">
+          {t('teacherVocabularyChecks.titleLabel')}
+          <input
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={t('teacherVocabularyChecks.titlePlaceholder')}
+            className="w-96 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          />
+        </label>
 
         <button
           type="submit"
