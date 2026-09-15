@@ -447,20 +447,20 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
 
 ## Phase 11 — Admin Role & Management Panel (customer request, 2026-09-15)
 
-- [ ] **T-069 — Admin role, seeded account, auth/route guards**
-  - Status: Not Started
+- [x] **T-069 — Admin role, seeded account, auth/route guards**
+  - Status: Done
   - Depends on: T-005, T-006
   - Source: Customer request 2026-09-15; PROJECT_PLAN.md Assumption A1 (superseded), A12
   - Acceptance Criteria: `admin` added to the `Role` enum. Seed script creates exactly one admin account: `admin@example.com` / `123456` (per Assumption A12 — an intentionally simple local-dev credential, not a production secret). Admin logs in through the same `/login` form as everyone else (no separate admin login page). `ProtectedRoute` supports `admin` as an allowed role; an `/admin/dashboard` landing page exists (can be minimal — links to the pages built in `T-070`–`T-072`) reachable only by the admin role (teacher/student get redirected, same as any other cross-role access today). Verify: admin logs in and reaches `/admin/dashboard`; a teacher or student token hitting any `/api/admin/*` route (even before those routes have real logic, a stub 200 is enough for this task) gets 403.
 
-- [ ] **T-070 — Admin: user management (teachers + students + admins)**
-  - Status: Not Started
+- [x] **T-070 — Admin: user management (teachers + students + admins)**
+  - Status: Done
   - Depends on: T-069
   - Source: Customer request 2026-09-15; Assumption A12
   - Acceptance Criteria: Admin can list every user (any role) with search/filter by role, create a new user of ANY role (including `teacher` and `admin` — this is the one place in the system that can create a teacher account outside the seed script), edit a user's name/email/role, reset a user's password, and delete a user (cascading exactly per the existing schema relations — deleting a teacher cascades their tests/sessions/etc., deleting a student cascades their attempts/progress). A non-admin gets 403 on every one of these endpoints. Verify by creating a brand-new teacher account through this panel (not the seed script) and confirming that teacher can immediately log in and author a test.
 
-- [ ] **T-071 — Admin: content oversight (Tests, Units, Flashcard sets, Grammar topics, Academic Periods)**
-  - Status: Not Started
+- [x] **T-071 — Admin: content oversight (Tests, Units, Flashcard sets, Grammar topics, Academic Periods)**
+  - Status: Done
   - Depends on: T-069
   - Source: Customer request 2026-09-15; Assumption A12
   - Acceptance Criteria: Admin can view, edit, and delete ANY teacher's `Test` (and its sections/questions), any `Unit`, `AcademicPeriod`, `FlashcardSet` (and its cards), and `GrammarTopic` (and its exercises) — reusing the existing teacher-side editor UI/routes wherever practical (extend their ownership checks to also allow `role === 'admin'` rather than building parallel admin-only editor screens from scratch), plus an admin-only list view per entity type showing which teacher owns each item (since the existing teacher UI only ever shows "my own"). Verify: as admin, edit and delete a test/flashcard set/grammar topic that belongs to a DIFFERENT teacher than the one admin is "impersonating" nothing as — i.e. admin never needs to log in as that teacher to manage their content.
@@ -470,3 +470,9 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-069, T-067
   - Source: Customer request 2026-09-15; Assumption A12, A13
   - Acceptance Criteria: (a) Admin can view any attempt across the whole system (any student, any test), edit its score/manual grades, and delete it, extending existing attempt-detail/grading endpoints to allow the admin role rather than building a parallel scoring system. (b) An Admin Settings page has a control to switch the site-wide language between English and Vietnamese (writing to `T-067`'s `Settings` row via an admin-only endpoint) — this is the ONLY place in the product that can change it. Verify: (a) admin edits a score belonging to a student they've never interacted with before and it's reflected in that student's own result view; (b) toggling the Settings page's language control actually changes what a fresh, logged-out visitor sees on `/` and `/login` without them doing anything themselves.
+
+- [ ] **T-073 — AdminUsersPage: role dropdown doesn't revert display after a rejected role change**
+  - Status: Not Started
+  - Depends on: T-070
+  - Source: QA finding during T-069..T-071 verification (2026-09-15)
+  - Acceptance Criteria: `AdminUsersPage.tsx` seeds each row's `role`/`name`/`email` into local `useState` once from props with no re-sync. If the server rejects a role change (e.g. the last-remaining-admin lockout guard fires with 409), the dropdown keeps showing the attempted (rejected) role until the page is manually refreshed, even though the account's real role is unchanged server-side — a cosmetic display bug only, no data integrity issue. Fix by reverting the local state to the server's actual value on a failed request (or re-fetching that row) instead of leaving the optimistic/attempted value displayed. Verify: trigger the last-admin lockout rejection, confirm the dropdown snaps back to the real current role without a manual page refresh.

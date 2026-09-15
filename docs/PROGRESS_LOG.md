@@ -19,6 +19,19 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Admin role, user management, content oversight (Phase 11 core)
+
+- Task IDs touched: T-069, T-070, T-071
+- What changed: Dev added `admin` to the `Role` enum, seeded `admin@example.com`/`123456` (Assumption A12), and built `isAdminOrOwner()` (`server/src/lib/authz.ts`) as the one shared "admin bypasses every ownership check" rule, reused by `ownedTest`/`ownedFlashcardSet`/`ownedGrammarTopic` and every `/api/teacher/*` router's role gate rather than a parallel admin-only data layer. Built full user CRUD (including creating teacher/admin accounts, previously only possible via the seed script) with self-delete/last-admin-demotion lockout guards, and content-oversight "browse everything across every teacher" list pages reusing the existing teacher editor UI. Also fixed a real bug found along the way: `LoginPage`/`RegisterPage`/`HomePage` had hardcoded teacher-or-student ternaries that would have misrouted a logged-in admin. Test gave this a security-sensitive adversarial pass (isolated in a separate git worktree to get a clean read despite heavy concurrent i18n activity in the shared tree): login, every route guard, full user-management round-trip (including deliberately trying to get admin to delete/demote itself and the last remaining admin — both correctly blocked), and cross-teacher content edits/deletes with re-verification from the actual owning teacher's own view. PASS, with one real bug found and fixed by the Leader directly afterward (see next entry) and one minor cosmetic UI bug logged as T-073.
+- Why / decisions made: admin cannot delete/demote itself or the last remaining admin (lockout prevention — not in the literal acceptance criteria, but an obvious safety necessity once "unrestricted admin" exists). Full reporting/scoring oversight for admin is deliberately deferred to T-072, not bundled here.
+- Status after this entry: T-069/T-070/T-071 Done. T-073 (minor cosmetic UI bug) logged, low priority. Remaining: T-068 (translate all remaining pages, in progress via multiple parallel sub-agents) and T-072 (admin scores/attempts management + language Settings page, blocked on both this batch and T-067 — both now done, so T-072 is unblocked).
+
+## 2026-09-15 — Leader — Direct fix: two admin route-gate gaps found by T-069..T-071 QA
+
+- Task IDs touched: None (QA-found bug, fixed directly the same day it was found)
+- What changed: Test's adversarial pass on the Admin role found `server/src/routes/teacherUnitTests.routes.ts` and `teacherVocabularyCheck.routes.ts` were missed when T-071 widened role gates on every other `/api/teacher`-mounted router — admin got 403 on `/api/teacher/unit-tests`, `/api/teacher/vocabulary-checks`, and `/api/teacher/students`. Same router-registration-order bug class already documented on `teacherReportsRouter`: Express tries same-prefix routers in registration order, and these two are registered LAST, so their teacher-only blanket check 403'd any admin request that reached them (including ones meant for a route defined even later in the chain). Fixed directly by the Leader: widened both to `requireRole('teacher', 'admin')`, following the exact same "unblock the gate, leave internal per-teacher scoping as-is" pattern already established — admin still sees their own (empty) list here by design, full oversight already exists via `/api/admin/tests`. Verified live: all 3 endpoints now return 200 for admin instead of 403.
+- Status after this entry: Fixed and committed (`83733ba`).
+
 ## 2026-09-15 — Leader — Direct fix: client hardcoded `localhost:4000`, unreachable from the customer's real browser
 
 - Task IDs touched: None (critical customer-reported bug, found and fixed live)
