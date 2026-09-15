@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { StudentVocabularyCheckSummaryDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
@@ -14,6 +15,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function StudentVocabularyChecksPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [checks, setChecks] = useState<StudentVocabularyCheckSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<string | null>(null);
@@ -22,8 +24,10 @@ function StudentVocabularyChecksPage() {
     studentApi
       .listVocabularyChecks()
       .then(setChecks)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load Vocabulary Checks.'));
-  }, []);
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : t('studentVocabularyChecks.loadFailed')),
+      );
+  }, [t]);
 
   async function handleStart(testId: string) {
     setStartingId(testId);
@@ -36,7 +40,7 @@ function StudentVocabularyChecksPage() {
           : `/student/attempts/${res.attemptId}`,
       );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to start this Vocabulary Check.');
+      setError(err instanceof ApiError ? err.message : t('studentVocabularyChecks.startFailed'));
       setStartingId(null);
     }
   }
@@ -45,13 +49,12 @@ function StudentVocabularyChecksPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
         <Link to="/student/dashboard" className="text-sm text-primary-600 hover:underline">
-          ← Back to dashboard
+          {t('studentVocabularyChecks.backToDashboard')}
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-primary-700">Vocabulary Check</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          A fixed 15-minute check built from vocabulary you&apos;ve already studied. The timer
-          auto-submits at 15 minutes.
-        </p>
+        <h1 className="mt-2 text-2xl font-bold text-primary-700">
+          {t('studentVocabularyChecks.heading')}
+        </h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentVocabularyChecks.description')}</p>
       </div>
 
       {error && (
@@ -59,11 +62,9 @@ function StudentVocabularyChecksPage() {
           {error}
         </p>
       )}
-      {!error && !checks && <p className="text-sm text-base-black/60">Loading...</p>}
+      {!error && !checks && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
       {checks?.length === 0 && (
-        <p className="text-sm text-base-black/60">
-          No Vocabulary Check has been assigned to you yet.
-        </p>
+        <p className="text-sm text-base-black/60">{t('studentVocabularyChecks.empty')}</p>
       )}
 
       <ul className="flex flex-col gap-2">
@@ -75,10 +76,14 @@ function StudentVocabularyChecksPage() {
             <div>
               <p className="font-medium text-base-black">{check.title}</p>
               <p className="text-xs text-base-black/50">
-                {check.timeLimitMinutes} min · {check.questionCount} question
-                {check.questionCount === 1 ? '' : 's'}
-                {check.myAttempt?.status === 'submitted' && ` · Score: ${check.myAttempt.scorePercent}%`}
-                {check.myAttempt?.status === 'inProgress' && ' · In progress'}
+                {t('studentVocabularyChecks.detail', {
+                  count: check.questionCount,
+                  minutes: check.timeLimitMinutes,
+                })}
+                {check.myAttempt?.status === 'submitted' &&
+                  t('studentVocabularyChecks.scoreSuffix', { percent: check.myAttempt.scorePercent })}
+                {check.myAttempt?.status === 'inProgress' &&
+                  t('studentVocabularyChecks.inProgressSuffix')}
               </p>
             </div>
             {check.myAttempt?.status === 'submitted' ? (
@@ -86,7 +91,7 @@ function StudentVocabularyChecksPage() {
                 to={`/student/attempts/${check.myAttempt.attemptId}/result`}
                 className="font-medium text-primary-600 hover:underline"
               >
-                View result →
+                {t('studentVocabularyChecks.viewResult')}
               </Link>
             ) : (
               <button
@@ -96,10 +101,10 @@ function StudentVocabularyChecksPage() {
                 className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {startingId === check.id
-                  ? 'Starting...'
+                  ? t('studentVocabularyChecks.starting')
                   : check.myAttempt?.status === 'inProgress'
-                    ? 'Resume →'
-                    : 'Start →'}
+                    ? t('studentVocabularyChecks.resume')
+                    : t('studentVocabularyChecks.start')}
               </button>
             )}
           </li>

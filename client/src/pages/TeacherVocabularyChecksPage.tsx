@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { TeacherStudentSummaryDTO, TeacherVocabularyCheckSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -12,6 +13,7 @@ import { ApiError } from '../lib/apiClient';
  * WHO it's for.
  */
 function TeacherVocabularyChecksPage() {
+  const { t } = useTranslation();
   const [students, setStudents] = useState<TeacherStudentSummaryDTO[] | null>(null);
   const [checks, setChecks] = useState<TeacherVocabularyCheckSummaryDTO[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -22,11 +24,15 @@ function TeacherVocabularyChecksPage() {
     teacherApi
       .listStudents()
       .then(setStudents)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load students.'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : t('teacherVocabularyChecks.loadStudentsFailed')),
+      );
     teacherApi
       .listVocabularyChecks()
       .then(setChecks)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load Vocabulary Checks.'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : t('teacherVocabularyChecks.loadChecksFailed')),
+      );
   }
 
   useEffect(reload, []);
@@ -50,7 +56,7 @@ function TeacherVocabularyChecksPage() {
       setSelectedIds(new Set());
       reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to generate Vocabulary Check.');
+      setError(err instanceof ApiError ? err.message : t('teacherVocabularyChecks.generateFailed'));
     } finally {
       setIsGenerating(false);
     }
@@ -60,14 +66,12 @@ function TeacherVocabularyChecksPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link to="/teacher/dashboard" className="text-sm text-primary-600 hover:underline">
-          ← Back to dashboard
+          {t('teacherVocabularyChecks.backToDashboard')}
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-primary-700">Vocabulary Check</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          Generate a fixed 15-minute Vocabulary Check for a target student or group. Its questions
-          are drawn only from vocabulary those students have already studied (status "learning" or
-          "known") — never new/unseen words.
-        </p>
+        <h1 className="mt-2 text-2xl font-bold text-primary-700">
+          {t('teacherVocabularyChecks.heading')}
+        </h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherVocabularyChecks.description')}</p>
       </div>
 
       {error && (
@@ -78,10 +82,14 @@ function TeacherVocabularyChecksPage() {
 
       <form onSubmit={handleGenerate} className="rounded-xl border border-primary-200 p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary-600">
-          Select target student(s)
+          {t('teacherVocabularyChecks.selectStudents')}
         </h2>
-        {!students && <p className="mt-2 text-sm text-base-black/60">Loading students...</p>}
-        {students?.length === 0 && <p className="mt-2 text-sm text-base-black/60">No students yet.</p>}
+        {!students && (
+          <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.loadingStudents')}</p>
+        )}
+        {students?.length === 0 && (
+          <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.noStudents')}</p>
+        )}
         <ul className="mt-3 flex flex-col gap-2">
           {students?.map((student) => (
             <li key={student.id}>
@@ -102,15 +110,19 @@ function TeacherVocabularyChecksPage() {
           disabled={selectedIds.size === 0 || isGenerating}
           className="mt-4 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isGenerating ? 'Generating...' : `Generate for ${selectedIds.size} selected`}
+          {isGenerating
+            ? t('teacherVocabularyChecks.generating')
+            : t('teacherVocabularyChecks.generateFor', { count: selectedIds.size })}
         </button>
       </form>
 
       <section>
-        <h2 className="text-lg font-bold text-base-black">Generated Vocabulary Checks</h2>
-        {!checks && <p className="mt-2 text-sm text-base-black/60">Loading...</p>}
+        <h2 className="text-lg font-bold text-base-black">
+          {t('teacherVocabularyChecks.generatedHeading')}
+        </h2>
+        {!checks && <p className="mt-2 text-sm text-base-black/60">{t('common.loading')}</p>}
         {checks?.length === 0 && (
-          <p className="mt-2 text-sm text-base-black/60">None generated yet — use the form above.</p>
+          <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.noneGenerated')}</p>
         )}
         <ul className="mt-3 flex flex-col gap-2">
           {checks?.map((check) => (
@@ -120,10 +132,12 @@ function TeacherVocabularyChecksPage() {
             >
               <p className="font-medium text-base-black">{check.title}</p>
               <p className="mt-1 text-xs text-base-black/60">
-                {check.timeLimitMinutes} min · {check.questionCount} question
-                {check.questionCount === 1 ? '' : 's'} · assigned to{' '}
-                {check.assignedStudents.map((s) => s.name).join(', ')} · generated{' '}
-                {new Date(check.createdAt).toLocaleString()}
+                {t('teacherVocabularyChecks.detailLine', {
+                  count: check.questionCount,
+                  minutes: check.timeLimitMinutes,
+                  students: check.assignedStudents.map((s) => s.name).join(', '),
+                  date: new Date(check.createdAt).toLocaleString(),
+                })}
               </p>
             </li>
           ))}
