@@ -1,10 +1,16 @@
 /**
- * Teacher-only Vocabulary Check generation (T-038, Assumption A8): a teacher picks a
- * target student or group, and the server auto-generates a `testType: 'vocabularyCheck'`
- * `Test` (15-minute fixed timer) whose question pool is drawn from ONLY the vocabulary
- * those students have already studied (`FlashcardProgress` `learning`/`known`, never
- * `new`) — see `server/src/lib/vocabularyCheckGenerator.ts` for the pool/question-spec
- * logic this route just persists.
+ * Teacher-only Vocabulary Check generation (T-038, redesigned by T-086 to a Unit-based
+ * random pool): a teacher picks a target student or group, a curriculum `Unit`, a
+ * question count, and a time limit, and the server auto-generates a
+ * `testType: 'vocabularyCheck'` `Test` whose question pool is drawn from EVERY
+ * `FlashcardCard` across every `FlashcardSet` tagged with that `unitId`, picked entirely
+ * at random — completely independent of whether the target student(s) have studied those
+ * specific words. (T-038's original design instead drew the pool from the target
+ * student(s)' OWN `FlashcardProgress`, `learning`/`known` only, and always used a fixed
+ * 15-minute timer, per Assumption A8 — the customer explicitly reversed that rule
+ * 2026-09-15; see PROJECT_PLAN.md's Assumption A8 annotation and T-086 in BACKLOG.md.)
+ * See `server/src/lib/vocabularyCheckGenerator.ts` for the pool/question-spec logic this
+ * route just persists.
  *
  * The generated `Test`/`Section`/`Question`/`Choice` rows reuse the EXACT SAME engine as
  * every other test (Guiding Principle 6) — a generated Vocabulary Check plays through the
@@ -34,15 +40,30 @@ import type {
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
-import {
-  buildVocabularyCheckPool,
-  VOCAB_CHECK_TIME_LIMIT_MINUTES,
-  VocabCheckGenerationError,
-} from '../lib/vocabularyCheckGenerator';
+import { buildVocabularyCheckPool, VocabCheckGenerationError } from '../lib/vocabularyCheckGenerator';
+import { validateTimeLimit } from './teacherTests.routes';
 import { fetchNestedTest } from '../lib/testQueries';
 import { generateVariantLayout, nextVariantCodes } from '../lib/variantShuffle';
 
 export const teacherVocabularyCheckRouter = Router();
+
+/** Defensive display fallback for `toSummaryDTO` below — `Test.timeLimitMinutes` is
+ * nullable at the schema level (shared with every other test type), but every
+ * Vocabulary Check ever created (before or after T-086's redesign) always sets it
+ * explicitly, so this should never actually trigger in practice. */
+const TIME_LIMIT_DISPLAY_FALLBACK_MINUTES = 15;
+
+/** Validates the required `questionCount` from a generate-Vocabulary-Check body (T-086):
+ * must be a positive whole number. The cross-check against the unit's actual pool size
+ * (strictly less than it, and the pool itself must have 2+ cards) happens inside
+ * `buildVocabularyCheckPool` below, which is the only place that already needs to query
+ * that pool size — this just rejects an obviously-malformed value early. */
+function validateQuestionCount(value: unknown): string | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    return 'questionCount must be a positive whole number.';
+  }
+  return null;
+}
 
 // T-071 follow-up (QA-found gap, same class as teacherReportsRouter's fix): this router
 // shares the `/api/teacher` prefix with every other teacher router, so its blanket
@@ -82,7 +103,7 @@ function toSummaryDTO(test: {
   return {
     id: test.id,
     title: test.title,
-    timeLimitMinutes: test.timeLimitMinutes ?? VOCAB_CHECK_TIME_LIMIT_MINUTES,
+    timeLimitMinutes: test.timeLimitMinutes ?? TIME_LIMIT_DISPLAY_FALLBACK_MINUTES,
     questionCount: test.sections.reduce((sum, s) => sum + s.questions.length, 0),
     assignedStudents: test.assignments.map((a) => a.student),
     createdAt: test.createdAt.toISOString(),
@@ -127,9 +148,46 @@ teacherVocabularyCheckRouter.post(
       return;
     }
 
+    // --- T-086: unitId / questionCount / timeLimitMinutes are now all required, teacher-
+    // supplied fields — validated up front (shape/existence), same "route does the basic
+    // checks, the generator does the pool-size cross-check it already needs to query
+    // anyway" split as the pre-T-086 studentIds/students check above.
+    const unitId = typeof body.unitId === 'string' ? body.unitId.trim() : '';
+    if (!unitId) {
+      res.status(400).json({ error: 'unitId is required.' });
+      return;
+    }
+    const unit = await prisma.unit.findUnique({ where: { id: unitId } });
+    if (!unit) {
+      res.status(400).json({ error: 'unitId does not reference an existing Unit.' });
+      return;
+    }
+
+    const questionCountError = validateQuestionCount(body.questionCount);
+    if (questionCountError) {
+      res.status(400).json({ error: questionCountError });
+      return;
+    }
+    const questionCount = body.questionCount as number;
+
+    // `validateTimeLimit` (reused verbatim from `teacherTests.routes.ts`) treats
+    // `undefined`/`null` as "leave untouched", which only makes sense for a regular
+    // Test's OPTIONAL time limit — a Vocabulary Check's is required, so that case is
+    // rejected here first, before deferring to the exact same 1-480 bound check/wording.
+    if (body.timeLimitMinutes === undefined || body.timeLimitMinutes === null) {
+      res.status(400).json({ error: 'timeLimitMinutes is required.' });
+      return;
+    }
+    const timeLimitError = validateTimeLimit(body.timeLimitMinutes);
+    if (timeLimitError) {
+      res.status(400).json({ error: timeLimitError });
+      return;
+    }
+    const timeLimitMinutes = body.timeLimitMinutes as number;
+
     let pool;
     try {
-      pool = await buildVocabularyCheckPool(studentIds);
+      pool = await buildVocabularyCheckPool(unitId, questionCount);
     } catch (err) {
       if (err instanceof VocabCheckGenerationError) {
         res.status(400).json({ error: err.message });
@@ -149,7 +207,7 @@ teacherVocabularyCheckRouter.post(
           title,
           teacherId: req.user!.sub,
           testType: 'vocabularyCheck',
-          timeLimitMinutes: VOCAB_CHECK_TIME_LIMIT_MINUTES,
+          timeLimitMinutes,
           // Not gated by `published` at all (see `TestAssignment`'s doc comment in
           // schema.prisma) — access is controlled entirely by the assignment rows below.
           published: false,

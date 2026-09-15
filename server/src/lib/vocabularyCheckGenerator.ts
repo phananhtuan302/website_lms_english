@@ -1,27 +1,28 @@
 /**
- * Vocabulary Check question-pool generation (T-038, Assumption A8).
+ * Vocabulary Check question-pool generation (T-038, redesigned by T-086 to a Unit-based
+ * random pool).
  *
- * Pure-ish helpers (DB reads only, no writes) that pick a target student/group's
- * question pool from vocabulary they've ALREADY studied — `FlashcardProgress.status` in
- * (`learning`, `known`) only, never `new`/unseen words — and turn each selected
- * `FlashcardCard` into a `multipleChoice` (preferred, when enough distractor meanings
- * exist) or `fillBlank` (fallback) question spec. The caller (`teacherVocabularyCheck.routes.ts`)
- * is responsible for actually writing the `Test`/`Section`/`Question`/`Choice` rows and
- * the `TestAssignment` grants — this module only decides WHAT the pool/questions are.
+ * Pure-ish helpers (DB reads only, no writes) that pick a teacher-chosen `Unit`'s ENTIRE
+ * vocabulary — every `FlashcardCard` across every `FlashcardSet` tagged with that
+ * `unitId` — as the question pool, shuffle it, and take `questionCount` cards completely
+ * at RANDOM. This is a deliberate 2026-09-15 customer-directed reversal of T-038's
+ * original design (Assumption A8), which instead drew the pool from the target
+ * student(s)' OWN `FlashcardProgress` (`learning`/`known` only) and always used a fixed
+ * 15-minute timer — see PROJECT_PLAN.md's Assumption A8 annotation and T-086 in
+ * BACKLOG.md for the full history. The new pool selection is intentionally completely
+ * independent of any student's study history: a Vocabulary Check can now be generated
+ * for a student who has never studied a single word in the unit.
+ *
+ * Each selected `FlashcardCard` is turned into a `multipleChoice` (preferred, when enough
+ * distractor meanings exist) or `fillBlank` (fallback) question spec — that
+ * question-building logic is UNCHANGED by T-086, only the pool-selection source changed.
+ * The caller (`teacherVocabularyCheck.routes.ts`) is responsible for actually writing the
+ * `Test`/`Section`/`Question`/`Choice` rows and the `TestAssignment` grants — this module
+ * only decides WHAT the pool/questions are.
  */
 
 import { prisma } from './prisma';
 import { shuffle } from './variantShuffle';
-
-/** Fixed 15-minute time limit (T-038's explicit customer requirement, Assumption A8). */
-export const VOCAB_CHECK_TIME_LIMIT_MINUTES = 15;
-
-/** Upper bound on how many questions one generated Vocabulary Check contains — keeps it
- * realistically completable within the fixed 15-minute window even if the target
- * student(s) have studied a very large number of cards. Chosen as a simple, documented
- * cap (roughly one question per minute) rather than a configurable option, matching this
- * batch's "keep it simple" level of effort for a fixed-length test type. */
-export const VOCAB_CHECK_MAX_QUESTIONS = 15;
 
 /** How many multiple-choice distractor options to try to attach per question (on top of
  * the one correct answer) — capped down automatically per-question if fewer distinct
@@ -35,7 +36,7 @@ const DISTRACTOR_POOL_SIZE = 200;
 
 export class VocabCheckGenerationError extends Error {}
 
-interface StudiedCard {
+interface UnitPoolCard {
   id: string;
   term: string;
   meaning: string;
@@ -43,27 +44,19 @@ interface StudiedCard {
 }
 
 /**
- * Every card at least one of `studentIds` has studied (`learning` or `known` — NEVER
- * `new`/unseen, per Assumption A8), deduplicated across students so a "group" generation
- * draws from the UNION of everyone's studied vocabulary rather than one row per student
- * per card.
+ * Every `FlashcardCard` belonging to any `FlashcardSet` tagged with `unitId` (T-086) —
+ * the unit's ENTIRE vocabulary pool, independent of any student's `FlashcardProgress`.
  */
-async function selectStudiedCards(studentIds: string[]): Promise<StudiedCard[]> {
-  const progressRows = await prisma.flashcardProgress.findMany({
-    where: { studentId: { in: studentIds }, status: { in: ['learning', 'known'] } },
-    select: { card: { select: { id: true, term: true, meaning: true, synonyms: true } } },
+async function selectUnitPool(unitId: string): Promise<UnitPoolCard[]> {
+  return prisma.flashcardCard.findMany({
+    where: { set: { unitId } },
+    select: { id: true, term: true, meaning: true, synonyms: true },
   });
-
-  const byCardId = new Map<string, StudiedCard>();
-  for (const row of progressRows) {
-    if (!byCardId.has(row.card.id)) byCardId.set(row.card.id, row.card);
-  }
-  return [...byCardId.values()];
 }
 
 /** A broad pool of OTHER cards' meanings to source multiple-choice distractors from —
- * deliberately not limited to the target student(s)' own studied set, since a small
- * studied pool (e.g. 4-5 cards) wouldn't otherwise yield enough distinct wrong answers. */
+ * deliberately not limited to the unit's own pool, since a small unit (e.g. 4-5 cards)
+ * wouldn't otherwise yield enough distinct wrong answers. */
 async function fetchDistractorPool(excludeCardIds: string[]): Promise<Array<{ id: string; meaning: string }>> {
   return prisma.flashcardCard.findMany({
     where: { id: { notIn: excludeCardIds } },
@@ -100,32 +93,50 @@ export type GeneratedVocabCheckQuestion =
   | { type: 'fillBlank'; prompt: string; acceptedAnswers: string[] };
 
 export interface GeneratedVocabCheckPool {
-  /** The distinct studied cards the pool was drawn from (before the
-   * `VOCAB_CHECK_MAX_QUESTIONS` cap) — returned mainly so callers/tests can report how
-   * large the underlying studied-vocabulary pool was. */
-  studiedCardCount: number;
+  /** How many distinct cards existed in the unit's FULL vocabulary pool, before the
+   * `questionCount` random pick — returned mainly so callers/tests can report how large
+   * the underlying unit's vocabulary pool was. */
+  poolSize: number;
   questions: GeneratedVocabCheckQuestion[];
 }
 
 /**
- * Builds the full question-pool spec for a Vocabulary Check targeting `studentIds`
- * (one id = a single target student; several = a "group" — see
- * `GenerateVocabularyCheckRequest`'s doc comment in `@platform/shared`).
+ * Builds the full question-pool spec for a Vocabulary Check drawn from `unitId`'s ENTIRE
+ * vocabulary pool (T-086) — every `FlashcardCard` across every `FlashcardSet` tagged with
+ * that unit — picking `questionCount` of them completely at random, with zero
+ * `FlashcardProgress` filtering of any kind.
  *
- * Throws `VocabCheckGenerationError` (caller maps this to a 400) when NONE of the
- * target students have any `learning`/`known` vocabulary yet — there is nothing to draw
- * a pool from, and generating an empty test would silently violate Assumption A8 rather
- * than surfacing the real problem ("this student hasn't studied anything yet").
+ * Throws `VocabCheckGenerationError` (caller maps this to a 400) when:
+ * - `unitId` does not reference an existing `Unit`;
+ * - the unit's vocabulary pool has 0 or 1 cards (no valid `questionCount` could satisfy
+ *   "strictly less than" the pool size in that case);
+ * - `questionCount` is not strictly less than the pool size.
+ *
+ * Every rejection message states the actual pool size, so a teacher immediately knows
+ * what to try instead.
  */
-export async function buildVocabularyCheckPool(studentIds: string[]): Promise<GeneratedVocabCheckPool> {
-  const studied = await selectStudiedCards(studentIds);
-  if (studied.length === 0) {
+export async function buildVocabularyCheckPool(
+  unitId: string,
+  questionCount: number,
+): Promise<GeneratedVocabCheckPool> {
+  const unit = await prisma.unit.findUnique({ where: { id: unitId } });
+  if (!unit) {
+    throw new VocabCheckGenerationError('unitId does not reference an existing Unit.');
+  }
+
+  const pool = await selectUnitPool(unitId);
+  if (pool.length <= 1) {
     throw new VocabCheckGenerationError(
-      'None of the selected student(s) have any "learning" or "known" vocabulary yet. Ask them to study some flashcards first — a Vocabulary Check can only be generated from words already studied.',
+      `This unit's vocabulary pool only has ${pool.length} card${pool.length === 1 ? '' : 's'} — at least 2 are needed to generate a Vocabulary Check.`,
+    );
+  }
+  if (questionCount >= pool.length) {
+    throw new VocabCheckGenerationError(
+      `questionCount must be strictly less than the unit's vocabulary pool size (${pool.length} cards available). Choose ${pool.length - 1} or fewer.`,
     );
   }
 
-  const picks = shuffle(studied).slice(0, VOCAB_CHECK_MAX_QUESTIONS);
+  const picks = shuffle(pool).slice(0, questionCount);
   const distractorPool = await fetchDistractorPool(picks.map((p) => p.id));
 
   const questions: GeneratedVocabCheckQuestion[] = picks.map((pick) => {
@@ -150,5 +161,5 @@ export async function buildVocabularyCheckPool(studentIds: string[]): Promise<Ge
     };
   });
 
-  return { studiedCardCount: studied.length, questions };
+  return { poolSize: pool.length, questions };
 }

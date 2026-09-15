@@ -68,8 +68,14 @@ const MAX_SPEAKING_SECONDS = 300;
 /** Validates an optional time-limit value from a create/update test body. `undefined`
  * (field omitted) leaves the existing/untimed value untouched; `null` explicitly clears
  * it; anything else must be a positive integer. Returns an English error string or
- * `null` if valid — same convention as `validateQuestionBody` below. */
-function validateTimeLimit(value: unknown): string | null {
+ * `null` if valid — same convention as `validateQuestionBody` below.
+ *
+ * Exported so `teacherVocabularyCheck.routes.ts` can reuse the EXACT SAME 1-480 bound
+ * and error wording for a Vocabulary Check's (T-086) required `timeLimitMinutes`, rather
+ * than a second, potentially-drifting copy of the same rule — that route just adds its
+ * own "is it present at all" check first, since a Vocabulary Check's time limit is
+ * required, not optional/nullable like a regular Test's. */
+export function validateTimeLimit(value: unknown): string | null {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 480) {
     return 'timeLimitMinutes must be a whole number of minutes between 1 and 480, or null for no limit.';

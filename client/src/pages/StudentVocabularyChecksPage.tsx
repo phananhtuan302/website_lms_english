@@ -6,12 +6,14 @@ import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 
 /**
- * Student: Vocabulary Checks assigned to me (T-038). Same start/resume/result flow as
+ * Student: Vocabulary Checks assigned to me (T-038, redesigned by T-086 to a Unit-based
+ * random pool — the teacher now picks the question count/time limit per check, so both
+ * vary check-to-check instead of always being 15). Same start/resume/result flow as
  * `StudentUnitTestsPage.tsx` — "Start" reuses `studentApi.startPractice` (`POST
  * /api/tests/:testId/practice`), the identical self-practice endpoint every other
  * standalone attempt uses, which is what plays through the real take-test runtime
- * (T-012) and auto-grading (T-013), including the fixed 15-minute timer/auto-submit
- * already built into `TakeTestPage.tsx`.
+ * (T-012) and auto-grading (T-013), including the same generic timer/auto-submit
+ * (driven by `attempt.timeLimitMinutes`) already built into `TakeTestPage.tsx`.
  */
 function StudentVocabularyChecksPage() {
   const navigate = useNavigate();
