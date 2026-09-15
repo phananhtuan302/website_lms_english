@@ -476,3 +476,35 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-070
   - Source: QA finding during T-069..T-071 verification (2026-09-15)
   - Acceptance Criteria: `AdminUsersPage.tsx` seeds each row's `role`/`name`/`email` into local `useState` once from props with no re-sync. If the server rejects a role change (e.g. the last-remaining-admin lockout guard fires with 409), the dropdown keeps showing the attempted (rejected) role until the page is manually refreshed, even though the account's real role is unchanged server-side — a cosmetic display bug only, no data integrity issue. Fix by reverting the local state to the server's actual value on a failed request (or re-fetching that row) instead of leaving the optimistic/attempted value displayed. Verify: trigger the last-admin lockout rejection, confirm the dropdown snaps back to the real current role without a manual page refresh.
+
+## Phase 12 — Class-Based Organization (customer request, 2026-09-15)
+
+- [ ] **T-074 — Class schema, teacher class management, student registration class picker**
+  - Status: Not Started
+  - Depends on: T-005, T-006
+  - Source: Customer request 2026-09-15; PROJECT_PLAN.md Assumption A14
+  - Acceptance Criteria: `Class` model (`id`, `name`, `teacherId`, `createdAt`). Teacher CRUD for their own classes (list/create/rename/delete) at `/teacher/classes`. Public `GET /api/classes` (id, name, owning teacher's name — no sensitive data) for the registration picker. `User` gets a `classId` field; the student registration form gets a required "Select your class" dropdown populated from that public endpoint, and the account is created with that `classId`. A student cannot register without picking a class (clear validation error, not a silent default). Verify: a teacher creates 2 classes; a new student registers picking one; the student's `classId` persists and is visible on their own profile/dashboard somewhere reasonable (even just a label).
+
+- [ ] **T-075 — Content-to-class assignment + consolidated "My Content" management page + data migration**
+  - Status: Not Started
+  - Depends on: T-074, T-008, T-022, T-047
+  - Source: Customer request 2026-09-15 (explicit correction: content is authored once and assigned to classes, never re-authored per class); Assumption A14
+  - Acceptance Criteria: Three new many-to-many join tables (or equivalent): `Test`↔`Class`, `FlashcardSet`↔`Class`, `GrammarTopic`↔`Class`. ONE consolidated teacher-facing page (e.g. `/teacher/content`) lists every Test, FlashcardSet, and GrammarTopic the teacher has authored (grouped by type) with a compact per-item multi-select control to toggle which of the teacher's classes it's assigned to — no need to open each item's full editor just to assign it. Endpoints to read/replace an item's assigned-class set exist for all three content types, teacher-only, ownership-checked (admin bypasses per existing convention). **Data migration** (run once, e.g. in a migration script or idempotent seed-time logic): create one `Class` named "Default Class" per existing teacher; auto-assign every one of that teacher's existing Test/FlashcardSet/GrammarTopic rows to it; backfill every pre-existing student account's `classId` to the first seeded teacher's default class (per Assumption A14 — documented as pragmatic dev-data cleanup). Verify: a teacher assigns one existing test to 2 of their classes via the new page in a few clicks (no re-authoring); after migration, all pre-existing demo/seed content and student accounts still have a valid `classId`/class-assignment (nothing orphaned or 500-ing due to a missing class reference).
+
+- [ ] **T-076 — Student-facing visibility scoped to assigned class**
+  - Status: Not Started
+  - Depends on: T-075
+  - Source: Customer request 2026-09-15
+  - Acceptance Criteria: Every student-facing list (self-practice tests, flashcard sets, Grammar topics) only shows items assigned to the student's own class — an item assigned only to a different class of the same teacher must not appear. QR join, Vocabulary Check generation, and Unit Test visibility all verify the acting student's class matches one of the content's assigned classes (reject/hide otherwise, clean error not a crash). Verify: teacher assigns Test A to Class 1 only; a Class 2 student cannot see it in self-practice, cannot join it via a valid QR token for it either (explicit adversarial check, not just hidden from a list).
+
+- [ ] **T-077 — Leaderboards and reports scoped per class**
+  - Status: Not Started
+  - Depends on: T-075
+  - Source: Customer request 2026-09-15
+  - Acceptance Criteria: Vocabulary leaderboard and Unit Test leaderboard are computed within one class at a time — never mixing students across classes even under the same teacher. A teacher picks which of their classes to view (a class filter/selector on the relevant pages); a student's own leaderboard view is automatically their own class, no picker needed. Every reporting engine (Test/Grammar/Speaking reports, `T-019`/`T-050`/`T-057`'s hub) gains a required class dimension so a teacher viewing "Test A"'s report sees numbers isolated to one class at a time even though the same Test A may be assigned to multiple classes. Verify: the same Test assigned to 2 classes, with different score distributions per class — confirm each class's leaderboard/report shows only its own students' numbers, and switching the class filter changes the displayed numbers correctly.
+
+- [ ] **T-078 — Adversarial cross-class isolation regression pass**
+  - Status: Not Started
+  - Depends on: T-076, T-077
+  - Source: Customer request 2026-09-15 — phase-boundary milestone per PROJECT_PLAN.md Section 8
+  - Acceptance Criteria: A dedicated, genuinely adversarial pass (not the lighter per-task sampling used elsewhere) proving a student in Class B can never see, join, self-practice, appear on a leaderboard, or show up in a report scoped to Class A — even when both classes share the same teacher and the exact same underlying Test/FlashcardSet/GrammarTopic row, and even via direct API calls with a valid JWT (not just "hidden in the UI"). Covers every content type and every reporting/leaderboard surface touched by `T-076`/`T-077`. Full existing `npm run test:e2e` suite still passes (update/extend it if the core flows now require picking/assuming a class). Any gap found is fixed before this task is marked Done, not deferred to a follow-up task, given this is the customer's explicit "không sử dụng db của nhau" (classes must never share data) requirement.
