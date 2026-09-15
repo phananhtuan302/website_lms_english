@@ -430,3 +430,43 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-060
   - Source: QA finding during T-060 verification (2026-09-15)
   - Acceptance Criteria: `npm run typecheck` (root) currently doesn't actually type-check anything under `e2e/` or `playwright.config.ts`, since none of the three workspace `tsconfig.json`s include them (each is scoped to its own `rootDir: "src"`) and Playwright itself only transpiles specs via esbuild, never `tsc`. Add an e2e-scoped `tsconfig.json` (or extend the root typecheck script) so `npm run typecheck` genuinely covers these files too. A manual `tsc --noEmit --strict` run against them currently passes clean, so this is a tooling-coverage gap, not a sign of an existing type error — verify the fix by intentionally introducing a type error in a spec file and confirming `npm run typecheck` now catches it (then revert the intentional error).
+
+## Phase 10 — Vietnamese Localization (customer request, 2026-09-15)
+
+- [ ] **T-067 — i18n infrastructure + global language setting + highest-traffic pages**
+  - Status: Not Started
+  - Depends on: T-004
+  - Source: Customer request 2026-09-15; PROJECT_PLAN.md Guiding Principle 3 (superseded), Assumption A13
+  - Acceptance Criteria: A React i18n library (e.g. `react-i18next`) is wired in, with `en.json`/`vi.json` resource files keyed by short string ids. A `Settings` table (or equivalent singleton) stores the current site language (`en` default), exposed via a public unauthenticated `GET` endpoint the client reads on load (so even a logged-out visitor gets the admin-chosen language) — changing it is Admin-only (`T-072`'s job to build the control; this task just needs the setting + the read endpoint + the client applying it). NO public/per-user switcher exists anywhere. Fully translated (both `en` and `vi`, correct grammatically, not machine-garbled) for: `Header`, `HomePage`, `LoginPage`, `RegisterPage`, `UnauthorizedPage`, `NotFoundPage`, `TeacherDashboardPage`, `StudentDashboardPage`. Verify by using the (not-yet-built) settings write path directly (a raw API call / DB update is fine for this task) to flip the global setting to `vi` and confirming these pages render Vietnamese text, then back to `en`.
+
+- [ ] **T-068 — Translate all remaining pages**
+  - Status: Not Started
+  - Depends on: T-067
+  - Source: Customer request 2026-09-15
+  - Acceptance Criteria: Every remaining page/component with product-facing copy (test authoring/taking, flashcards/exercises/games, Grammar, Unit Tests, Vocabulary Check, reports/leaderboards, Speaking, attempt results, session/live-monitoring views, error/validation messages surfaced to the user) is translated into both `en` and `vi` through the `T-067` i18n layer — no page left with raw hardcoded English strings outside the i18n system. Verify by flipping the global language setting to `vi` and clicking through every major flow (teacher authoring, student taking a test, flashcards, reports) confirming no page shows a mix of English and Vietnamese or an untranslated placeholder/raw key (e.g. literally showing `common.submit` instead of translated text).
+
+## Phase 11 — Admin Role & Management Panel (customer request, 2026-09-15)
+
+- [ ] **T-069 — Admin role, seeded account, auth/route guards**
+  - Status: Not Started
+  - Depends on: T-005, T-006
+  - Source: Customer request 2026-09-15; PROJECT_PLAN.md Assumption A1 (superseded), A12
+  - Acceptance Criteria: `admin` added to the `Role` enum. Seed script creates exactly one admin account: `admin@example.com` / `123456` (per Assumption A12 — an intentionally simple local-dev credential, not a production secret). Admin logs in through the same `/login` form as everyone else (no separate admin login page). `ProtectedRoute` supports `admin` as an allowed role; an `/admin/dashboard` landing page exists (can be minimal — links to the pages built in `T-070`–`T-072`) reachable only by the admin role (teacher/student get redirected, same as any other cross-role access today). Verify: admin logs in and reaches `/admin/dashboard`; a teacher or student token hitting any `/api/admin/*` route (even before those routes have real logic, a stub 200 is enough for this task) gets 403.
+
+- [ ] **T-070 — Admin: user management (teachers + students + admins)**
+  - Status: Not Started
+  - Depends on: T-069
+  - Source: Customer request 2026-09-15; Assumption A12
+  - Acceptance Criteria: Admin can list every user (any role) with search/filter by role, create a new user of ANY role (including `teacher` and `admin` — this is the one place in the system that can create a teacher account outside the seed script), edit a user's name/email/role, reset a user's password, and delete a user (cascading exactly per the existing schema relations — deleting a teacher cascades their tests/sessions/etc., deleting a student cascades their attempts/progress). A non-admin gets 403 on every one of these endpoints. Verify by creating a brand-new teacher account through this panel (not the seed script) and confirming that teacher can immediately log in and author a test.
+
+- [ ] **T-071 — Admin: content oversight (Tests, Units, Flashcard sets, Grammar topics, Academic Periods)**
+  - Status: Not Started
+  - Depends on: T-069
+  - Source: Customer request 2026-09-15; Assumption A12
+  - Acceptance Criteria: Admin can view, edit, and delete ANY teacher's `Test` (and its sections/questions), any `Unit`, `AcademicPeriod`, `FlashcardSet` (and its cards), and `GrammarTopic` (and its exercises) — reusing the existing teacher-side editor UI/routes wherever practical (extend their ownership checks to also allow `role === 'admin'` rather than building parallel admin-only editor screens from scratch), plus an admin-only list view per entity type showing which teacher owns each item (since the existing teacher UI only ever shows "my own"). Verify: as admin, edit and delete a test/flashcard set/grammar topic that belongs to a DIFFERENT teacher than the one admin is "impersonating" nothing as — i.e. admin never needs to log in as that teacher to manage their content.
+
+- [ ] **T-072 — Admin: scores/attempts management + language Settings page**
+  - Status: Not Started
+  - Depends on: T-069, T-067
+  - Source: Customer request 2026-09-15; Assumption A12, A13
+  - Acceptance Criteria: (a) Admin can view any attempt across the whole system (any student, any test), edit its score/manual grades, and delete it, extending existing attempt-detail/grading endpoints to allow the admin role rather than building a parallel scoring system. (b) An Admin Settings page has a control to switch the site-wide language between English and Vietnamese (writing to `T-067`'s `Settings` row via an admin-only endpoint) — this is the ONLY place in the product that can change it. Verify: (a) admin edits a score belonging to a student they've never interacted with before and it's reflected in that student's own result view; (b) toggling the Settings page's language control actually changes what a fresh, logged-out visitor sees on `/` and `/login` without them doing anything themselves.
