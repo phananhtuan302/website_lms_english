@@ -9,18 +9,6 @@ interface NavItem {
   to: string;
 }
 
-/** Plain-string nav item for the admin role (T-069) — deliberately NOT run through the
- * `labelKey`/`t()` i18n pattern the teacher/student items above use: this codebase's i18n
- * sweep (T-067/T-068) is a separate, concurrently-running batch of work scoped to
- * specific pages, and Admin is brand new in this batch — writing plain English here
- * (same as every other not-yet-swept page in the app) lets that same later sweep find and
- * wrap these labels too, rather than this task reaching into the i18n resource files
- * itself. */
-interface PlainNavItem {
-  label: string;
-  to: string;
-}
-
 /**
  * Real, role-aware navigation (fixes a bug found 2026-09-15: the header shipped in T-004
  * as a `href="#"` placeholder — "stays non-functional until the tasks that build those
@@ -53,13 +41,13 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
   { labelKey: 'header.nav.student.leaderboard', to: '/vocab-leaderboard' },
 ];
 
-/** Admin nav set (T-069/T-071) — shown only when `user.role === 'admin'`, mirroring the
- * teacher/student arrays above in shape and intent (one item per top-level admin area). */
-const ADMIN_NAV_ITEMS: PlainNavItem[] = [
-  { label: 'Users', to: '/admin/users' },
-  { label: 'Tests', to: '/admin/tests' },
-  { label: 'Flashcard sets', to: '/admin/flashcard-sets' },
-  { label: 'Grammar topics', to: '/admin/grammar-topics' },
+/** Admin nav set (T-069/T-071), translated as part of T-068 — mirrors the teacher/student
+ * arrays above in shape and intent (one item per top-level admin area). */
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  { labelKey: 'header.nav.admin.users', to: '/admin/users' },
+  { labelKey: 'header.nav.admin.tests', to: '/admin/tests' },
+  { labelKey: 'header.nav.admin.flashcardSets', to: '/admin/flashcard-sets' },
+  { labelKey: 'header.nav.admin.grammarTopics', to: '/admin/grammar-topics' },
 ];
 
 /**
@@ -123,7 +111,7 @@ function Header() {
                   aria-current={location.pathname.startsWith(item.to) ? 'page' : undefined}
                   className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </li>
             ))}

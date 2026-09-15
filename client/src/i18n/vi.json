@@ -30,6 +30,12 @@
         "unitTests": "Kiểm tra Unit",
         "vocabularyCheck": "Kiểm tra từ vựng",
         "leaderboard": "Bảng xếp hạng"
+      },
+      "admin": {
+        "users": "Người dùng",
+        "tests": "Bài kiểm tra",
+        "flashcardSets": "Bộ thẻ từ vựng",
+        "grammarTopics": "Chủ đề ngữ pháp"
       }
     }
   },
@@ -116,5 +122,8 @@
     "inProgress": "Đang làm bài",
     "viewResult": "Xem kết quả →",
     "resumeTest": "Tiếp tục làm bài →"
+  },
+  "appShell": {
+    "footer": "Nền tảng Kiểm tra Tiếng Anh — bản phát triển nội bộ"
   }
 }

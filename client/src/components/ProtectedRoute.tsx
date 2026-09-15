@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { UserRole } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
 
@@ -25,10 +26,11 @@ interface ProtectedRouteProps {
 function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
 
   if (isLoading) {
     // Avoid a flash-redirect to /login while we're still checking a stored token.
-    return <p className="text-center text-base-black/60">Loading...</p>;
+    return <p className="text-center text-base-black/60">{t('common.loading')}</p>;
   }
 
   if (!user) {

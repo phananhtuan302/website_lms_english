@@ -30,6 +30,12 @@
         "unitTests": "Unit Tests",
         "vocabularyCheck": "Vocabulary Check",
         "leaderboard": "Leaderboard"
+      },
+      "admin": {
+        "users": "Users",
+        "tests": "Tests",
+        "flashcardSets": "Flashcard sets",
+        "grammarTopics": "Grammar topics"
       }
     }
   },
@@ -116,5 +122,8 @@
     "inProgress": "In progress",
     "viewResult": "View result →",
     "resumeTest": "Resume test →"
+  },
+  "appShell": {
+    "footer": "English Test Platform — local development build"
   }
 }
