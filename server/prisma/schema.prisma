@@ -5,9 +5,10 @@
 // Flashcard/Vocabulary domain model. Grammar/Speaking are still owned by their own
 // later backlog tasks and must NOT be added here ahead of time. T-074 (Phase 12) adds
 // the `Class` entity + `User.classId` — see `Class`'s own doc comment for the full
-// class-based-organization design (PROJECT_PLAN Assumption A14). Content-to-class
-// assignment (many-to-many join tables per content type) is explicitly T-075's job, NOT
-// this task's — nothing here gives `Test`/`FlashcardSet`/`GrammarTopic` a class FK.
+// class-based-organization design (PROJECT_PLAN Assumption A14). T-075 adds the
+// content-to-class ASSIGNMENT many-to-many relations (`Test.classes`,
+// `FlashcardSet.classes`, `GrammarTopic.classes`, all implicit Prisma m2m tables) — see
+// `Class`'s doc comment for why these are assignment, never a `classId` ownership FK.
 
 generator client {
   provider   = "prisma-client-js"
@@ -146,6 +147,22 @@ model Class {
   // for the "exactly one class, whole lifetime" rule this enforces at the app layer (not
   // the DB layer, which only enforces "at most one" via the plain scalar FK).
   students  User[]   @relation("ClassStudents")
+  // Content-to-class ASSIGNMENT (T-075, Phase 12) — many-to-many, one implicit join table
+  // per content type. Documented choice: Prisma IMPLICIT many-to-many (no explicit join
+  // model) rather than a hand-rolled join table, because there is no extra data to hang
+  // off the join row itself (no "assigned by"/"assigned at" metadata was asked for) — an
+  // implicit relation gives the exact same queryability (`connect`/`disconnect`/`set`,
+  // `some`/`none`/`every` filters) with less boilerplate. These are ASSIGNMENTS, not
+  // ownership: a `Test`/`FlashcardSet`/`GrammarTopic` still has exactly one `teacherId` as
+  // before (PROJECT_PLAN Phase 12's "critical design correction" — content is authored
+  // once and assigned to N of that SAME teacher's classes, never re-authored per class).
+  // Nothing at the DB layer stops assigning a class to a DIFFERENT teacher's content —
+  // that cross-teacher guard is enforced at the app layer, by
+  // `lib/contentClassAssignment.ts`'s `validateClassIdsForOwner`, exactly like every other
+  // "app layer enforces it, not the FK" note already used throughout this schema.
+  tests         Test[]         @relation("TestClasses")
+  flashcardSets FlashcardSet[] @relation("FlashcardSetClasses")
+  grammarTopics GrammarTopic[] @relation("GrammarTopicClasses")
   createdAt DateTime @default(now())
 
   @@map("classes")
@@ -237,6 +254,11 @@ model Test {
   // Per-student access grants for individually-generated tests (T-038's Vocabulary
   // Check) — see `TestAssignment`'s doc comment below.
   assignments      TestAssignment[]
+  // Content-to-class assignment (T-075) — see `Class.tests`'s doc comment for the full
+  // "assignment, not ownership" design. Zero or more of THIS test's own teacher's
+  // classes; empty means not yet assigned to any class (student visibility for T-076 is
+  // that task's job, not this schema's).
+  classes          Class[]          @relation("TestClasses")
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -677,6 +699,9 @@ model FlashcardSet {
   unitId    String?
   unit      Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
   cards     FlashcardCard[]
+  // Content-to-class assignment (T-075) — see `Class.tests`'s doc comment for the full
+  // "assignment, not ownership" design; same semantics here, applied to flashcard sets.
+  classes   Class[]         @relation("FlashcardSetClasses")
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
@@ -889,6 +914,9 @@ model GrammarTopic {
   theoryContent String
   exercises     GrammarExercise[]
   attempts      GrammarExerciseAttempt[]
+  // Content-to-class assignment (T-075) — see `Class.tests`'s doc comment for the full
+  // "assignment, not ownership" design; same semantics here, applied to Grammar topics.
+  classes       Class[]                  @relation("GrammarTopicClasses")
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt
 

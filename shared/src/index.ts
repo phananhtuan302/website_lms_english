@@ -1651,3 +1651,56 @@ export interface PublicClassSummaryDTO {
   name: string;
   teacherName: string;
 }
+
+// --- Content-to-class assignment + "My Content" page (T-075, Phase 12) -------------
+// A teacher authors a Test/FlashcardSet/GrammarTopic once (unchanged single-`teacherId`
+// ownership, T-007/T-021/T-046) and separately ASSIGNS it to zero or more of that SAME
+// teacher's `Class`es — see `schema.prisma`'s `Class.tests`/`.flashcardSets`/
+// `.grammarTopics` doc comment for the full "assignment, not ownership" design this
+// mirrors (PROJECT_PLAN Phase 12's "critical design correction").
+
+/** Body for `PUT /api/teacher/tests/:id/classes` (and the equivalent flashcard-set/
+ * Grammar-topic endpoints) — REPLACES the full set of assigned classIds for one item
+ * (not a partial add/remove), same "send full current state" convention as
+ * `ChoiceInput`/`FlashcardCardInput.synonyms`. Every id must reference a `Class` owned by
+ * THIS ITEM's own teacher (checked server-side against `content.teacherId`, not
+ * necessarily the caller's own id — see `contentClassAssignment.ts`'s doc comment for why
+ * this matters for an admin caller managing another teacher's content) — assigning to a
+ * different teacher's class is rejected with a clear 400, never silently ignored. */
+export interface UpdateContentClassesRequest {
+  classIds: string[];
+}
+
+/** Response for both the read (`GET .../:id/classes`) and replace (`PUT .../:id/classes`)
+ * endpoints — the item's current, complete set of assigned classIds after the operation. */
+export interface ContentClassAssignmentDTO {
+  classIds: string[];
+}
+
+/** Discriminates one row of the consolidated "My Content" page (T-075) — the customer's
+ * explicit request for ONE page covering all three content types, grouped, rather than
+ * three separate pages. */
+export type TeacherContentType = 'test' | 'flashcardSet' | 'grammarTopic';
+
+/** One row on the "My Content" page: just enough to render a title and a row of
+ * toggleable class chips — never the item's full nested content (sections/cards/
+ * exercises), since assigning classes deliberately doesn't require opening the full
+ * editor (T-075's explicit "without re-authoring" requirement). */
+export interface TeacherContentItemDTO {
+  id: string;
+  type: TeacherContentType;
+  title: string;
+  classIds: string[];
+}
+
+/** Response for `GET /api/teacher/content` — every Test/FlashcardSet/GrammarTopic the
+ * calling teacher has authored (grouped by type, one array each, matching
+ * `TeacherContentType`), plus `classes` (this teacher's own classes, same shape as
+ * `GET /api/teacher/classes`) so the page can render one chip per class without a second
+ * round-trip. */
+export interface TeacherContentResponseDTO {
+  classes: ClassDTO[];
+  tests: TeacherContentItemDTO[];
+  flashcardSets: TeacherContentItemDTO[];
+  grammarTopics: TeacherContentItemDTO[];
+}

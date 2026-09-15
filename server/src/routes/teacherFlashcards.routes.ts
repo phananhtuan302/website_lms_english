@@ -8,12 +8,14 @@
 
 import { Router } from 'express';
 import type {
+  ContentClassAssignmentDTO,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
   FlashcardCardDTO,
   FlashcardSetDetailDTO,
   FlashcardSetSummaryDTO,
   SentenceSubmissionDTO,
+  UpdateContentClassesRequest,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
 } from '@platform/shared';
@@ -21,6 +23,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedFlashcardSet } from '../lib/ownedFlashcardSet';
+import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
 
 export const teacherFlashcardsRouter = Router();
 
@@ -330,5 +333,48 @@ teacherFlashcardsRouter.get(
       createdAt: s.createdAt.toISOString(),
     }));
     res.status(200).json(dtos);
+  }),
+);
+
+// --- Content-to-class assignment (T-075) ---------------------------------------------
+// Same shape/reasoning as `teacherTests.routes.ts`'s identical block — see
+// `lib/contentClassAssignment.ts`'s doc comment for why validation is against
+// `set.teacherId` (the set's own owner), not `req.user!.sub`.
+
+teacherFlashcardsRouter.get(
+  '/flashcard-sets/:setId/classes',
+  asyncHandler(async (req, res) => {
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
+    if (!set) return;
+
+    const withClasses = await prisma.flashcardSet.findUniqueOrThrow({
+      where: { id: set.id },
+      select: { classes: { select: { id: true } } },
+    });
+    const body: ContentClassAssignmentDTO = { classIds: withClasses.classes.map((c) => c.id) };
+    res.status(200).json(body);
+  }),
+);
+
+teacherFlashcardsRouter.put(
+  '/flashcard-sets/:setId/classes',
+  asyncHandler(async (req, res) => {
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
+    if (!set) return;
+
+    const body = req.body as Partial<UpdateContentClassesRequest>;
+    const result = await validateClassIdsForOwner(body.classIds, set.teacherId);
+    if ('error' in result) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+
+    await prisma.flashcardSet.update({
+      where: { id: set.id },
+      data: { classes: { set: result.classIds.map((id) => ({ id })) } },
+    });
+
+    const response: ContentClassAssignmentDTO = { classIds: result.classIds };
+    res.status(200).json(response);
   }),
 );

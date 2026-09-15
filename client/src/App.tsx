@@ -34,6 +34,7 @@ import StudentVocabularyChecksPage from './pages/StudentVocabularyChecksPage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
+import TeacherContentPage from './pages/TeacherContentPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
@@ -90,6 +91,10 @@ function App() {
                   own cohorts/sections. Registration's class picker reads the PUBLIC
                   `/api/classes` list, not this teacher-only page. */}
               <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+              {/* Consolidated "My Content" management page (T-075, Phase 12): assign any
+                  of the teacher's own Tests/FlashcardSets/GrammarTopics to any of their
+                  classes without opening that item's full editor. */}
+              <Route path="/teacher/content" element={<TeacherContentPage />} />
               <Route path="/teacher/flashcard-sets" element={<TeacherFlashcardsPage />} />
               <Route
                 path="/teacher/flashcard-sets/:setId"

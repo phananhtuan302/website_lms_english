@@ -13,6 +13,7 @@
 import { Router } from 'express';
 import type {
   ChoiceInput,
+  ContentClassAssignmentDTO,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateTestRequest,
@@ -25,6 +26,7 @@ import type {
   TestSummaryDTO,
   TestType,
   TestVariantDTO,
+  UpdateContentClassesRequest,
   UpdateQuestionRequest,
   UpdateSectionRequest,
   UpdateTestRequest,
@@ -33,6 +35,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedTest } from '../lib/ownedTest';
+import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import { generateVariantLayout, nextVariantCodes, type VariantLayout } from '../lib/variantShuffle';
 import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
 
@@ -861,5 +864,48 @@ teacherTestsRouter.get(
     });
 
     res.status(200).json(variants.map(toVariantDTO));
+  }),
+);
+
+// --- Content-to-class assignment (T-075) ---------------------------------------------
+// See `lib/contentClassAssignment.ts`'s doc comment for why validation is against
+// `test.teacherId` (the content's own owner), not `req.user!.sub` — this is what lets an
+// admin caller assign a DIFFERENT teacher's test to that SAME teacher's classes.
+
+teacherTestsRouter.get(
+  '/tests/:testId/classes',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const withClasses = await prisma.test.findUniqueOrThrow({
+      where: { id: test.id },
+      select: { classes: { select: { id: true } } },
+    });
+    const body: ContentClassAssignmentDTO = { classIds: withClasses.classes.map((c) => c.id) };
+    res.status(200).json(body);
+  }),
+);
+
+teacherTestsRouter.put(
+  '/tests/:testId/classes',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const body = req.body as Partial<UpdateContentClassesRequest>;
+    const result = await validateClassIdsForOwner(body.classIds, test.teacherId);
+    if ('error' in result) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+
+    await prisma.test.update({
+      where: { id: test.id },
+      data: { classes: { set: result.classIds.map((id) => ({ id })) } },
+    });
+
+    const response: ContentClassAssignmentDTO = { classIds: result.classIds };
+    res.status(200).json(response);
   }),
 );

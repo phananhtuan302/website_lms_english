@@ -10,6 +10,7 @@ import type {
   AttemptResultDTO,
   AttemptSummaryDTO,
   ClassDTO,
+  ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
   CreateClassRequest,
   CreateFlashcardCardRequest,
@@ -37,6 +38,7 @@ import type {
   SentenceSubmissionDTO,
   SpeakingReportGroupBy,
   SpeakingReportResponseDTO,
+  TeacherContentResponseDTO,
   TeacherStudentSummaryDTO,
   TeacherUnitTestsResponseDTO,
   TeacherVocabProgressDTO,
@@ -50,6 +52,7 @@ import type {
   UnitLeaderboardResponseDTO,
   UpdateAcademicPeriodRequest,
   UpdateClassRequest,
+  UpdateContentClassesRequest,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
   UpdateGrammarExerciseRequest,
@@ -311,4 +314,22 @@ export const teacherApi = {
     }),
   deleteClass: (classId: string) =>
     apiRequest<void>(`${teacherBase}/classes/${classId}`, { method: 'DELETE' }),
+
+  // --- Content-to-class assignment + "My Content" page (T-075) ----------------------
+  listMyContent: () => apiRequest<TeacherContentResponseDTO>(`${teacherBase}/content`),
+  updateTestClasses: (testId: string, body: UpdateContentClassesRequest) =>
+    apiRequest<ContentClassAssignmentDTO>(`${base}/${testId}/classes`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  updateFlashcardSetClasses: (setId: string, body: UpdateContentClassesRequest) =>
+    apiRequest<ContentClassAssignmentDTO>(`${flashcardBase}/${setId}/classes`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  updateGrammarTopicClasses: (topicId: string, body: UpdateContentClassesRequest) =>
+    apiRequest<ContentClassAssignmentDTO>(`${grammarBase}/${topicId}/classes`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 };

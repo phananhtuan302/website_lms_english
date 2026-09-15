@@ -11,6 +11,7 @@
 
 import { Router } from 'express';
 import type {
+  ContentClassAssignmentDTO,
   CreateGrammarExerciseRequest,
   CreateGrammarTopicRequest,
   GrammarChoiceInput,
@@ -19,6 +20,7 @@ import type {
   GrammarTopicDetailDTO,
   GrammarTopicSummaryDTO,
   QuestionType,
+  UpdateContentClassesRequest,
   UpdateGrammarExerciseRequest,
   UpdateGrammarTopicRequest,
 } from '@platform/shared';
@@ -26,6 +28,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedGrammarTopic } from '../lib/ownedGrammarTopic';
+import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import {
   computeGrammarReport,
   GRAMMAR_REPORT_GROUP_BY_VALUES,
@@ -246,6 +249,49 @@ teacherGrammarRouter.delete(
     if (!topic) return;
     await prisma.grammarTopic.delete({ where: { id: topic.id } });
     res.status(204).send();
+  }),
+);
+
+// --- Content-to-class assignment (T-075) ---------------------------------------------
+// Same shape/reasoning as `teacherTests.routes.ts`'s identical block — see
+// `lib/contentClassAssignment.ts`'s doc comment for why validation is against
+// `topic.teacherId` (the topic's own owner), not `req.user!.sub`.
+
+teacherGrammarRouter.get(
+  '/grammar-topics/:topicId/classes',
+  asyncHandler(async (req, res) => {
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
+    if (!topic) return;
+
+    const withClasses = await prisma.grammarTopic.findUniqueOrThrow({
+      where: { id: topic.id },
+      select: { classes: { select: { id: true } } },
+    });
+    const body: ContentClassAssignmentDTO = { classIds: withClasses.classes.map((c) => c.id) };
+    res.status(200).json(body);
+  }),
+);
+
+teacherGrammarRouter.put(
+  '/grammar-topics/:topicId/classes',
+  asyncHandler(async (req, res) => {
+    const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
+    if (!topic) return;
+
+    const body = req.body as Partial<UpdateContentClassesRequest>;
+    const result = await validateClassIdsForOwner(body.classIds, topic.teacherId);
+    if ('error' in result) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+
+    await prisma.grammarTopic.update({
+      where: { id: topic.id },
+      data: { classes: { set: result.classIds.map((id) => ({ id })) } },
+    });
+
+    const response: ContentClassAssignmentDTO = { classIds: result.classIds };
+    res.status(200).json(response);
   }),
 );
 

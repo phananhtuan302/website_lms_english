@@ -31,6 +31,7 @@ import { adminAttemptsRouter } from './routes/adminAttempts.routes';
 import { adminSettingsRouter } from './routes/adminSettings.routes';
 import { teacherClassesRouter } from './routes/teacherClasses.routes';
 import { classesRouter } from './routes/classes.routes';
+import { teacherContentRouter } from './routes/teacherContent.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -177,6 +178,14 @@ app.use('/api/admin', adminSettingsRouter);
 // disambiguated by its own `classes` path segment. The PUBLIC cross-teacher list for
 // registration is the separate `/api/classes` mount above, not this router.
 app.use('/api/teacher', teacherClassesRouter);
+
+// Consolidated "My Content" listing (T-075, Phase 12): every Test/FlashcardSet/
+// GrammarTopic the calling teacher has authored, grouped by type, plus their own
+// classes — everything the `/teacher/content` page needs to render its per-item
+// class-assignment chips. The actual assignment WRITES live on each content type's own
+// router above (`PUT .../:id/classes`), not here. Same `/api/teacher` mount point as
+// every other teacher-only router.
+app.use('/api/teacher', teacherContentRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

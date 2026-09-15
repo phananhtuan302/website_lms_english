@@ -31,6 +31,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
   { labelKey: 'header.nav.teacher.curriculum', to: '/teacher/curriculum' },
   { labelKey: 'header.nav.teacher.reports', to: '/teacher/reports' },
   { labelKey: 'header.nav.teacher.classes', to: '/teacher/classes' },
+  { labelKey: 'header.nav.teacher.myContent', to: '/teacher/content' },
 ];
 
 const STUDENT_NAV_ITEMS: NavItem[] = [

@@ -24,7 +24,8 @@
     "verify:vocab-progress": "tsx scripts/verify-vocab-progress.ts",
     "verify:grammar": "tsx scripts/verify-grammar.ts",
     "verify:t045": "tsx scripts/verify-t045.ts",
-    "verify:t045:db": "tsx scripts/verify-t045-db.ts"
+    "verify:t045:db": "tsx scripts/verify-t045-db.ts",
+    "verify:t075": "tsx scripts/verify-t075.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

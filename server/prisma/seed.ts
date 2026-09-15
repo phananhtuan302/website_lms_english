@@ -30,6 +30,11 @@
  *    Asia/Ho_Chi_Minh-fixed-offset way as `curriculum.routes.ts`'s `parseHcmDate`
  *    (PROJECT_PLAN Assumption A5) — kept as a small local copy here rather than an
  *    import since a seed script intentionally doesn't depend on route modules.
+ * 5. Runs the T-075 (Phase 12) content-to-class data migration
+ *    (`migrateContentToDefaultClasses`, see its own doc comment below): a "Default Class"
+ *    per existing teacher, auto-assigning that teacher's previously-unassigned content to
+ *    it, and backfilling any pre-existing student's `classId` into the first teacher's
+ *    Default Class.
  *
  * Idempotent: safe to run multiple times — it looks up existing rows by a stable key
  * (email for the user, title+teacherId for the test, name for units/periods) instead of
@@ -532,6 +537,123 @@ async function seedSettings() {
   console.log("[seed] Site-wide Settings row ready (T-067, language defaults to 'en').");
 }
 
+/**
+ * One-time-but-idempotent data migration (T-075, Phase 12) for data that predates the
+ * class-based-organization feature (T-074/T-075): a `Class` named "Default Class" per
+ * existing teacher, every one of that teacher's existing Test/FlashcardSet/GrammarTopic
+ * rows with ZERO class assignments so far auto-assigned to it, and every pre-existing
+ * student account (registered before T-074, so `classId` is still `null`) backfilled into
+ * the FIRST teacher's (by `createdAt` ascending) Default Class.
+ *
+ * Per PROJECT_PLAN Assumption A14, the student backfill is explicitly documented as
+ * pragmatic DEV-DATA CLEANUP, not a claim of correctness for any real class membership —
+ * there is no real mapping to reconstruct for accounts that predate the `Class` concept
+ * entirely, so "the first teacher's default class" is a deliberate, simple, deterministic
+ * choice rather than an attempt to guess a real answer.
+ *
+ * Idempotent — safe to run any number of times (verified by running `npm run seed -w
+ * server` back to back and diffing row counts):
+ * - "Default Class" is looked up by name+teacherId before creating one (same convention
+ *   as `seedClasses` above), so a re-run never creates a second "Default Class" row for
+ *   the same teacher.
+ * - Content assignment only touches rows with `classes: { none: {} }` (zero class
+ *   assignments so far) — once assigned, a re-run's `none` filter no longer matches that
+ *   row, so nothing is ever double-assigned (Prisma's implicit m2m join table also has a
+ *   composite primary key, so even a redundant `connect` would be a harmless no-op, not a
+ *   duplicate row — this filter just avoids the wasted round-trip).
+ * - The student backfill only touches `classId: null` rows — once backfilled, a re-run's
+ *   filter matches zero rows, so `updateMany`'s count is 0 rather than re-applying
+ *   anything.
+ */
+const DEFAULT_CLASS_NAME = 'Default Class';
+
+async function migrateContentToDefaultClasses() {
+  const teachers = await prisma.user.findMany({
+    where: { role: 'teacher' },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, email: true },
+  });
+
+  let firstTeacherDefaultClassId: string | null = null;
+
+  for (const [index, teacher] of teachers.entries()) {
+    let defaultClass = await prisma.class.findFirst({
+      where: { name: DEFAULT_CLASS_NAME, teacherId: teacher.id },
+    });
+    if (!defaultClass) {
+      defaultClass = await prisma.class.create({
+        data: { name: DEFAULT_CLASS_NAME, teacherId: teacher.id },
+      });
+      console.log(
+        `[seed] Created "Default Class" for teacher ${teacher.email} (id: ${defaultClass.id}).`,
+      );
+    }
+
+    if (index === 0) {
+      firstTeacherDefaultClassId = defaultClass.id;
+    }
+
+    const [unassignedTests, unassignedSets, unassignedTopics] = await Promise.all([
+      prisma.test.findMany({
+        where: { teacherId: teacher.id, classes: { none: {} } },
+        select: { id: true },
+      }),
+      prisma.flashcardSet.findMany({
+        where: { teacherId: teacher.id, classes: { none: {} } },
+        select: { id: true },
+      }),
+      prisma.grammarTopic.findMany({
+        where: { teacherId: teacher.id, classes: { none: {} } },
+        select: { id: true },
+      }),
+    ]);
+
+    for (const test of unassignedTests) {
+      await prisma.test.update({
+        where: { id: test.id },
+        data: { classes: { connect: { id: defaultClass.id } } },
+      });
+    }
+    for (const set of unassignedSets) {
+      await prisma.flashcardSet.update({
+        where: { id: set.id },
+        data: { classes: { connect: { id: defaultClass.id } } },
+      });
+    }
+    for (const topic of unassignedTopics) {
+      await prisma.grammarTopic.update({
+        where: { id: topic.id },
+        data: { classes: { connect: { id: defaultClass.id } } },
+      });
+    }
+
+    const assignedCount = unassignedTests.length + unassignedSets.length + unassignedTopics.length;
+    if (assignedCount > 0) {
+      console.log(
+        `[seed] Auto-assigned to ${teacher.email}'s Default Class: ${unassignedTests.length} test(s), ` +
+          `${unassignedSets.length} flashcard set(s), ${unassignedTopics.length} Grammar topic(s).`,
+      );
+    }
+  }
+
+  if (firstTeacherDefaultClassId) {
+    const backfillResult = await prisma.user.updateMany({
+      where: { role: 'student', classId: null },
+      data: { classId: firstTeacherDefaultClassId },
+    });
+    if (backfillResult.count > 0) {
+      console.log(
+        `[seed] Backfilled ${backfillResult.count} pre-existing student account(s) into the ` +
+          'first teacher\'s Default Class (T-075, Assumption A14 dev-data cleanup).',
+      );
+    }
+  } else {
+    console.log('[seed] No teacher accounts exist yet — skipping student classId backfill.');
+  }
+
+  console.log('[seed] Content-to-class migration (T-075) complete.');
+}
+
 async function main() {
   await seedAdmin();
   const teacher = await seedTeacher();
@@ -547,6 +669,7 @@ async function main() {
   const grammarTopicId = await seedGrammarTopic(teacher.id, unit?.id ?? null);
   await verifyGrammarRoundTrip(grammarTopicId);
   await seedSettings();
+  await migrateContentToDefaultClasses();
 }
 
 main()
