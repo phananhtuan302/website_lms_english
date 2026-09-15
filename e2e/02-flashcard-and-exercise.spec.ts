@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { newStudentContext } from './utils';
+import { assignContentToClass, newStudentContext, newTeacherContext } from './utils';
+
+const SEED_FLASHCARD_SET_TITLE = 'Seed Demo Vocabulary Set (T-021 round-trip check)';
 
 /**
  * T-060: flashcard study (T-023) + one exercise type (T-024 fill-in-the-blank).
@@ -12,11 +14,24 @@ import { newStudentContext } from './utils';
  * see `flashcardExercises.ts`'s `isEligible`), and eligibility filtering preserves the
  * underlying `order` field, so the first fillBlank prompt served is deterministically
  * "apple"'s sentence.
+ *
+ * T-076 (Phase 12): the seed migration (`prisma/seed.ts`'s `migrateContentToDefaultClasses`)
+ * auto-assigns every pre-existing, previously-unassigned piece of content — including
+ * this seed flashcard set — to the seed teacher's "Default Class", NOT "Class 6A" (the
+ * class `global-setup.ts` registers the e2e student into). So this set must additionally
+ * be assigned to "Class 6A" before the student can see/study it; done here (idempotently
+ * — see `assignContentToClass`'s doc comment) rather than changing which class the
+ * shared e2e student is in, since other specs' freshly-authored content is assigned to
+ * "Class 6A" too and changing the student's class would just move the mismatch there.
  */
 test('student studies a flashcard set and completes a fill-in-the-blank exercise', async ({
   browser,
   baseURL,
 }) => {
+  const teacherContext = await newTeacherContext(browser, baseURL!);
+  await assignContentToClass(teacherContext, SEED_FLASHCARD_SET_TITLE, 'Class 6A');
+  await teacherContext.close();
+
   const context = await newStudentContext(browser, baseURL!);
   const page = await context.newPage();
 

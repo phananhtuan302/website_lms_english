@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  assignContentToClass,
   createTestWithQuestion,
   generateVariants,
   joinSessionAsStudent,
@@ -45,6 +46,13 @@ test('teacher controls synchronized Listening playback during a live session', a
 
     await generateVariants(teacherPage);
     const joinUrl = await startQrSession(teacherPage);
+
+    // T-076 (Phase 12): assign this freshly-authored test to the e2e student's own class
+    // ("Class 6A") — a QR join is now rejected for a class-mismatched student, so this
+    // must happen before the join below. Runs on a separate tab in `teacherContext` so
+    // `teacherPage` (still on this test's editor, needed later for "Live monitor") is
+    // left undisturbed.
+    await assignContentToClass(teacherContext, title, 'Class 6A');
 
     await joinSessionAsStudent(studentPage, joinUrl);
 

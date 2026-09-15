@@ -21,6 +21,7 @@ import type {
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
+import { getStudentClassId } from '../lib/classScoping';
 
 export const studentAssignedTestsRouter = Router();
 
@@ -49,14 +50,25 @@ async function loadMyAttemptsByTestId(
   return map;
 }
 
-/** `GET /api/student/unit-tests` — every PUBLISHED `unitTest`-type test, grouped by Unit
- * (curriculum order, "Untagged" last). See `Test.published`'s doc comment in
- * schema.prisma for the documented "available to students" semantics (T-036). */
+/** `GET /api/student/unit-tests` — every PUBLISHED `unitTest`-type test ALSO ASSIGNED TO
+ * THE CALLING STUDENT'S OWN CLASS, grouped by Unit (curriculum order, "Untagged" last).
+ * See `Test.published`'s doc comment in schema.prisma for the "available to students"
+ * semantics (T-036) — T-076 (Phase 12) adds the class-assignment condition ON TOP of
+ * `published`, per that task's explicit "Unit Test visibility should follow the same
+ * assigned-to-my-class rule as any other Test" requirement. A classless student
+ * (shouldn't happen post-T-074/T-075) sees an empty response rather than every unit test
+ * or a crash. */
 studentAssignedTestsRouter.get(
   '/unit-tests',
   asyncHandler(async (req, res) => {
+    const classId = await getStudentClassId(req.user!.sub);
+    if (!classId) {
+      res.status(200).json({ groups: [] } satisfies StudentUnitTestsResponseDTO);
+      return;
+    }
+
     const tests = await prisma.test.findMany({
-      where: { testType: 'unitTest', published: true },
+      where: { testType: 'unitTest', published: true, classes: { some: { id: classId } } },
       include: { unit: { select: { id: true, name: true, order: true } } },
       orderBy: { title: 'asc' },
     });
@@ -93,7 +105,17 @@ studentAssignedTestsRouter.get(
 /** `GET /api/student/vocabulary-checks` — every `vocabularyCheck`-type test this student
  * has been individually GRANTED via `TestAssignment` (T-038) — never the whole class,
  * unlike Unit Tests' `published`-flag gate (see `TestAssignment`'s doc comment in
- * schema.prisma for why these two access mechanisms differ). */
+ * schema.prisma for why these two access mechanisms differ).
+ *
+ * T-076 (Phase 12) deliberately adds NO class-assignment condition here: a Vocabulary
+ * Check's per-student `TestAssignment` grant is already a strictly NARROWER access rule
+ * than class-scoping (one specific student, not "anyone in class X"), and its question
+ * pool is drawn from that SAME student's own studied vocabulary rather than from one
+ * particular class-assignable `FlashcardSet` — there is no meaningful "source content
+ * assigned to a class" to check it against, and `Test.classes` is never populated for
+ * this type in the first place (see `teacherVocabularyCheck.routes.ts`). Confirmed as
+ * part of T-076's acceptance criteria ("if that's even a meaningful constraint here") —
+ * it isn't, so this endpoint is unchanged. */
 studentAssignedTestsRouter.get(
   '/vocabulary-checks',
   asyncHandler(async (req, res) => {

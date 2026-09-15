@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { createTestWithQuestion, generateVariants, newStudentContext, newTeacherContext, uniqueTitle } from './utils';
+import {
+  assignContentToClass,
+  createTestWithQuestion,
+  generateVariants,
+  newStudentContext,
+  newTeacherContext,
+  uniqueTitle,
+} from './utils';
 
 /**
  * T-060: Writing anti-copy-paste enforcement (T-043). Verified via simulated
@@ -26,6 +33,10 @@ test('pasting into and copying out of an essay answer is blocked with a visible 
       questionKind: 'essay',
     });
     await generateVariants(teacherPage);
+
+    // T-076 (Phase 12): self-practice visibility now requires class assignment — assign
+    // this freshly-authored test to the e2e student's own class ("Class 6A").
+    await assignContentToClass(teacherContext, title, 'Class 6A');
 
     // Essay questions are taken via self-practice (no session/QR needed for this flow).
     await studentPage.goto('/student/practice');

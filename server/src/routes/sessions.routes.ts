@@ -11,16 +11,23 @@ import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { findOrCreateAttempt } from '../lib/attemptAssignment';
+import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
 
 export const sessionsRouter = Router();
 
 /** Loads an active, joinable session by token, or writes the appropriate error
  * response itself and returns `null` — shared by the public check and the real join
- * below so "invalid" vs. "no longer active" are reported identically by both. */
+ * below so "invalid" vs. "no longer active" are reported identically by both.
+ *
+ * Includes `test.testType`/`test.classes` (T-076) even though the public GET check
+ * below never reads them — needed by the POST join's class-assignment check further
+ * down, and loading the session row twice per join would be wasteful. */
 async function loadJoinableSession(token: string, res: import('express').Response) {
   const session = await prisma.testSession.findUnique({
     where: { joinToken: token },
-    include: { test: { select: { id: true, title: true } } },
+    include: {
+      test: { select: { id: true, title: true, testType: true, classes: { select: { id: true } } } },
+    },
   });
 
   if (!session) {
@@ -70,6 +77,24 @@ sessionsRouter.get(
  * success, creates (or reuses, if already joined) the student's `Attempt` for this
  * session and auto-assigns a variant — see `findOrCreateAttempt`'s doc comment for the
  * round-robin assignment rule.
+ *
+ * T-076 (Phase 12) adds the class check below: a valid, active, scannable QR code is a
+ * PHYSICAL object that can end up photographed/forwarded/reused outside the classroom it
+ * was projected in, so the token alone must not be sufficient to join — the joining
+ * student's own class must also be one of the underlying `Test`'s assigned classes. This
+ * is the adversarial case T-076's acceptance criteria calls out explicitly ("a physical
+ * QR code in one classroom shouldn't let a different class's student join even with a
+ * captured token/URL"). Documented status-code choice: 403, not 404/410 — the session
+ * itself IS valid and active (a "wrong class" student would already see the plain-text
+ * test title from the public GET check above before ever logging in, so hiding its
+ * existence at POST time gains nothing); this is a straightforward "authenticated but not
+ * authorized for this specific action" rejection, matching this same file's/
+ * `practice.routes.ts`'s existing 403 convention for "exists, but not for you"
+ * (`TestAssignment`/`published` checks) rather than the 404/410 "doesn't exist / no
+ * longer live" checks above. Exempts `vocabularyCheck` for the same reason
+ * `practice.routes.ts`'s `POST /:testId/practice` does — that type is gated by a
+ * strictly narrower per-student `TestAssignment` grant, never class assignment, and
+ * `test.classes` is always empty for it.
  */
 sessionsRouter.post(
   '/join/:token',
@@ -78,6 +103,17 @@ sessionsRouter.post(
   asyncHandler(async (req, res) => {
     const session = await loadJoinableSession(req.params.token, res);
     if (!session) return;
+
+    if (session.test.testType !== 'vocabularyCheck') {
+      const classId = await getStudentClassId(req.user!.sub);
+      const assignedClassIds = session.test.classes.map((c) => c.id);
+      if (!isAssignedToClass(assignedClassIds, classId)) {
+        res.status(403).json({
+          error: 'This session is only open to students in the class this test is assigned to.',
+        });
+        return;
+      }
+    }
 
     const attempt = await findOrCreateAttempt(session, req.user!.sub);
     if (attempt === 'no-variants') {

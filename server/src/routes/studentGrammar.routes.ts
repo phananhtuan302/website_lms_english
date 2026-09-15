@@ -2,11 +2,14 @@
  * Student-facing Grammar endpoints: browsing topics + reading theory content (T-047),
  * practice exercises with immediate feedback (T-048), and the Grammar game (T-049).
  *
- * Documented choice (same as `studentFlashcards.routes.ts`): a `GrammarTopic` has no
- * enrollment/assignment concept — every route here is `student`-only
- * (`requireRole('student')`) but NOT ownership-scoped to a particular teacher: any
- * logged-in student can read/practice any topic. Matches the single-small-class
- * assumption already used for `Unit`/`FlashcardSet`.
+ * Class-scoped as of T-076, Phase 12: every route here is `student`-only
+ * (`requireRole('student')`) AND now additionally scoped to topics ASSIGNED to the
+ * calling student's own `Class` (`GrammarTopic.classes`, T-075) — this SUPERSEDES the
+ * earlier "no enrollment concept, any logged-in student can read/practice any topic"
+ * assumption this doc comment used to describe. `loadTopic` below is the single
+ * chokepoint every per-topic route (detail, progress, exercises, game) goes through, so
+ * the class check is enforced identically everywhere with one implementation rather than
+ * per-route.
  */
 
 import { Router } from 'express';
@@ -26,6 +29,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { gradeAnswer, type GradableQuestion, type RawAnswer } from '../lib/grading';
+import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
 
 export const studentGrammarRouter = Router();
 
@@ -33,10 +37,20 @@ studentGrammarRouter.use(requireAuth, requireRole('student'));
 
 // --- Browse + read theory content (T-047) ---------------------------------------------
 
+/** GET / — every `GrammarTopic` ASSIGNED TO THE CALLING STUDENT'S OWN CLASS (T-076). A
+ * classless student (shouldn't happen post-T-074/T-075, see `getStudentClassId`'s doc
+ * comment) sees an empty list rather than every topic or a crash. */
 studentGrammarRouter.get(
   '/',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const classId = await getStudentClassId(req.user!.sub);
+    if (!classId) {
+      res.status(200).json([] satisfies StudentGrammarTopicSummaryDTO[]);
+      return;
+    }
+
     const topics = await prisma.grammarTopic.findMany({
+      where: { classes: { some: { id: classId } } },
       orderBy: { updatedAt: 'desc' },
       include: { unit: { select: { name: true } }, _count: { select: { exercises: true } } },
     });
@@ -51,15 +65,31 @@ studentGrammarRouter.get(
   }),
 );
 
-async function loadTopic(topicId: string, res: import('express').Response) {
+/** Loads a topic, or writes a 404 and returns `null`. Shared by every per-topic route
+ * below.
+ *
+ * T-076: also verifies `studentId`'s own class is one of this topic's assigned classes,
+ * writing the IDENTICAL 404 "Grammar topic not found." for BOTH "doesn't exist" and
+ * "exists, but not assigned to your class" — same anti-leak reasoning as every
+ * ownership-check helper in this codebase (`ownedTest.ts` et al.) and
+ * `studentFlashcards.routes.ts`'s `loadSetWithCards`: a student probing another class's
+ * topic id learns nothing beyond "not found". */
+async function loadTopic(topicId: string, studentId: string, res: import('express').Response) {
   const topic = await prisma.grammarTopic.findUnique({
     where: { id: topicId },
-    include: { unit: { select: { name: true } } },
+    include: { unit: { select: { name: true } }, classes: { select: { id: true } } },
   });
   if (!topic) {
     res.status(404).json({ error: 'Grammar topic not found.' });
     return null;
   }
+
+  const classId = await getStudentClassId(studentId);
+  if (!isAssignedToClass(topic.classes.map((c) => c.id), classId)) {
+    res.status(404).json({ error: 'Grammar topic not found.' });
+    return null;
+  }
+
   return topic;
 }
 
@@ -69,7 +99,7 @@ async function loadTopic(topicId: string, res: import('express').Response) {
 studentGrammarRouter.get(
   '/:topicId',
   asyncHandler(async (req, res) => {
-    const topic = await loadTopic(req.params.topicId, res);
+    const topic = await loadTopic(req.params.topicId, req.user!.sub, res);
     if (!topic) return;
 
     const response: StudentGrammarTopicDetailDTO = {
@@ -88,7 +118,7 @@ studentGrammarRouter.get(
 studentGrammarRouter.get(
   '/:topicId/progress',
   asyncHandler(async (req, res) => {
-    const topic = await loadTopic(req.params.topicId, res);
+    const topic = await loadTopic(req.params.topicId, req.user!.sub, res);
     if (!topic) return;
 
     const attempts = await prisma.grammarExerciseAttempt.findMany({
@@ -111,7 +141,7 @@ studentGrammarRouter.get(
 studentGrammarRouter.get(
   '/:topicId/exercises',
   asyncHandler(async (req, res) => {
-    const topic = await loadTopic(req.params.topicId, res);
+    const topic = await loadTopic(req.params.topicId, req.user!.sub, res);
     if (!topic) return;
 
     const exercises = await prisma.grammarExercise.findMany({
@@ -140,7 +170,7 @@ studentGrammarRouter.get(
 studentGrammarRouter.post(
   '/:topicId/exercises/:exerciseId/check',
   asyncHandler(async (req, res) => {
-    const topic = await loadTopic(req.params.topicId, res);
+    const topic = await loadTopic(req.params.topicId, req.user!.sub, res);
     if (!topic) return;
 
     const exercise = await prisma.grammarExercise.findUnique({
@@ -209,7 +239,7 @@ function isGrammarGameType(value: string): value is GrammarGameType {
 studentGrammarRouter.get(
   '/:topicId/game-questions',
   asyncHandler(async (req, res) => {
-    const topic = await loadTopic(req.params.topicId, res);
+    const topic = await loadTopic(req.params.topicId, req.user!.sub, res);
     if (!topic) return;
 
     const exercises = await prisma.grammarExercise.findMany({
@@ -246,7 +276,7 @@ studentGrammarRouter.post(
       return;
     }
 
-    const topic = await loadTopic(req.params.topicId, res);
+    const topic = await loadTopic(req.params.topicId, req.user!.sub, res);
     if (!topic) return;
 
     const body = req.body as Partial<CompleteGrammarActivityRequest>;

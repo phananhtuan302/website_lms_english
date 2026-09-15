@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { createTestWithQuestion, generateVariants, newStudentContext, newTeacherContext, uniqueTitle } from './utils';
+import {
+  assignContentToClass,
+  createTestWithQuestion,
+  generateVariants,
+  newStudentContext,
+  newTeacherContext,
+  uniqueTitle,
+} from './utils';
 
 /**
  * T-060: a Speaking submission graded by the mock provider (T-051/T-053/T-054). Uses
@@ -25,6 +32,10 @@ test('student records a Speaking answer and it is graded by the mock AI provider
       questionKind: 'speaking',
     });
     await generateVariants(teacherPage);
+
+    // T-076 (Phase 12): self-practice visibility now requires class assignment — assign
+    // this freshly-authored test to the e2e student's own class ("Class 6A").
+    await assignContentToClass(teacherContext, title, 'Class 6A');
 
     await studentPage.goto('/student/practice');
     const row = studentPage.getByRole('listitem').filter({ hasText: title });

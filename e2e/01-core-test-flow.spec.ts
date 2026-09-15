@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  assignContentToClass,
   createTestWithQuestion,
   generateVariants,
   joinSessionAsStudent,
@@ -45,6 +46,11 @@ test('teacher creates a test, student joins via QR, auto-grades, both see the re
     // Start a QR-join session (T-010) and grab the join URL shown in the panel.
     const joinUrl = await startQrSession(teacherPage);
     expect(joinUrl).toContain('/join/');
+
+    // T-076 (Phase 12): the e2e student only sees/can-join content assigned to their own
+    // class ("Class 6A", per `global-setup.ts`) — this freshly-authored test starts
+    // unassigned, so it must be explicitly assigned before the join below.
+    await assignContentToClass(teacherContext, title, 'Class 6A');
 
     // Student: open the join link (as if scanned), auto-join (already logged in), and
     // land on the take-test runtime (T-011).

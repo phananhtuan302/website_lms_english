@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  assignContentToClass,
   createTestWithQuestion,
   generateVariants,
   newStudentContext,
@@ -67,6 +68,10 @@ test('teacher creates a published Unit Test, student takes it, both see the unit
     await expect(leaderboardLink).toBeVisible();
     const unitHref = await leaderboardLink.getAttribute('href');
     expect(unitHref).toMatch(/\/units\/.+\/leaderboard/);
+
+    // T-076 (Phase 12): Unit Test visibility now also requires class assignment on top
+    // of `published` — assign this test to the e2e student's own class ("Class 6A").
+    await assignContentToClass(teacherContext, title, 'Class 6A');
 
     // Student: find the published Unit Test grouped under its unit and take it.
     await studentPage.goto('/student/unit-tests');

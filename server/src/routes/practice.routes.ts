@@ -28,26 +28,36 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { findOrCreateAttempt } from '../lib/attemptAssignment';
+import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
 
 export const practiceRouter = Router();
 
 practiceRouter.use(requireAuth, requireRole('student'));
 
-/** GET /api/tests — every test, for the student self-practice picker (T-040). Same
- * "every X visible to every student, no class/enrollment concept" convention as
- * `studentFlashcards.routes.ts`'s set listing.
+/** GET /api/tests — every test ASSIGNED TO THE CALLING STUDENT'S OWN CLASS, for the
+ * student self-practice picker (T-040). Class-scoped as of T-076, Phase 12 — this
+ * SUPERSEDES the earlier "every test visible to every student, no class/enrollment
+ * concept" assumption `studentFlashcards.routes.ts`'s doc comment still describes for
+ * flashcard sets (fixed by this same task, see that file). A student with no class at
+ * all (`getStudentClassId` returning `null` — shouldn't happen post-T-074/T-075, see that
+ * helper's doc comment) sees an empty list rather than every test or a crash.
  *
- * Excludes `unitTest` and `vocabularyCheck` (T-036/T-038, additive change): both now have
- * their own purpose-built, properly-gated visibility rules (`Test.published` for Unit
- * Tests, `TestAssignment` for Vocabulary Check — see `POST /:testId/practice` below) that
- * this generic "every test, no gating" list would otherwise bypass entirely. Every
- * pre-existing test defaults to `testType: 'generic'` (this migration backfills every
- * row), so this filter changes nothing about any test that existed before this batch. */
+ * Still excludes `unitTest` and `vocabularyCheck` (T-036/T-038, unchanged): both have
+ * their own purpose-built, properly-gated visibility rules (`Test.published` PLUS class
+ * assignment for Unit Tests — see `GET /api/student/unit-tests`; `TestAssignment`,
+ * individually per-student and NEVER class-assignment-based, for Vocabulary Check — see
+ * `POST /:testId/practice` below) that this generic list would otherwise bypass. */
 practiceRouter.get(
   '/',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const classId = await getStudentClassId(req.user!.sub);
+    if (!classId) {
+      res.status(200).json([] satisfies PracticeTestSummaryDTO[]);
+      return;
+    }
+
     const tests = await prisma.test.findMany({
-      where: { testType: { notIn: ['unitTest', 'vocabularyCheck'] } },
+      where: { testType: { notIn: ['unitTest', 'vocabularyCheck'] }, classes: { some: { id: classId } } },
       select: { id: true, title: true, testType: true },
       orderBy: { title: 'asc' },
     });
@@ -96,7 +106,10 @@ async function findOrCreatePracticeSession(testId: string) {
 practiceRouter.post(
   '/:testId/practice',
   asyncHandler(async (req, res) => {
-    const test = await prisma.test.findUnique({ where: { id: req.params.testId } });
+    const test = await prisma.test.findUnique({
+      where: { id: req.params.testId },
+      include: { classes: { select: { id: true } } },
+    });
     if (!test) {
       res.status(404).json({ error: 'Test not found.' });
       return;
@@ -114,12 +127,28 @@ practiceRouter.post(
     // explicitly granted a `TestAssignment` row may start it, per that model's doc
     // comment in schema.prisma (its question pool is drawn from THEIR OWN studied
     // vocabulary, so an unassigned student starting it would make no sense anyway).
+    // Deliberately NOT also checked against `test.classes` (T-076): a generated
+    // Vocabulary Check is never assigned to any class in the first place (see
+    // `teacherVocabularyCheck.routes.ts`) — class-scoping is superseded here by a strictly
+    // NARROWER per-student grant, so adding a class check would only ever make this MORE
+    // restrictive for no reason (in practice `test.classes` is always empty for this type,
+    // which would reject everyone including already-assigned students).
     if (test.testType === 'vocabularyCheck') {
       const assignment = await prisma.testAssignment.findUnique({
         where: { testId_studentId: { testId: test.id, studentId: req.user!.sub } },
       });
       if (!assignment) {
         res.status(403).json({ error: 'This Vocabulary Check was not assigned to you.' });
+        return;
+      }
+    } else {
+      // T-076: every other test type (generic/unitTest/listeningTest/mockTest) must be
+      // assigned to the calling student's own class — defense in depth alongside
+      // `GET /api/tests`/`GET /api/student/unit-tests` already filtering their lists by
+      // the same rule, in case a student POSTs a known/guessed test id directly.
+      const classId = await getStudentClassId(req.user!.sub);
+      if (!isAssignedToClass(test.classes.map((c) => c.id), classId)) {
+        res.status(403).json({ error: 'This test is not assigned to your class.' });
         return;
       }
     }

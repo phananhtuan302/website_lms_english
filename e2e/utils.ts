@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 
 export const AUTH_DIR = path.join(__dirname, '.auth');
 export const TEACHER_STORAGE = path.join(AUTH_DIR, 'teacher.json');
@@ -102,4 +102,48 @@ export async function startQrSession(page: Page): Promise<string> {
 export async function joinSessionAsStudent(page: Page, joinUrl: string): Promise<void> {
   await page.goto(joinUrl);
   await page.waitForURL(/\/student\/attempts\/[a-zA-Z0-9-]+(\/result)?$/, { timeout: 15_000 });
+}
+
+/**
+ * T-076 (Phase 12): student-facing visibility (self-practice list, QR join, flashcard
+ * sets, Grammar topics) is now scoped to the acting student's own `Class` — content with
+ * zero class assignments is invisible/unjoinable to every student. `createTestWithQuestion`
+ * above deliberately does NOT auto-assign a class (that would break
+ * `07-content-class-assignment.spec.ts`'s own explicit "starts unassigned" premise), so
+ * every OTHER spec that has the shared e2e student (registered into "Class 6A" per
+ * `global-setup.ts`) actually join/self-practice a freshly-authored test needs this one
+ * extra step: assign that content to "Class 6A" via the consolidated "My Content" page
+ * (T-075) — the exact same UI flow `07-content-class-assignment.spec.ts` already
+ * exercises directly, reused here as a fixture-setup helper instead of a duplicated
+ * implementation.
+ *
+ * Runs on a FRESH page in the teacher's own context (never the caller's already-open
+ * `teacherPage`), so it never disturbs a spec's existing navigation state on that page
+ * (e.g. a still-open test editor a later step needs to return to, such as
+ * `04-listening-live-playback.spec.ts`'s "Live monitor" button).
+ *
+ * Idempotent (checks `aria-pressed` before clicking) so re-running the suite against a
+ * DB where a SEED item (e.g. `02-flashcard-and-exercise.spec.ts`'s reused flashcard set)
+ * was already assigned in a previous run never accidentally toggles it back off.
+ */
+export async function assignContentToClass(
+  teacherContext: BrowserContext,
+  itemTitle: string,
+  className: string,
+): Promise<void> {
+  const page = await teacherContext.newPage();
+  try {
+    await page.goto('/teacher/content');
+    const row = page.getByRole('listitem').filter({ hasText: itemTitle });
+    await expect(row).toBeVisible();
+
+    const chip = row.getByRole('button', { name: className });
+    const alreadyAssigned = (await chip.getAttribute('aria-pressed')) === 'true';
+    if (!alreadyAssigned) {
+      await chip.click();
+      await expect(chip).toHaveAttribute('aria-pressed', 'true');
+    }
+  } finally {
+    await page.close();
+  }
 }

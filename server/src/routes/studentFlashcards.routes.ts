@@ -3,15 +3,15 @@
  * (T-023), and the four vocabulary exercise types built in this same batch (T-024
  * fill-blank, T-025 unscramble, T-026 listen-and-type, T-027 IPA-to-word).
  *
- * Documented choice: unlike `Test`/`TestSession` (which are only reachable via an
- * explicit QR-join), a `FlashcardSet` has no enrollment/assignment concept anywhere in
- * this schema — unlike a live test session, vocabulary study is a standing resource a
- * student can return to anytime. So every route here is `student`-only
- * (`requireRole('student')` — a teacher gets 403, same as any student-only route) but
- * NOT ownership-scoped to a particular teacher: any logged-in student can study any
- * set. This matches the single-small-class assumption already used for `Unit`/
- * `AcademicPeriod` (schema.prisma) and can be tightened later (e.g. a class/cohort
- * model) without breaking this shape.
+ * Class-scoped as of T-076, Phase 12: every route here is `student`-only
+ * (`requireRole('student')` — a teacher gets 403, same as any student-only route) AND
+ * now additionally scoped to sets ASSIGNED to the calling student's own `Class`
+ * (`FlashcardSet.classes`, T-075) — this SUPERSEDES the earlier "no enrollment concept,
+ * any logged-in student can study any set" assumption this doc comment used to describe.
+ * `loadSetWithCards` below is the single chokepoint every per-set route (detail,
+ * exercises, matching, sentence, games, progress-marking) goes through, so the class
+ * check is enforced identically everywhere with one implementation rather than
+ * per-route.
  */
 
 import { Router } from 'express';
@@ -57,6 +57,7 @@ import {
 } from '../lib/flashcardExercises';
 import { sentenceContainsWord } from '../lib/vocabSentence';
 import { summarizeActivityStats, summarizeCardStatuses } from '../lib/vocabProgress';
+import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
 
 export const studentFlashcardsRouter = Router();
 
@@ -64,10 +65,20 @@ studentFlashcardsRouter.use(requireAuth, requireRole('student'));
 
 // --- Browse + study mode (T-023) ------------------------------------------------------
 
+/** GET / — every `FlashcardSet` ASSIGNED TO THE CALLING STUDENT'S OWN CLASS (T-076). A
+ * classless student (shouldn't happen post-T-074/T-075, see `getStudentClassId`'s doc
+ * comment) sees an empty list rather than every set or a crash. */
 studentFlashcardsRouter.get(
   '/',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const classId = await getStudentClassId(req.user!.sub);
+    if (!classId) {
+      res.status(200).json([] satisfies StudentFlashcardSetSummaryDTO[]);
+      return;
+    }
+
     const sets = await prisma.flashcardSet.findMany({
+      where: { classes: { some: { id: classId } } },
       orderBy: { updatedAt: 'desc' },
       include: { unit: { select: { name: true } }, _count: { select: { cards: true } } },
     });
@@ -93,16 +104,26 @@ studentFlashcardsRouter.get(
  * browse page already lists every available set for starting fresh study. `activityStats`
  * (per exercise/activity type accuracy) is intentionally NOT scoped to one set — a
  * student's fill-blank accuracy is one number across everything they've practiced.
+ *
+ * T-076: `sets` is additionally filtered to this student's own class, same rule as
+ * `GET /` above — a set the student progressed on before being moved to a different
+ * class (or before the set was ever assigned to a class at all, pre-T-075) simply drops
+ * out of this list rather than erroring; `activityStats` below is untouched since it's a
+ * cross-cutting number, not a list of items to gate.
  */
 studentFlashcardsRouter.get(
   '/progress',
   asyncHandler(async (req, res) => {
     const studentId = req.user!.sub;
+    const classId = await getStudentClassId(studentId);
 
-    const sets = await prisma.flashcardSet.findMany({
-      orderBy: { updatedAt: 'desc' },
-      include: { unit: { select: { name: true } }, cards: { select: { id: true } } },
-    });
+    const sets = classId
+      ? await prisma.flashcardSet.findMany({
+          where: { classes: { some: { id: classId } } },
+          orderBy: { updatedAt: 'desc' },
+          include: { unit: { select: { name: true } }, cards: { select: { id: true } } },
+        })
+      : [];
 
     const progressRows = await prisma.flashcardProgress.findMany({
       where: { studentId },
@@ -144,16 +165,35 @@ studentFlashcardsRouter.get(
 );
 
 /** Loads a set + its cards, or writes a 404 and returns `null`. Shared by the detail
- * view and every exercise route below (all scoped to `:setId`). */
-async function loadSetWithCards(setId: string, res: import('express').Response) {
+ * view and every exercise/matching/sentence/game/progress route below (all scoped to
+ * `:setId`), which is what makes T-076's class check below apply identically everywhere
+ * with one implementation.
+ *
+ * T-076: also verifies `studentId`'s own class is one of this set's assigned classes,
+ * writing the IDENTICAL 404 "Flashcard set not found." for BOTH "doesn't exist" and
+ * "exists, but not assigned to your class" — same anti-leak reasoning as every
+ * ownership-check helper in this codebase (`ownedTest.ts` et al.): a student probing
+ * another class's set id learns nothing beyond "not found". */
+async function loadSetWithCards(setId: string, studentId: string, res: import('express').Response) {
   const set = await prisma.flashcardSet.findUnique({
     where: { id: setId },
-    include: { unit: { select: { name: true } }, cards: { orderBy: { order: 'asc' } } },
+    include: {
+      unit: { select: { name: true } },
+      cards: { orderBy: { order: 'asc' } },
+      classes: { select: { id: true } },
+    },
   });
   if (!set) {
     res.status(404).json({ error: 'Flashcard set not found.' });
     return null;
   }
+
+  const classId = await getStudentClassId(studentId);
+  if (!isAssignedToClass(set.classes.map((c) => c.id), classId)) {
+    res.status(404).json({ error: 'Flashcard set not found.' });
+    return null;
+  }
+
   return set;
 }
 
@@ -164,7 +204,7 @@ async function loadSetWithCards(setId: string, res: import('express').Response) 
 studentFlashcardsRouter.get(
   '/:setId',
   asyncHandler(async (req, res) => {
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const progressRows = await prisma.flashcardProgress.findMany({
@@ -208,11 +248,10 @@ studentFlashcardsRouter.get(
 studentFlashcardsRouter.put(
   '/:setId/cards/:cardId/progress',
   asyncHandler(async (req, res) => {
-    const set = await prisma.flashcardSet.findUnique({ where: { id: req.params.setId } });
-    if (!set) {
-      res.status(404).json({ error: 'Flashcard set not found.' });
-      return;
-    }
+    // T-076: routed through the same class-scoped `loadSetWithCards` gate as every other
+    // per-set route in this file, even though this handler doesn't need the nested cards.
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
+    if (!set) return;
     const card = await prisma.flashcardCard.findUnique({ where: { id: req.params.cardId } });
     if (!card || card.setId !== set.id) {
       res.status(404).json({ error: 'Card not found.' });
@@ -255,7 +294,7 @@ studentFlashcardsRouter.get(
       return;
     }
 
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const prompts: VocabExercisePromptDTO[] = set.cards
@@ -281,6 +320,10 @@ studentFlashcardsRouter.post(
       res.status(400).json({ error: `Unknown exercise type. Must be one of: ${VOCAB_EXERCISE_TYPES.join(', ')}.` });
       return;
     }
+
+    // T-076: gate on the set's own class assignment before even looking at the card.
+    const scopedSet = await loadSetWithCards(req.params.setId, req.user!.sub, res);
+    if (!scopedSet) return;
 
     const card = await prisma.flashcardCard.findUnique({ where: { id: req.params.cardId } });
     if (!card || card.setId !== req.params.setId) {
@@ -334,7 +377,7 @@ studentFlashcardsRouter.get(
       return;
     }
 
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const pairs: MatchingPairDTO[] = set.cards
@@ -359,7 +402,7 @@ studentFlashcardsRouter.post(
       return;
     }
 
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const body = req.body as Partial<CompleteVocabActivityRequest>;
@@ -389,7 +432,7 @@ studentFlashcardsRouter.post(
 studentFlashcardsRouter.get(
   '/:setId/sentence-prompts',
   asyncHandler(async (req, res) => {
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const prompts: SentencePromptDTO[] = set.cards.map((card) => ({
@@ -410,6 +453,10 @@ studentFlashcardsRouter.get(
 studentFlashcardsRouter.post(
   '/:setId/sentence/:cardId/submit',
   asyncHandler(async (req, res) => {
+    // T-076: gate on the set's own class assignment before even looking at the card.
+    const scopedSet = await loadSetWithCards(req.params.setId, req.user!.sub, res);
+    if (!scopedSet) return;
+
     const card = await prisma.flashcardCard.findUnique({ where: { id: req.params.cardId } });
     if (!card || card.setId !== req.params.setId) {
       res.status(404).json({ error: 'Card not found in this flashcard set.' });
@@ -459,7 +506,7 @@ function isVocabGameType(value: string): value is VocabGameType {
 studentFlashcardsRouter.get(
   '/:setId/game-words',
   asyncHandler(async (req, res) => {
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const words: GameWordDTO[] = set.cards.map((card) => ({
@@ -489,7 +536,7 @@ studentFlashcardsRouter.post(
       return;
     }
 
-    const set = await loadSetWithCards(req.params.setId, res);
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
     if (!set) return;
 
     const body = req.body as Partial<CompleteVocabActivityRequest>;

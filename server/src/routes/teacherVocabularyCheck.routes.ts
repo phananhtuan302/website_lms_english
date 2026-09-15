@@ -12,6 +12,17 @@
  * this file's only new concept is `TestAssignment`, which scopes WHO may start an attempt
  * on it (checked by `practice.routes.ts`'s `POST /:testId/practice`, the same endpoint
  * every other self-practice attempt already goes through).
+ *
+ * T-076 (Phase 12) reviewed this generation flow for class-scoping and deliberately made
+ * NO change here: the target student roster (`GET /students` below) is intentionally
+ * every student account, not filtered to the calling teacher's own classes — a teacher
+ * may generate a Vocabulary Check for any student regardless of class, same as every
+ * other `TestAssignment`-gated flow. The generated `Test` is never assigned to a `Class`
+ * at all (no `classes: { connect: ... }` anywhere in this file); access is controlled
+ * entirely by the per-student `TestAssignment` rows created below, which is already
+ * strictly narrower than class-scoping. See `studentAssignedTests.routes.ts`'s
+ * `GET /vocabulary-checks` doc comment for the full "not a meaningful constraint here"
+ * reasoning.
  */
 
 import { Router } from 'express';
