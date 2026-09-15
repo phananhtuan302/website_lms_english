@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Student-facing visibility scoped to assigned class
+
+- Task IDs touched: T-076
+- What changed: Dev added a shared `classScoping.ts` helper (always re-reads the student's `classId` fresh from the DB, never trusts the JWT) and applied it across every student-facing surface: self-practice test list/start, QR/link join (rejects a class-mismatched student with 403 even on a valid, active token — the key adversarial case), flashcard-set and grammar-topic lists/details/exercise routes (404 on wrong-class direct access, same anti-leak convention as ownership checks elsewhere), and Unit Test visibility (now requires class assignment on top of `published`). Vocabulary Check was deliberately left unscoped by class, since it's already gated per-student via `TestAssignment` (strictly narrower) and its `Test` rows are never class-assigned. Test independently re-verified from scratch (not reusing Dev's script): built its own 2-class adversarial fixture set and ran 39 checks covering every route above, all PASS; confirmed by reading `schema.prisma`/`teacherVocabularyCheck.routes.ts` that the Vocabulary Check exemption holds structurally, not just by claim; grepped the full route tree for any missed student-facing `findMany` surfaces (none found); confirmed e2e specs 01/02/04/05/06/07 pass and that spec 03's teacher-side Unit Leaderboard failure is caused by the concurrent, still-in-flight T-077 change, not a T-076 regression.
+- Why / decisions made: QR-join-wrong-class returns 403 (not 404) since the session's existence is already visible pre-login via the public join-info check, so hiding it gains nothing — matches the file's existing "exists but not for you" 403 convention.
+- Status after this entry: T-076 Done. Two non-blocking items logged: T-081 (`eslint.config.mjs` doesn't ignore local `playwright-report/`, causing ~3600 false-positive lint errors after any local Playwright run) and a product-policy question (not a bug) — `teacherVocabularyCheck.routes.ts`'s student roster isn't filtered to the calling teacher's own classes, which is pre-existing T-038 behavior the Leader may want to confirm is still intended now that classes exist. T-077 (class-scoped leaderboards/reports) still running in the background; T-078 (adversarial cross-class regression pass) blocked on both.
+
 ## 2026-09-15 — Dev/Test — Content-to-class assignment, "My Content" page, data migration (Phase 12 core)
 
 - Task IDs touched: T-075

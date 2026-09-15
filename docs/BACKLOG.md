@@ -491,11 +491,12 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Customer request 2026-09-15 (explicit correction: content is authored once and assigned to classes, never re-authored per class); Assumption A14
   - Acceptance Criteria: Three new many-to-many join tables (or equivalent): `Test`↔`Class`, `FlashcardSet`↔`Class`, `GrammarTopic`↔`Class`. ONE consolidated teacher-facing page (e.g. `/teacher/content`) lists every Test, FlashcardSet, and GrammarTopic the teacher has authored (grouped by type) with a compact per-item multi-select control to toggle which of the teacher's classes it's assigned to — no need to open each item's full editor just to assign it. Endpoints to read/replace an item's assigned-class set exist for all three content types, teacher-only, ownership-checked (admin bypasses per existing convention). **Data migration** (run once, e.g. in a migration script or idempotent seed-time logic): create one `Class` named "Default Class" per existing teacher; auto-assign every one of that teacher's existing Test/FlashcardSet/GrammarTopic rows to it; backfill every pre-existing student account's `classId` to the first seeded teacher's default class (per Assumption A14 — documented as pragmatic dev-data cleanup). Verify: a teacher assigns one existing test to 2 of their classes via the new page in a few clicks (no re-authoring); after migration, all pre-existing demo/seed content and student accounts still have a valid `classId`/class-assignment (nothing orphaned or 500-ing due to a missing class reference).
 
-- [ ] **T-076 — Student-facing visibility scoped to assigned class**
-  - Status: Not Started
+- [x] **T-076 — Student-facing visibility scoped to assigned class**
+  - Status: Done (2026-09-15)
   - Depends on: T-075
   - Source: Customer request 2026-09-15
   - Acceptance Criteria: Every student-facing list (self-practice tests, flashcard sets, Grammar topics) only shows items assigned to the student's own class — an item assigned only to a different class of the same teacher must not appear. QR join, Vocabulary Check generation, and Unit Test visibility all verify the acting student's class matches one of the content's assigned classes (reject/hide otherwise, clean error not a crash). Verify: teacher assigns Test A to Class 1 only; a Class 2 student cannot see it in self-practice, cannot join it via a valid QR token for it either (explicit adversarial check, not just hidden from a list).
+  - Verified: independent Test agent, 39-check adversarial matrix (list hiding, self-practice 403, QR-join 403 on a valid/active token, flashcard/grammar detail 404, Unit Test visibility, Vocabulary Check exemption confirmed structurally sound via `TestAssignment` schema) — all PASS. `typecheck`/scoped `lint` clean; e2e specs 01/02/04/05/06/07 pass. Spec 03's teacher-side Unit Leaderboard failure confirmed unrelated (caused by concurrent, in-flight T-077 change). Commit: `872e2d9`.
 
 - [ ] **T-077 — Leaderboards and reports scoped per class**
   - Status: Not Started
@@ -520,3 +521,9 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Depends on: T-075
   - Source: QA finding during T-075 verification (2026-09-15)
   - Acceptance Criteria: `toggleClass`'s in-flight guard in `TeacherContentPage.tsx` is a single `pendingKey` value, not scoped per row — while ANY row's class-assignment PUT is in flight, clicking a class chip on a DIFFERENT row is silently swallowed (no visual feedback, no error), even though only the in-flight row's chips are visually disabled. Contradicts the code's own comment claiming per-row scoping. No data-integrity issue (nothing is corrupted, the click is just a no-op), but it's a real UX bug under normal fast-clicking-across-rows usage. Fix by tracking in-flight keys as a `Set`/collection instead of a single value, so unrelated rows remain fully interactive while another row's request is in flight. Verify: throttle the network, click a chip on row 1, then immediately click a different chip on row 2 before row 1's request resolves — row 2's click must take effect.
+
+- [ ] **T-081 — `eslint.config.mjs` doesn't ignore Playwright local artifacts**
+  - Status: Not Started
+  - Depends on: (none)
+  - Source: QA finding during T-076 verification (2026-09-15)
+  - Acceptance Criteria: `eslint.config.mjs`'s `ignores` array only excludes `dist`/`build`/`coverage`/`node_modules`, so a local `npm run test:e2e` run leaves a gitignored-but-untracked `playwright-report/` directory that `npm run lint` then walks into, producing ~3600 false-positive errors and making root `lint` useless as a signal until manually scoped to source dirs. Add `playwright-report/` and `test-results/` to the ignore list. Verify: after a local Playwright run, `npm run lint` reports the same result as running it scoped to `server client shared e2e`.
