@@ -117,7 +117,7 @@ async function main() {
   );
   const sectionId = sectionRes.sections[0].id;
   // Two multipleChoice questions, so we can drive exact, distinct scores per student.
-  const withQuestions = await apiRequest<{ sections: Array<{ id: string; questions: Array<{ id: string; choices: Array<{ id: string; text: string; isCorrect: boolean }> }> }> }>(
+  await apiRequest(
     `/api/teacher/tests/${test.id}/sections/${sectionId}/questions`,
     teacherToken,
     { method: 'POST', body: { type: 'multipleChoice', prompt: 'Q1', choices: [{ text: 'Right', isCorrect: true }, { text: 'Wrong', isCorrect: false }] } },
