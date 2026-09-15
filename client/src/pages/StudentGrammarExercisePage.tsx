@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { CheckGrammarExerciseResponse, GrammarExercisePromptDTO } from '@platform/shared';
 import { grammarApi } from '../lib/grammarApi';
 import { ApiError } from '../lib/apiClient';
@@ -14,6 +15,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function StudentGrammarExercisePage() {
   const { topicId } = useParams<{ topicId: string }>();
+  const { t } = useTranslation();
   const [prompts, setPrompts] = useState<GrammarExercisePromptDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -28,8 +30,8 @@ function StudentGrammarExercisePage() {
     grammarApi
       .listExercisePrompts(topicId)
       .then(setPrompts)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load exercises.'));
-  }, [topicId]);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentGrammarExercise.loadFailed')));
+  }, [topicId, t]);
 
   if (!topicId) return null;
 
@@ -42,16 +44,16 @@ function StudentGrammarExercisePage() {
   }
 
   if (prompts === null) {
-    return <p className="text-center text-base-black/60">Loading...</p>;
+    return <p className="text-center text-base-black/60">{t('common.loading')}</p>;
   }
 
   if (prompts.length === 0) {
     return (
       <div className="mx-auto max-w-xl">
         <Link to={`/student/grammar-topics/${topicId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to topic
+          {t('studentGrammarExercise.backToTopic')}
         </Link>
-        <p className="mt-4 text-sm text-base-black/60">This topic has no practice exercises yet.</p>
+        <p className="mt-4 text-sm text-base-black/60">{t('studentGrammarExercise.noExercises')}</p>
       </div>
     );
   }
@@ -59,15 +61,15 @@ function StudentGrammarExercisePage() {
   if (index >= prompts.length) {
     return (
       <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-bold text-primary-700">Practice complete!</h1>
+        <h1 className="text-xl font-bold text-primary-700">{t('studentGrammarExercise.practiceComplete')}</h1>
         <p className="text-base-black/70">
-          You got {correctCount} of {attemptedCount} correct.
+          {t('studentGrammarExercise.resultSummary', { correct: correctCount, attempted: attemptedCount })}
         </p>
         <Link
           to={`/student/grammar-topics/${topicId}`}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
-          Back to topic
+          {t('studentGrammarExercise.backToTopicButton')}
         </Link>
       </div>
     );
@@ -92,7 +94,7 @@ function StudentGrammarExercisePage() {
       setAttemptedCount((n) => n + 1);
       if (response.correct) setCorrectCount((n) => n + 1);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to check your answer.');
+      setError(err instanceof ApiError ? err.message : t('studentGrammarExercise.checkFailed'));
     } finally {
       setIsChecking(false);
     }
@@ -116,10 +118,10 @@ function StudentGrammarExercisePage() {
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <Link to={`/student/grammar-topics/${topicId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to topic
+          {t('studentGrammarExercise.backToTopic')}
         </Link>
         <span className="text-sm text-base-black/60">
-          {index + 1} of {prompts.length}
+          {t('studentGrammarExercise.progressCounter', { current: index + 1, total: prompts.length })}
         </span>
       </div>
 
@@ -154,7 +156,7 @@ function StudentGrammarExercisePage() {
               type="text"
               value={textAnswer}
               onChange={(event) => setTextAnswer(event.target.value)}
-              placeholder="Type your answer"
+              placeholder={t('studentGrammarExercise.answerPlaceholder')}
               autoFocus
               className="flex-1 rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
@@ -163,7 +165,7 @@ function StudentGrammarExercisePage() {
               disabled={!textAnswer.trim() || isChecking}
               className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isChecking ? 'Checking...' : 'Check'}
+              {isChecking ? t('studentGrammarExercise.checking') : t('studentGrammarExercise.check')}
             </button>
           </form>
         )
@@ -176,14 +178,20 @@ function StudentGrammarExercisePage() {
               : 'border-red-200 bg-red-50 text-red-700'
           }`}
         >
-          <p className="font-semibold">{result.correct ? 'Correct!' : 'Not quite.'}</p>
-          {!result.correct && <p className="mt-1">The correct answer was: {correctAnswerLabel()}</p>}
+          <p className="font-semibold">
+            {result.correct ? t('studentGrammarExercise.correct') : t('studentGrammarExercise.incorrect')}
+          </p>
+          {!result.correct && (
+            <p className="mt-1">
+              {t('studentGrammarExercise.correctAnswerWas', { answer: correctAnswerLabel() })}
+            </p>
+          )}
           <button
             type="button"
             onClick={handleNext}
             className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
-            {index + 1 < prompts.length ? 'Next →' : 'Finish'}
+            {index + 1 < prompts.length ? t('studentGrammarExercise.next') : t('studentGrammarExercise.finish')}
           </button>
         </div>
       )}

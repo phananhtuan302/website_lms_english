@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type {
   GrammarChoiceInput,
   GrammarExerciseDTO,
@@ -25,6 +26,7 @@ const GRAMMAR_EXERCISE_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', '
  * have a reorder endpoint — new ones are simply appended).
  */
 function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExerciseEditorProps) {
+  const { t } = useTranslation();
   const [prompt, setPrompt] = useState(exercise.prompt);
   const [type, setType] = useState<QuestionType>(exercise.type);
   const [choices, setChoices] = useState<GrammarChoiceInput[]>(
@@ -52,7 +54,7 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
       setSaveError(null);
       await onSave(body);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save exercise.');
+      setSaveError(err instanceof Error ? err.message : t('grammarExerciseEditor.saveFailed'));
     }
   }
 
@@ -61,8 +63,8 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
     let nextChoices = choices;
     if (newType === 'trueFalse') {
       nextChoices = [
-        { text: 'True', isCorrect: true },
-        { text: 'False', isCorrect: false },
+        { text: t('grammarExerciseEditor.trueChoice'), isCorrect: true },
+        { text: t('grammarExerciseEditor.falseChoice'), isCorrect: false },
       ];
       setChoices(nextChoices);
     } else if (newType === 'multipleChoice' && choices.length < 2) {
@@ -117,29 +119,29 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
   // neither is ever actually offered by this editor's type dropdown below (see this
   // component's/`teacherGrammar.routes.ts`'s validation, which rejects both server-side).
   const typeLabel: Record<QuestionType, string> = {
-    multipleChoice: 'Multiple choice',
-    trueFalse: 'True / False',
-    fillBlank: 'Fill in the blank',
-    essay: 'Essay',
-    speaking: 'Speaking',
+    multipleChoice: t('grammarExerciseEditor.typeLabel.multipleChoice'),
+    trueFalse: t('grammarExerciseEditor.typeLabel.trueFalse'),
+    fillBlank: t('grammarExerciseEditor.typeLabel.fillBlank'),
+    essay: t('grammarExerciseEditor.typeLabel.essay'),
+    speaking: t('grammarExerciseEditor.typeLabel.speaking'),
   };
 
   return (
     <div className="rounded-lg border border-primary-100 bg-base-white p-4">
       <div className="flex items-start justify-between gap-3">
         <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
-          Exercise {index + 1} · {typeLabel[type]}
+          {t('grammarExerciseEditor.exerciseLabel', { index: index + 1, type: typeLabel[type] })}
         </span>
         <div className="flex items-center gap-1">
           <select
             value={type}
             onChange={(event) => handleTypeChange(event.target.value as QuestionType)}
             className="rounded-md border border-primary-200 px-2 py-1 text-xs"
-            aria-label="Exercise type"
+            aria-label={t('grammarExerciseEditor.exerciseTypeAriaLabel')}
           >
-            {GRAMMAR_EXERCISE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {typeLabel[t]}
+            {GRAMMAR_EXERCISE_TYPES.map((optionType) => (
+              <option key={optionType} value={optionType}>
+                {typeLabel[optionType]}
               </option>
             ))}
           </select>
@@ -148,13 +150,13 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
             onClick={onDelete}
             className="ml-2 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
           >
-            Delete
+            {t('grammarExerciseEditor.delete')}
           </button>
         </div>
       </div>
 
       <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-        Prompt
+        {t('grammarExerciseEditor.promptLabel')}
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -166,19 +168,19 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
 
       {type === 'fillBlank' ? (
         <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-          Accepted answers (comma-separated)
+          {t('grammarExerciseEditor.acceptedAnswersLabel')}
           <input
             type="text"
             value={acceptedAnswersText}
             onChange={(event) => setAcceptedAnswersText(event.target.value)}
             onBlur={() => void save()}
-            placeholder="e.g. boils, boil"
+            placeholder={t('grammarExerciseEditor.acceptedAnswersPlaceholder')}
             className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
-          <span className="text-sm font-medium text-base-black">Choices (select the correct one)</span>
+          <span className="text-sm font-medium text-base-black">{t('grammarExerciseEditor.choicesLabel')}</span>
           {choices.map((choice, choiceIndex) => (
             <div key={choice.id ?? `new-${choiceIndex}`} className="flex items-center gap-2">
               <input
@@ -186,7 +188,7 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
                 name={`correct-${exercise.id}`}
                 checked={choice.isCorrect}
                 onChange={() => markCorrect(choiceIndex)}
-                aria-label={`Mark choice ${choiceIndex + 1} as correct`}
+                aria-label={t('grammarExerciseEditor.markCorrectAriaLabel', { number: choiceIndex + 1 })}
               />
               <input
                 type="text"
@@ -200,10 +202,10 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
                 <button
                   type="button"
                   onClick={() => removeChoice(choiceIndex)}
-                  aria-label={`Remove choice ${choiceIndex + 1}`}
+                  aria-label={t('grammarExerciseEditor.removeChoiceAriaLabel', { number: choiceIndex + 1 })}
                   className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
-                  Remove
+                  {t('grammarExerciseEditor.remove')}
                 </button>
               )}
             </div>
@@ -214,7 +216,7 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
               onClick={addChoice}
               className="self-start rounded-md border border-primary-200 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
             >
-              + Add choice
+              {t('grammarExerciseEditor.addChoice')}
             </button>
           )}
         </div>

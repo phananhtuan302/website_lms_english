@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { GrammarTopicDetailDTO, UnitDTO, UpdateGrammarExerciseRequest } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import GrammarExerciseEditor from '../components/GrammarExerciseEditor';
 
 /** Default new-exercise shape — a sensible, editable placeholder, same convention as
- * `TeacherFlashcardSetEditorPage.tsx`'s `defaultCardBody`. */
-function defaultExerciseBody(): UpdateGrammarExerciseRequest {
+ * `TeacherFlashcardSetEditorPage.tsx`'s `defaultCardBody`. Takes `t` since it's a
+ * module-level function outside the component and can't call `useTranslation()` itself. */
+function defaultExerciseBody(t: (key: string) => string): UpdateGrammarExerciseRequest {
   return {
     type: 'multipleChoice',
-    prompt: 'New exercise prompt',
+    prompt: t('teacherGrammarTopicEditor.defaultExercisePrompt'),
     choices: [
-      { text: 'Correct answer', isCorrect: true },
-      { text: 'Wrong answer', isCorrect: false },
+      { text: t('teacherGrammarTopicEditor.defaultCorrectAnswer'), isCorrect: true },
+      { text: t('teacherGrammarTopicEditor.defaultWrongAnswer'), isCorrect: false },
     ],
   };
 }
@@ -25,6 +27,7 @@ function defaultExerciseBody(): UpdateGrammarExerciseRequest {
  */
 function TeacherGrammarTopicEditorPage() {
   const { topicId } = useParams<{ topicId: string }>();
+  const { t } = useTranslation();
   const [topic, setTopic] = useState<GrammarTopicDetailDTO | null>(null);
   const [title, setTitle] = useState('');
   const [theoryContent, setTheoryContent] = useState('');
@@ -41,8 +44,8 @@ function TeacherGrammarTopicEditorPage() {
         setTitle(data.title);
         setTheoryContent(data.theoryContent);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load Grammar topic.'));
-  }, [topicId]);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherGrammarTopicEditor.loadFailed')));
+  }, [topicId, t]);
 
   useEffect(refresh, [refresh]);
 
@@ -66,7 +69,7 @@ function TeacherGrammarTopicEditorPage() {
       });
       setTopic(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save topic.');
+      setError(err instanceof ApiError ? err.message : t('teacherGrammarTopicEditor.saveTitleTheoryFailed'));
     }
   }
 
@@ -80,7 +83,7 @@ function TeacherGrammarTopicEditorPage() {
       });
       setTopic(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save unit tag.');
+      setError(err instanceof ApiError ? err.message : t('teacherGrammarTopicEditor.saveUnitFailed'));
     }
   }
 
@@ -88,10 +91,10 @@ function TeacherGrammarTopicEditorPage() {
     setIsAddingExercise(true);
     setError(null);
     try {
-      const updated = await teacherApi.createGrammarExercise(topicId!, defaultExerciseBody());
+      const updated = await teacherApi.createGrammarExercise(topicId!, defaultExerciseBody(t));
       setTopic(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to add exercise.');
+      setError(err instanceof ApiError ? err.message : t('teacherGrammarTopicEditor.addExerciseFailed'));
     } finally {
       setIsAddingExercise(false);
     }
@@ -107,7 +110,7 @@ function TeacherGrammarTopicEditorPage() {
       const updated = await teacherApi.deleteGrammarExercise(topicId!, exerciseId);
       setTopic(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete exercise.');
+      setError(err instanceof ApiError ? err.message : t('teacherGrammarTopicEditor.deleteExerciseFailed'));
     }
   }
 
@@ -115,14 +118,14 @@ function TeacherGrammarTopicEditorPage() {
     return (
       <div>
         <Link to="/teacher/grammar-topics" className="text-sm text-primary-600 hover:underline">
-          ← Back to my Grammar topics
+          {t('teacherGrammarTopicEditor.backToTopics')}
         </Link>
         {error ? (
           <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </p>
         ) : (
-          <p className="mt-4 text-sm text-base-black/60">Loading...</p>
+          <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
         )}
       </div>
     );
@@ -132,7 +135,7 @@ function TeacherGrammarTopicEditorPage() {
     <div className="flex flex-col gap-8">
       <div>
         <Link to="/teacher/grammar-topics" className="text-sm text-primary-600 hover:underline">
-          ← Back to my Grammar topics
+          {t('teacherGrammarTopicEditor.backToTopics')}
         </Link>
         <input
           type="text"
@@ -143,13 +146,13 @@ function TeacherGrammarTopicEditorPage() {
         />
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            Unit (optional)
+            {t('teacherGrammarTopicEditor.unitLabel')}
             <select
               value={topic.unitId ?? ''}
               onChange={(event) => handleSaveUnit(event.target.value === '' ? null : event.target.value)}
               className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             >
-              <option value="">No unit</option>
+              <option value="">{t('teacherGrammarTopicEditor.noUnit')}</option>
               {units.map((unit) => (
                 <option key={unit.id} value={unit.id}>
                   {unit.name}
@@ -162,10 +165,8 @@ function TeacherGrammarTopicEditorPage() {
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold text-base-black">Theory content</h2>
-        <p className="text-sm text-base-black/60">
-          Plain text with paragraphs (separate paragraphs with a blank line) — no rich-text editor.
-        </p>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherGrammarTopicEditor.theoryContentHeading')}</h2>
+        <p className="text-sm text-base-black/60">{t('teacherGrammarTopicEditor.theoryContentHint')}</p>
         <textarea
           value={theoryContent}
           onChange={(event) => setTheoryContent(event.target.value)}
@@ -176,9 +177,9 @@ function TeacherGrammarTopicEditorPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-bold text-base-black">Practice exercises</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('teacherGrammarTopicEditor.practiceExercisesHeading')}</h2>
         {topic.exercises.length === 0 && (
-          <p className="text-sm text-base-black/60">No exercises yet — add one below.</p>
+          <p className="text-sm text-base-black/60">{t('teacherGrammarTopicEditor.noExercises')}</p>
         )}
         <div className="flex flex-col gap-3">
           {topic.exercises.map((exercise, index) => (
@@ -198,7 +199,7 @@ function TeacherGrammarTopicEditorPage() {
           disabled={isAddingExercise}
           className="self-start rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isAddingExercise ? 'Adding...' : '+ Add exercise'}
+          {isAddingExercise ? t('teacherGrammarTopicEditor.adding') : t('teacherGrammarTopicEditor.addExercise')}
         </button>
       </section>
     </div>

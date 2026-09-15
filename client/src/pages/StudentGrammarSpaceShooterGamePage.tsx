@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { GrammarGameQuestionDTO } from '@platform/shared';
 import { grammarApi } from '../lib/grammarApi';
 import { ApiError } from '../lib/apiClient';
@@ -90,6 +91,13 @@ function pickDecoys(questions: GrammarGameQuestionDTO[], target: GrammarGameQues
  */
 function StudentGrammarSpaceShooterGamePage() {
   const { topicId } = useParams<{ topicId: string }>();
+  const { t } = useTranslation();
+  // Resolved once per render from the stable `t` function (hooks can't be called inside
+  // the game-loop/canvas code below, so every user-visible string this game logic needs
+  // is turned into a plain value here first, then referenced by the imperative code).
+  const correctFeedbackText = t('studentGrammarSpaceShooterGame.roundMessageCorrect');
+  const loadFailedText = t('studentGrammarSpaceShooterGame.loadFailed');
+  const livesNoneText = t('studentGrammarSpaceShooterGame.livesNone');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -166,12 +174,14 @@ function StudentGrammarSpaceShooterGamePage() {
     setAnsweredCount(resultsRef.current.length);
     if (bullet.correct) {
       setScore((s) => s + 1);
-      setRoundMessage('Correct! 🎯');
+      setRoundMessage(correctFeedbackText);
     } else {
       livesRef.current -= 1;
       setLives(livesRef.current);
-      const correctTarget = targetsRef.current.find((t) => t.exerciseId === correctExerciseIdRef.current);
-      setRoundMessage(`Not quite — the right answer was "${correctTarget?.label ?? ''}".`);
+      const correctTarget = targetsRef.current.find((target) => target.exerciseId === correctExerciseIdRef.current);
+      setRoundMessage(
+        t('studentGrammarSpaceShooterGame.roundMessageIncorrect', { answer: correctTarget?.label ?? '' }),
+      );
     }
     roundLockRef.current = true;
     setTimeout(advanceOrEnd, ROUND_PAUSE_MS);
@@ -179,7 +189,7 @@ function StudentGrammarSpaceShooterGamePage() {
 
   function fire() {
     if (phaseRef.current !== 'playing' || roundLockRef.current || bulletRef.current) return;
-    const hit = targetsRef.current.find((t) => t.lane === laneRef.current);
+    const hit = targetsRef.current.find((target) => target.lane === laneRef.current);
     bulletRef.current = {
       lane: laneRef.current,
       y: SHIP_Y,
@@ -212,9 +222,10 @@ function StudentGrammarSpaceShooterGamePage() {
         setPhase('playing');
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : 'Failed to load this game.');
+        setError(err instanceof ApiError ? err.message : loadFailedText);
         setPhase('error');
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicId]);
 
   // Keyboard controls.
@@ -239,9 +250,9 @@ function StudentGrammarSpaceShooterGamePage() {
       lastTsRef.current = ts;
 
       if (phaseRef.current === 'playing') {
-        for (const t of targetsRef.current) {
-          t.y += TARGET_FALL_SPEED * dt;
-          if (t.y > CANVAS_HEIGHT) t.y = -TARGET_HEIGHT;
+        for (const target of targetsRef.current) {
+          target.y += TARGET_FALL_SPEED * dt;
+          if (target.y > CANVAS_HEIGHT) target.y = -TARGET_HEIGHT;
         }
         if (bulletRef.current) {
           bulletRef.current.y -= BULLET_SPEED * dt;
@@ -265,13 +276,19 @@ function StudentGrammarSpaceShooterGamePage() {
       ctx.fillStyle = '#1a1030';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      for (const t of targetsRef.current) {
+      for (const target of targetsRef.current) {
         ctx.fillStyle = '#f8b4a3';
-        ctx.fillRect(LANE_X[t.lane], t.y, LANE_WIDTH, TARGET_HEIGHT);
+        ctx.fillRect(LANE_X[target.lane], target.y, LANE_WIDTH, TARGET_HEIGHT);
         ctx.fillStyle = '#1a1030';
         ctx.font = '13px sans-serif';
         ctx.textAlign = 'center';
-        wrapText(ctx, t.label, LANE_X[t.lane] + LANE_WIDTH / 2, t.y + TARGET_HEIGHT / 2 + 4, LANE_WIDTH - 10);
+        wrapText(
+          ctx,
+          target.label,
+          LANE_X[target.lane] + LANE_WIDTH / 2,
+          target.y + TARGET_HEIGHT / 2 + 4,
+          LANE_WIDTH - 10,
+        );
       }
 
       const shipCenterX = LANE_CENTER[laneRef.current];
@@ -320,12 +337,12 @@ function StudentGrammarSpaceShooterGamePage() {
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <div className="flex items-center justify-between">
         <Link to={`/student/grammar-topics/${topicId}`} className="text-sm text-primary-600 hover:underline">
-          ← Back to topic
+          {t('studentGrammarSpaceShooterGame.backToTopic')}
         </Link>
-        <h1 className="text-lg font-bold text-primary-700">Grammar Space Shooter</h1>
+        <h1 className="text-lg font-bold text-primary-700">{t('studentGrammarSpaceShooterGame.heading')}</h1>
       </div>
 
-      {phase === 'loading' && <p className="text-center text-base-black/60">Loading...</p>}
+      {phase === 'loading' && <p className="text-center text-base-black/60">{t('common.loading')}</p>}
 
       {phase === 'error' && (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -334,20 +351,24 @@ function StudentGrammarSpaceShooterGamePage() {
       )}
 
       {phase === 'unavailable' && (
-        <p className="text-sm text-base-black/60">
-          This topic needs at least 2 multiple-choice/true-false exercises to play this game. Add more
-          exercises to this topic first.
-        </p>
+        <p className="text-sm text-base-black/60">{t('studentGrammarSpaceShooterGame.unavailable')}</p>
       )}
 
       {(phase === 'playing' || phase === 'gameover') && (
         <>
           <div className="flex items-center justify-between text-sm font-semibold text-base-black">
             <span>
-              Round {Math.min(roundNumber, totalRounds)} / {totalRounds}
+              {t('studentGrammarSpaceShooterGame.roundCounter', {
+                current: Math.min(roundNumber, totalRounds),
+                total: totalRounds,
+              })}
             </span>
-            <span>Score: {score}</span>
-            <span>Lives: {'❤️'.repeat(Math.max(lives, 0)) || 'None'}</span>
+            <span>{t('studentGrammarSpaceShooterGame.scoreLabel', { score })}</span>
+            <span>
+              {t('studentGrammarSpaceShooterGame.livesLabel', {
+                status: '❤️'.repeat(Math.max(lives, 0)) || livesNoneText,
+              })}
+            </span>
           </div>
 
           <p className="text-center text-base font-semibold text-base-black">{promptText}</p>
@@ -357,7 +378,7 @@ function StudentGrammarSpaceShooterGamePage() {
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
             className="mx-auto rounded-lg border border-primary-300"
-            aria-label="Grammar space shooter game canvas"
+            aria-label={t('studentGrammarSpaceShooterGame.canvasAriaLabel')}
           />
 
           {roundMessage && (
@@ -373,40 +394,42 @@ function StudentGrammarSpaceShooterGamePage() {
                 onClick={() => moveLane(-1)}
                 className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
               >
-                ◀ Move
+                {t('studentGrammarSpaceShooterGame.moveLeft')}
               </button>
               <button
                 type="button"
                 onClick={fire}
                 className="rounded-md bg-primary-500 px-6 py-2 text-sm font-semibold text-base-white hover:bg-primary-600"
               >
-                Fire
+                {t('studentGrammarSpaceShooterGame.fire')}
               </button>
               <button
                 type="button"
                 onClick={() => moveLane(1)}
                 className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
               >
-                Move ▶
+                {t('studentGrammarSpaceShooterGame.moveRight')}
               </button>
             </div>
           )}
           <p className="text-center text-xs text-base-black/50">
-            Keyboard: ← / → to move, Space or ↑ to fire.
+            {t('studentGrammarSpaceShooterGame.keyboardHint')}
           </p>
 
           {phase === 'gameover' && (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
               <h2 className="text-lg font-bold text-primary-700">
-                {lives > 0 ? 'Round complete!' : 'Game over!'}
+                {lives > 0
+                  ? t('studentGrammarSpaceShooterGame.roundComplete')
+                  : t('studentGrammarSpaceShooterGame.gameOver')}
               </h2>
               <p className="text-base-black/70">
-                Score: {score} / {answeredCount} questions answered.
+                {t('studentGrammarSpaceShooterGame.finalScore', { score, answered: answeredCount })}
               </p>
               <p className="text-xs text-base-black/50">
-                {saveStatus === 'saving' && 'Saving your progress...'}
-                {saveStatus === 'saved' && 'Progress saved.'}
-                {saveStatus === 'failed' && 'Could not save progress — please try again later.'}
+                {saveStatus === 'saving' && t('studentGrammarSpaceShooterGame.saving')}
+                {saveStatus === 'saved' && t('studentGrammarSpaceShooterGame.saved')}
+                {saveStatus === 'failed' && t('studentGrammarSpaceShooterGame.saveFailed')}
               </p>
               <div className="flex gap-3">
                 <button
@@ -414,13 +437,13 @@ function StudentGrammarSpaceShooterGamePage() {
                   onClick={() => window.location.reload()}
                   className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white hover:bg-primary-600"
                 >
-                  Play again
+                  {t('studentGrammarSpaceShooterGame.playAgain')}
                 </button>
                 <Link
                   to={`/student/grammar-topics/${topicId}`}
                   className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
                 >
-                  Back to topic
+                  {t('studentGrammarSpaceShooterGame.backToTopicButton')}
                 </Link>
               </div>
             </div>

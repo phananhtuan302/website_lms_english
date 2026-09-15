@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { StudentGrammarTopicSummaryDTO } from '@platform/shared';
 import { grammarApi } from '../lib/grammarApi';
 import { ApiError } from '../lib/apiClient';
@@ -9,6 +10,7 @@ import { ApiError } from '../lib/apiClient';
  * student — same "no enrollment concept" convention as `StudentFlashcardsPage.tsx`.
  */
 function StudentGrammarPage() {
+  const { t } = useTranslation();
   const [topics, setTopics] = useState<StudentGrammarTopicSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,15 +18,13 @@ function StudentGrammarPage() {
     grammarApi
       .listTopics()
       .then(setTopics)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load Grammar topics.'));
-  }, []);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentGrammar.loadFailed')));
+  }, [t]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">Grammar</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Read the theory, then practice with exercises or play the Grammar game.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('studentGrammar.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('studentGrammar.subtitle')}</p>
 
       {error && (
         <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -33,9 +33,9 @@ function StudentGrammarPage() {
       )}
 
       <ul className="mt-6 flex flex-col gap-3">
-        {topics === null && !error && <p className="text-sm text-base-black/60">Loading...</p>}
+        {topics === null && !error && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
         {topics?.length === 0 && (
-          <p className="text-sm text-base-black/60">No Grammar topics available yet.</p>
+          <p className="text-sm text-base-black/60">{t('studentGrammar.emptyState')}</p>
         )}
         {topics?.map((topic) => (
           <li key={topic.id}>
@@ -46,7 +46,7 @@ function StudentGrammarPage() {
               <div>
                 <p className="font-semibold text-primary-700">{topic.title}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {topic.exerciseCount} exercise{topic.exerciseCount === 1 ? '' : 's'}
+                  {t('studentGrammar.exerciseCount', { count: topic.exerciseCount })}
                   {topic.unitName && (
                     <>
                       {' '}
@@ -58,7 +58,7 @@ function StudentGrammarPage() {
                   )}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Read →</span>
+              <span className="text-sm font-medium text-primary-600">{t('studentGrammar.read')}</span>
             </Link>
           </li>
         ))}

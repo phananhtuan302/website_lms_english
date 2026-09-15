@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GrammarReportGroupBy, GrammarReportResponseDTO, GrammarTopicSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
-const GROUP_BY_OPTIONS: Array<{ value: GrammarReportGroupBy; label: string }> = [
-  { value: 'topic', label: 'Topic' },
-  { value: 'student', label: 'Student' },
-  { value: 'week', label: 'Week (ISO, Mon–Sun)' },
-  { value: 'month', label: 'Month' },
-  { value: 'quarter', label: 'Quarter' },
-  { value: 'semester', label: 'Academic period (semester)' },
-  { value: 'year', label: 'Year' },
+const GROUP_BY_OPTIONS: Array<{ value: GrammarReportGroupBy; labelKey: string }> = [
+  { value: 'topic', labelKey: 'teacherGrammarReports.groupByOptions.topic' },
+  { value: 'student', labelKey: 'teacherGrammarReports.groupByOptions.student' },
+  { value: 'week', labelKey: 'teacherGrammarReports.groupByOptions.week' },
+  { value: 'month', labelKey: 'teacherGrammarReports.groupByOptions.month' },
+  { value: 'quarter', labelKey: 'teacherGrammarReports.groupByOptions.quarter' },
+  { value: 'semester', labelKey: 'teacherGrammarReports.groupByOptions.semester' },
+  { value: 'year', labelKey: 'teacherGrammarReports.groupByOptions.year' },
 ];
 
 /**
@@ -22,6 +23,7 @@ const GROUP_BY_OPTIONS: Array<{ value: GrammarReportGroupBy; label: string }> = 
  * taken" is always "—" since Grammar practice exercises aren't timed.
  */
 function TeacherGrammarReportsPage() {
+  const { t } = useTranslation();
   const [groupBy, setGroupBy] = useState<GrammarReportGroupBy>('topic');
   const [topicId, setTopicId] = useState('');
 
@@ -42,23 +44,20 @@ function TeacherGrammarReportsPage() {
       })
       .catch((err) => {
         setReport(null);
-        setError(err instanceof ApiError ? err.message : 'Failed to load report.');
+        setError(err instanceof ApiError ? err.message : t('teacherGrammarReports.loadFailed'));
       });
-  }, [groupBy, topicId]);
+  }, [groupBy, topicId, t]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">Grammar reports</h1>
-        <p className="mt-1 text-sm text-base-black/60">
-          Accuracy and attempt count on Grammar practice exercises, per topic or per student. Choose a
-          granularity below; optionally narrow to one topic.
-        </p>
+        <h1 className="text-2xl font-bold text-primary-700">{t('teacherGrammarReports.heading')}</h1>
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherGrammarReports.subtitle')}</p>
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Group by
+          {t('teacherGrammarReports.groupByLabel')}
           <select
             value={groupBy}
             onChange={(event) => setGroupBy(event.target.value as GrammarReportGroupBy)}
@@ -66,20 +65,20 @@ function TeacherGrammarReportsPage() {
           >
             {GROUP_BY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Topic (optional filter)
+          {t('teacherGrammarReports.topicFilterLabel')}
           <select
             value={topicId}
             onChange={(event) => setTopicId(event.target.value)}
             className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">All topics</option>
+            <option value="">{t('teacherGrammarReports.allTopics')}</option>
             {topics.map((topic) => (
               <option key={topic.id} value={topic.id}>
                 {topic.title}
@@ -90,23 +89,23 @@ function TeacherGrammarReportsPage() {
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !report && <p className="text-sm text-base-black/60">Loading report...</p>}
+      {!error && !report && <p className="text-sm text-base-black/60">{t('teacherGrammarReports.loadingReport')}</p>}
 
       {!error && report && (
         <section className="overflow-x-auto rounded-xl border border-primary-200">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50 text-left text-xs font-semibold uppercase tracking-wide text-primary-700">
               <tr>
-                <th className="px-4 py-3">{GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label}</th>
-                <th className="px-4 py-3">Attempts</th>
-                <th className="px-4 py-3">Accuracy</th>
+                <th className="px-4 py-3">{t(GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.labelKey ?? '')}</th>
+                <th className="px-4 py-3">{t('teacherGrammarReports.attempts')}</th>
+                <th className="px-4 py-3">{t('teacherGrammarReports.accuracy')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-100">
               {report.buckets.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-4 text-center text-base-black/60">
-                    No data for this selection yet.
+                    {t('teacherGrammarReports.noData')}
                   </td>
                 </tr>
               )}

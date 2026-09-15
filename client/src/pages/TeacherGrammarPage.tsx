@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { GrammarTopicSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
@@ -11,6 +12,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function TeacherGrammarPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [topics, setTopics] = useState<GrammarTopicSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
@@ -20,7 +22,7 @@ function TeacherGrammarPage() {
     teacherApi
       .listGrammarTopics()
       .then(setTopics)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load Grammar topics.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherGrammar.loadFailed')));
   }
 
   useEffect(loadTopics, []);
@@ -35,30 +37,28 @@ function TeacherGrammarPage() {
     try {
       const created = await teacherApi.createGrammarTopic({
         title,
-        theoryContent: 'Write the theory content for this topic here.',
+        theoryContent: t('teacherGrammar.defaultTheoryContent'),
       });
       navigate(`/teacher/grammar-topics/${created.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create Grammar topic.');
+      setError(err instanceof ApiError ? err.message : t('teacherGrammar.createFailed'));
       setIsCreating(false);
     }
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">My Grammar topics</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Write theory content and practice exercises for students to study.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('teacherGrammar.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('teacherGrammar.subtitle')}</p>
 
       <form onSubmit={handleCreate} className="mt-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          New topic title
+          {t('teacherGrammar.newTopicTitleLabel')}
           <input
             type="text"
             value={newTitle}
             onChange={(event) => setNewTitle(event.target.value)}
-            placeholder="e.g. Present Simple"
+            placeholder={t('teacherGrammar.titlePlaceholder')}
             className="w-72 rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
@@ -67,7 +67,7 @@ function TeacherGrammarPage() {
           disabled={isCreating || !newTitle.trim()}
           className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isCreating ? 'Creating...' : 'Create topic'}
+          {isCreating ? t('teacherGrammar.creating') : t('teacherGrammar.createTopic')}
         </button>
       </form>
 
@@ -78,9 +78,9 @@ function TeacherGrammarPage() {
       )}
 
       <ul className="mt-8 flex flex-col gap-3">
-        {topics === null && <p className="text-sm text-base-black/60">Loading...</p>}
+        {topics === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
         {topics?.length === 0 && (
-          <p className="text-sm text-base-black/60">No Grammar topics yet — create your first one above.</p>
+          <p className="text-sm text-base-black/60">{t('teacherGrammar.emptyState')}</p>
         )}
         {topics?.map((topic) => (
           <li key={topic.id}>
@@ -91,7 +91,7 @@ function TeacherGrammarPage() {
               <div>
                 <p className="font-semibold text-primary-700">{topic.title}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {topic.exerciseCount} exercise{topic.exerciseCount === 1 ? '' : 's'}
+                  {t('teacherGrammar.exerciseCount', { count: topic.exerciseCount })}
                   {topic.unitName && (
                     <>
                       {' '}
@@ -103,7 +103,7 @@ function TeacherGrammarPage() {
                   )}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Open editor →</span>
+              <span className="text-sm font-medium text-primary-600">{t('teacherGrammar.openEditor')}</span>
             </Link>
           </li>
         ))}

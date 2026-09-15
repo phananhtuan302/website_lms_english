@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { GrammarTopicProgressDTO, StudentGrammarTopicDetailDTO } from '@platform/shared';
 import { grammarApi } from '../lib/grammarApi';
 import { ApiError } from '../lib/apiClient';
@@ -13,6 +14,7 @@ import { ApiError } from '../lib/apiClient';
  */
 function StudentGrammarTopicPage() {
   const { topicId } = useParams<{ topicId: string }>();
+  const { t } = useTranslation();
   const [topic, setTopic] = useState<StudentGrammarTopicDetailDTO | null>(null);
   const [progress, setProgress] = useState<GrammarTopicProgressDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,12 +24,12 @@ function StudentGrammarTopicPage() {
     grammarApi
       .getTopic(topicId)
       .then(setTopic)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load Grammar topic.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('studentGrammarTopic.loadFailed')));
     grammarApi
       .getProgress(topicId)
       .then(setProgress)
       .catch(() => undefined);
-  }, [topicId]);
+  }, [topicId, t]);
 
   if (!topicId) return null;
 
@@ -40,7 +42,7 @@ function StudentGrammarTopicPage() {
   }
 
   if (!topic) {
-    return <p className="text-center text-base-black/60">Loading...</p>;
+    return <p className="text-center text-base-black/60">{t('common.loading')}</p>;
   }
 
   const paragraphs = topic.theoryContent.split(/\n\s*\n/).filter((p) => p.trim() !== '');
@@ -49,7 +51,7 @@ function StudentGrammarTopicPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <Link to="/student/grammar-topics" className="text-sm text-primary-600 hover:underline">
-          ← Back to Grammar
+          {t('studentGrammarTopic.backToGrammar')}
         </Link>
         {topic.unitName && (
           <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
@@ -70,37 +72,36 @@ function StudentGrammarTopicPage() {
 
       {progress && progress.attemptedCount > 0 && (
         <p className="text-sm text-base-black/60">
-          Your progress on this topic: {progress.correctCount} / {progress.attemptedCount} correct (
-          {Math.round((progress.correctCount / progress.attemptedCount) * 100)}%).
+          {t('studentGrammarTopic.progressText', {
+            correct: progress.correctCount,
+            attempted: progress.attemptedCount,
+            percent: Math.round((progress.correctCount / progress.attemptedCount) * 100),
+          })}
         </p>
       )}
 
       <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">Practice</h2>
-        <p className="mt-1 text-sm text-base-black/60">
-          Attempt the exercises for this topic and get immediate feedback.
-        </p>
+        <h2 className="text-lg font-bold text-base-black">{t('studentGrammarTopic.practiceHeading')}</h2>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentGrammarTopic.practiceSubtitle')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             to={`/student/grammar-topics/${topicId}/practice`}
             className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
-            Start practice
+            {t('studentGrammarTopic.startPractice')}
           </Link>
         </div>
       </section>
 
       <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">Game</h2>
-        <p className="mt-1 text-sm text-base-black/60">
-          Play a quick Grammar game using this topic's multiple-choice/true-false exercises.
-        </p>
+        <h2 className="text-lg font-bold text-base-black">{t('studentGrammarTopic.gameHeading')}</h2>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentGrammarTopic.gameSubtitle')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             to={`/student/grammar-topics/${topicId}/games/space-shooter`}
             className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
-            Space Shooter
+            {t('studentGrammarTopic.spaceShooter')}
           </Link>
         </div>
       </section>
