@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 
 /**
@@ -9,42 +10,43 @@ import { useAuth } from '../context/useAuth';
  */
 function AdminDashboardPage() {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="rounded-xl border border-primary-100 bg-primary-50 p-8">
-      <h1 className="text-2xl font-bold text-primary-700">Admin dashboard</h1>
-      <p className="mt-2 text-base-black/70">Welcome, {user?.name}.</p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('adminDashboard.heading')}</h1>
+      <p className="mt-2 text-base-black/70">{t('adminDashboard.welcome', { name: user?.name })}</p>
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           to="/admin/users"
           className="inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
-          Manage users (teachers, students &amp; admins)
+          {t('adminDashboard.manageUsers')}
         </Link>
         <Link
           to="/admin/tests"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Browse all tests
+          {t('adminDashboard.browseTests')}
         </Link>
         <Link
           to="/admin/flashcard-sets"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Browse all flashcard sets
+          {t('adminDashboard.browseFlashcardSets')}
         </Link>
         <Link
           to="/admin/grammar-topics"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Browse all Grammar topics
+          {t('adminDashboard.browseGrammarTopics')}
         </Link>
         <Link
           to="/teacher/curriculum"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Manage curriculum (Units &amp; Academic Periods)
+          {t('teacherDashboard.manageCurriculum')}
         </Link>
       </div>
 
@@ -54,7 +56,7 @@ function AdminDashboardPage() {
           onClick={logout}
           className="mt-6 rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          Log out
+          {t('common.logOut')}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TEST_TYPE_LABELS, type AdminTestSummaryDTO } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
@@ -11,6 +12,7 @@ import { ApiError } from '../lib/apiClient';
  * check now also accepts an admin caller (see `server/src/lib/ownedTest.ts`), so no
  * separate admin editor UI exists here. */
 function AdminTestsPage() {
+  const { t } = useTranslation();
   const [tests, setTests] = useState<AdminTestSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,16 +20,13 @@ function AdminTestsPage() {
     adminApi
       .listAllTests()
       .then(setTests)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load tests.'));
-  }, []);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('adminTests.errors.loadFailed')));
+  }, [t]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">All tests</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Every test in the system, across every teacher. Open one to edit or delete it using the
-        same editor a teacher uses.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('adminTests.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('adminTests.subtitle')}</p>
 
       {error && (
         <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -36,8 +35,8 @@ function AdminTestsPage() {
       )}
 
       <ul className="mt-8 flex flex-col gap-3">
-        {tests === null && <p className="text-sm text-base-black/60">Loading...</p>}
-        {tests?.length === 0 && <p className="text-sm text-base-black/60">No tests exist yet.</p>}
+        {tests === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+        {tests?.length === 0 && <p className="text-sm text-base-black/60">{t('adminTests.empty')}</p>}
         {tests?.map((test) => (
           <li key={test.id}>
             <Link
@@ -47,12 +46,12 @@ function AdminTestsPage() {
               <div>
                 <p className="font-semibold text-primary-700">{test.title}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  Owner: {test.teacherName} ({test.teacherEmail})
+                  {t('adminTests.owner', { name: test.teacherName, email: test.teacherEmail })}
                 </p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {test.sectionCount} section{test.sectionCount === 1 ? '' : 's'} · {test.questionCount}{' '}
-                  question{test.questionCount === 1 ? '' : 's'} · updated{' '}
-                  {new Date(test.updatedAt).toLocaleString()}
+                  {t('adminTests.sectionCount', { count: test.sectionCount })} ·{' '}
+                  {t('adminTests.questionCount', { count: test.questionCount })} ·{' '}
+                  {t('adminTests.updatedAt', { date: new Date(test.updatedAt).toLocaleString() })}
                   {test.unitName && (
                     <>
                       {' '}
@@ -73,7 +72,7 @@ function AdminTestsPage() {
                   )}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Open editor →</span>
+              <span className="text-sm font-medium text-primary-600">{t('adminTests.openEditor')}</span>
             </Link>
           </li>
         ))}

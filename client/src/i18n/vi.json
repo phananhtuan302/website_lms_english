@@ -6,7 +6,8 @@
   },
   "roles": {
     "teacher": "Giáo viên",
-    "student": "Học sinh"
+    "student": "Học sinh",
+    "admin": "Quản trị viên"
   },
   "header": {
     "dashboard": "Trang tổng quan",
@@ -166,6 +167,32 @@
     "submitTestError": "Không thể nộp bài kiểm tra.",
     "submitConfirm": "Bạn đã trả lời {{answered}}/{{total}} câu hỏi. Nộp bài kiểm tra ngay bây giờ? Bạn sẽ không thể thay đổi câu trả lời sau khi nộp."
   },
+  "adminDashboard": { "heading": "Trang tổng quan quản trị viên", "welcome": "Chào mừng, {{name}}.", "manageUsers": "Quản lý người dùng (giáo viên, học sinh & quản trị viên)", "browseTests": "Xem tất cả bài kiểm tra", "browseFlashcardSets": "Xem tất cả bộ thẻ từ vựng", "browseGrammarTopics": "Xem tất cả chủ đề ngữ pháp" },
+  "adminUsers": {
+    "heading": "Người dùng",
+    "subtitle": "Tất cả tài khoản trong hệ thống — giáo viên, học sinh và quản trị viên. Đây là nơi duy nhất (ngoài script khởi tạo dữ liệu) có thể tạo tài khoản giáo viên hoặc quản trị viên.",
+    "createHeading": "Tạo người dùng",
+    "form": { "name": "Tên", "email": "Email", "password": "Mật khẩu", "passwordPlaceholder": "Tối thiểu {{count}} ký tự", "role": "Vai trò", "submit": "Tạo người dùng", "submitting": "Đang tạo..." },
+    "filter": { "roleLabel": "Lọc theo vai trò", "allRoles": "Tất cả vai trò", "searchLabel": "Tìm kiếm (tên hoặc email)", "searchSubmit": "Tìm kiếm" },
+    "noResults": "Không có người dùng nào khớp với bộ lọc này.",
+    "joinedOn": "Tham gia {{date}}",
+    "you": "(bạn)",
+    "resetPasswordButton": "Đặt lại mật khẩu",
+    "resetPasswordPlaceholder": "Mật khẩu mới (tối thiểu {{count}} ký tự)",
+    "confirmResetButton": "Xác nhận đặt lại",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "passwordResetSuccess": "Đã đặt lại mật khẩu.",
+    "confirmDelete": "Xóa người dùng này? Thao tác này sẽ xóa toàn bộ dữ liệu liên quan (bài kiểm tra, lượt làm bài, tiến độ học tập, v.v.) theo đúng quan hệ dữ liệu hiện có.",
+    "errors": { "loadFailed": "Không thể tải danh sách người dùng.", "createFailed": "Không thể tạo người dùng.", "saveFailed": "Không thể lưu thông tin người dùng.", "resetPasswordFailed": "Không thể đặt lại mật khẩu.", "deleteFailed": "Không thể xóa người dùng." }
+  },
+  "adminTests": { "heading": "Tất cả bài kiểm tra", "subtitle": "Tất cả bài kiểm tra trong hệ thống, của mọi giáo viên. Mở một bài để chỉnh sửa hoặc xóa bằng chính trình soạn thảo mà giáo viên sử dụng.", "empty": "Chưa có bài kiểm tra nào.", "owner": "Giáo viên: {{name}} ({{email}})", "sectionCount_one": "{{count}} phần", "sectionCount_other": "{{count}} phần", "questionCount_one": "{{count}} câu hỏi", "questionCount_other": "{{count}} câu hỏi", "updatedAt": "cập nhật {{date}}", "openEditor": "Mở trình soạn thảo →", "errors": { "loadFailed": "Không thể tải danh sách bài kiểm tra." } },
+  "adminFlashcardSets": { "heading": "Tất cả bộ thẻ từ vựng", "subtitle": "Tất cả bộ thẻ từ vựng trong hệ thống, của mọi giáo viên. Mở một bộ để chỉnh sửa hoặc xóa bằng chính trình soạn thảo mà giáo viên sử dụng.", "empty": "Chưa có bộ thẻ từ vựng nào.", "owner": "Giáo viên: {{name}} ({{email}})", "cardCount_one": "{{count}} thẻ", "cardCount_other": "{{count}} thẻ", "updatedAt": "cập nhật {{date}}", "openEditor": "Mở trình soạn thảo →", "errors": { "loadFailed": "Không thể tải danh sách bộ thẻ từ vựng." } },
+  "adminGrammarTopics": { "heading": "Tất cả chủ đề ngữ pháp", "subtitle": "Tất cả chủ đề ngữ pháp trong hệ thống, của mọi giáo viên. Mở một chủ đề để chỉnh sửa hoặc xóa bằng chính trình soạn thảo mà giáo viên sử dụng.", "empty": "Chưa có chủ đề ngữ pháp nào.", "owner": "Giáo viên: {{name}} ({{email}})", "exerciseCount_one": "{{count}} bài tập", "exerciseCount_other": "{{count}} bài tập", "updatedAt": "cập nhật {{date}}", "openEditor": "Mở trình soạn thảo →", "errors": { "loadFailed": "Không thể tải danh sách chủ đề ngữ pháp." } },
+  "teacherCurriculum": { "heading": "Chương trình học", "description": "Unit và học kỳ được dùng chung cho mọi tài khoản giáo viên. Hãy gắn một Unit cho bài kiểm tra ngay tại trang chỉnh sửa của bài đó.", "units": { "heading": "Danh sách Unit", "nameLabel": "Tên", "namePlaceholder": "VD: Unit 3 — Food & Drink", "orderLabel": "Thứ tự", "addButton": "Thêm Unit", "empty": "Chưa có Unit nào.", "deleteButton": "Xóa", "loadFailed": "Không thể tải danh sách Unit.", "validationError": "Vui lòng nhập tên Unit và thứ tự là một số nguyên.", "createFailed": "Không thể tạo Unit.", "saveFailed": "Không thể lưu Unit.", "deleteFailed": "Không thể xóa Unit." }, "periods": { "heading": "Học kỳ", "timezoneNote": "Ngày tháng được tính theo lịch cố định theo múi giờ Asia/Ho_Chi_Minh.", "nameLabel": "Tên", "namePlaceholder": "VD: Học kỳ 1 - 2026", "startDateLabel": "Ngày bắt đầu", "endDateLabel": "Ngày kết thúc", "addButton": "Thêm học kỳ", "empty": "Chưa có học kỳ nào.", "deleteButton": "Xóa", "loadFailed": "Không thể tải danh sách học kỳ.", "validationError": "Vui lòng nhập tên, ngày bắt đầu và ngày kết thúc.", "createFailed": "Không thể tạo học kỳ.", "saveFailed": "Không thể lưu học kỳ.", "deleteFailed": "Không thể xóa học kỳ." } },
+  "teacherReports": { "heading": "Báo cáo", "description": "Điểm trung bình, thời gian làm bài trung bình và số lượt làm bài trên các bài kiểm tra của bạn, chỉ tính các lượt đã nộp bài. Chọn mức phân nhóm bên dưới; có thể thu hẹp thêm theo một bài kiểm tra và/hoặc một Unit.", "groupByOptions": { "test": "Bài kiểm tra", "unit": "Unit", "week": "Tuần (theo ISO, Thứ Hai–Chủ Nhật)", "month": "Tháng", "quarter": "Quý", "semester": "Học kỳ", "year": "Năm" }, "testTypeOptions": { "generic": "Thông thường", "unitTest": "Kiểm tra Unit", "vocabularyCheck": "Kiểm tra từ vựng", "listeningTest": "Nghe", "mockTest": "Thi thử" }, "groupByLabel": "Nhóm theo", "testFilterLabel": "Bài kiểm tra (lọc tùy chọn)", "allTests": "Tất cả bài kiểm tra", "unitFilterLabel": "Unit (lọc tùy chọn)", "allUnits": "Tất cả Unit", "testTypeFilterLabel": "Loại bài kiểm tra (lọc tùy chọn)", "allTestTypes": "Tất cả loại bài kiểm tra", "loadFailed": "Không thể tải báo cáo.", "loadingReport": "Đang tải báo cáo...", "attemptsColumn": "Số lượt làm bài", "averageScoreColumn": "Điểm trung bình", "averageTimeTakenColumn": "Thời gian làm bài trung bình", "noData": "Chưa có dữ liệu cho lựa chọn này." },
+  "teacherReportsHub": { "heading": "Báo cáo", "description": "Nơi tổng hợp báo cáo của mọi học phần. Chọn một học phần, sau đó chọn mức phân nhóm theo thời gian — mọi số liệu bên dưới đều được tính bằng cùng một hệ thống báo cáo dùng chung trong toàn bộ ứng dụng.", "navAriaLabel": "Học phần báo cáo", "tabs": { "test": "Bài kiểm tra", "unitTest": "Kiểm tra Unit", "vocabulary": "Từ vựng", "grammar": "Ngữ pháp", "speaking": "Nói" }, "unitTest": { "heading": "Báo cáo Kiểm tra Unit", "description": "Điểm trung bình, thời gian làm bài trung bình và số lượt làm bài chỉ tính trên các bài Kiểm tra Unit của bạn, chỉ tính các lượt đã nộp bài. Chọn mức phân nhóm bên dưới; có thể thu hẹp thêm theo một bài kiểm tra và/hoặc một Unit." }, "vocabulary": { "leaderboardPrompt": "Bạn muốn xem bảng xếp hạng toàn thời gian thay vì theo từng giai đoạn?", "leaderboardLink": "Xem bảng xếp hạng từ vựng toàn thời gian" } },
+  "teacherSpeakingReports": { "heading": "Báo cáo Nói", "description": "Điểm Nói trung bình có hiệu lực (điểm giáo viên chỉnh sửa nếu có, nếu không thì lấy điểm AI/chấm thử) và số câu trả lời đã được chấm, trên các câu hỏi Nói của bạn. Chọn mức phân nhóm bên dưới; có thể thu hẹp thêm theo một bài kiểm tra và/hoặc một Unit.", "groupByOptions": { "test": "Bài kiểm tra", "unit": "Unit", "week": "Tuần (theo ISO, Thứ Hai–Chủ Nhật)", "month": "Tháng", "quarter": "Quý", "semester": "Học kỳ", "year": "Năm" }, "groupByLabel": "Nhóm theo", "testFilterLabel": "Bài kiểm tra (lọc tùy chọn)", "allTests": "Tất cả bài kiểm tra", "unitFilterLabel": "Unit (lọc tùy chọn)", "allUnits": "Tất cả Unit", "loadFailed": "Không thể tải báo cáo.", "loadingReport": "Đang tải báo cáo...", "gradedAnswersColumn": "Số câu đã chấm", "averageScoreColumn": "Điểm Nói trung bình", "noData": "Chưa có câu trả lời Nói nào được chấm cho lựa chọn này." },
   "teacherTestEditor": {
     "backToTests": "← Quay lại bài kiểm tra của tôi",
     "loadFailed": "Không thể tải bài kiểm tra.",

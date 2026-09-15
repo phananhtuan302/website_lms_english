@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AdminUserDTO, UserRole } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
@@ -16,6 +17,7 @@ const MIN_PASSWORD_LENGTH = 8;
  */
 function AdminUsersPage() {
   const { user: currentUser } = useAuth();
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUserDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +35,7 @@ function AdminUsersPage() {
     adminApi
       .listUsers({ role: roleFilter || undefined, search: search || undefined })
       .then(setUsers)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load users.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('adminUsers.errors.loadFailed')));
   }
 
   useEffect(loadUsers, [roleFilter, search]);
@@ -55,7 +57,7 @@ function AdminUsersPage() {
       setNewRole('student');
       loadUsers();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create user.');
+      setError(err instanceof ApiError ? err.message : t('adminUsers.errors.createFailed'));
     } finally {
       setIsCreating(false);
     }
@@ -67,7 +69,7 @@ function AdminUsersPage() {
       setError(null);
       loadUsers();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save user.');
+      setError(err instanceof ApiError ? err.message : t('adminUsers.errors.saveFailed'));
     }
   }
 
@@ -76,36 +78,33 @@ function AdminUsersPage() {
       await adminApi.resetPassword(userId, { password });
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to reset password.');
+      setError(err instanceof ApiError ? err.message : t('adminUsers.errors.resetPasswordFailed'));
       throw err;
     }
   }
 
   async function handleDelete(userId: string) {
-    if (!window.confirm('Delete this user? This cascades to everything they own (tests, attempts, progress, etc.) per the existing schema relations.')) {
+    if (!window.confirm(t('adminUsers.confirmDelete'))) {
       return;
     }
     try {
       await adminApi.deleteUser(userId);
       loadUsers();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to delete user.');
+      setError(err instanceof ApiError ? err.message : t('adminUsers.errors.deleteFailed'));
     }
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">Users</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Every account in the system — teachers, students, and admins. This is the only place (besides
-        the seed script) that can create a teacher or admin account.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('adminUsers.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('adminUsers.subtitle')}</p>
 
       <section className="mt-6 rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">Create a user</h2>
+        <h2 className="text-lg font-bold text-base-black">{t('adminUsers.createHeading')}</h2>
         <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Name
+            {t('adminUsers.form.name')}
             <input
               type="text"
               value={newName}
@@ -114,7 +113,7 @@ function AdminUsersPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Email
+            {t('adminUsers.form.email')}
             <input
               type="email"
               value={newEmail}
@@ -123,17 +122,17 @@ function AdminUsersPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Password
+            {t('adminUsers.form.password')}
             <input
               type="password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
-              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              placeholder={t('adminUsers.form.passwordPlaceholder', { count: MIN_PASSWORD_LENGTH })}
               className="w-40 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Role
+            {t('adminUsers.form.role')}
             <select
               value={newRole}
               onChange={(event) => setNewRole(event.target.value as UserRole)}
@@ -141,7 +140,7 @@ function AdminUsersPage() {
             >
               {ROLES.map((role) => (
                 <option key={role} value={role}>
-                  {role}
+                  {t(`roles.${role}`)}
                 </option>
               ))}
             </select>
@@ -151,30 +150,30 @@ function AdminUsersPage() {
             disabled={isCreating || !newName.trim() || !newEmail.trim() || newPassword.length < MIN_PASSWORD_LENGTH}
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isCreating ? 'Creating...' : 'Create user'}
+            {isCreating ? t('adminUsers.form.submitting') : t('adminUsers.form.submit')}
           </button>
         </form>
       </section>
 
       <section className="mt-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-          Filter by role
+          {t('adminUsers.filter.roleLabel')}
           <select
             value={roleFilter}
             onChange={(event) => setRoleFilter(event.target.value as UserRole | '')}
             className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           >
-            <option value="">All roles</option>
+            <option value="">{t('adminUsers.filter.allRoles')}</option>
             {ROLES.map((role) => (
               <option key={role} value={role}>
-                {role}
+                {t(`roles.${role}`)}
               </option>
             ))}
           </select>
         </label>
         <form onSubmit={handleSearchSubmit} className="flex items-end gap-2">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            Search (name or email)
+            {t('adminUsers.filter.searchLabel')}
             <input
               type="text"
               value={searchInput}
@@ -186,7 +185,7 @@ function AdminUsersPage() {
             type="submit"
             className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
           >
-            Search
+            {t('adminUsers.filter.searchSubmit')}
           </button>
         </form>
       </section>
@@ -198,8 +197,8 @@ function AdminUsersPage() {
       )}
 
       <ul className="mt-6 flex flex-col gap-2">
-        {users === null && <p className="text-sm text-base-black/60">Loading...</p>}
-        {users?.length === 0 && <p className="text-sm text-base-black/60">No users match this filter.</p>}
+        {users === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+        {users?.length === 0 && <p className="text-sm text-base-black/60">{t('adminUsers.noResults')}</p>}
         {users?.map((user) => (
           <UserRow
             key={user.id}
@@ -228,6 +227,7 @@ function UserRow({
   onResetPassword: (userId: string, password: string) => Promise<void>;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [role, setRole] = useState<UserRole>(user.role);
@@ -251,7 +251,7 @@ function UserRow({
     await onResetPassword(user.id, newPassword);
     setNewPassword('');
     setIsResetting(false);
-    setResetMessage('Password reset.');
+    setResetMessage(t('adminUsers.passwordResetSuccess'));
     setTimeout(() => setResetMessage(null), 3000);
   }
 
@@ -283,21 +283,21 @@ function UserRow({
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {t(`roles.${r}`)}
             </option>
           ))}
         </select>
         <span className="text-xs text-base-black/50">
-          joined {new Date(user.createdAt).toLocaleDateString()}
+          {t('adminUsers.joinedOn', { date: new Date(user.createdAt).toLocaleDateString() })}
         </span>
-        {isSelf && <span className="text-xs font-medium text-primary-600">(you)</span>}
+        {isSelf && <span className="text-xs font-medium text-primary-600">{t('adminUsers.you')}</span>}
 
         <button
           type="button"
           onClick={() => setIsResetting((prev) => !prev)}
           className="ml-auto rounded px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
         >
-          Reset password
+          {t('adminUsers.resetPasswordButton')}
         </button>
         {!isSelf && (
           <button
@@ -305,7 +305,7 @@ function UserRow({
             onClick={onDelete}
             className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
           >
-            Delete
+            {t('adminUsers.delete')}
           </button>
         )}
       </div>
@@ -316,7 +316,7 @@ function UserRow({
             type="password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
-            placeholder={`New password (at least ${MIN_PASSWORD_LENGTH} characters)`}
+            placeholder={t('adminUsers.resetPasswordPlaceholder', { count: MIN_PASSWORD_LENGTH })}
             className="w-64 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
           <button
@@ -325,7 +325,7 @@ function UserRow({
             disabled={newPassword.length < MIN_PASSWORD_LENGTH}
             className="rounded-md bg-primary-500 px-3 py-1 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Confirm reset
+            {t('adminUsers.confirmResetButton')}
           </button>
           <button
             type="button"
@@ -335,7 +335,7 @@ function UserRow({
             }}
             className="rounded px-2 py-1 text-xs font-medium text-base-black/60 hover:bg-primary-50"
           >
-            Cancel
+            {t('adminUsers.cancel')}
           </button>
         </div>
       )}

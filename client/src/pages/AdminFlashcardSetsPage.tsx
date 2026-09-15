@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { AdminFlashcardSetSummaryDTO } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
@@ -9,6 +10,7 @@ import { ApiError } from '../lib/apiClient';
  * teacher-side editor (`/teacher/flashcard-sets/:id`), whose ownership check now also
  * accepts an admin caller. */
 function AdminFlashcardSetsPage() {
+  const { t } = useTranslation();
   const [sets, setSets] = useState<AdminFlashcardSetSummaryDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,16 +18,13 @@ function AdminFlashcardSetsPage() {
     adminApi
       .listAllFlashcardSets()
       .then(setSets)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load flashcard sets.'));
-  }, []);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('adminFlashcardSets.errors.loadFailed')));
+  }, [t]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">All flashcard sets</h1>
-      <p className="mt-1 text-sm text-base-black/60">
-        Every flashcard set in the system, across every teacher. Open one to edit or delete it using
-        the same editor a teacher uses.
-      </p>
+      <h1 className="text-2xl font-bold text-primary-700">{t('adminFlashcardSets.heading')}</h1>
+      <p className="mt-1 text-sm text-base-black/60">{t('adminFlashcardSets.subtitle')}</p>
 
       {error && (
         <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -34,8 +33,8 @@ function AdminFlashcardSetsPage() {
       )}
 
       <ul className="mt-8 flex flex-col gap-3">
-        {sets === null && <p className="text-sm text-base-black/60">Loading...</p>}
-        {sets?.length === 0 && <p className="text-sm text-base-black/60">No flashcard sets exist yet.</p>}
+        {sets === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+        {sets?.length === 0 && <p className="text-sm text-base-black/60">{t('adminFlashcardSets.empty')}</p>}
         {sets?.map((set) => (
           <li key={set.id}>
             <Link
@@ -45,11 +44,11 @@ function AdminFlashcardSetsPage() {
               <div>
                 <p className="font-semibold text-primary-700">{set.name}</p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  Owner: {set.teacherName} ({set.teacherEmail})
+                  {t('adminFlashcardSets.owner', { name: set.teacherName, email: set.teacherEmail })}
                 </p>
                 <p className="mt-1 text-xs text-base-black/60">
-                  {set.cardCount} card{set.cardCount === 1 ? '' : 's'} · updated{' '}
-                  {new Date(set.updatedAt).toLocaleString()}
+                  {t('adminFlashcardSets.cardCount', { count: set.cardCount })} ·{' '}
+                  {t('adminFlashcardSets.updatedAt', { date: new Date(set.updatedAt).toLocaleString() })}
                   {set.unitName && (
                     <>
                       {' '}
@@ -61,7 +60,7 @@ function AdminFlashcardSetsPage() {
                   )}
                 </p>
               </div>
-              <span className="text-sm font-medium text-primary-600">Open editor →</span>
+              <span className="text-sm font-medium text-primary-600">{t('adminFlashcardSets.openEditor')}</span>
             </Link>
           </li>
         ))}
