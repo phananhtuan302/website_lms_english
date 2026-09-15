@@ -45,6 +45,26 @@ function TeacherTestsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadTests, []);
 
+  // T-087: delete a test outright, after a `window.confirm` prompt — same exact
+  // convention as `AdminUsersPage.handleDelete`/`AdminAttemptsPage`'s delete action.
+  // `teacherApi.deleteTest` already existed (wired to a real, working `DELETE`
+  // endpoint) but had never been exposed in any UI before this task. On success the
+  // deleted test is filtered out of the local list in place, rather than a full
+  // re-fetch — same "trust the local mutation" pattern used nowhere else on this page
+  // yet, but consistent with how e.g. `AdminUsersPage` avoids a redundant round-trip.
+  async function handleDelete(testId: string) {
+    if (!window.confirm(t('teacherTests.confirmDelete'))) {
+      return;
+    }
+    try {
+      await teacherApi.deleteTest(testId);
+      setTests((prev) => (prev ? prev.filter((test) => test.id !== testId) : prev));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('teacherTests.deleteFailed'));
+    }
+  }
+
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
     const title = newTitle.trim();
@@ -101,51 +121,68 @@ function TeacherTestsPage() {
           <p className="text-sm text-base-black/60">{t('teacherTests.emptyState')}</p>
         )}
         {tests?.map((test) => (
-          <li key={test.id}>
-            <Link
-              to={`/teacher/tests/${test.id}`}
-              className="flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300"
-            >
-              <div>
-                <p className="font-semibold text-primary-700">{test.title}</p>
-                <p className="mt-1 text-xs text-base-black/60">
-                  {t('teacherTests.sectionCount', { count: test.sectionCount })} ·{' '}
-                  {t('teacherTests.questionCount', { count: test.questionCount })} ·{' '}
-                  {t('teacherTests.updatedAt', {
-                    date: new Date(test.updatedAt).toLocaleString(),
-                  })}
-                  {test.unitName && (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
-                        {test.unitName}
-                      </span>
-                    </>
-                  )}
-                  {test.testType !== 'generic' && (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="rounded-full bg-primary-200 px-2 py-0.5 font-medium text-primary-800">
-                        {TEST_TYPE_LABELS[test.testType]}
-                      </span>
-                    </>
-                  )}
-                </p>
-                <p className="mt-1 text-xs text-base-black/60">
-                  {test.averageTimeTakenSeconds !== null
-                    ? t('teacherTests.averageTimeTaken', {
-                        duration: formatAverageDuration(test.averageTimeTakenSeconds),
-                        count: test.completedAttemptCount,
-                      })
-                    : t('teacherTests.averageTimeTakenNone')}
-                </p>
-              </div>
-              <span className="text-sm font-medium text-primary-600">
+          <li
+            key={test.id}
+            className="flex items-center justify-between gap-4 rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300"
+          >
+            <div>
+              <p className="font-semibold text-primary-700">{test.title}</p>
+              <p className="mt-1 text-xs text-base-black/60">
+                {t('teacherTests.sectionCount', { count: test.sectionCount })} ·{' '}
+                {t('teacherTests.questionCount', { count: test.questionCount })} ·{' '}
+                {t('teacherTests.updatedAt', {
+                  date: new Date(test.updatedAt).toLocaleString(),
+                })}
+                {test.unitName && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
+                      {test.unitName}
+                    </span>
+                  </>
+                )}
+                {test.testType !== 'generic' && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    <span className="rounded-full bg-primary-200 px-2 py-0.5 font-medium text-primary-800">
+                      {TEST_TYPE_LABELS[test.testType]}
+                    </span>
+                  </>
+                )}
+              </p>
+              <p className="mt-1 text-xs text-base-black/60">
+                {test.averageTimeTakenSeconds !== null
+                  ? t('teacherTests.averageTimeTaken', {
+                      duration: formatAverageDuration(test.averageTimeTakenSeconds),
+                      count: test.completedAttemptCount,
+                    })
+                  : t('teacherTests.averageTimeTakenNone')}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-4">
+              {/* T-087: ranked per-student report, all sessions + self-practice. */}
+              <Link
+                to={`/teacher/tests/${test.id}/report`}
+                className="text-sm font-medium text-primary-600 hover:underline"
+              >
+                {t('teacherTests.viewReport')}
+              </Link>
+              <Link
+                to={`/teacher/tests/${test.id}`}
+                className="text-sm font-medium text-primary-600 hover:underline"
+              >
                 {t('teacherTests.openEditor')}
-              </span>
-            </Link>
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleDelete(test.id)}
+                className="text-sm font-medium text-red-600 hover:underline"
+              >
+                {t('teacherTests.deleteButton')}
+              </button>
+            </div>
           </li>
         ))}
       </ul>

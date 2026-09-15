@@ -46,6 +46,7 @@ import TeacherGrammarTopicEditorPage from './pages/TeacherGrammarTopicEditorPage
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
 import TeacherReportsHubPage from './pages/TeacherReportsHubPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
+import TeacherTestAttemptsReportPage from './pages/TeacherTestAttemptsReportPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
 import TeacherUnitTestsPage from './pages/TeacherUnitTestsPage';
@@ -86,6 +87,13 @@ function App() {
               <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
               <Route path="/teacher/tests" element={<TeacherTestsPage />} />
               <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
+              {/* Per-test attempt report (T-087): ranked list of every submitted
+                  attempt of one test, across all sessions AND self-practice. Drills
+                  into the existing `/teacher/attempts/:attemptId` route below. */}
+              <Route
+                path="/teacher/tests/:testId/report"
+                element={<TeacherTestAttemptsReportPage />}
+              />
               <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
               {/* Class management (T-074, Phase 12): create/rename/delete the teacher's
                   own cohorts/sections. Registration's class picker reads the PUBLIC

@@ -45,6 +45,7 @@ import type {
   TeacherUnitTestsResponseDTO,
   TeacherVocabProgressDTO,
   TeacherVocabularyCheckSummaryDTO,
+  TestAttemptReportResponseDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestSummaryDTO,
@@ -144,6 +145,12 @@ export const teacherApi = {
     apiRequest<AttemptSummaryDTO[]>(`/api/teacher/sessions/${sessionId}/attempts`),
   getAttemptDetail: (attemptId: string) =>
     apiRequest<AttemptResultDTO>(`/api/teacher/attempts/${attemptId}`),
+
+  // --- Per-test attempt report (T-087) ----------------------------------------------
+  getTestAttemptReport: (testId: string, classId?: string | null) => {
+    const query = classId ? `?classId=${encodeURIComponent(classId)}` : '';
+    return apiRequest<TestAttemptReportResponseDTO>(`${base}/${testId}/attempts${query}`);
+  },
 
   // --- Manual essay grading (T-042) --------------------------------------------------
   gradeEssayAnswer: (attemptId: string, questionId: string, body: GradeEssayAnswerRequest) =>

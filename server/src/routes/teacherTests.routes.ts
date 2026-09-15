@@ -22,6 +22,8 @@ import type {
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
   SectionDTO,
+  TestAttemptReportEntryDTO,
+  TestAttemptReportResponseDTO,
   TestDetailDTO,
   TestSummaryDTO,
   TestType,
@@ -38,6 +40,7 @@ import { requireOwnedTest } from '../lib/ownedTest';
 import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import { generateVariantLayout, nextVariantCodes, type VariantLayout } from '../lib/variantShuffle';
 import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
+import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
 
 export const teacherTestsRouter = Router();
 
@@ -461,6 +464,69 @@ teacherTestsRouter.delete(
 
     await prisma.test.delete({ where: { id: test.id } });
     res.status(204).send();
+  }),
+);
+
+/**
+ * GET /api/teacher/tests/:testId/attempts (T-087) — per-test attempt report: every
+ * SUBMITTED attempt of this ONE test, across ALL of its sessions AND self-practice —
+ * queried directly by `Attempt.testId`, unlike `GET /api/teacher/sessions/:sessionId/attempts`
+ * (`teacherSessions.routes.ts`), which is scoped to a single session. An in-progress
+ * (never-submitted) attempt is excluded entirely, same convention as `GET /tests`'
+ * average-time-taken stat above and every other report/average in this codebase.
+ *
+ * Class-scoped (T-077-style, Phase 12 "no shared data between classes" rule): narrowed
+ * by `resolveTeacherClassId` (`../lib/reportClassScope.ts`), same pattern as
+ * `unitLeaderboard.routes.ts`/`vocabLeaderboard.routes.ts` — a test assigned to several
+ * classes shows exactly one class's ranked list at a time.
+ *
+ * `entries` is ranked `scorePercent` descending, ties broken by `submittedAt` ascending
+ * ("most-correct to least-correct" per the customer request, earliest submission wins a
+ * tie) — a plain two-key Prisma `orderBy`, no one-off in-memory sort needed.
+ */
+teacherTestsRouter.get(
+  '/tests/:testId/attempts',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
+    const attempts = await prisma.attempt.findMany({
+      where: {
+        testId: test.id,
+        status: 'submitted',
+        student: { classId: scope.classId },
+      },
+      include: { student: { select: { id: true, name: true } } },
+      orderBy: [{ scorePercent: 'desc' }, { submittedAt: 'asc' }],
+    });
+
+    const entries: TestAttemptReportEntryDTO[] = attempts.map((a) => ({
+      attemptId: a.id,
+      studentId: a.studentId,
+      studentName: a.student.name,
+      // Never null for a `submitted` attempt (see `attempts.routes.ts`'s submit
+      // handler) — the `?? 0` fallback is defensive only, matching this codebase's
+      // "narrow the type, don't trust it blindly" convention elsewhere in this file.
+      correctCount: a.correctCount ?? 0,
+      totalCount: a.totalCount ?? 0,
+      scorePercent: a.scorePercent ?? 0,
+      submittedAt: a.submittedAt ? a.submittedAt.toISOString() : '',
+    }));
+
+    const response: TestAttemptReportResponseDTO = {
+      testId: test.id,
+      testTitle: test.title,
+      classId: scope.classId,
+      className: scope.className,
+      entries,
+    };
+    res.status(200).json(response);
   }),
 );
 
