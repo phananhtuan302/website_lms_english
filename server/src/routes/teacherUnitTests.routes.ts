@@ -19,7 +19,17 @@ import { asyncHandler } from '../lib/asyncHandler';
 
 export const teacherUnitTestsRouter = Router();
 
-teacherUnitTestsRouter.use(requireAuth, requireRole('teacher'));
+// T-071 follow-up (QA-found gap, same class as teacherReportsRouter's fix): this router
+// shares the `/api/teacher` prefix with every other teacher router, so its blanket
+// `.use()` role check runs for ANY `/api/teacher/*` request that reaches it in Express's
+// registration order — leaving this at `'teacher'` only was silently 403ing admin
+// requests destined for later-registered routers too. Widened to unblock the router
+// chain; the internal `where: { teacherId: req.user.sub }` scoping below is UNCHANGED,
+// so an admin caller gets their own (likely empty) Unit Test list by default — same
+// "harmless empty own-data" pattern documented in `teacherReportsRouter`. Full admin
+// oversight of Unit Tests already exists via `/api/admin/tests` (T-071's browse-all
+// endpoint), not this route.
+teacherUnitTestsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 teacherUnitTestsRouter.get(
   '/unit-tests',

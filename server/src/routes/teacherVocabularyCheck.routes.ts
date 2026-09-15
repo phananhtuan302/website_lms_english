@@ -33,7 +33,16 @@ import { generateVariantLayout, nextVariantCodes } from '../lib/variantShuffle';
 
 export const teacherVocabularyCheckRouter = Router();
 
-teacherVocabularyCheckRouter.use(requireAuth, requireRole('teacher'));
+// T-071 follow-up (QA-found gap, same class as teacherReportsRouter's fix): this router
+// shares the `/api/teacher` prefix with every other teacher router, so its blanket
+// `.use()` role check runs for ANY `/api/teacher/*` request that reaches it in Express's
+// registration order — leaving this at `'teacher'` only was silently 403ing admin
+// requests destined for later-registered routers too (this router sits last in
+// `index.ts`'s registration order, so it was 403ing everything after it, including
+// `/api/teacher/students`). Widened to unblock the router chain; internal ownership
+// scoping below is UNCHANGED, same "harmless empty own-data" pattern as
+// `teacherReportsRouter`.
+teacherVocabularyCheckRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 /** `GET /api/teacher/students` — the target-student picker roster for generating a
  * Vocabulary Check. No prior endpoint returned a plain student list (T-030/T-050's
