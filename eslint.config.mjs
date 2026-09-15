@@ -21,6 +21,13 @@ export default tseslint.config(
       '**/build/**',
       '**/coverage/**',
       '**/*.tsbuildinfo',
+      // Generated Playwright artifacts (T-077 fix): both are already gitignored, but
+      // ESLint's own ignore list didn't mirror that, so `npm run lint` would spuriously
+      // fail with thousands of unrelated errors (`playwright-report/` bundles a minified
+      // third-party trace viewer) any time the e2e suite had been run locally, in this
+      // shared multi-agent dev tree, before linting.
+      '**/playwright-report/**',
+      '**/test-results/**',
     ],
   },
   js.configs.recommended,

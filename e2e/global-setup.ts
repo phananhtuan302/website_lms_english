@@ -50,7 +50,12 @@ export default async function globalSetup(config: FullConfig) {
     const studentContext = await browser.newContext({ baseURL });
     const studentPage = await studentContext.newPage();
     await studentPage.goto('/register');
-    await studentPage.getByLabel('Name').fill('E2E Student');
+    // `getByLabel('Name')` alone is occasionally ambiguous on this page once the class
+    // picker (T-074) has enough accumulated options loaded (this dev DB now has 30+
+    // classes across prior runs) — intermittently strict-mode-violates against the class
+    // `<select>` too. Scoping to the actual textbox role is a safe, targeted fix; see the
+    // identical note in `e2e/08-class-scoped-leaderboards-and-reports.spec.ts` (T-077).
+    await studentPage.getByRole('textbox', { name: 'Name', exact: true }).fill('E2E Student');
     await studentPage.getByLabel('Email').fill(studentEmail);
     // Not `exact: true` — the label's accessible name also includes the helper text
     // ("At least 8 characters.") rendered inside the same <label>.

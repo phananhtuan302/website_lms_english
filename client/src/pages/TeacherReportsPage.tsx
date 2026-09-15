@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { ReportGroupBy, ReportResponseDTO, TestSummaryDTO, TestType, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 const GROUP_BY_OPTIONS: Array<{ value: ReportGroupBy; labelKey: string }> = [
   { value: 'test', labelKey: 'teacherReports.groupByOptions.test' },
@@ -55,6 +57,12 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
   const [testId, setTestId] = useState('');
   const [unitId, setUnitId] = useState('');
   const [testType, setTestType] = useState<TestType | ''>('');
+  // T-077: required class dimension — `useTeacherClasses` auto-selects the sole class
+  // when the teacher only has one, otherwise starts empty until they pick via
+  // `ClassFilterControl` below.
+  const { classes, classId } = useTeacherClasses(true);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const effectiveClassId = selectedClassId || classId;
 
   const [tests, setTests] = useState<TestSummaryDTO[]>([]);
   const [units, setUnits] = useState<UnitDTO[]>([]);
@@ -73,12 +81,16 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
   }, []);
 
   useEffect(() => {
+    // No synchronous `setReport(null)` here — see `useTeacherClasses.ts`'s doc comment on
+    // the `react-hooks/set-state-in-effect` lint rule; `report` already starts `null`.
+    if (!effectiveClassId) return;
     teacherApi
       .getReport({
         groupBy,
         testId: testId || null,
         unitId: unitId || null,
         testType: fixedTestType ?? (testType || null),
+        classId: effectiveClassId,
       })
       .then((res) => {
         setReport(res);
@@ -91,7 +103,7 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
     // `t` is stable in practice (site-wide, admin-controlled language — PROJECT_PLAN
     // Guiding Principle 3/Assumption A13), safe to omit from this dependency list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupBy, testId, unitId, testType, fixedTestType]);
+  }, [groupBy, testId, unitId, testType, fixedTestType, effectiveClassId]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -100,9 +112,12 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
         <p className="mt-1 text-sm text-base-black/60">
           {description ?? t('teacherReports.description')}
         </p>
+        {report && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: report.className })}</p>}
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+        <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
+        <ClassFilterEmptyState classes={classes} />
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherReports.groupByLabel')}
           <select
@@ -170,7 +185,9 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !report && <p className="text-sm text-base-black/60">{t('teacherReports.loadingReport')}</p>}
+      {!error && !report && effectiveClassId && (
+        <p className="text-sm text-base-black/60">{t('teacherReports.loadingReport')}</p>
+      )}
 
       {!error && report && (
         <section className="overflow-x-auto rounded-xl border border-primary-200">

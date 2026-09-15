@@ -4,6 +4,12 @@
     "logOut": "Log out",
     "goToHomePage": "Go to home page"
   },
+  "classFilter": {
+    "label": "Class",
+    "selectPlaceholder": "-- Select a class --",
+    "noClasses": "You have no classes yet. Create a class first to view this data.",
+    "viewingLabel": "Viewing class: {{className}}"
+  },
   "roles": {
     "teacher": "Teacher",
     "student": "Student",

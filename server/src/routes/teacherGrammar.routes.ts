@@ -34,6 +34,7 @@ import {
   GRAMMAR_REPORT_GROUP_BY_VALUES,
   type GrammarReportGroupBy,
 } from '../lib/reporting';
+import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
 
 export const teacherGrammarRouter = Router();
 
@@ -484,13 +485,21 @@ teacherGrammarRouter.get(
       studentId = student.id;
     }
 
+    // T-077: required class dimension, same shared resolver as `/api/teacher/reports`.
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
     const result = await computeGrammarReport({
       groupBy: groupByRaw,
       teacherId: req.user!.sub,
       topicId,
       studentId,
+      classId: scope.classId,
     });
-    const body: GrammarReportResponseDTO = result;
+    const body: GrammarReportResponseDTO = { ...result, classId: scope.classId, className: scope.className };
     res.status(200).json(body);
   }),
 );

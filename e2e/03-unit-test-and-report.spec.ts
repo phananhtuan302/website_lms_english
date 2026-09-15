@@ -15,6 +15,12 @@ import {
  * self-practice picker (`/student/unit-tests`), never a QR session — but it still needs
  * at least one generated variant first (`findOrCreateAttempt` rejects an attempt start
  * otherwise, same rule as the QR flow).
+ *
+ * T-077 (Phase 12): the leaderboard is now class-scoped. The shared e2e student is in
+ * "Class 6A" (`global-setup.ts`), and the seeded teacher now owns MANY classes
+ * (accumulated across every prior class-related spec/dev-verification run in this shared
+ * dev DB), so the teacher's leaderboard view always shows a class picker (never
+ * auto-selected) — explicitly select "Class 6A" before asserting on the table.
  */
 test('teacher creates a published Unit Test, student takes it, both see the unit leaderboard', async ({
   browser,
@@ -101,9 +107,22 @@ test('teacher creates a published Unit Test, student takes it, both see the unit
     // this dev DB accumulates other "E2E Student" fixture rows (0 attempts) from
     // previous suite runs and unrelated units, so a plain `getByText('E2E Student')` is
     // ambiguous by design of a real, growing leaderboard.
+    //
+    // T-077: the teacher now owns many classes (accumulated across every class-related
+    // spec/dev-verification run against this shared dev DB) so the leaderboard always
+    // shows a class picker — explicitly pick "Class 6A" (the shared e2e student's class)
+    // before the table renders any data at all.
     await teacherPage.goto(unitHref!);
+    await teacherPage.getByLabel('Class').selectOption({ label: 'Class 6A' });
     await expect(teacherPage.getByText('Class average score:')).toBeVisible();
-    await expect(teacherPage.getByRole('row', { name: /#1 E2E Student 1 100%/ })).toBeVisible();
+    // `.first()` (not a bare `.toBeVisible()`) — with `Class 6A`'s roster having
+    // accumulated many historical "E2E Student" accounts across prior spec runs, more
+    // than one may legitimately share this exact "1 attempt, 100%" shape; this only
+    // needs to confirm at least one such row exists (this run's own student), not that
+    // it's the only one, so a strict-mode multi-match here isn't a real failure.
+    await expect(
+      teacherPage.getByRole('row', { name: /E2E Student.*1.*100%/ }).first(),
+    ).toBeVisible();
   } finally {
     await teacherContext.close();
     await studentContext.close();

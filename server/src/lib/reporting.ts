@@ -87,6 +87,17 @@ export interface ComputeReportOptions {
    * Unit Test report/leaderboard — "that unit's `unitTest`-type test(s)", not every test
    * ever tagged to the unit). Omitted means every type. */
   testType?: TestType | null;
+  /** Narrows to attempts made by students in this ONE class (T-077, Phase 12) — an
+   * attempt row has no `classId` of its own, only the attempting STUDENT does, so this
+   * filters on `attempt.student.classId`, never on the test's own class assignment (the
+   * same shared `Test` can be assigned to several classes; which class an attempt
+   * "belongs to" is entirely determined by who took it, not what the test is assigned
+   * to). Every caller (`teacherReports.routes.ts`, `unitLeaderboard.routes.ts`) resolves
+   * a concrete, ownership-checked `classId` via `reportClassScope.ts` BEFORE calling in
+   * here — required in practice for every real caller, but left optional on this type
+   * (like `testId`/`unitId`) so a caller that has already computed "every class" (there is
+   * none today) isn't forced to lie about one. */
+  classId?: string | null;
 }
 
 // --- Asia/Ho_Chi_Minh fixed-offset local-calendar math ------------------------------
@@ -274,6 +285,9 @@ async function fetchScopedAttempts(options: ComputeReportOptions) {
       status: 'submitted',
       scorePercent: { not: null },
       timeTakenSeconds: { not: null },
+      // T-077: class scoping is on the ATTEMPTING STUDENT, not the test — see
+      // `ComputeReportOptions.classId`'s doc comment above.
+      ...(options.classId ? { student: { classId: options.classId } } : {}),
       test: {
         ...(options.teacherId ? { teacherId: options.teacherId } : {}),
         ...(options.testId ? { id: options.testId } : {}),
@@ -365,16 +379,20 @@ async function buildTestBuckets(
 
 /**
  * `groupBy: 'student'` (T-037) — powers the Unit Test leaderboard's "ranked scores":
- * every `student`-role account gets a bucket (0-row default, same "0-row, not a missing
- * row" convention as `buildTestBuckets`/`buildUnitBuckets` above), and — UNLIKE every
- * other dimension in this module — the result is sorted by score DESCENDING (a
- * leaderboard's whole point), not by the generic ascending `sortBuckets` helper. A
- * 0-attempt student's `averageScorePercent` is `null`; those sort last (treated as -1
- * for comparison purposes only, never displayed as -1).
+ * every `student`-role account IN THE GIVEN CLASS (T-077 — see `ComputeReportOptions.classId`'s
+ * doc comment; a 0-row default, same "0-row, not a missing row" convention as
+ * `buildTestBuckets`/`buildUnitBuckets` above, but never a DIFFERENT class's students)
+ * gets a bucket, and — UNLIKE every other dimension in this module — the result is sorted
+ * by score DESCENDING (a leaderboard's whole point), not by the generic ascending
+ * `sortBuckets` helper. A 0-attempt student's `averageScorePercent` is `null`; those sort
+ * last (treated as -1 for comparison purposes only, never displayed as -1).
  */
-async function buildStudentBuckets(attempts: ScopedAttempt[]): Promise<ReportBucketResult[]> {
+async function buildStudentBuckets(
+  options: ComputeReportOptions,
+  attempts: ScopedAttempt[],
+): Promise<ReportBucketResult[]> {
   const students = await prisma.user.findMany({
-    where: { role: 'student' },
+    where: { role: 'student', ...(options.classId ? { classId: options.classId } : {}) },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
@@ -562,7 +580,7 @@ export async function computeReport(options: ComputeReportOptions): Promise<Repo
       buckets = await buildUnitBuckets(options, attempts);
       break;
     case 'student':
-      buckets = await buildStudentBuckets(attempts);
+      buckets = await buildStudentBuckets(options, attempts);
       break;
     case 'semester':
       buckets = await buildSemesterBuckets(attempts);
@@ -639,6 +657,11 @@ export interface ComputeGrammarReportOptions {
   /** Narrows to one student's attempts (the "per-student" half of T-050's acceptance
    * criteria; omitted means "per-class", i.e. every student). */
   studentId?: string | null;
+  /** Narrows to attempts made by students in this ONE class (T-077, Phase 12) — same
+   * "the ATTEMPTING STUDENT's classId, not the topic's own class assignment" reasoning as
+   * `ComputeReportOptions.classId` above. Resolved by the route handler via
+   * `reportClassScope.ts` before calling in. */
+  classId?: string | null;
 }
 
 interface GrammarBucketAccumulator {
@@ -676,6 +699,7 @@ async function fetchScopedGrammarAttempts(options: ComputeGrammarReportOptions) 
       topic: { teacherId: options.teacherId },
       ...(options.topicId ? { topicId: options.topicId } : {}),
       ...(options.studentId ? { studentId: options.studentId } : {}),
+      ...(options.classId ? { student: { classId: options.classId } } : {}),
     },
     select: {
       createdAt: true,
@@ -763,7 +787,11 @@ async function buildGrammarStudentBuckets(
   // throughout this module) — narrowed to one student when `studentId` is given (the
   // "per-student" half of T-050's acceptance criteria).
   const students = await prisma.user.findMany({
-    where: { role: 'student', ...(options.studentId ? { id: options.studentId } : {}) },
+    where: {
+      role: 'student',
+      ...(options.studentId ? { id: options.studentId } : {}),
+      ...(options.classId ? { classId: options.classId } : {}),
+    },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
@@ -952,6 +980,11 @@ export interface ComputeSpeakingReportOptions {
   testId?: string | null;
   /** Narrows to Speaking answers on tests tagged with this Unit. */
   unitId?: string | null;
+  /** Narrows to Speaking answers submitted by students in this ONE class (T-077, Phase
+   * 12) — same "the attempting student's classId, not the test's own class assignment"
+   * reasoning as `ComputeReportOptions.classId` above. Resolved by the route handler via
+   * `reportClassScope.ts` before calling in. */
+  classId?: string | null;
 }
 
 interface SpeakingBucketAccumulator {
@@ -992,6 +1025,7 @@ async function fetchScopedSpeakingAnswers(options: ComputeSpeakingReportOptions)
           ...(options.testId ? { id: options.testId } : {}),
           ...(options.unitId ? { unitId: options.unitId } : {}),
         },
+        ...(options.classId ? { student: { classId: options.classId } } : {}),
       },
     },
     select: {

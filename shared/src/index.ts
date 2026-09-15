@@ -1020,8 +1020,16 @@ export interface VocabLeaderboardEntryDTO {
 
 /** Response for `GET /api/vocab-leaderboard` (T-031, both roles). Includes every
  * student account, even ones with a zero score (score 0, ranked last) — a "leaderboard"
- * showing the whole cohort's standing, not just active students. */
+ * showing the whole cohort's standing, not just active students.
+ *
+ * `classId`/`className` (T-077, Phase 12): the ONE class this leaderboard is scoped to —
+ * `entries` only ever contains students in this class, never a mix across classes. A
+ * student always gets their own class back regardless of any `?classId=` they pass; a
+ * teacher/admin gets back whichever class `?classId=` resolved to (see
+ * `server/src/lib/reportClassScope.ts`). */
 export interface VocabLeaderboardResponseDTO {
+  classId: string;
+  className: string;
   entries: VocabLeaderboardEntryDTO[];
 }
 
@@ -1033,7 +1041,12 @@ export interface VocabLeaderboardResponseDTO {
  * `periodStart`/`periodEnd` are the UTC instant bounds of the selected HCM-local
  * calendar month/year (`periodEnd` exclusive), computed via the same
  * `Asia/Ho_Chi_Minh`-fixed-offset helpers T-019's reporting engine uses (Assumption A5)
- * — see `server/src/lib/reporting.ts`'s `hcmMonthRange`/`hcmYearRange`. */
+ * — see `server/src/lib/reporting.ts`'s `hcmMonthRange`/`hcmYearRange`.
+ *
+ * `classId`/`className` (T-077, Phase 12): teacher/admin-only endpoint, so this is always
+ * an explicit-or-defaulted class from `resolveTeacherClassId` — see that function's doc
+ * comment in `server/src/lib/reportClassScope.ts`. `entries` never mixes students across
+ * classes, even though the same period window/formula applies to every class. */
 export interface VocabPeriodLeaderboardResponseDTO {
   period: 'month' | 'year';
   year: number;
@@ -1041,6 +1054,8 @@ export interface VocabPeriodLeaderboardResponseDTO {
   month: number | null;
   periodStart: string;
   periodEnd: string;
+  classId: string;
+  className: string;
   entries: VocabLeaderboardEntryDTO[];
 }
 
@@ -1133,12 +1148,20 @@ export interface ReportBucketDTO {
 /** Response for `GET /api/teacher/reports`. `testId`/`unitId`/`testType` echo back
  * whichever optional narrowing filters were applied (`null` if omitted) so the client can
  * confirm what it asked for. `testType` (T-037) is what narrows a Unit report down to
- * specifically its `unitTest`-type test(s), per that task's acceptance criteria. */
+ * specifically its `unitTest`-type test(s), per that task's acceptance criteria.
+ *
+ * `classId`/`className` (T-077, Phase 12): UNLIKE `testId`/`unitId`/`testType`, this is
+ * never `null` — every bucket's numbers are scoped to exactly this one class (resolved by
+ * `resolveTeacherClassId`, `server/src/lib/reportClassScope.ts`, before the report was
+ * even computed), so a teacher viewing "Test A" (which may be assigned to several
+ * classes) always knows which single class's numbers they're looking at. */
 export interface ReportResponseDTO {
   groupBy: ReportGroupBy;
   testId: string | null;
   unitId: string | null;
   testType: TestType | null;
+  classId: string;
+  className: string;
   buckets: ReportBucketDTO[];
 }
 
@@ -1164,10 +1187,14 @@ export type SpeakingReportGroupBy =
   | 'semester'
   | 'year';
 
+/** `classId`/`className` (T-077, Phase 12): same "always resolved, never null" convention
+ * as `ReportResponseDTO` above — see that field's doc comment. */
 export interface SpeakingReportResponseDTO {
   groupBy: SpeakingReportGroupBy;
   testId: string | null;
   unitId: string | null;
+  classId: string;
+  className: string;
   buckets: ReportBucketDTO[];
 }
 
@@ -1367,10 +1394,14 @@ export type GrammarReportGroupBy =
   | 'semester'
   | 'year';
 
+/** `classId`/`className` (T-077, Phase 12): same "always resolved, never null" convention
+ * as `ReportResponseDTO` above — see that field's doc comment. */
 export interface GrammarReportResponseDTO {
   groupBy: GrammarReportGroupBy;
   topicId: string | null;
   studentId: string | null;
+  classId: string;
+  className: string;
   buckets: ReportBucketDTO[];
 }
 
@@ -1436,10 +1467,16 @@ export interface UnitLeaderboardEntryDTO {
  * per-student scores plus the unit-wide average, both scoped to that unit's
  * `unitTest`-type test(s) only. Every student account appears (even with `attemptCount:
  * 0`, ranked last) — same "0-row, not a missing row" convention T-019/T-031 already
- * establish elsewhere in this codebase. */
+ * establish elsewhere in this codebase.
+ *
+ * `classId`/`className` (T-077, Phase 12): the ONE class `entries`/the aggregate are
+ * scoped to — see `VocabLeaderboardResponseDTO`'s doc comment for the identical
+ * both-roles resolution rule (`resolveViewerClassId`). */
 export interface UnitLeaderboardResponseDTO {
   unitId: string;
   unitName: string;
+  classId: string;
+  className: string;
   attemptCount: number;
   averageScorePercent: number | null;
   entries: UnitLeaderboardEntryDTO[];

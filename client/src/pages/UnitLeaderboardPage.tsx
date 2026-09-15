@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { UnitLeaderboardResponseDTO } from '@platform/shared';
 import { apiRequest, ApiError } from '../lib/apiClient';
 import { useAuth } from '../context/useAuth';
+import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 /**
  * Unit Test report & leaderboard (T-037) — visible to BOTH roles (see `App.tsx`'s route
@@ -15,20 +17,36 @@ import { useAuth } from '../context/useAuth';
  * Ranked scores + the unit-wide average are both computed by T-019's shared
  * `computeReport` engine server-side (`groupBy: 'student'` / `groupBy: 'unit'`, both
  * narrowed to `testType: 'unitTest'`) — this page just renders the result.
+ *
+ * Class scoping (T-077, Phase 12): same both-roles pattern as `VocabLeaderboardPage` — a
+ * student's own class is used automatically server-side; a teacher/admin picks via
+ * `useTeacherClasses`/`ClassFilterControl` (hidden when they own exactly one class).
  */
 function UnitLeaderboardPage() {
   const { unitId } = useParams<{ unitId: string }>();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const isTeacherView = user?.role === 'teacher' || user?.role === 'admin';
+  const { classes, classId, setClassId } = useTeacherClasses(isTeacherView);
   const [data, setData] = useState<UnitLeaderboardResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!unitId) return;
-    apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard`)
-      .then(setData)
-      .catch((err) => setError(err instanceof ApiError ? err.message : t('unitLeaderboard.loadFailed')));
-  }, [unitId, t]);
+    // No synchronous `setData(null)` here — see `useTeacherClasses.ts`'s doc comment on
+    // the `react-hooks/set-state-in-effect` lint rule; `data` already starts `null`.
+    if (isTeacherView && !classId) return;
+    const query = isTeacherView && classId ? `?classId=${encodeURIComponent(classId)}` : '';
+    apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard${query}`)
+      .then((res) => {
+        setData(res);
+        setError(null);
+      })
+      .catch((err) => {
+        setData(null);
+        setError(err instanceof ApiError ? err.message : t('unitLeaderboard.loadFailed'));
+      });
+  }, [unitId, t, isTeacherView, classId]);
 
   const backPath = user?.role === 'teacher' ? '/teacher/unit-tests' : '/student/unit-tests';
 
@@ -44,10 +62,20 @@ function UnitLeaderboardPage() {
             : t('unitLeaderboard.heading')}
         </h1>
         <p className="mt-1 text-sm text-base-black/60">{t('unitLeaderboard.description')}</p>
+        {data && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: data.className })}</p>}
       </div>
 
+      {isTeacherView && (
+        <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+          <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
+          <ClassFilterEmptyState classes={classes} />
+        </section>
+      )}
+
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !data && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+      {!error && !data && (!isTeacherView || classId) && (
+        <p className="text-sm text-base-black/60">{t('common.loading')}</p>
+      )}
 
       {data && (
         <>

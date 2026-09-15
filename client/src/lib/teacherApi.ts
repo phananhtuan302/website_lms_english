@@ -215,11 +215,16 @@ export const teacherApi = {
     testId?: string | null;
     unitId?: string | null;
     testType?: TestType | null;
+    /** Required by the server (T-077) — optional here only so a caller mid-picking a
+     * class (no selection yet) can simply not call this until it has one, same "don't
+     * fire the request yet" pattern every other required-filter caller in this file uses. */
+    classId?: string | null;
   }) => {
     const query = new URLSearchParams({ groupBy: params.groupBy });
     if (params.testId) query.set('testId', params.testId);
     if (params.unitId) query.set('unitId', params.unitId);
     if (params.testType) query.set('testType', params.testType);
+    if (params.classId) query.set('classId', params.classId);
     return apiRequest<ReportResponseDTO>(`${teacherBase}/reports?${query.toString()}`);
   },
 
@@ -228,24 +233,32 @@ export const teacherApi = {
     groupBy: SpeakingReportGroupBy;
     testId?: string | null;
     unitId?: string | null;
+    classId?: string | null;
   }) => {
     const query = new URLSearchParams({ groupBy: params.groupBy });
     if (params.testId) query.set('testId', params.testId);
     if (params.unitId) query.set('unitId', params.unitId);
+    if (params.classId) query.set('classId', params.classId);
     return apiRequest<SpeakingReportResponseDTO>(`${teacherBase}/speaking-reports?${query.toString()}`);
   },
 
   // --- Vocabulary progress (T-030) + monthly/yearly ranking (T-032/T-033) ------------
   getVocabSetProgress: (setId: string) =>
     apiRequest<TeacherVocabProgressDTO>(`${flashcardBase}/${setId}/progress`),
-  getMonthlyVocabRanking: (year: number, month: number) =>
-    apiRequest<VocabPeriodLeaderboardResponseDTO>(
-      `${teacherBase}/vocab-leaderboard/monthly?year=${year}&month=${month}`,
-    ),
-  getYearlyVocabRanking: (year: number) =>
-    apiRequest<VocabPeriodLeaderboardResponseDTO>(
-      `${teacherBase}/vocab-leaderboard/yearly?year=${year}`,
-    ),
+  getMonthlyVocabRanking: (year: number, month: number, classId?: string | null) => {
+    const query = new URLSearchParams({ year: String(year), month: String(month) });
+    if (classId) query.set('classId', classId);
+    return apiRequest<VocabPeriodLeaderboardResponseDTO>(
+      `${teacherBase}/vocab-leaderboard/monthly?${query.toString()}`,
+    );
+  },
+  getYearlyVocabRanking: (year: number, classId?: string | null) => {
+    const query = new URLSearchParams({ year: String(year) });
+    if (classId) query.set('classId', classId);
+    return apiRequest<VocabPeriodLeaderboardResponseDTO>(
+      `${teacherBase}/vocab-leaderboard/yearly?${query.toString()}`,
+    );
+  },
 
   // --- Grammar topics & exercises (T-046/T-047/T-048) --------------------------------
   listGrammarTopics: () => apiRequest<GrammarTopicSummaryDTO[]>(grammarBase),
@@ -281,17 +294,21 @@ export const teacherApi = {
     groupBy: GrammarReportGroupBy;
     topicId?: string | null;
     studentId?: string | null;
+    classId?: string | null;
   }) => {
     const query = new URLSearchParams({ groupBy: params.groupBy });
     if (params.topicId) query.set('topicId', params.topicId);
     if (params.studentId) query.set('studentId', params.studentId);
+    if (params.classId) query.set('classId', params.classId);
     return apiRequest<GrammarReportResponseDTO>(`${teacherBase}/grammar-reports?${query.toString()}`);
   },
 
   // --- Unit Test management (T-036) + leaderboard (T-037) ---------------------------
   listUnitTests: () => apiRequest<TeacherUnitTestsResponseDTO>(`${teacherBase}/unit-tests`),
-  getUnitLeaderboard: (unitId: string) =>
-    apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard`),
+  getUnitLeaderboard: (unitId: string, classId?: string | null) => {
+    const query = classId ? `?classId=${encodeURIComponent(classId)}` : '';
+    return apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard${query}`);
+  },
 
   // --- Vocabulary Check generation (T-038) -------------------------------------------
   listStudents: () => apiRequest<TeacherStudentSummaryDTO[]>(`${teacherBase}/students`),

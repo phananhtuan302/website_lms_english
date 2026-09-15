@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { VocabPeriodLeaderboardResponseDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 const MONTH_KEYS = [
   'january', 'february', 'march', 'april', 'may', 'june',
@@ -23,12 +25,21 @@ function TeacherVocabRankingPage() {
   const [mode, setMode] = useState<'month' | 'year'>('month');
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  // T-077: required class dimension — see `TeacherReportsPage.tsx`'s identical pattern.
+  const { classes, classId } = useTeacherClasses(true);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const effectiveClassId = selectedClassId || classId;
   const [data, setData] = useState<VocabPeriodLeaderboardResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // No synchronous `setData(null)` here — see `useTeacherClasses.ts`'s doc comment on
+    // the `react-hooks/set-state-in-effect` lint rule; `data` already starts `null`.
+    if (!effectiveClassId) return;
     const request =
-      mode === 'month' ? teacherApi.getMonthlyVocabRanking(year, month) : teacherApi.getYearlyVocabRanking(year);
+      mode === 'month'
+        ? teacherApi.getMonthlyVocabRanking(year, month, effectiveClassId)
+        : teacherApi.getYearlyVocabRanking(year, effectiveClassId);
     request
       .then((res) => {
         setData(res);
@@ -38,7 +49,7 @@ function TeacherVocabRankingPage() {
         setData(null);
         setError(err instanceof ApiError ? err.message : t('teacherVocabRanking.loadError'));
       });
-  }, [mode, year, month, t]);
+  }, [mode, year, month, t, effectiveClassId]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,9 +60,12 @@ function TeacherVocabRankingPage() {
           <code>server/src/lib/vocabLeaderboard.ts</code>
           {t('teacherVocabRanking.descriptionAfterCode')}
         </p>
+        {data && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: data.className })}</p>}
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+        <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
+        <ClassFilterEmptyState classes={classes} />
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherVocabRanking.periodLabel')}
           <select
@@ -93,7 +107,7 @@ function TeacherVocabRankingPage() {
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !data && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+      {!error && !data && effectiveClassId && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
 
       {data && (
         <>

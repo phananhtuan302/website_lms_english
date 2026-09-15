@@ -21,6 +21,7 @@ import { requireOwnedFlashcardSet } from '../lib/ownedFlashcardSet';
 import { summarizeActivityStats, summarizeCardStatuses } from '../lib/vocabProgress';
 import { computePeriodLeaderboard } from '../lib/vocabLeaderboard';
 import { hcmMonthRange, hcmYearRange } from '../lib/reporting';
+import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
 
 export const teacherVocabProgressRouter = Router();
 
@@ -157,14 +158,24 @@ teacherVocabProgressRouter.get(
       return;
     }
 
+    // T-077: required class dimension, same shared teacher/admin resolver as every other
+    // reporting endpoint.
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
     const range = hcmMonthRange(year, month);
-    const entries = await computePeriodLeaderboard(range);
+    const entries = await computePeriodLeaderboard(range, scope.classId);
     const response: VocabPeriodLeaderboardResponseDTO = {
       period: 'month',
       year,
       month,
       periodStart: range.start.toISOString(),
       periodEnd: range.end.toISOString(),
+      classId: scope.classId,
+      className: scope.className,
       entries,
     };
     res.status(200).json(response);
@@ -182,14 +193,22 @@ teacherVocabProgressRouter.get(
       return;
     }
 
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
     const range = hcmYearRange(year);
-    const entries = await computePeriodLeaderboard(range);
+    const entries = await computePeriodLeaderboard(range, scope.classId);
     const response: VocabPeriodLeaderboardResponseDTO = {
       period: 'year',
       year,
       month: null,
       periodStart: range.start.toISOString(),
       periodEnd: range.end.toISOString(),
+      classId: scope.classId,
+      className: scope.className,
       entries,
     };
     res.status(200).json(response);

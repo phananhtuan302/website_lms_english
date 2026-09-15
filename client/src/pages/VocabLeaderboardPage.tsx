@@ -4,6 +4,8 @@ import type { VocabLeaderboardResponseDTO } from '@platform/shared';
 import { vocabLeaderboardApi } from '../lib/vocabLeaderboardApi';
 import { ApiError } from '../lib/apiClient';
 import { useAuth } from '../context/useAuth';
+import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 /**
  * Vocabulary leaderboard (T-031) — visible to both roles (see `App.tsx`'s route
@@ -11,29 +13,56 @@ import { useAuth } from '../context/useAuth';
  * `teacher` and `student`). Score formula documented in
  * `server/src/lib/vocabLeaderboard.ts`: exercise accuracy (0-100) plus 10 points per
  * card at `known` status.
+ *
+ * Class scoping (T-077, Phase 12): the leaderboard is always ONE class's students. A
+ * student's own class is used automatically by the server (`resolveViewerClassId`) — no
+ * picker rendered for that role. A teacher/admin gets `useTeacherClasses`'s picker (hidden
+ * entirely when they own exactly one class, per that hook's doc comment) and the data
+ * fetch is gated on having a resolved `classId` first.
  */
 function VocabLeaderboardPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const isTeacherView = user?.role === 'teacher' || user?.role === 'admin';
+  const { classes, classId, setClassId } = useTeacherClasses(isTeacherView);
   const [data, setData] = useState<VocabLeaderboardResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // No synchronous `setData(null)` here — see `useTeacherClasses.ts`'s doc comment on
+    // the same `react-hooks/set-state-in-effect` lint rule; `data` already starts `null`.
+    if (isTeacherView && !classId) return;
     vocabLeaderboardApi
-      .getLeaderboard()
-      .then(setData)
-      .catch((err) => setError(err instanceof ApiError ? err.message : t('vocabLeaderboard.loadError')));
-  }, [t]);
+      .getLeaderboard(isTeacherView ? classId : undefined)
+      .then((res) => {
+        setData(res);
+        setError(null);
+      })
+      .catch((err) => {
+        setData(null);
+        setError(err instanceof ApiError ? err.message : t('vocabLeaderboard.loadError'));
+      });
+  }, [t, isTeacherView, classId]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('vocabLeaderboard.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('vocabLeaderboard.subtitle')}</p>
+        {data && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: data.className })}</p>}
       </div>
 
+      {isTeacherView && (
+        <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+          <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
+          <ClassFilterEmptyState classes={classes} />
+        </section>
+      )}
+
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !data && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
+      {!error && !data && (!isTeacherView || classId) && (
+        <p className="text-sm text-base-black/60">{t('common.loading')}</p>
+      )}
 
       {data && (
         <section className="overflow-x-auto rounded-xl border border-primary-200">

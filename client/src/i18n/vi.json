@@ -4,6 +4,12 @@
     "logOut": "Đăng xuất",
     "goToHomePage": "Về trang chủ"
   },
+  "classFilter": {
+    "label": "Lớp",
+    "selectPlaceholder": "-- Chọn một lớp --",
+    "noClasses": "Bạn chưa có lớp nào. Hãy tạo một lớp trước khi xem dữ liệu này.",
+    "viewingLabel": "Đang xem lớp: {{className}}"
+  },
   "roles": {
     "teacher": "Giáo viên",
     "student": "Học sinh",

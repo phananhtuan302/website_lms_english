@@ -8,6 +8,8 @@ import type {
 } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 const GROUP_BY_OPTIONS: Array<{ value: SpeakingReportGroupBy; labelKey: string }> = [
   { value: 'test', labelKey: 'teacherSpeakingReports.groupByOptions.test' },
@@ -34,6 +36,10 @@ function TeacherSpeakingReportsPage() {
   const [groupBy, setGroupBy] = useState<SpeakingReportGroupBy>('month');
   const [testId, setTestId] = useState('');
   const [unitId, setUnitId] = useState('');
+  // T-077: required class dimension — see `TeacherReportsPage.tsx`'s identical pattern.
+  const { classes, classId } = useTeacherClasses(true);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const effectiveClassId = selectedClassId || classId;
 
   const [tests, setTests] = useState<TestSummaryDTO[]>([]);
   const [units, setUnits] = useState<UnitDTO[]>([]);
@@ -46,8 +52,11 @@ function TeacherSpeakingReportsPage() {
   }, []);
 
   useEffect(() => {
+    // No synchronous `setReport(null)` here — see `useTeacherClasses.ts`'s doc comment on
+    // the `react-hooks/set-state-in-effect` lint rule; `report` already starts `null`.
+    if (!effectiveClassId) return;
     teacherApi
-      .getSpeakingReport({ groupBy, testId: testId || null, unitId: unitId || null })
+      .getSpeakingReport({ groupBy, testId: testId || null, unitId: unitId || null, classId: effectiveClassId })
       .then((res) => {
         setReport(res);
         setError(null);
@@ -59,16 +68,19 @@ function TeacherSpeakingReportsPage() {
     // `t` is stable in practice (site-wide, admin-controlled language — PROJECT_PLAN
     // Guiding Principle 3/Assumption A13), safe to omit from this dependency list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupBy, testId, unitId]);
+  }, [groupBy, testId, unitId, effectiveClassId]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('teacherSpeakingReports.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherSpeakingReports.description')}</p>
+        {report && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: report.className })}</p>}
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+        <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
+        <ClassFilterEmptyState classes={classes} />
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherSpeakingReports.groupByLabel')}
           <select
@@ -118,7 +130,7 @@ function TeacherSpeakingReportsPage() {
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !report && (
+      {!error && !report && effectiveClassId && (
         <p className="text-sm text-base-black/60">{t('teacherSpeakingReports.loadingReport')}</p>
       )}
 

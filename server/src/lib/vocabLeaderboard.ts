@@ -18,6 +18,14 @@
  * hand-verify (10 points per correct card is simple mental math) and not tied to any
  * particular scale in the rest of the app.
  *
+ * Class scoping (T-077, Phase 12): both functions below now take a required `classId` and
+ * rank ONLY students in that one class — never the whole student body, even though the
+ * scoring formula/logic is otherwise unchanged. Every caller (`vocabLeaderboard.routes.ts`
+ * for the all-time leaderboard, `teacherVocabProgress.routes.ts` for the monthly/yearly
+ * ranking) resolves a concrete `classId` first via `reportClassScope.ts` before calling
+ * in here — this module trusts that input the same way it already trusts `range` for the
+ * period variant, never re-deriving or double-checking class ownership itself.
+ *
  * Two variants share this formula but differ in what "volume" counts, because of a
  * genuine data-shape constraint:
  *
@@ -75,33 +83,37 @@ function assignRanks(
   return sorted.map((entry, index) => ({ ...entry, rank: ranks[index] }));
 }
 
-async function listStudents(): Promise<RawStudent[]> {
-  return prisma.user.findMany({ where: { role: 'student' }, select: { id: true, name: true } });
+async function listStudents(classId: string): Promise<RawStudent[]> {
+  return prisma.user.findMany({ where: { role: 'student', classId }, select: { id: true, name: true } });
 }
 
 /**
- * All-time leaderboard (T-031): includes EVERY student account (even one with a zero
- * score, ranked last) — a leaderboard showing the whole cohort's standing, not just
- * active students, per this task's "visible to both teacher and students" framing (there
- * is no notion of "not enrolled" anywhere in this schema — see
- * `StudentFlashcardSetSummaryDTO`'s doc comment).
+ * All-time leaderboard (T-031): includes EVERY student account IN THE GIVEN CLASS (even
+ * one with a zero score, ranked last) — a leaderboard showing that class's whole cohort
+ * standing, not just active students, per this task's "visible to both teacher and
+ * students" framing (there is no notion of "not enrolled" beyond class membership
+ * anywhere in this schema — see `StudentFlashcardSetSummaryDTO`'s doc comment). Scoring
+ * itself (`FlashcardProgress`/`FlashcardExerciseAttempt`) is narrowed to this class's
+ * students by filtering the `groupBy` queries on the relation's `student.classId` (T-077)
+ * — a card/attempt row has no `classId` of its own, only the student who owns it does.
  */
-export async function computeAllTimeLeaderboard(): Promise<VocabLeaderboardEntryDTO[]> {
-  const students = await listStudents();
+export async function computeAllTimeLeaderboard(classId: string): Promise<VocabLeaderboardEntryDTO[]> {
+  const students = await listStudents(classId);
 
   const [knownCounts, attemptCounts, correctCounts] = await Promise.all([
     prisma.flashcardProgress.groupBy({
       by: ['studentId'],
-      where: { status: 'known' },
+      where: { status: 'known', student: { classId } },
       _count: { _all: true },
     }),
     prisma.flashcardExerciseAttempt.groupBy({
       by: ['studentId'],
+      where: { student: { classId } },
       _count: { _all: true },
     }),
     prisma.flashcardExerciseAttempt.groupBy({
       by: ['studentId'],
-      where: { correct: true },
+      where: { correct: true, student: { classId } },
       _count: { _all: true },
     }),
   ]);
@@ -137,17 +149,20 @@ export async function computeAllTimeLeaderboard(): Promise<VocabLeaderboardEntry
  * attempts in the period rather than lifetime known-card count. Only students with at
  * least one attempt in the period are included (a zero-activity student has nothing
  * meaningful to rank for "most active this month" — see
- * `VocabPeriodLeaderboardResponseDTO`'s doc comment in `@platform/shared`).
+ * `VocabPeriodLeaderboardResponseDTO`'s doc comment in `@platform/shared`). `classId`
+ * (T-077): narrows both the candidate student roster and the attempt query to one class,
+ * same "student.classId is the only class dimension an attempt row has" reasoning as
+ * `computeAllTimeLeaderboard` above.
  */
-export async function computePeriodLeaderboard(range: {
-  start: Date;
-  end: Date;
-}): Promise<VocabLeaderboardEntryDTO[]> {
-  const students = await listStudents();
+export async function computePeriodLeaderboard(
+  range: { start: Date; end: Date },
+  classId: string,
+): Promise<VocabLeaderboardEntryDTO[]> {
+  const students = await listStudents(classId);
   const studentNameById = new Map(students.map((s) => [s.id, s.name]));
 
   const attempts = await prisma.flashcardExerciseAttempt.findMany({
-    where: { createdAt: { gte: range.start, lt: range.end } },
+    where: { createdAt: { gte: range.start, lt: range.end }, student: { classId } },
     select: { studentId: true, correct: true },
   });
 

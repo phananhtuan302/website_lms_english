@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { GrammarReportGroupBy, GrammarReportResponseDTO, GrammarTopicSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 const GROUP_BY_OPTIONS: Array<{ value: GrammarReportGroupBy; labelKey: string }> = [
   { value: 'topic', labelKey: 'teacherGrammarReports.groupByOptions.topic' },
@@ -26,6 +28,10 @@ function TeacherGrammarReportsPage() {
   const { t } = useTranslation();
   const [groupBy, setGroupBy] = useState<GrammarReportGroupBy>('topic');
   const [topicId, setTopicId] = useState('');
+  // T-077: required class dimension — see `TeacherReportsPage.tsx`'s identical pattern.
+  const { classes, classId } = useTeacherClasses(true);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const effectiveClassId = selectedClassId || classId;
 
   const [topics, setTopics] = useState<GrammarTopicSummaryDTO[]>([]);
   const [report, setReport] = useState<GrammarReportResponseDTO | null>(null);
@@ -36,8 +42,11 @@ function TeacherGrammarReportsPage() {
   }, []);
 
   useEffect(() => {
+    // No synchronous `setReport(null)` here — see `useTeacherClasses.ts`'s doc comment on
+    // the `react-hooks/set-state-in-effect` lint rule; `report` already starts `null`.
+    if (!effectiveClassId) return;
     teacherApi
-      .getGrammarReport({ groupBy, topicId: topicId || null })
+      .getGrammarReport({ groupBy, topicId: topicId || null, classId: effectiveClassId })
       .then((res) => {
         setReport(res);
         setError(null);
@@ -46,16 +55,19 @@ function TeacherGrammarReportsPage() {
         setReport(null);
         setError(err instanceof ApiError ? err.message : t('teacherGrammarReports.loadFailed'));
       });
-  }, [groupBy, topicId, t]);
+  }, [groupBy, topicId, t, effectiveClassId]);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('teacherGrammarReports.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherGrammarReports.subtitle')}</p>
+        {report && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: report.className })}</p>}
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+        <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
+        <ClassFilterEmptyState classes={classes} />
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherGrammarReports.groupByLabel')}
           <select
@@ -89,7 +101,9 @@ function TeacherGrammarReportsPage() {
       </section>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {!error && !report && <p className="text-sm text-base-black/60">{t('teacherGrammarReports.loadingReport')}</p>}
+      {!error && !report && effectiveClassId && (
+        <p className="text-sm text-base-black/60">{t('teacherGrammarReports.loadingReport')}</p>
+      )}
 
       {!error && report && (
         <section className="overflow-x-auto rounded-xl border border-primary-200">

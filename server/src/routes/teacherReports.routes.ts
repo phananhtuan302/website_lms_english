@@ -18,6 +18,7 @@ import {
   type ReportGroupBy,
   type SpeakingReportGroupBy,
 } from '../lib/reporting';
+import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
 
 export const teacherReportsRouter = Router();
 
@@ -96,15 +97,25 @@ teacherReportsRouter.get(
       testType = testTypeRaw;
     }
 
+    // T-077: required class dimension — resolved via the shared teacher/admin resolver
+    // (auto-selects the caller's sole class, 400s if they have none or more than one and
+    // didn't say which).
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
     const result = await computeReport({
       teacherId: req.user!.sub,
       groupBy: groupByRaw,
       testId,
       unitId,
       testType,
+      classId: scope.classId,
     });
 
-    const body: ReportResponseDTO = result;
+    const body: ReportResponseDTO = { ...result, classId: scope.classId, className: scope.className };
     res.status(200).json(body);
   }),
 );
@@ -156,14 +167,21 @@ teacherReportsRouter.get(
       unitId = unit.id;
     }
 
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
     const result = await computeSpeakingReport({
       teacherId: req.user!.sub,
       groupBy: groupByRaw,
       testId,
       unitId,
+      classId: scope.classId,
     });
 
-    const body: SpeakingReportResponseDTO = result;
+    const body: SpeakingReportResponseDTO = { ...result, classId: scope.classId, className: scope.className };
     res.status(200).json(body);
   }),
 );
