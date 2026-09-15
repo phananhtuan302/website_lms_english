@@ -11,12 +11,15 @@
  */
 
 import type {
+  AdminAttemptListResponseDTO,
   AdminFlashcardSetSummaryDTO,
   AdminGrammarTopicSummaryDTO,
   AdminTestSummaryDTO,
   AdminUserDTO,
   CreateUserRequest,
   ResetPasswordRequest,
+  SettingsDTO,
+  UpdateSettingsRequest,
   UpdateUserRequest,
   UserRole,
 } from '@platform/shared';
@@ -51,4 +54,25 @@ export const adminApi = {
   listAllTests: () => apiRequest<AdminTestSummaryDTO[]>(`${base}/tests`),
   listAllFlashcardSets: () => apiRequest<AdminFlashcardSetSummaryDTO[]>(`${base}/flashcard-sets`),
   listAllGrammarTopics: () => apiRequest<AdminGrammarTopicSummaryDTO[]>(`${base}/grammar-topics`),
+
+  // --- Scores/attempts management (T-072a) --------------------------------------------
+  // Viewing one attempt's full detail and editing its essay/Speaking manual grade reuse
+  // `teacherApi.getAttemptDetail`/`gradeEssayAnswer` as-is (those routes already accept
+  // an admin caller) — only the system-wide browse list + delete are admin-specific.
+  listAttempts: (params: { search?: string; page?: number; pageSize?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.set('search', params.search);
+    if (params.page) query.set('page', String(params.page));
+    if (params.pageSize) query.set('pageSize', String(params.pageSize));
+    const qs = query.toString();
+    return apiRequest<AdminAttemptListResponseDTO>(`${base}/attempts${qs ? `?${qs}` : ''}`);
+  },
+  deleteAttempt: (attemptId: string) => apiRequest<void>(`${base}/attempts/${attemptId}`, { method: 'DELETE' }),
+
+  // --- Site-wide language setting (T-072b) --------------------------------------------
+  // `getSettings` hits the same PUBLIC `GET /api/settings` every page load already uses
+  // (T-067) — reading the current value needs no admin privilege, only writing it does.
+  getSettings: () => apiRequest<SettingsDTO>('/api/settings'),
+  updateSettings: (body: UpdateSettingsRequest) =>
+    apiRequest<SettingsDTO>(`${base}/settings`, { method: 'PATCH', body: JSON.stringify(body) }),
 };

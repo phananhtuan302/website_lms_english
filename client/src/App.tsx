@@ -2,9 +2,11 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import AdminAttemptsPage from './pages/AdminAttemptsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminFlashcardSetsPage from './pages/AdminFlashcardSetsPage';
 import AdminGrammarTopicsPage from './pages/AdminGrammarTopicsPage';
+import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminTestsPage from './pages/AdminTestsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AttemptResultPage from './pages/AttemptResultPage';
@@ -136,6 +138,13 @@ function App() {
               <Route path="/admin/tests" element={<AdminTestsPage />} />
               <Route path="/admin/flashcard-sets" element={<AdminFlashcardSetsPage />} />
               <Route path="/admin/grammar-topics" element={<AdminGrammarTopicsPage />} />
+              {/* Scores/attempts management (T-072a): system-wide attempt browse +
+                  delete. Drilling into one attempt reuses the teacher route above
+                  (`/teacher/attempts/:attemptId`, already admin-accessible). */}
+              <Route path="/admin/attempts" element={<AdminAttemptsPage />} />
+              {/* Site-wide language Settings page (T-072b) — the ONLY place in the
+                  product that can change the language everyone sees. */}
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['student']} />}>

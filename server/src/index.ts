@@ -27,6 +27,8 @@ import { unitLeaderboardRouter } from './routes/unitLeaderboard.routes';
 import { settingsRouter } from './routes/settings.routes';
 import { adminUsersRouter } from './routes/adminUsers.routes';
 import { adminContentRouter } from './routes/adminContent.routes';
+import { adminAttemptsRouter } from './routes/adminAttempts.routes';
+import { adminSettingsRouter } from './routes/adminSettings.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -155,6 +157,13 @@ app.use('/api/units', unitLeaderboardRouter);
 // check extension) — only the admin-only roster + browse-all lists live here.
 app.use('/api/admin', adminUsersRouter);
 app.use('/api/admin', adminContentRouter);
+
+// Admin-only scores/attempts management (T-072a: system-wide attempt browse + delete —
+// viewing/editing one attempt's detail reuses the EXISTING `/api/teacher/attempts/...`
+// routes above, already admin-accessible) and the site-wide language Settings write
+// endpoint (T-072b, completing the read/write split `settings.routes.ts` documented).
+app.use('/api/admin', adminAttemptsRouter);
+app.use('/api/admin', adminSettingsRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

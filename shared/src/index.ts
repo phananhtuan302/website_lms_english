@@ -1557,6 +1557,25 @@ export interface AdminGrammarTopicSummaryDTO extends GrammarTopicSummaryDTO {
   teacherEmail: string;
 }
 
+// --- Admin: scores/attempts management (T-072) --------------------------------------
+// Admin-only "browse every attempt in the system" list (`GET /api/admin/attempts`),
+// unscoped to any one test/session — unlike the teacher-only per-session list
+// (`GET /api/teacher/sessions/:sessionId/attempts`, T-014). Paginated since this can grow
+// unbounded across the whole system. Viewing one attempt's full detail and editing its
+// essay/Speaking manual grade deliberately reuse the EXISTING
+// `GET /api/teacher/attempts/:attemptId` / `PATCH .../answers/:questionId/grade`
+// endpoints as-is (already extended to accept an admin caller via `isAdminOrOwner`,
+// T-071) — this DTO only covers the new admin-specific list + pagination wrapper.
+// Deleting an attempt (`DELETE /api/admin/attempts/:attemptId`) is the one genuinely new
+// capability, admin-only, with no prior UI anywhere else in the system.
+
+export interface AdminAttemptListResponseDTO {
+  attempts: AttemptSummaryDTO[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // --- Site-wide language setting (T-067, Phase 10 Vietnamese localization) -----------
 // Mirrors `server/prisma/schema.prisma`'s `Settings`/`SiteLanguage` singleton. See that
 // model's doc comment for the full read/write split: this task (T-067) only builds the
@@ -1573,5 +1592,12 @@ export type SiteLanguage = 'en' | 'vi';
  * deliberately no per-user override or public switcher anywhere in this contract (see
  * PROJECT_PLAN Guiding Principle 3). */
 export interface SettingsDTO {
+  language: SiteLanguage;
+}
+
+/** Body for `PATCH /api/admin/settings` (T-072, admin-only) — the only way to change the
+ * site-wide language anywhere in the product; see `SettingsDTO`'s doc comment above for
+ * why there's no other switcher. Validated server-side to be exactly `'en'` or `'vi'`. */
+export interface UpdateSettingsRequest {
   language: SiteLanguage;
 }

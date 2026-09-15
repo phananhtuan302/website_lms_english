@@ -8,13 +8,10 @@
  * logged in (e.g. on the home/login page), so this endpoint has to work with no
  * `Authorization` header at all.
  *
- * WRITE SIDE NOT BUILT HERE — documented for whoever picks up T-072 (Admin Settings
- * page): add `PATCH /api/admin/settings` gated behind `requireAuth,
- * requireRole('admin')` that validates `req.body.language` is `'en' | 'vi'` and calls
- * `prisma.settings.upsert({ where: { id: SETTINGS_ID }, update: { language }, create: {
- * id: SETTINGS_ID, language } })` — `upsert` (not a plain `update`) so it still works
- * even against a brand-new DB where `prisma/seed.ts` hasn't run yet. Nothing about the
- * `Settings` table shape needs to change for that endpoint to be trivial to add.
+ * WRITE SIDE (T-072): `PATCH /api/admin/settings`, gated behind `requireAuth,
+ * requireRole('admin')`, lives in `./adminSettings.routes.ts` — it validates
+ * `req.body.language` is `'en' | 'vi'` and upserts the same singleton row this file
+ * reads, exactly as originally documented here.
  */
 
 import { Router } from 'express';

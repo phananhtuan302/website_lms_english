@@ -5,8 +5,8 @@ import { useAuth } from '../context/useAuth';
 /**
  * Admin-only landing page (T-069), reachable only via the `/admin/dashboard` route
  * guarded by `ProtectedRoute allowedRoles={['admin']}`. Links out to user management
- * (T-070) and the per-entity content-oversight "browse everything" lists (T-071); a
- * future Settings page (T-072, site-wide language) gets its own card here once it lands.
+ * (T-070), the per-entity content-oversight "browse everything" lists (T-071), and
+ * scores/attempts management + the site-wide language Settings page (T-072).
  */
 function AdminDashboardPage() {
   const { user, logout } = useAuth();
@@ -41,6 +41,18 @@ function AdminDashboardPage() {
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
           {t('adminDashboard.browseGrammarTopics')}
+        </Link>
+        <Link
+          to="/admin/attempts"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          {t('adminDashboard.manageAttempts')}
+        </Link>
+        <Link
+          to="/admin/settings"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          {t('adminDashboard.settingsLink')}
         </Link>
         <Link
           to="/teacher/curriculum"
