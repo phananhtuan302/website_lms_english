@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Content-to-class assignment, "My Content" page, data migration (Phase 12 core)
+
+- Task IDs touched: T-075
+- What changed: Dev added implicit many-to-many relations (Test/FlashcardSet/GrammarTopic ↔ Class) as pure ASSIGNMENTS — content ownership (`teacherId`) is completely untouched, exactly per the customer's explicit correction. Added `GET`/`PUT .../classes` assignment endpoints (validated against the content's own teacher, so admin-on-behalf-of-teacher assignment works correctly too) and a consolidated `/teacher/content` page with optimistic per-item class-chip toggles. Added an idempotent migration (runs every `npm run seed`) creating one Default Class per existing teacher, auto-assigning previously-unassigned content to it, and backfilling pre-existing students' null `classId`. Test independently re-verified with its own DB queries (not trusting Dev's script alone): assignment replace-not-merge semantics, a genuinely adversarial cross-teacher assignment rejection with a re-fetch proving no partial mutation occurred, cross-teacher content ownership unchanged, and — the highest-scrutiny check — created synthetic never-before-migrated fixtures and diffed two consecutive migration runs byte-for-byte identical (zero duplicate Default Classes, zero duplicate assignments). PASS, with one minor non-blocking UX bug found (logged as T-080) and a note that the Dev's own `verify:t075` script's "every Test has an assignment" check is a point-in-time migration invariant, not a repeatable regression test (it will spuriously "fail" once new unassigned content is authored by design — not a bug).
+- Why / decisions made: implicit Prisma many-to-many (no extra join-row metadata needed) rather than explicit join models. `PUT` replaces the full assignment set rather than merging, matching this codebase's established "send full state" convention elsewhere.
+- Status after this entry: T-075 Done. T-080 logged (low priority UX bug, not blocking). Next: T-076 (student-facing visibility scoped to assigned class) and T-077 (leaderboards/reports scoped per class) — dispatched together since both depend only on T-075 and touch mostly non-overlapping files (student-facing list/join pages vs. reporting engines).
+
 ## 2026-09-15 — Dev/Test — Class schema, teacher class management, registration class picker (Phase 12 foundation)
 
 - Task IDs touched: T-074
