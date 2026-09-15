@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { Socket } from 'socket.io-client';
 import type { AttemptDetailDTO, AttemptQuestionDTO, LiveAudioPlayEventDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
@@ -63,6 +64,7 @@ function isFreeTextType(type: AttemptQuestionDTO['type']): boolean {
 function TakeTestPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [attempt, setAttempt] = useState<AttemptDetailDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -73,12 +75,18 @@ function TakeTestPage() {
   const [now, setNow] = useState(() => Date.now());
 
   // --- Anti-copy-paste on essay answers (T-043) -------------------------------------
-  const [pasteWarning, setPasteWarning] = useState<string | null>(null);
+  // Stores which kind of blocked action last happened (not the translated message
+  // itself), so the warning shown below is always resolved via `t()` at render time.
+  const [pasteWarning, setPasteWarning] = useState<'paste' | 'copy' | null>(null);
   const pasteWarningTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // --- Global tab-switch / exit detection (T-044) -----------------------------------
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [tabSwitchNotice, setTabSwitchNotice] = useState<string | null>(null);
+  // Boolean flag rather than the message text itself — `recordTabSwitch` below reads
+  // `tabSwitchCount` via the functional `setTabSwitchCount` updater (to avoid a stale
+  // closure, since this effect only re-subscribes on `[attemptId, attempt]`), so the
+  // up-to-date count for the message is only reliably available at render time via `t()`.
+  const [tabSwitchNotice, setTabSwitchNotice] = useState(false);
   const tabSwitchNoticeTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // --- Listening playback (T-040 standalone / T-041 live) ---------------------------
@@ -167,9 +175,9 @@ function TakeTestPage() {
         setSpeakingStatus(restoredSpeakingStatus);
       })
       .catch((err) => {
-        setLoadError(err instanceof ApiError ? err.message : 'Failed to load this attempt.');
+        setLoadError(err instanceof ApiError ? err.message : t('takeTest.loadAttemptError'));
       });
-  }, [attemptId, navigate]);
+  }, [attemptId, navigate, t]);
 
   useEffect(loadAttempt, [loadAttempt]);
 
@@ -190,9 +198,9 @@ function TakeTestPage() {
     function recordTabSwitch() {
       if (hasSubmittedRef.current) return;
       setTabSwitchCount((count) => count + 1);
-      setTabSwitchNotice('Tab switch detected — this has been recorded for your teacher.');
+      setTabSwitchNotice(true);
       clearTimeout(tabSwitchNoticeTimer.current);
-      tabSwitchNoticeTimer.current = setTimeout(() => setTabSwitchNotice(null), 6000);
+      tabSwitchNoticeTimer.current = setTimeout(() => setTabSwitchNotice(false), 6000);
       studentApi.recordTabSwitch(attemptId!).catch(() => undefined);
     }
 
@@ -482,11 +490,7 @@ function TakeTestPage() {
   // automated test, not just manual inspection").
   function handleEssayBlocked(action: 'paste' | 'copy' | 'cut', event: React.ClipboardEvent) {
     event.preventDefault();
-    setPasteWarning(
-      action === 'paste'
-        ? 'Pasting into this answer is not allowed. Please type your answer yourself.'
-        : 'Copying text out of this answer is not allowed.',
-    );
+    setPasteWarning(action === 'paste' ? 'paste' : 'copy');
     clearTimeout(pasteWarningTimer.current);
     pasteWarningTimer.current = setTimeout(() => setPasteWarning(null), 5000);
   }
@@ -509,7 +513,7 @@ function TakeTestPage() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error ?? new Error('Failed to read recorded audio.'));
+      reader.onerror = () => reject(reader.error ?? new Error(t('takeTest.audioReadError')));
       reader.readAsDataURL(blob);
     });
   }
@@ -537,7 +541,7 @@ function TakeTestPage() {
     } catch (err) {
       setSpeakingStatus((prev) => ({ ...prev, [question.id]: 'error' }));
       setSpeakingError(
-        err instanceof ApiError ? err.message : 'Failed to submit your Speaking answer. Please try again.',
+        err instanceof ApiError ? err.message : t('takeTest.speakingSubmitError'),
       );
     }
   }
@@ -618,9 +622,7 @@ function TakeTestPage() {
         speechRecognitionRef.current = null;
       }
     } catch {
-      setSpeakingError(
-        'Microphone access is required to record a Speaking answer. Please allow microphone access and try again.',
-      );
+      setSpeakingError(t('takeTest.micAccessError'));
     }
   }
 
@@ -629,8 +631,7 @@ function TakeTestPage() {
       if (!attemptId || hasSubmittedRef.current) return;
       if (!auto) {
         const confirmed = window.confirm(
-          `You've answered ${answeredCount} of ${totalQuestions} question${totalQuestions === 1 ? '' : 's'}. ` +
-            'Submit the test now? You will not be able to change your answers after this.',
+          t('takeTest.submitConfirm', { answered: answeredCount, total: totalQuestions }),
         );
         if (!confirmed) return;
       }
@@ -651,10 +652,10 @@ function TakeTestPage() {
           navigate(`/student/attempts/${attemptId}/result`, { replace: true });
           return;
         }
-        setSubmitError(err instanceof ApiError ? err.message : 'Failed to submit the test.');
+        setSubmitError(err instanceof ApiError ? err.message : t('takeTest.submitTestError'));
       }
     },
-    [attemptId, answeredCount, totalQuestions, flushPendingSaves, navigate],
+    [attemptId, answeredCount, totalQuestions, flushPendingSaves, navigate, t],
   );
 
   // Auto-submit when the timer reaches zero (documented choice: a visible timer that
@@ -675,7 +676,7 @@ function TakeTestPage() {
   }
 
   if (!attempt) {
-    return <p className="text-center text-base-black/60">Loading test...</p>;
+    return <p className="text-center text-base-black/60">{t('takeTest.loadingTest')}</p>;
   }
 
   const current = flatQuestions[currentIndex];
@@ -687,7 +688,7 @@ function TakeTestPage() {
         <div>
           <h1 className="text-xl font-bold text-primary-700">{attempt.testTitle}</h1>
           <p className="text-sm text-base-black/60">
-            Answered {answeredCount} of {totalQuestions}
+            {t('takeTest.answeredCount', { answered: answeredCount, total: totalQuestions })}
           </p>
         </div>
         {remainingMs !== null && (
@@ -702,7 +703,7 @@ function TakeTestPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1.5" aria-label="Question navigator">
+      <div className="flex flex-wrap gap-1.5" aria-label={t('takeTest.questionNavigatorLabel')}>
         {flatQuestions.map((q, index) => {
           const isAnswered = isQuestionAnswered(q);
           return (
@@ -712,7 +713,10 @@ function TakeTestPage() {
               onClick={() => setCurrentIndex(index)}
               disabled={isAnySpeakingRecording}
               aria-current={index === currentIndex ? 'true' : undefined}
-              aria-label={`Go to question ${index + 1}${isAnswered ? ' (answered)' : ' (unanswered)'}`}
+              aria-label={t(
+                isAnswered ? 'takeTest.goToQuestionAnswered' : 'takeTest.goToQuestionUnanswered',
+                { number: index + 1 },
+              )}
               className={`h-8 w-8 rounded-md text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                 index === currentIndex
                   ? 'bg-primary-700 text-base-white'
@@ -729,26 +733,26 @@ function TakeTestPage() {
 
       {tabSwitchNotice && (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {tabSwitchNotice} (count: {tabSwitchCount})
+          {t('takeTest.tabSwitchNotice', { count: tabSwitchCount })}
         </p>
       )}
 
       {current && (
         <div className="rounded-xl border border-primary-200 bg-primary-50 p-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">
-            {current.sectionTitle} · Question {currentIndex + 1} of {totalQuestions}
+            {current.sectionTitle} · {t('takeTest.questionXOfY', { current: currentIndex + 1, total: totalQuestions })}
           </p>
 
           {/* Reading passage (T-039) — shared context for every question in this section. */}
           {current.sectionPassageText && (
             <div className="mt-3 rounded-lg border border-primary-200 bg-base-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
-                Reading passage
+                {t('takeTest.readingPassageLabel')}
               </p>
               {current.sectionPassageImageUrl && (
                 <img
                   src={current.sectionPassageImageUrl}
-                  alt="Reading passage illustration"
+                  alt={t('takeTest.readingPassageImageAlt')}
                   className="mt-2 max-h-64 rounded-md border border-primary-100 object-contain"
                 />
               )}
@@ -763,7 +767,7 @@ function TakeTestPage() {
           {current.sectionAudioUrl && (
             <div className="mt-3 rounded-lg border border-primary-200 bg-base-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
-                Listening audio
+                {t('takeTest.listeningAudioLabel')}
               </p>
               {/* Hidden native controls in BOTH modes: standalone uses the custom Play
                   button below (so `maxPlayCount` can actually be enforced — a native
@@ -778,8 +782,7 @@ function TakeTestPage() {
               <audio ref={audioRef} src={current.sectionAudioUrl} preload="none" className="hidden" />
               {attempt.sessionMode === 'live' ? (
                 <p className="mt-2 text-sm text-base-black/70">
-                  Your teacher controls audio playback for this section during a live session. It
-                  will play automatically here when they press Play.
+                  {t('takeTest.liveAudioNotice')}
                 </p>
               ) : (
                 <div className="mt-2 flex items-center gap-3">
@@ -792,12 +795,15 @@ function TakeTestPage() {
                     }
                     className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    ▶ Play audio
+                    ▶ {t('takeTest.playAudio')}
                   </button>
                   <span className="text-xs text-base-black/60">
                     {current.sectionMaxPlayCount != null
-                      ? `Played ${playCounts[current.sectionId] ?? 0} of ${current.sectionMaxPlayCount} times`
-                      : `Played ${playCounts[current.sectionId] ?? 0} time(s) — unlimited plays`}
+                      ? t('takeTest.playedCountLimited', {
+                          count: playCounts[current.sectionId] ?? 0,
+                          max: current.sectionMaxPlayCount,
+                        })
+                      : t('takeTest.playedCountUnlimited', { count: playCounts[current.sectionId] ?? 0 })}
                   </span>
                 </div>
               )}
@@ -816,16 +822,17 @@ function TakeTestPage() {
                 onCut={(event) => handleEssayBlocked('cut', event)}
                 disabled={isSubmitting}
                 rows={10}
-                placeholder="Write your response here (pasting is disabled — please type your own answer)."
+                placeholder={t('takeTest.essayPlaceholder')}
                 className="w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
               />
               <p className="mt-1 text-xs text-base-black/50">
-                {current.essayMaxScore != null && `Graded manually by your teacher, out of ${current.essayMaxScore} points. `}
-                Copy/paste is disabled on this field.
+                {current.essayMaxScore != null &&
+                  `${t('takeTest.essayGradedManually', { points: current.essayMaxScore })} `}
+                {t('takeTest.essayCopyPasteDisabled')}
               </p>
               {pasteWarning && (
                 <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {pasteWarning}
+                  {t(pasteWarning === 'paste' ? 'takeTest.pasteBlocked' : 'takeTest.copyBlocked')}
                 </p>
               )}
             </div>
@@ -835,7 +842,7 @@ function TakeTestPage() {
               value={answers[current.id]?.textAnswer ?? ''}
               onChange={(event) => handleTextChange(current, event.target.value)}
               disabled={isSubmitting}
-              placeholder="Type your answer"
+              placeholder={t('takeTest.fillBlankPlaceholder')}
               className="mt-4 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           ) : current.type === 'speaking' ? (
@@ -853,22 +860,20 @@ function TakeTestPage() {
                       remainingMsForSpeaking < 10_000 ? 'bg-red-100 text-red-700' : 'bg-primary-100 text-primary-700'
                     }`}
                   >
-                    Time left to respond: {formatRemaining(remainingMsForSpeaking)}
+                    {t('takeTest.speakingTimeLeft', { time: formatRemaining(remainingMsForSpeaking) })}
                   </div>
                 );
               })()}
 
               {speakingStatus[current.id] === 'submitted' ? (
                 <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-                  <p>
-                    Your Speaking answer has been recorded and submitted. It can&apos;t be re-recorded — you can
-                    revisit your final score and feedback from this test&apos;s result page once it&apos;s
-                    submitted.
-                  </p>
+                  <p>{t('takeTest.speakingSubmittedNotice')}</p>
                   {speakingResults[current.id] && (
                     <p className="mt-1 text-xs text-green-700">
-                      Immediate Mock AI grade: {speakingResults[current.id].aiScore}/100 —{' '}
-                      {speakingResults[current.id].aiFeedback}
+                      {t('takeTest.speakingImmediateGrade', {
+                        score: speakingResults[current.id].aiScore,
+                        feedback: speakingResults[current.id].aiFeedback,
+                      })}
                     </p>
                   )}
                 </div>
@@ -880,7 +885,7 @@ function TakeTestPage() {
                       onClick={() => stopRecording(current)}
                       className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-red-700"
                     >
-                      ⏹ Stop &amp; submit recording
+                      ⏹ {t('takeTest.stopAndSubmitRecording')}
                     </button>
                   ) : (
                     <button
@@ -889,13 +894,14 @@ function TakeTestPage() {
                       disabled={speakingStatus[current.id] === 'submitting'}
                       className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {speakingStatus[current.id] === 'submitting' ? 'Submitting...' : '🎤 Start recording'}
+                      {speakingStatus[current.id] === 'submitting'
+                        ? t('takeTest.submitting')
+                        : `🎤 ${t('takeTest.startRecording')}`}
                     </button>
                   )}
                   {!speechApiSupported && (
                     <p className="text-xs text-base-black/50">
-                      Your browser doesn&apos;t support automatic transcription — your recording will still be
-                      submitted, with an empty draft transcript.
+                      {t('takeTest.speechApiUnsupported')}
                     </p>
                   )}
                 </div>
@@ -931,7 +937,7 @@ function TakeTestPage() {
 
       {isAnySpeakingRecording && (
         <p className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-700">
-          Finish your Speaking recording before moving to another question or submitting the test.
+          {t('takeTest.finishSpeakingBeforeContinuing')}
         </p>
       )}
 
@@ -942,7 +948,7 @@ function TakeTestPage() {
           disabled={currentIndex === 0 || isAnySpeakingRecording}
           className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          ← Previous
+          ← {t('takeTest.previous')}
         </button>
 
         {currentIndex < totalQuestions - 1 ? (
@@ -952,7 +958,7 @@ function TakeTestPage() {
             disabled={isAnySpeakingRecording}
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Next →
+            {t('takeTest.next')} →
           </button>
         ) : (
           <button
@@ -961,7 +967,7 @@ function TakeTestPage() {
             disabled={isSubmitting || isAnySpeakingRecording}
             className="rounded-md bg-primary-700 px-6 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit test'}
+            {isSubmitting ? t('takeTest.submitting') : t('takeTest.submitTest')}
           </button>
         )}
       </div>
@@ -973,7 +979,7 @@ function TakeTestPage() {
           disabled={isSubmitting || isAnySpeakingRecording}
           className="self-center text-sm font-medium text-primary-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Submitting...' : 'Finish early and submit test'}
+          {isSubmitting ? t('takeTest.submitting') : t('takeTest.finishEarlyAndSubmit')}
         </button>
       )}
 
