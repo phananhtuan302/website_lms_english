@@ -21,11 +21,17 @@ import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFi
  * `ClassFilterControl` auto-hide the picker when the teacher owns exactly one class.
  * Teacher/admin only (`App.tsx`'s route wiring), so — unlike `UnitLeaderboardPage`,
  * which is visible to both roles — there is no student-view branch here.
+ *
+ * T-088: accepts an optional `?classId=` query param so the Reports hub's new "view
+ * detailed report" link (from `TeacherReportsPage`/`TeacherSpeakingReportsPage`) can hand
+ * off the class the teacher was already viewing there, instead of making them re-pick it
+ * via `ClassFilterControl` below.
  */
 function TeacherTestAttemptsReportPage() {
   const { testId } = useParams<{ testId: string }>();
   const { t } = useTranslation();
-  const { classes, classId, setClassId } = useTeacherClasses(true);
+  const initialClassId = new URLSearchParams(window.location.search).get('classId') ?? '';
+  const { classes, classId, setClassId } = useTeacherClasses(true, initialClassId);
   const [data, setData] = useState<TestAttemptReportResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 

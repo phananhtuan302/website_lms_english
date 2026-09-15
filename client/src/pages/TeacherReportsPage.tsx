@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ReportGroupBy, ReportResponseDTO, TestSummaryDTO, TestType, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -148,6 +149,18 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
             ))}
           </select>
         </label>
+
+        {/* T-088: hand off to T-087's per-test attempt report, pre-scoped to the class
+            currently being viewed here — only shown once a specific test is picked, since
+            "all tests" has nothing coherent to link to. */}
+        {testId !== '' && (
+          <Link
+            to={`/teacher/tests/${testId}/report?classId=${encodeURIComponent(effectiveClassId)}`}
+            className="text-sm font-medium text-primary-600 hover:underline"
+          >
+            {t('teacherReports.viewDetailedReport')}
+          </Link>
+        )}
 
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherReports.unitFilterLabel')}

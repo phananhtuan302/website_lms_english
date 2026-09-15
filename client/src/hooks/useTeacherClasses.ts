@@ -19,10 +19,17 @@ import { teacherApi } from '../lib/teacherApi';
  * `enabled: false` (e.g. this same page rendered for a `student` viewer, who has no
  * classes of their own to list) skips the request entirely — `GET /api/teacher/classes`
  * is teacher/admin-only and would otherwise just 403 pointlessly.
+ *
+ * `initialClassId` (T-088): lets a caller pre-select a class handed off via URL query
+ * param (e.g. `TeacherTestAttemptsReportPage` arriving from the Reports hub's "view
+ * detailed report" link, already scoped to the class the teacher was just viewing there)
+ * instead of always starting empty. Purely a starting value — the 1-class auto-select and
+ * 2+-class manual-pick behavior above are unchanged, and an invalid/foreign id is simply
+ * left for the page's own data fetch (and the server) to reject.
  */
-export function useTeacherClasses(enabled: boolean) {
+export function useTeacherClasses(enabled: boolean, initialClassId = '') {
   const [classes, setClasses] = useState<ClassDTO[] | null>(null);
-  const [classId, setClassId] = useState('');
+  const [classId, setClassId] = useState(initialClassId);
 
   useEffect(() => {
     // No synchronous `setState` here for the `!enabled` case (e.g. a `student` viewer of
