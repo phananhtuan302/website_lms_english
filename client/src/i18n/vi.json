@@ -10,6 +10,7 @@
     "admin": "Quản trị viên"
   },
   "header": {
+    "mainNavAriaLabel": "Điều hướng chính",
     "dashboard": "Trang tổng quan",
     "register": "Đăng ký",
     "logIn": "Đăng nhập",

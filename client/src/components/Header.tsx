@@ -80,7 +80,7 @@ function Header() {
           {APP_NAME}
         </Link>
 
-        <nav aria-label="Main navigation">
+        <nav aria-label={t('header.mainNavAriaLabel')}>
           <ul className="flex flex-wrap items-center gap-1 sm:gap-2">
             {user && (
               <li>

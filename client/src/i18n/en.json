@@ -10,6 +10,7 @@
     "admin": "Admin"
   },
   "header": {
+    "mainNavAriaLabel": "Main navigation",
     "dashboard": "Dashboard",
     "register": "Register",
     "logIn": "Log in",
