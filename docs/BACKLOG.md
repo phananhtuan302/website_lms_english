@@ -439,8 +439,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Customer request 2026-09-15; PROJECT_PLAN.md Guiding Principle 3 (superseded), Assumption A13
   - Acceptance Criteria: A React i18n library (e.g. `react-i18next`) is wired in, with `en.json`/`vi.json` resource files keyed by short string ids. A `Settings` table (or equivalent singleton) stores the current site language (`en` default), exposed via a public unauthenticated `GET` endpoint the client reads on load (so even a logged-out visitor gets the admin-chosen language) — changing it is Admin-only (`T-072`'s job to build the control; this task just needs the setting + the read endpoint + the client applying it). NO public/per-user switcher exists anywhere. Fully translated (both `en` and `vi`, correct grammatically, not machine-garbled) for: `Header`, `HomePage`, `LoginPage`, `RegisterPage`, `UnauthorizedPage`, `NotFoundPage`, `TeacherDashboardPage`, `StudentDashboardPage`. Verify by using the (not-yet-built) settings write path directly (a raw API call / DB update is fine for this task) to flip the global setting to `vi` and confirming these pages render Vietnamese text, then back to `en`.
 
-- [ ] **T-068 — Translate all remaining pages**
-  - Status: Not Started
+- [x] **T-068 — Translate all remaining pages**
+  - Status: Done
   - Depends on: T-067
   - Source: Customer request 2026-09-15
   - Acceptance Criteria: Every remaining page/component with product-facing copy (test authoring/taking, flashcards/exercises/games, Grammar, Unit Tests, Vocabulary Check, reports/leaderboards, Speaking, attempt results, session/live-monitoring views, error/validation messages surfaced to the user) is translated into both `en` and `vi` through the `T-067` i18n layer — no page left with raw hardcoded English strings outside the i18n system. Verify by flipping the global language setting to `vi` and clicking through every major flow (teacher authoring, student taking a test, flashcards, reports) confirming no page shows a mix of English and Vietnamese or an untranslated placeholder/raw key (e.g. literally showing `common.submit` instead of translated text).

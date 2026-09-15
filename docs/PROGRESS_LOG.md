@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Leader — Full translation sweep (Phase 10 complete)
+
+- Task IDs touched: T-068
+- What changed: Dev split this large, mostly-mechanical task into ~10 parallel sub-agents (one per feature area: test authoring, take-test runtime, flashcards, vocab exercises/games, Grammar, Unit Tests/Vocabulary Check, curriculum/reports, attempt results/live monitoring, Admin pages, shared components), each assigned a disjoint set of files and instructed to report back JSON fragments rather than editing `en.json`/`vi.json` directly, avoiding merge conflicts on those two shared files. The orchestrating agent merged each group's fragment and committed per-group (10+ commits). The Leader independently re-verified afterward: flipped the site language to `vi` and screenshotted 15 pages across all four roles (logged out, teacher, admin, student) — all rendered fluent, natural, grammatically correct Vietnamese with zero raw i18n-key leaks; flipped back to `en` (confirmed via `GET /api/settings`); ran the full `npm run test:e2e` suite (6/6 passed); ran `npm run typecheck`/`npm run lint`/`npm run build` across all three workspaces. Lint surfaced 10 identical `react-hooks/exhaustive-deps` warnings (missing `t` dependency) spread across 9 files from different sub-agents who hadn't all followed T-067's established suppression pattern — fixed directly by the Leader with the same documented rationale, `npm run lint` now fully clean repo-wide.
+- Why / decisions made: the one-off DB script needed to flip the language for manual verification must load `dotenv/config` explicitly (a plain `npx tsx -e "..."` one-liner without it silently no-ops against the wrong/missing `DATABASE_URL`) — worth remembering for any future manual `Settings` flips before T-072's real admin UI control exists.
+- Status after this entry: **T-068 Done — Phase 10 (Vietnamese localization) is now fully complete.** Only T-072 (admin scores/attempts management + the language Settings page itself) remains to close out Phase 11/the customer's two feature requests. Noted in passing (not a blocker): the dev database has accumulated a large number of leftover test/QA fixture accounts over the course of this build, visible on the admin Users page's now very long list — worth a cleanup pass at some point, not urgent.
+
 ## 2026-09-15 — Dev/Test — Admin role, user management, content oversight (Phase 11 core)
 
 - Task IDs touched: T-069, T-070, T-071
