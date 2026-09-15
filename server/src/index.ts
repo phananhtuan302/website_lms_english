@@ -29,6 +29,8 @@ import { adminUsersRouter } from './routes/adminUsers.routes';
 import { adminContentRouter } from './routes/adminContent.routes';
 import { adminAttemptsRouter } from './routes/adminAttempts.routes';
 import { adminSettingsRouter } from './routes/adminSettings.routes';
+import { teacherClassesRouter } from './routes/teacherClasses.routes';
+import { classesRouter } from './routes/classes.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -67,7 +69,12 @@ app.get(HEALTH_CHECK_PATH, (_req, res) => {
 // write-side (Admin-only, T-072) this DB shape is ready for.
 app.use('/api/settings', settingsRouter);
 
-// Auth endpoints (T-005): student self-registration + login for both roles.
+// Public class list (T-074, Phase 12): every class from every teacher, no auth — the
+// registration form's "select your class" dropdown reads this before an account exists.
+app.use('/api/classes', classesRouter);
+
+// Auth endpoints (T-005): student self-registration + login for both roles. Registration
+// now requires a `classId` (T-074) — see `auth.routes.ts`'s module doc comment.
 app.use('/api/auth', authRouter);
 
 // Placeholder protected routes proving the role-based middleware works (T-005) — see
@@ -164,6 +171,12 @@ app.use('/api/admin', adminContentRouter);
 // endpoint (T-072b, completing the read/write split `settings.routes.ts` documented).
 app.use('/api/admin', adminAttemptsRouter);
 app.use('/api/admin', adminSettingsRouter);
+
+// Teacher-only class management (T-074, Phase 12): CRUD for a teacher's own `Class`
+// rows. Same `/api/teacher` mount point as every other teacher-only router above,
+// disambiguated by its own `classes` path segment. The PUBLIC cross-teacher list for
+// registration is the separate `/api/classes` mount above, not this router.
+app.use('/api/teacher', teacherClassesRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

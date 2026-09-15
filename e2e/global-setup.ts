@@ -55,6 +55,11 @@ export default async function globalSetup(config: FullConfig) {
     // Not `exact: true` — the label's accessible name also includes the helper text
     // ("At least 8 characters.") rendered inside the same <label>.
     await studentPage.getByLabel('Password').fill(STUDENT_PASSWORD);
+    // T-074 (Phase 12): class selection is now a required field — pick whichever class
+    // is listed first (`GET /api/classes`, seeded by `prisma/seed.ts`: "Class 6A").
+    // `selectOption({ index: 1 })` skips index 0, the empty-value "-- Select a class --"
+    // placeholder option.
+    await studentPage.getByLabel('Select your class').selectOption({ index: 1 });
     await studentPage.getByRole('button', { name: 'Create account' }).click();
     await studentPage.waitForURL(/\/student\/dashboard/, { timeout: 15_000 });
     await studentContext.storageState({ path: STUDENT_STORAGE });

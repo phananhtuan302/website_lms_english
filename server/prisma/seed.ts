@@ -246,6 +246,23 @@ async function seedAcademicPeriods() {
   console.log(`[seed] Academic periods ready: two semesters spanning ${year} (T-018).`);
 }
 
+/**
+ * Seeds two classes owned by the primary seed teacher (T-074, Phase 12) so `GET
+ * /api/classes` always has at least one entry for the registration picker on a fresh
+ * checkout, and the e2e suite's `global-setup.ts` (which registers a fresh student
+ * through the real UI) always has something to select. Idempotent by name+teacherId,
+ * same convention as `seedUnits`/`seedAcademicPeriods` above.
+ */
+async function seedClasses(teacherId: string) {
+  const classNames = ['Class 6A', 'Class 6B'];
+  for (const name of classNames) {
+    const existing = await prisma.class.findFirst({ where: { name, teacherId } });
+    if (existing) continue;
+    await prisma.class.create({ data: { name, teacherId } });
+  }
+  console.log('[seed] Sample classes ready (T-074): Class 6A, Class 6B.');
+}
+
 async function seedUnits() {
   const units = [
     { name: 'Unit 1 — Getting Started', order: 1 },
@@ -523,6 +540,7 @@ async function main() {
   await verifyRoundTrip(testId);
   await seedAcademicPeriods();
   await seedUnits();
+  await seedClasses(teacher.id);
   const unit = await prisma.unit.findFirst({ orderBy: { order: 'asc' } });
   const flashcardSetId = await seedFlashcards(teacher.id, unit?.id ?? null);
   await verifyFlashcardRoundTrip(flashcardSetId);

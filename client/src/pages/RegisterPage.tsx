@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import type { PublicClassSummaryDTO } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
+import { classesApi } from '../lib/classesApi';
 import { dashboardPathForRole } from '../lib/roles';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -20,6 +22,13 @@ interface LocationState {
  * Respects a `location.state.from` (T-011): a student who landed here via the join-gate
  * on `/join/:token` (logged out -> prompted to register) is sent back to finish joining
  * after their account is created, same convention as `LoginPage`.
+ *
+ * T-074 (Phase 12): adds a REQUIRED "Select your class" dropdown, populated from the
+ * public `GET /api/classes` endpoint (no auth needed — this page is reachable
+ * logged-out). Per Assumption A14, a student picks exactly one class here and is
+ * permanently scoped to it; submitting with no class selected is rejected client-side
+ * (and, redundantly, server-side too) with a clear message rather than silently
+ * defaulting to one.
  */
 function RegisterPage() {
   const { register, user } = useAuth();
@@ -30,8 +39,23 @@ function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [classId, setClassId] = useState('');
+  const [classes, setClasses] = useState<PublicClassSummaryDTO[] | null>(null);
+  const [classesLoadError, setClassesLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    classesApi
+      .listPublicClasses()
+      .then(setClasses)
+      .catch((err) =>
+        setClassesLoadError(err instanceof ApiError ? err.message : t('auth.register.loadClassesFailed')),
+      );
+    // Same "`t` is stable in practice" reasoning as every other one-shot load effect in
+    // this codebase (see `TeacherCurriculumPage.tsx`) — omitted from deps on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // See `LoginPage`'s identical guard for why this must also respect `from`: this
   // branch is what actually fires right after a successful registration too (`register()`
@@ -46,9 +70,17 @@ function RegisterPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    // T-074: required, no silent default — checked client-side first for immediate
+    // feedback; the server re-validates the exact same rule regardless.
+    if (!classId) {
+      setError(t('auth.register.classRequired'));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await register({ name, email, password });
+      await register({ name, email, password, classId });
       const from = (location.state as LocationState | null)?.from?.pathname;
       navigate(from ?? '/student/dashboard', { replace: true });
     } catch (err) {
@@ -98,6 +130,31 @@ function RegisterPage() {
           <span className="text-xs font-normal text-base-black/50">
             {t('auth.register.passwordHint', { count: MIN_PASSWORD_LENGTH })}
           </span>
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+          {t('auth.register.selectClassLabel')}
+          <select
+            required
+            value={classId}
+            onChange={(event) => setClassId(event.target.value)}
+            disabled={classes === null || classes.length === 0}
+            className="rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">{t('auth.register.selectClassPlaceholder')}</option>
+            {classes?.map((cls) => (
+              <option key={cls.id} value={cls.id}>
+                {t('auth.register.classOption', { className: cls.name, teacherName: cls.teacherName })}
+              </option>
+            ))}
+          </select>
+          {classesLoadError && (
+            <span className="text-xs font-normal text-red-600">{classesLoadError}</span>
+          )}
+          {classes !== null && classes.length === 0 && !classesLoadError && (
+            <span className="text-xs font-normal text-base-black/50">
+              {t('auth.register.noClassesAvailable')}
+            </span>
+          )}
         </label>
 
         {error && (

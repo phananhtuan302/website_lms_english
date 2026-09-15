@@ -9,7 +9,9 @@ import type {
   AcademicPeriodDTO,
   AttemptResultDTO,
   AttemptSummaryDTO,
+  ClassDTO,
   CreateAcademicPeriodRequest,
+  CreateClassRequest,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
   CreateGrammarExerciseRequest,
@@ -47,6 +49,7 @@ import type {
   UnitDTO,
   UnitLeaderboardResponseDTO,
   UpdateAcademicPeriodRequest,
+  UpdateClassRequest,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
   UpdateGrammarExerciseRequest,
@@ -296,4 +299,16 @@ export const teacherApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  // --- Class management (T-074) -----------------------------------------------------
+  listClasses: () => apiRequest<ClassDTO[]>(`${teacherBase}/classes`),
+  createClass: (body: CreateClassRequest) =>
+    apiRequest<ClassDTO>(`${teacherBase}/classes`, { method: 'POST', body: JSON.stringify(body) }),
+  updateClass: (classId: string, body: UpdateClassRequest) =>
+    apiRequest<ClassDTO>(`${teacherBase}/classes/${classId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteClass: (classId: string) =>
+    apiRequest<void>(`${teacherBase}/classes/${classId}`, { method: 'DELETE' }),
 };

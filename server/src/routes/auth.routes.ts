@@ -1,5 +1,10 @@
 /**
  * Public auth endpoints (T-005): student self-registration + login for both roles.
+ *
+ * T-074 (Phase 12): registration now requires a `classId` (Assumption A14 — a student
+ * picks exactly one class at registration and is permanently scoped to it). `toAuthUser`
+ * carries the resolved `classId`/`className` through register/login/`/me` alike so the
+ * client always has the student's class name available without a second round-trip.
  */
 
 import { Router } from 'express';
@@ -15,8 +20,22 @@ export const authRouter = Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-function toAuthUser(user: { id: string; email: string; name: string; role: string }): AuthUser {
-  return { id: user.id, email: user.email, name: user.name, role: user.role as AuthUser['role'] };
+function toAuthUser(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  classId: string | null;
+  class?: { name: string } | null;
+}): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as AuthUser['role'],
+    classId: user.classId,
+    className: user.class?.name ?? null,
+  };
 }
 
 /**
@@ -36,6 +55,7 @@ authRouter.post(
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
     const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const classId = typeof body.classId === 'string' ? body.classId.trim() : '';
 
     if ('role' in body && body.role !== undefined && body.role !== 'student') {
       res.status(400).json({
@@ -60,6 +80,20 @@ authRouter.post(
       return;
     }
 
+    // T-074 (Assumption A14): a class must be explicitly selected — no silent default,
+    // per the acceptance criteria "clear validation error, not a silent default".
+    if (!classId) {
+      res.status(400).json({ error: 'Please select your class.' });
+      return;
+    }
+    const selectedClass = await prisma.class.findUnique({ where: { id: classId } });
+    if (!selectedClass) {
+      res
+        .status(400)
+        .json({ error: 'The selected class does not exist. Please choose a class from the list.' });
+      return;
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       res.status(409).json({ error: 'An account with this email already exists.' });
@@ -68,10 +102,10 @@ authRouter.post(
 
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
-      data: { email, passwordHash, name, role: 'student' },
+      data: { email, passwordHash, name, role: 'student', classId: selectedClass.id },
     });
 
-    const authUser = toAuthUser(user);
+    const authUser = toAuthUser({ ...user, class: { name: selectedClass.name } });
     const response: AuthResponse = { token: signToken(authUser), user: authUser };
     res.status(201).json(response);
   }),
@@ -95,7 +129,10 @@ authRouter.post(
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { class: { select: { name: true } } },
+    });
     const passwordMatches = user ? await verifyPassword(password, user.passwordHash) : false;
 
     if (!user || !passwordMatches) {
@@ -122,7 +159,10 @@ authRouter.get(
   '/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const user = await prisma.user.findUnique({ where: { id: req.user!.sub } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.sub },
+      include: { class: { select: { name: true } } },
+    });
     if (!user) {
       res.status(404).json({ error: 'User not found.' });
       return;

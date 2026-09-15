@@ -34,6 +34,12 @@ function TeacherDashboardPage() {
           {t('teacherDashboard.manageCurriculum')}
         </Link>
         <Link
+          to="/teacher/classes"
+          className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        >
+          {t('teacherDashboard.manageClasses')}
+        </Link>
+        <Link
           to="/teacher/flashcard-sets"
           className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >

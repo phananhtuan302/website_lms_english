@@ -29,21 +29,38 @@ export interface HealthCheckResponse {
 // Shared request/response contracts so /client and /server never redeclare these
 // shapes independently and drift apart.
 
-/** Public-facing user shape returned by auth endpoints. Never includes `passwordHash`. */
+/** Public-facing user shape returned by auth endpoints. Never includes `passwordHash`.
+ *
+ * `classId`/`className` (T-074, Phase 12) are only ever populated for a `student`-role
+ * user — always `null` for `teacher`/`admin` accounts (Assumption A14: class membership
+ * has no meaning for those roles). `className` is denormalized onto this DTO purely so
+ * the student dashboard can show "which class am I in" without a second round-trip;
+ * `classId` alone is what every other class-scoped feature (T-076/T-077) will actually
+ * filter/check against. Both are `null` for a student account that predates the `Class`
+ * concept and hasn't been migrated yet (T-075's job, not this task's). */
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  classId: string | null;
+  className: string | null;
 }
 
 /** Body for `POST /api/auth/register`. `role` is intentionally omitted — the public
  * registration endpoint always creates a `student` account (see PROJECT_PLAN
- * Assumption A1); there is no client-facing way to request `teacher` here. */
+ * Assumption A1); there is no client-facing way to request `teacher` here.
+ *
+ * `classId` (T-074, Phase 12, PROJECT_PLAN Assumption A14) is REQUIRED — a student picks
+ * exactly one class at registration and is permanently scoped to it (no self-service
+ * switching, no default/fallback class picked silently). The server rejects registration
+ * with a clear validation error if this is missing or doesn't reference a real `Class`
+ * row, per T-074's acceptance criteria ("clear validation error, not a silent default"). */
 export interface RegisterRequest {
   email: string;
   password: string;
   name: string;
+  classId: string;
 }
 
 /** Body for `POST /api/auth/login`. Works for both roles. */
@@ -1600,4 +1617,37 @@ export interface SettingsDTO {
  * why there's no other switcher. Validated server-side to be exactly `'en'` or `'vi'`. */
 export interface UpdateSettingsRequest {
   language: SiteLanguage;
+}
+
+// --- Class-based organization (T-074, Phase 12) -------------------------------------
+// Mirrors `server/prisma/schema.prisma`'s `Class` model — see that model's doc comment
+// for the full design (PROJECT_PLAN Assumption A14) and the documented "block delete
+// while students are assigned" choice. Content-to-class assignment (many-to-many join
+// per content type) is explicitly T-075's job, not this task's.
+
+/** Full shape as the OWNING teacher sees it (`/teacher/classes`, T-074) — includes the
+ * live student count so the teacher can tell at a glance which classes are actually in
+ * use before attempting to delete one (see `DELETE .../classes/:id`'s 409 behavior). */
+export interface ClassDTO {
+  id: string;
+  name: string;
+  studentCount: number;
+  createdAt: string;
+}
+
+export interface CreateClassRequest {
+  name: string;
+}
+export type UpdateClassRequest = CreateClassRequest;
+
+/** Row shape for `GET /api/classes` (T-074, PUBLIC — no auth). Deliberately minimal, per
+ * the acceptance criteria ("no sensitive data") — just enough for a prospective student
+ * to tell classes with the same name apart across different teachers, or pick the right
+ * teacher's section. Every class from every teacher is listed; there is no per-teacher
+ * filtering at registration time since a new student doesn't have an account yet to scope
+ * anything to. */
+export interface PublicClassSummaryDTO {
+  id: string;
+  name: string;
+  teacherName: string;
 }

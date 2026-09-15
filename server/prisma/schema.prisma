@@ -3,7 +3,11 @@
 // Scope note (T-002): originally this file only defined `User`. T-007 adds the
 // Test/Section/Question/Choice domain model (see below). T-021 adds the
 // Flashcard/Vocabulary domain model. Grammar/Speaking are still owned by their own
-// later backlog tasks and must NOT be added here ahead of time.
+// later backlog tasks and must NOT be added here ahead of time. T-074 (Phase 12) adds
+// the `Class` entity + `User.classId` — see `Class`'s own doc comment for the full
+// class-based-organization design (PROJECT_PLAN Assumption A14). Content-to-class
+// assignment (many-to-many join tables per content type) is explicitly T-075's job, NOT
+// this task's — nothing here gives `Test`/`FlashcardSet`/`GrammarTopic` a class FK.
 
 generator client {
   provider   = "prisma-client-js"
@@ -89,7 +93,62 @@ model User {
   // note as `attempts` above.
   testAssignments TestAssignment[] @relation("StudentTestAssignments")
 
+  // A teacher's owned classes (T-074, Phase 12). Same "app layer enforces the role, not
+  // the FK" note as `tests`/`flashcardSets` above — nothing at the DB layer stops a
+  // student-role user from being the FK target.
+  classes Class[] @relation("TeacherClasses")
+
+  // The single class this student belongs to for their whole lifetime (T-074, Phase 12,
+  // PROJECT_PLAN Assumption A14) — meaningful for `student`-role users only; always
+  // `null` for `teacher`/`admin` accounts (nothing in this batch's routes ever sets it
+  // for those roles). `SetNull` on delete: `Class`'s own DELETE route already blocks
+  // deleting a class that still has students assigned (see `Class`'s doc comment below),
+  // so this cascade is a defensive DB-level fallback for that invariant, not the primary
+  // enforcement — a student should never be left silently referencing a deleted row.
+  classId String?
+  class   Class?  @relation("ClassStudents", fields: [classId], references: [id], onDelete: SetNull)
+
   @@map("users")
+}
+
+// --- Class-based organization (T-074, Phase 12) --------------------------------------
+// A teacher's cohort/section (e.g. "Lớp 6A"). See PROJECT_PLAN Assumption A14 for the
+// full design this and every later Phase-12 task builds on: a student belongs to exactly
+// ONE class for their whole lifetime (set at registration, changeable later only by a
+// teacher/admin — no self-service switching, no multi-class membership); a class belongs
+// to exactly one owning teacher (no co-teaching). Content (`Test`/`FlashcardSet`/
+// `GrammarTopic`) is explicitly NOT owned by a class — that stays teacher-owned exactly
+// as today, with class-scoped VISIBILITY added later via a many-to-many assignment join
+// (T-075), never a hard ownership FK here.
+
+/// A teacher's cohort/section (T-074). `teacherId` is the sole owner — no co-teaching, no
+/// shared classes (Assumption A14).
+///
+/// Documented choice for deleting a class that still has students assigned (T-074 "your
+/// call, document it — block or reassign"): BLOCKED. `DELETE /api/teacher/classes/:id`
+/// (see `teacherClasses.routes.ts`) returns 409 if any `User.classId` still points at
+/// this class, rather than silently reassigning or orphaning those students. Reasoning:
+/// per Assumption A14 a student's class membership is meant to be permanent/stable
+/// (changeable only via explicit teacher/admin action, never as a side effect of an
+/// unrelated delete), and there is no "which OTHER class should they land in instead"
+/// signal available to guess safely — silently picking one would be more surprising than
+/// asking the teacher to first move/remove those students via the existing Admin user
+/// panel (T-070) or a future dedicated reassignment tool. Deleting an EMPTY class (no
+/// students) is always allowed with no extra confirmation. Content-to-class assignment
+/// (T-075) doesn't exist yet at this task's scope, so there's no assigned-content case to
+/// fold into this rule yet.
+model Class {
+  id        String   @id @default(uuid())
+  name      String
+  teacherId String
+  teacher   User     @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
+  // Students currently assigned to this class (T-074) — see `User.classId`'s doc comment
+  // for the "exactly one class, whole lifetime" rule this enforces at the app layer (not
+  // the DB layer, which only enforces "at most one" via the plain scalar FK).
+  students  User[]   @relation("ClassStudents")
+  createdAt DateTime @default(now())
+
+  @@map("classes")
 }
 
 /// Objective question types supported by the MVP test engine (T-007). Content types

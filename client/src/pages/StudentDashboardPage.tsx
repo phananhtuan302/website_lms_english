@@ -37,6 +37,15 @@ function StudentDashboardPage() {
         <p className="mt-2 text-base-black/70">
           {t('studentDashboard.welcome', { name: user?.name })}
         </p>
+        {/* T-074 (Phase 12): show which class this student belongs to, since class
+            membership is now permanent and set at registration (Assumption A14). `null`
+            covers a pre-existing account that predates the `Class` concept and hasn't
+            been migrated yet (T-075's job, not this task's). */}
+        <p className="mt-1 text-sm font-medium text-primary-700">
+          {user?.className
+            ? t('studentDashboard.yourClass', { className: user.className })
+            : t('studentDashboard.noClassAssigned')}
+        </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             to="/student/flashcard-sets"

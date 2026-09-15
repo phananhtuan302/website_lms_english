@@ -30,6 +30,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
   { labelKey: 'header.nav.teacher.vocabularyCheck', to: '/teacher/vocabulary-checks' },
   { labelKey: 'header.nav.teacher.curriculum', to: '/teacher/curriculum' },
   { labelKey: 'header.nav.teacher.reports', to: '/teacher/reports' },
+  { labelKey: 'header.nav.teacher.classes', to: '/teacher/classes' },
 ];
 
 const STUDENT_NAV_ITEMS: NavItem[] = [

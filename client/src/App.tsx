@@ -33,6 +33,7 @@ import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
 import StudentVocabularyChecksPage from './pages/StudentVocabularyChecksPage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
+import TeacherClassesPage from './pages/TeacherClassesPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
@@ -85,6 +86,10 @@ function App() {
               <Route path="/teacher/tests" element={<TeacherTestsPage />} />
               <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
               <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
+              {/* Class management (T-074, Phase 12): create/rename/delete the teacher's
+                  own cohorts/sections. Registration's class picker reads the PUBLIC
+                  `/api/classes` list, not this teacher-only page. */}
+              <Route path="/teacher/classes" element={<TeacherClassesPage />} />
               <Route path="/teacher/flashcard-sets" element={<TeacherFlashcardsPage />} />
               <Route
                 path="/teacher/flashcard-sets/:setId"
