@@ -465,8 +465,8 @@ Single source of truth for concrete, independently-implementable work. Read `PRO
   - Source: Customer request 2026-09-15; Assumption A12
   - Acceptance Criteria: Admin can view, edit, and delete ANY teacher's `Test` (and its sections/questions), any `Unit`, `AcademicPeriod`, `FlashcardSet` (and its cards), and `GrammarTopic` (and its exercises) — reusing the existing teacher-side editor UI/routes wherever practical (extend their ownership checks to also allow `role === 'admin'` rather than building parallel admin-only editor screens from scratch), plus an admin-only list view per entity type showing which teacher owns each item (since the existing teacher UI only ever shows "my own"). Verify: as admin, edit and delete a test/flashcard set/grammar topic that belongs to a DIFFERENT teacher than the one admin is "impersonating" nothing as — i.e. admin never needs to log in as that teacher to manage their content.
 
-- [ ] **T-072 — Admin: scores/attempts management + language Settings page**
-  - Status: Not Started
+- [x] **T-072 — Admin: scores/attempts management + language Settings page**
+  - Status: Done
   - Depends on: T-069, T-067
   - Source: Customer request 2026-09-15; Assumption A12, A13
   - Acceptance Criteria: (a) Admin can view any attempt across the whole system (any student, any test), edit its score/manual grades, and delete it, extending existing attempt-detail/grading endpoints to allow the admin role rather than building a parallel scoring system. (b) An Admin Settings page has a control to switch the site-wide language between English and Vietnamese (writing to `T-067`'s `Settings` row via an admin-only endpoint) — this is the ONLY place in the product that can change it. Verify: (a) admin edits a score belonging to a student they've never interacted with before and it's reflected in that student's own result view; (b) toggling the Settings page's language control actually changes what a fresh, logged-out visitor sees on `/` and `/login` without them doing anything themselves.

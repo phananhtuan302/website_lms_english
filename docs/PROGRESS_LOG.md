@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Dev/Test — Admin scores/attempts management + language Settings page (Phase 11 complete)
+
+- Task IDs touched: T-072
+- What changed: Dev added admin-only attempt browse/search/delete (`/api/admin/attempts`) and reused the EXISTING teacher grading endpoint (already admin-accessible since T-071) for editing scores rather than building a parallel scoring mechanism, plus `PATCH /api/admin/settings` (admin-only) and an Admin Settings page — the only place in the whole product that can change the site-wide language. Test independently re-verified: an admin-edited manual grade appears correctly in both the student's own result view and the owning teacher's view; delete removes it from both (404 after); every admin endpoint 403s teacher/student; invalid language values cleanly rejected; and — the highest-value check — toggled the language via the real admin UI (not just the API) and confirmed a genuinely fresh, zero-storage browser context sees Vietnamese automatically on `/` and `/login` with no action of its own, then confirmed reverting to `en` and re-grepped the whole codebase confirming no other switcher exists anywhere. Full E2E suite (6/6) and typecheck/lint/build all clean. PASS, no bugs found.
+- Why / decisions made: "edit its score" was interpreted as the existing manual-grade mechanism (essay/Speaking `manualScore`/`manualComment`), the only editable score concept anywhere in the app — not a new raw auto-graded-score editor. Noted (not a bug, pre-existing T-042/T-055 behavior, outside this task's scope): manually grading an essay/Speaking answer doesn't retroactively recompute the attempt's overall `scorePercent` (fixed at submission, counts only auto-gradable questions).
+- Status after this entry: **T-072 Done. Both of the customer's 2026-09-15 feature requests — the Admin role (Phase 11, T-069–T-073) and Vietnamese localization (Phase 10, T-067–T-068) — are now fully complete and verified**, on top of the already-100%-complete original 60-task backlog (T-001–T-066). Only two low-priority, non-blocking cosmetic items remain open (T-065 UI PATCH race, T-073 AdminUsersPage stale-role-display, T-066 e2e typecheck coverage gap) — none are functional or security defects.
+
 ## 2026-09-15 — Dev/Leader — Full translation sweep (Phase 10 complete)
 
 - Task IDs touched: T-068
