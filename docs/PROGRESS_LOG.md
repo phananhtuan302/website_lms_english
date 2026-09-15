@@ -19,6 +19,14 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-15 — Leader — Direct fix: top nav menu was dead, home page was still the dev scaffold
+
+- Task IDs touched: None (customer-reported bug found after the backlog was declared complete)
+- What changed: Customer reported the UI was hard to use and "the top menu doesn't work." Drove the real running app with Playwright in all three auth states to find the root cause: `Header.tsx`'s persistent top nav ("Tests"/"Vocabulary"/"Grammar"/"Reports") was still T-004's original `href="#"` placeholder — its own doc comment said it would stay non-functional "until the tasks that build those pages land," but T-008/T-019/T-022/T-036/T-046/etc. all landed many phases ago and nobody ever came back to wire the header up to the real routes. Every real feature was reachable ONLY via each dashboard's own in-page links, never from the header a user naturally tries first. Fixed with a real, role-aware nav (different item sets for teacher/student, none for logged-out visitors since every destination is `ProtectedRoute`-gated anyway) linking to the actual existing routes, plus an active-page highlight. Separately found and fixed the same root pattern on `HomePage.tsx`: it was still T-001's literal scaffold copy ("Monorepo scaffold: React + TypeScript + Vite...") plus a health-check badge — the very first thing any visitor saw. Replaced with a real landing page (product description, feature highlights, Register/Log in CTAs, or a dashboard shortcut if already logged in).
+- Why this got past 60+ tasks of QA: every Dev/Test verification pass throughout this build navigated via direct URLs or in-page dashboard links (the fastest way to test a specific feature), and none ever exercised the persistent header nav as an actual end-user navigation path. **Lesson for future verification passes: click the header/top-nav links themselves at least once per auth state, not just direct URLs, since that's the first thing a real user tries.**
+- Verified: full Playwright E2E suite still 6/6 passing after the change (confirms nothing broke), `npm run typecheck`/`npm run lint` clean repo-wide, and manually drove every header nav item in logged-out/teacher/student states confirming each now lands on its real page instead of `#`. Also fixed one unrelated pre-existing lint error (unused var in `verify-t036-t038.ts`) noticed while cleaning up lint output.
+- Status after this entry: fixed and committed (`9c1db37`). No new backlog task needed — this was found and closed in the same session. T-065/T-066 (logged earlier, low-priority) are still open and unrelated to this.
+
 ## 2026-09-15 — Dev/Test — Full Playwright E2E regression suite (T-060) — BACKLOG COMPLETE
 
 - Task IDs touched: T-060
