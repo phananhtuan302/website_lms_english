@@ -751,6 +751,40 @@
     "antonymsLabel": "Antonyms (comma-separated, optional)",
     "saveError": "Failed to save card."
   },
+  "teacherFlashcardImport": {
+    "heading": "Import from Excel",
+    "description": "Upload an .xlsx or .xls file to add many cards at once. Header row required (case-insensitive), columns: {{columns}}.",
+    "downloadTemplate": "Download template (.xlsx)",
+    "fileInputLabel": "Choose Excel file (.xlsx, .xls)",
+    "parseError": {
+      "unreadable": "Could not read this file as an Excel workbook.",
+      "noSheet": "The workbook has no sheets.",
+      "noHeaderRow": "The first row must be a header row with column names.",
+      "missingColumns": "Missing required column(s): term, meaning.",
+      "noDataRows": "No data rows found below the header row.",
+      "tooManyRows": "This file has more rows than the {{max}}-row limit per import. Split it into smaller files."
+    },
+    "previewValidCount_one": "{{count}} row will be imported",
+    "previewValidCount_other": "{{count}} rows will be imported",
+    "previewInvalidCount_one": "{{count}} row has an error and will be skipped",
+    "previewInvalidCount_other": "{{count}} rows have errors and will be skipped",
+    "rowError": "Row {{row}}: {{reason}}",
+    "reason": {
+      "termRequired": "term is required",
+      "meaningRequired": "meaning is required",
+      "exampleSentenceMarker": "exampleSentence, if provided, must contain \"___\" to mark the blank"
+    },
+    "confirmButton_one": "Import {{count}} card",
+    "confirmButton_other": "Import {{count}} cards",
+    "importing": "Importing...",
+    "cancelButton": "Cancel",
+    "noValidRows": "No valid rows to import — fix the errors above and re-upload.",
+    "submitError": "Failed to import cards.",
+    "resultCreated_one": "{{count}} card imported.",
+    "resultCreated_other": "{{count}} cards imported.",
+    "resultErrorsHeading": "The server rejected the following rows:",
+    "dismissResult": "Done"
+  },
   "studentFlashcards": {
     "heading": "Vocabulary",
     "subtitle": "Study a flashcard set, then practice with fill-in-the-blank, unscramble, listen-and-type, or IPA-to-word exercises.",

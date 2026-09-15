@@ -9,6 +9,8 @@ import type {
   AcademicPeriodDTO,
   AttemptResultDTO,
   AttemptSummaryDTO,
+  BulkCreateFlashcardCardsRequest,
+  BulkCreateFlashcardCardsResponse,
   ClassDTO,
   ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
@@ -192,6 +194,14 @@ export const teacherApi = {
 
   addFlashcardCard: (setId: string, body: CreateFlashcardCardRequest) =>
     apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  // T-085: bulk Excel import — one request for many rows instead of one `addFlashcardCard`
+  // call per row. See `teacherFlashcards.routes.ts`'s bulk route for the partial-success
+  // response shape (`created`/`errors`/`set`).
+  bulkAddFlashcardCards: (setId: string, body: BulkCreateFlashcardCardsRequest) =>
+    apiRequest<BulkCreateFlashcardCardsResponse>(`${flashcardBase}/${setId}/cards/bulk`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),

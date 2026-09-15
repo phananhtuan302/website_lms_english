@@ -10,6 +10,7 @@ import type {
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import FlashcardCardEditor from '../components/FlashcardCardEditor';
+import FlashcardExcelImportPanel from '../components/FlashcardExcelImportPanel';
 
 /** Default new-card shape — a sensible, editable placeholder, same convention as
  * `TeacherTestEditorPage.tsx`'s `defaultQuestionBody`. */
@@ -193,6 +194,8 @@ function TeacherFlashcardSetEditorPage() {
             {isAddingCard ? t('teacherFlashcardSetEditor.addingCard') : t('teacherFlashcardSetEditor.addCardButton')}
           </button>
         </form>
+
+        <FlashcardExcelImportPanel setId={setId} onImported={setSet} />
       </section>
 
       <section className="flex flex-col gap-3">

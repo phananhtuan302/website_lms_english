@@ -742,6 +742,40 @@
     "antonymsLabel": "Từ trái nghĩa (cách nhau bằng dấu phẩy, không bắt buộc)",
     "saveError": "Không thể lưu thẻ."
   },
+  "teacherFlashcardImport": {
+    "heading": "Nhập từ Excel",
+    "description": "Tải lên tệp .xlsx hoặc .xls để thêm nhiều thẻ cùng lúc. Bắt buộc có dòng tiêu đề (không phân biệt hoa thường), các cột: {{columns}}.",
+    "downloadTemplate": "Tải mẫu (.xlsx)",
+    "fileInputLabel": "Chọn tệp Excel (.xlsx, .xls)",
+    "parseError": {
+      "unreadable": "Không thể đọc tệp này như một workbook Excel.",
+      "noSheet": "Workbook không có sheet nào.",
+      "noHeaderRow": "Dòng đầu tiên phải là dòng tiêu đề chứa tên cột.",
+      "missingColumns": "Thiếu (các) cột bắt buộc: term, meaning.",
+      "noDataRows": "Không tìm thấy dòng dữ liệu nào bên dưới dòng tiêu đề.",
+      "tooManyRows": "Tệp này có nhiều dòng hơn giới hạn {{max}} dòng cho mỗi lần nhập. Hãy chia thành các tệp nhỏ hơn."
+    },
+    "previewValidCount_one": "{{count}} dòng sẽ được nhập",
+    "previewValidCount_other": "{{count}} dòng sẽ được nhập",
+    "previewInvalidCount_one": "{{count}} dòng bị lỗi và sẽ bị bỏ qua",
+    "previewInvalidCount_other": "{{count}} dòng bị lỗi và sẽ bị bỏ qua",
+    "rowError": "Dòng {{row}}: {{reason}}",
+    "reason": {
+      "termRequired": "term là bắt buộc",
+      "meaningRequired": "meaning là bắt buộc",
+      "exampleSentenceMarker": "exampleSentence, nếu có, phải chứa \"___\" để đánh dấu chỗ trống"
+    },
+    "confirmButton_one": "Nhập {{count}} thẻ",
+    "confirmButton_other": "Nhập {{count}} thẻ",
+    "importing": "Đang nhập...",
+    "cancelButton": "Hủy",
+    "noValidRows": "Không có dòng hợp lệ để nhập — hãy sửa các lỗi ở trên rồi tải lên lại.",
+    "submitError": "Không thể nhập thẻ.",
+    "resultCreated_one": "Đã nhập {{count}} thẻ.",
+    "resultCreated_other": "Đã nhập {{count}} thẻ.",
+    "resultErrorsHeading": "Máy chủ đã từ chối các dòng sau:",
+    "dismissResult": "Xong"
+  },
   "studentFlashcards": {
     "heading": "Từ vựng",
     "subtitle": "Học một bộ thẻ từ vựng, sau đó luyện tập với các dạng bài điền vào chỗ trống, sắp xếp lại từ, nghe và gõ lại, hoặc đoán từ theo phiên âm IPA.",

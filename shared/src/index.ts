@@ -760,6 +760,50 @@ export interface FlashcardCardInput {
 export type CreateFlashcardCardRequest = FlashcardCardInput;
 export type UpdateFlashcardCardRequest = FlashcardCardInput;
 
+// --- Bulk card import (T-085) --------------------------------------------------------
+
+/** Max rows accepted by one `POST .../cards/bulk` request — shared so the client (an
+ * Excel import, T-085) can reject an over-sized file before ever uploading it, using the
+ * exact same number the server independently enforces (`teacherFlashcards.routes.ts`),
+ * rather than the two limits silently drifting apart. 500 is a "your call, documented"
+ * choice: comfortably above any vocabulary list a teacher would realistically hand-build
+ * in one spreadsheet (a full school year of vocabulary is well under this), while still
+ * bounding one request to a fixed amount of DB work — see the route's own doc comment for
+ * the full reasoning. */
+export const FLASHCARD_BULK_IMPORT_MAX_ROWS = 500;
+
+/** Body for `POST /flashcard-sets/:setId/cards/bulk` (T-085) — e.g. an Excel import of
+ * many vocabulary cards in one request instead of one `POST .../cards` call per row. Each
+ * entry reuses `CreateFlashcardCardRequest` as-is (no separate per-row DTO — the shape is
+ * identical to a single-card create). */
+export interface BulkCreateFlashcardCardsRequest {
+  cards: CreateFlashcardCardRequest[];
+}
+
+/** One rejected row from a bulk import. `row` is the 1-based position of the entry
+ * WITHIN THE SUBMITTED `cards` ARRAY (`cards[0]` -> `row: 1`), not a spreadsheet line
+ * number — the server has no idea the request originated from a spreadsheet at all (per
+ * T-085's "parse client-side, submit plain JSON" design), so it can only number what it
+ * was actually given. The client is the one place that knows the mapping from array
+ * position back to the original spreadsheet row (it filtered out client-side-invalid rows
+ * before submitting), so it re-derives the real spreadsheet row for display. */
+export interface BulkCreateFlashcardCardsRowError {
+  row: number;
+  message: string;
+}
+
+/** Response for the bulk-import endpoint (T-085). Partial-success by design (see the
+ * route's own doc comment for the atomicity reasoning): `created` counts rows already
+ * saved by the time this responds, `errors` lists every rejected row and why, and `set`
+ * is the same `FlashcardSetDetailDTO` every other card-mutating route in this file
+ * returns, so the client can re-render the full card list from this one response instead
+ * of issuing a separate follow-up fetch. */
+export interface BulkCreateFlashcardCardsResponse {
+  created: number;
+  errors: BulkCreateFlashcardCardsRowError[];
+  set: FlashcardSetDetailDTO;
+}
+
 // --- Student flashcard study mode (T-023) -------------------------------------------
 
 /** A card as shown to a student, with the requesting student's own progress for it

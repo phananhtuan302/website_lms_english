@@ -8,6 +8,9 @@
 
 import { Router } from 'express';
 import type {
+  BulkCreateFlashcardCardsRequest,
+  BulkCreateFlashcardCardsResponse,
+  BulkCreateFlashcardCardsRowError,
   ContentClassAssignmentDTO,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
@@ -19,6 +22,7 @@ import type {
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
 } from '@platform/shared';
+import { FLASHCARD_BULK_IMPORT_MAX_ROWS } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -246,6 +250,103 @@ teacherFlashcardsRouter.post(
     });
 
     res.status(201).json(await fetchDetail(set.id));
+  }),
+);
+
+/**
+ * `POST /flashcard-sets/:setId/cards/bulk` (T-085) — adds many cards to a set in one
+ * request, e.g. from a teacher's Excel-file upload (parsed entirely client-side into
+ * plain `CreateFlashcardCardRequest` rows — see `client/src/lib/flashcardExcelImport.ts`;
+ * this route has no idea the request came from a spreadsheet, it just sees an array).
+ *
+ * Atomicity, your-call-documented: PARTIAL SUCCESS, not all-or-nothing. Every row is
+ * independently validated with the exact same `validateCardBody` the single-card route
+ * above uses, and a row that fails validation is skipped and reported back with its
+ * reason — it does NOT abort rows that already passed. Reasoning: the realistic failure
+ * mode for a bulk import is a handful of typo'd/missing cells scattered through an
+ * otherwise-fine spreadsheet of dozens-to-hundreds of words. All-or-nothing would force
+ * the teacher to fix one bad row and re-upload the ENTIRE file (re-submitting hundreds of
+ * already-good rows) just to get anything saved; partial success saves everything that's
+ * already valid and lets the teacher fix only the handful of rows called out in the
+ * response — the same "independent server re-check, but forgiving of individual mistakes"
+ * spirit as every other authoring form in this app, just applied N times in one request
+ * instead of once. There is deliberately no DB transaction wrapping the whole loop for
+ * this same reason: a later row failing must never roll back earlier rows that already
+ * succeeded.
+ *
+ * Server-side re-validation is NOT optional here even though the client already validates
+ * client-side first (T-085's client-side preview step) — this route trusts nothing about
+ * the request body beyond its own re-check, same as every other route in this file.
+ */
+teacherFlashcardsRouter.post(
+  '/flashcard-sets/:setId/cards/bulk',
+  asyncHandler(async (req, res) => {
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
+    if (!set) return;
+
+    const body = req.body as Partial<BulkCreateFlashcardCardsRequest>;
+    if (!Array.isArray(body.cards) || body.cards.length === 0) {
+      res.status(400).json({ error: 'cards must be a non-empty array.' });
+      return;
+    }
+    // Max-rows cap (your call, documented at the shared constant's own definition,
+    // `FLASHCARD_BULK_IMPORT_MAX_ROWS` in `@platform/shared`) — re-enforced here rather
+    // than trusting the client's own pre-upload check of the same limit.
+    if (body.cards.length > FLASHCARD_BULK_IMPORT_MAX_ROWS) {
+      res.status(400).json({
+        error: `cards cannot exceed ${FLASHCARD_BULK_IMPORT_MAX_ROWS} rows per bulk import.`,
+      });
+      return;
+    }
+
+    const maxOrder = await prisma.flashcardCard.aggregate({
+      where: { setId: set.id },
+      _max: { order: true },
+    });
+    let nextOrder = (maxOrder._max.order ?? 0) + 1;
+
+    const errors: BulkCreateFlashcardCardsRowError[] = [];
+    let created = 0;
+    for (const [index, rawRow] of body.cards.entries()) {
+      // `rawRow` is untyped request-body data, same trust level as any other route's
+      // `req.body` — re-cast and re-validate exactly like the single-card route does,
+      // not assumed to already match `CreateFlashcardCardRequest` just because the
+      // top-level array shape checked out above.
+      const rowBody = (rawRow ?? {}) as Partial<CreateFlashcardCardRequest>;
+      const validationError = validateCardBody(rowBody);
+      if (validationError) {
+        errors.push({ row: index + 1, message: validationError });
+        continue;
+      }
+
+      await prisma.flashcardCard.create({
+        data: {
+          setId: set.id,
+          term: rowBody.term!.trim(),
+          meaning: rowBody.meaning!.trim(),
+          ipa: rowBody.ipa?.trim() || null,
+          imageUrl: rowBody.imageUrl?.trim() || null,
+          audioUrl: rowBody.audioUrl?.trim() || null,
+          exampleSentence: rowBody.exampleSentence?.trim() || null,
+          synonyms: (rowBody.synonyms ?? []).map((s) => s.trim()).filter(Boolean),
+          antonyms: (rowBody.antonyms ?? []).map((s) => s.trim()).filter(Boolean),
+          order: nextOrder,
+        },
+      });
+      nextOrder += 1;
+      created += 1;
+    }
+
+    // Always 201: the REQUEST itself was well-formed and fully processed (every row got
+    // either created or reported), even if zero individual rows happened to be valid —
+    // per-row outcome lives in the response body, not the HTTP status, so the client can
+    // handle this response uniformly without branching on status code first.
+    const response: BulkCreateFlashcardCardsResponse = {
+      created,
+      errors,
+      set: await fetchDetail(set.id),
+    };
+    res.status(201).json(response);
   }),
 );
 
