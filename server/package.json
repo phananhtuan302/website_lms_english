@@ -26,7 +26,8 @@
     "verify:t045": "tsx scripts/verify-t045.ts",
     "verify:t045:db": "tsx scripts/verify-t045-db.ts",
     "verify:t075": "tsx scripts/verify-t075.ts",
-    "verify:t078": "tsx scripts/verify-t078.ts"
+    "verify:t078": "tsx scripts/verify-t078.ts",
+    "verify:t089": "tsx scripts/verify-t089.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

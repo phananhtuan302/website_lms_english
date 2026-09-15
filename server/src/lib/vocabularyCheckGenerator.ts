@@ -56,8 +56,10 @@ async function selectUnitPool(unitId: string): Promise<UnitPoolCard[]> {
 
 /** A broad pool of OTHER cards' meanings to source multiple-choice distractors from —
  * deliberately not limited to the unit's own pool, since a small unit (e.g. 4-5 cards)
- * wouldn't otherwise yield enough distinct wrong answers. */
-async function fetchDistractorPool(excludeCardIds: string[]): Promise<Array<{ id: string; meaning: string }>> {
+ * wouldn't otherwise yield enough distinct wrong answers. Exported (T-089) so the
+ * self-check quiz (`selfCheckQuiz.ts`) can reuse the exact same distractor-sourcing
+ * approach instead of reinventing it, per that task's explicit instruction. */
+export async function fetchDistractorPool(excludeCardIds: string[]): Promise<Array<{ id: string; meaning: string }>> {
   return prisma.flashcardCard.findMany({
     where: { id: { notIn: excludeCardIds } },
     select: { id: true, meaning: true },
@@ -68,8 +70,9 @@ async function fetchDistractorPool(excludeCardIds: string[]): Promise<Array<{ id
 /** Picks up to `count` distinct (case-insensitive), non-matching distractor meanings for
  * one card from the broader pool — fewer than `count` if the pool doesn't have enough
  * distinct meanings (the caller falls back to a `fillBlank` question when this returns
- * zero). */
-function buildDistractors(
+ * zero). Exported (T-089): the self-check quiz reuses this exact function, per that
+ * task's explicit "don't reinvent distractor logic" instruction. */
+export function buildDistractors(
   pool: Array<{ id: string; meaning: string }>,
   correctCardId: string,
   correctMeaning: string,

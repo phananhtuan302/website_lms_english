@@ -621,6 +621,24 @@
     "next": "Next →",
     "finish": "Finish"
   },
+  "studentVocabSelfCheck": {
+    "heading": "Self-check",
+    "instructions": "Pick the meaning that matches the word shown. A correct answer verifies the card for good and earns +10 points; a miss costs 20 points, permanently, and the card stays in future self-check rounds.",
+    "loadFailed": "Failed to load the self-check quiz.",
+    "checkFailed": "Failed to check your answer.",
+    "backToSet": "← Back to set",
+    "backToSetButton": "Back to set",
+    "progress": "{{current}} of {{total}}",
+    "noEligibleCards": "No cards are eligible for self-check right now — mark a card \"Known\" during study mode first.",
+    "doneHeading": "Self-check — done!",
+    "resultLine": "You got {{correct}} of {{total}} correct.",
+    "netPointsLine": "Net points this round: {{points}}",
+    "correct": "Correct! +{{points}} points — this card is now verified.",
+    "notQuite": "Not quite. {{points}} points.",
+    "correctMeaningWas": "The correct meaning was: {{meaning}}",
+    "next": "Next →",
+    "finish": "Finish"
+  },
   "studentVocabMatching": {
     "modes": {
       "meaning": { "label": "Word to meaning", "tabLabel": "Meaning" },
@@ -802,6 +820,7 @@
     "emptyState": "No flashcard sets available yet.",
     "cardCount_one": "{{count}} card",
     "cardCount_other": "{{count}} cards",
+    "selfCheckScore": "Self-check score: {{score}}",
     "studyLink": "Study →"
   },
   "studentFlashcardSet": {
@@ -831,7 +850,15 @@
     "gamesHeading": "Games",
     "gamesSubtitle": "Play a quick vocabulary game using the words in this set.",
     "spaceShooterLink": "Space Shooter",
-    "wordRunnerLink": "Word Runner"
+    "wordRunnerLink": "Word Runner",
+    "selfCheckHeading": "Self-check",
+    "selfCheckSubtitle": "Take a quick multiple-choice quiz over the cards you've marked \"Known\" — answer correctly to verify them for good (+10 points), or lose 20 points on a miss (permanent, both count toward the Vocabulary Leaderboard).",
+    "selfCheckStartButton": "Start self-check",
+    "viewKnownCardsButton": "View known cards",
+    "hideKnownCardsButton": "Hide known cards",
+    "knownCardsEmpty": "You haven't marked any cards \"Known\" in this set yet.",
+    "verifiedBadge": "Verified",
+    "selfClaimedBadge": "Self-claimed"
   },
   "studentVocabProgress": {
     "activity": {
@@ -895,7 +922,7 @@
   },
   "vocabLeaderboard": {
     "heading": "Vocabulary leaderboard",
-    "subtitle": "Ranked by score = exercise accuracy (%) x 10 points per card known. All-time standings across every student.",
+    "subtitle": "Ranked by score = the sum of your \"Self-check\" quiz points (+10 for a correct answer, -20 for an incorrect one), added up across every flashcard set. All-time standings across every student.",
     "loadError": "Failed to load leaderboard.",
     "colRank": "Rank",
     "colStudent": "Student",

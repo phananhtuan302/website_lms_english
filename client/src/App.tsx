@@ -29,6 +29,7 @@ import StudentUnitTestsPage from './pages/StudentUnitTestsPage';
 import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
 import StudentVocabMatchingPage from './pages/StudentVocabMatchingPage';
 import StudentVocabProgressPage from './pages/StudentVocabProgressPage';
+import StudentVocabSelfCheckPage from './pages/StudentVocabSelfCheckPage';
 import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
 import StudentVocabularyChecksPage from './pages/StudentVocabularyChecksPage';
 import TakeTestPage from './pages/TakeTestPage';
@@ -190,6 +191,10 @@ function App() {
                 element={<StudentSpaceShooterGamePage />}
               />
               <Route path="/student/flashcard-sets/:setId/games/runner" element={<StudentRunnerGamePage />} />
+              {/* "Tự kiểm tra" self-check quiz (T-089) — a completely different,
+                  student-initiated feature from the unrelated teacher-assigned "Kiểm tra
+                  từ vựng" (Vocabulary Check) route mounted separately below. */}
+              <Route path="/student/flashcard-sets/:setId/self-check" element={<StudentVocabSelfCheckPage />} />
 
               {/* Grammar: browse topics + read theory (T-047), practice exercises
                   (T-048), and the Grammar game (T-049). */}

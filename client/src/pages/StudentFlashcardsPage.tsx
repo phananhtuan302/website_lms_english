@@ -57,6 +57,17 @@ function StudentFlashcardsPage() {
                       </span>
                     </>
                   )}
+                  {' '}
+                  ·{' '}
+                  {/* T-089: this student's own permanent self-check point ledger for this
+                      ONE set — see StudentFlashcardSetSummaryDTO.selfCheckScore's doc
+                      comment for why it's per-set here but summed across every set on the
+                      Vocabulary Leaderboard. */}
+                  <span
+                    className={`font-medium ${set.selfCheckScore < 0 ? 'text-red-600' : 'text-primary-700'}`}
+                  >
+                    {t('studentFlashcards.selfCheckScore', { score: set.selfCheckScore })}
+                  </span>
                 </p>
               </div>
               <span className="text-sm font-medium text-primary-600">{t('studentFlashcards.studyLink')}</span>

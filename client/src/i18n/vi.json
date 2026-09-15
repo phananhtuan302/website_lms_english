@@ -612,6 +612,24 @@
     "next": "Tiếp theo →",
     "finish": "Hoàn tất"
   },
+  "studentVocabSelfCheck": {
+    "heading": "Tự kiểm tra",
+    "instructions": "Chọn nghĩa đúng của từ được hiển thị. Trả lời đúng sẽ xác nhận thẻ đó vĩnh viễn và được +10 điểm; trả lời sai sẽ bị trừ 20 điểm vĩnh viễn, và thẻ đó vẫn xuất hiện lại ở lượt tự kiểm tra sau.",
+    "loadFailed": "Không thể tải bài tự kiểm tra.",
+    "checkFailed": "Không thể kiểm tra câu trả lời của bạn.",
+    "backToSet": "← Quay lại bộ thẻ",
+    "backToSetButton": "Quay lại bộ thẻ",
+    "progress": "{{current}}/{{total}}",
+    "noEligibleCards": "Hiện chưa có thẻ nào đủ điều kiện tự kiểm tra — hãy đánh dấu một thẻ là \"Đã thuộc\" trong chế độ học trước đã.",
+    "doneHeading": "Tự kiểm tra — hoàn thành!",
+    "resultLine": "Bạn đã trả lời đúng {{correct}}/{{total}} câu.",
+    "netPointsLine": "Điểm ròng của lượt này: {{points}}",
+    "correct": "Chính xác! +{{points}} điểm — thẻ này đã được xác nhận.",
+    "notQuite": "Chưa đúng. {{points}} điểm.",
+    "correctMeaningWas": "Nghĩa đúng là: {{meaning}}",
+    "next": "Tiếp theo →",
+    "finish": "Hoàn thành"
+  },
   "studentVocabMatching": {
     "modes": {
       "meaning": { "label": "Từ - Nghĩa", "tabLabel": "Nghĩa" },
@@ -793,6 +811,7 @@
     "emptyState": "Chưa có bộ thẻ từ vựng nào.",
     "cardCount_one": "{{count}} thẻ",
     "cardCount_other": "{{count}} thẻ",
+    "selfCheckScore": "Điểm tự kiểm tra: {{score}}",
     "studyLink": "Học ngay →"
   },
   "studentFlashcardSet": {
@@ -822,7 +841,15 @@
     "gamesHeading": "Trò chơi",
     "gamesSubtitle": "Chơi một trò chơi từ vựng nhanh sử dụng các từ trong bộ thẻ này.",
     "spaceShooterLink": "Bắn Tàu Từ Vựng",
-    "wordRunnerLink": "Chạy Đua Từ Vựng"
+    "wordRunnerLink": "Chạy Đua Từ Vựng",
+    "selfCheckHeading": "Tự kiểm tra",
+    "selfCheckSubtitle": "Làm một bài trắc nghiệm nhanh với các thẻ bạn đã đánh dấu \"Đã thuộc\" — trả lời đúng để xác nhận thẻ đó vĩnh viễn (+10 điểm), trả lời sai sẽ bị trừ 20 điểm (trừ vĩnh viễn, cả hai đều tính vào Bảng xếp hạng từ vựng).",
+    "selfCheckStartButton": "Bắt đầu tự kiểm tra",
+    "viewKnownCardsButton": "Xem thẻ đã thuộc",
+    "hideKnownCardsButton": "Ẩn thẻ đã thuộc",
+    "knownCardsEmpty": "Bạn chưa đánh dấu thẻ nào là \"Đã thuộc\" trong bộ này.",
+    "verifiedBadge": "Đã xác nhận",
+    "selfClaimedBadge": "Tự nhận"
   },
   "studentVocabProgress": {
     "activity": {
@@ -886,7 +913,7 @@
   },
   "vocabLeaderboard": {
     "heading": "Bảng xếp hạng từ vựng",
-    "subtitle": "Xếp hạng theo điểm = độ chính xác bài luyện tập (%) x 10 điểm cho mỗi thẻ đã thuộc. Thành tích toàn thời gian của tất cả học sinh.",
+    "subtitle": "Xếp hạng theo điểm = tổng điểm bài \"Tự kiểm tra\" của bạn (+10 điểm mỗi câu đúng, -20 điểm mỗi câu sai), cộng dồn qua tất cả các bộ thẻ từ vựng. Thành tích toàn thời gian của tất cả học sinh.",
     "loadError": "Không thể tải bảng xếp hạng.",
     "colRank": "Hạng",
     "colStudent": "Học sinh",

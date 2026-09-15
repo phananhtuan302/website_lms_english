@@ -44,6 +44,9 @@ function StudentFlashcardSetPage() {
   const [index, setIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // T-089: "Xem thẻ đã thuộc" — a simple toggled inline list of already-loaded data
+  // (client-side filter of `set.cards`), not a new endpoint or a rebuilt flip-card UI.
+  const [showKnownCards, setShowKnownCards] = useState(false);
 
   useEffect(() => {
     if (!setId) return;
@@ -79,6 +82,9 @@ function StudentFlashcardSetPage() {
   }
 
   const card = set.cards[index];
+  // T-089: "Xem thẻ đã thuộc" — client-side filter of the already-loaded card list, no
+  // separate endpoint needed (verifiedKnown is already on StudentFlashcardCardDTO).
+  const knownCards = set.cards.filter((c) => c.progressStatus === 'known');
 
   async function mark(status: FlashcardProgressStatus) {
     setIsSaving(true);
@@ -247,6 +253,65 @@ function StudentFlashcardSetPage() {
             {t('studentFlashcardSet.wordRunnerLink')}
           </Link>
         </div>
+      </section>
+
+      {/* T-089: "Tự kiểm tra" (self-check) — a clearly distinct, student-initiated quiz
+          over cards the student has personally marked "Đã thuộc", NOT the unrelated
+          teacher-assigned "Kiểm tra từ vựng" (Vocabulary Check) feature elsewhere in the
+          product. Same bordered-box style as the two sections above. */}
+      <section className="rounded-xl border border-primary-200 p-4">
+        <h2 className="text-lg font-bold text-base-black">{t('studentFlashcardSet.selfCheckHeading')}</h2>
+        <p className="mt-1 text-sm text-base-black/60">{t('studentFlashcardSet.selfCheckSubtitle')}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            to={`/student/flashcard-sets/${setId}/self-check`}
+            className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-semibold text-base-white hover:bg-primary-600"
+          >
+            {t('studentFlashcardSet.selfCheckStartButton')}
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowKnownCards((v) => !v)}
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            {showKnownCards
+              ? t('studentFlashcardSet.hideKnownCardsButton')
+              : t('studentFlashcardSet.viewKnownCardsButton')}
+          </button>
+        </div>
+
+        {showKnownCards && (
+          <div className="mt-4 rounded-lg border border-primary-100 bg-primary-50 p-3">
+            {knownCards.length === 0 ? (
+              <p className="text-sm text-base-black/60">{t('studentFlashcardSet.knownCardsEmpty')}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {knownCards.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex items-center justify-between gap-3 rounded-md bg-base-white px-3 py-2 text-sm"
+                  >
+                    <div>
+                      <span className="font-semibold text-base-black">{c.term}</span>
+                      <span className="ml-2 text-base-black/60">{c.meaning}</span>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        c.verifiedKnown
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-base-black/10 text-base-black/70'
+                      }`}
+                    >
+                      {c.verifiedKnown
+                        ? t('studentFlashcardSet.verifiedBadge')
+                        : t('studentFlashcardSet.selfClaimedBadge')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );

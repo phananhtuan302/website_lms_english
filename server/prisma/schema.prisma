@@ -785,6 +785,19 @@ model FlashcardCard {
 ///
 /// `@@unique([cardId, studentId])` makes every write an upsert — one row per
 /// student+card, same pattern as `Answer.@@unique([attemptId, questionId])`.
+///
+/// `verifiedKnown` (T-089): a second, stricter "known" tier layered on top of `status`.
+/// `status: 'known'` (set via `PUT .../progress`, unchanged) is now explicitly documented
+/// as the student's own SELF-CLAIM only. `verifiedKnown` starts `false` and flips to
+/// `true` ONLY the first time the student answers that exact card correctly in the new
+/// "Tự kiểm tra" (self-check) quiz (`server/src/routes/studentFlashcards.routes.ts`'s
+/// `POST /:setId/self-check/:cardId/answer`) — and is NEVER reset back to `false`
+/// afterward, even if `status` later regresses away from `known` via a normal exercise
+/// miss (`advanceStatus`). A card with `verifiedKnown: true` is excluded from all FUTURE
+/// self-check quiz pools for that student ("flashcard không hiện thẻ đó nữa" — nothing
+/// left to verify). This is a distinct, unrelated concept from the OLD "Kiểm tra từ vựng"
+/// / Vocabulary Check feature (T-038/T-086, `Test`/`Attempt`-based) — see that generator's
+/// own doc comment for why the two must never be confused.
 model FlashcardProgress {
   id             String                  @id @default(uuid())
   cardId         String
@@ -792,6 +805,7 @@ model FlashcardProgress {
   studentId      String
   student        User                    @relation("StudentFlashcardProgress", fields: [studentId], references: [id], onDelete: Cascade)
   status         FlashcardProgressStatus @default(new)
+  verifiedKnown  Boolean                 @default(false)
   lastReviewedAt DateTime?
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
@@ -826,10 +840,14 @@ model VocabSentenceSubmission {
 
 /// Every vocabulary "activity" type that can produce a correct/incorrect verdict on one
 /// card, mirroring `VocabExerciseType` (T-024-027) plus `'matching'` (T-028),
-/// `'sentence'` (T-029, verdict = `VocabSentenceSubmission.containsWord`), and the two
-/// vocab games `'spaceShooter'`/`'runner'` (T-034/T-035) — see `@platform/shared`'s
-/// `VocabActivityType` for the matching TS union (string values kept identical, same
-/// "Prisma enum can't import a TS union" note as `Role`/`UserRole`).
+/// `'sentence'` (T-029, verdict = `VocabSentenceSubmission.containsWord`), the two
+/// vocab games `'spaceShooter'`/`'runner'` (T-034/T-035), and `'selfCheck'` (T-089, verdict
+/// = whether the submitted meaning matched `FlashcardCard.meaning` in the "Tự kiểm tra"
+/// quiz) — see `@platform/shared`'s `VocabActivityType` for the matching TS union (string
+/// values kept identical, same "Prisma enum can't import a TS union" note as
+/// `Role`/`UserRole`). `selfCheck` rows are the permanent point ledger described on
+/// `FlashcardExerciseAttempt` below and in `server/src/lib/vocabLeaderboard.ts`'s doc
+/// comment — never summarized/collapsed, every row stays forever.
 enum VocabActivityType {
   fillBlank
   unscramble
@@ -839,6 +857,7 @@ enum VocabActivityType {
   sentence
   spaceShooter
   runner
+  selfCheck
 }
 
 /// Per-attempt vocabulary exercise/activity log (T-030), added specifically because
@@ -858,6 +877,14 @@ enum VocabActivityType {
 /// Deliberately NOT `@@unique` on any column combination — unlike `FlashcardProgress`,
 /// this is a full history, so the same student may answer the same card via the same
 /// exercise type more than once over time, and every attempt gets its own row.
+///
+/// `type: 'selfCheck'` rows (T-089) additionally double as a permanent point ledger: +10
+/// per `correct: true` row, -20 per `correct: false` row, summed (never stored as a
+/// separate mutable running total) wherever a self-check score is shown — the per-set
+/// score on `StudentFlashcardSetSummaryDTO` and the Vocabulary Leaderboard's `score`
+/// (`server/src/lib/vocabLeaderboard.ts`). A wrong answer's -20 is never un-recorded by a
+/// later correct retry on the SAME card — that retry is its own additional +10 row, per
+/// this table's own "append-only, every attempt gets its own row" design above.
 model FlashcardExerciseAttempt {
   id        String            @id @default(uuid())
   cardId    String

@@ -10,9 +10,10 @@ import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFi
 /**
  * Vocabulary leaderboard (T-031) — visible to both roles (see `App.tsx`'s route
  * wiring, which mounts this same page under a `ProtectedRoute` allowing BOTH
- * `teacher` and `student`). Score formula documented in
- * `server/src/lib/vocabLeaderboard.ts`: exercise accuracy (0-100) times 10 points per
- * card at `known` status.
+ * `teacher` and `student`). Score formula REPLACED by T-089, documented in
+ * `server/src/lib/vocabLeaderboard.ts`: the sum of the student's "Tự kiểm tra"
+ * self-check point-values (+10 correct / -20 incorrect per attempt), across every
+ * flashcard set they can access.
  *
  * Class scoping (T-077, Phase 12): the leaderboard is always ONE class's students. A
  * student's own class is used automatically by the server (`resolveViewerClassId`) — no

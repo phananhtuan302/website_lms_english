@@ -811,6 +811,12 @@ export interface BulkCreateFlashcardCardsResponse {
  * `FlashcardProgress`'s doc comment in schema.prisma). */
 export interface StudentFlashcardCardDTO extends FlashcardCardDTO {
   progressStatus: FlashcardProgressStatus | null;
+  /** T-089: `true` once this student has answered this card correctly in the "Tự kiểm
+   * tra" self-check quiz — distinct from (and stricter than) `progressStatus === 'known'`,
+   * which is only the student's own self-claim. Always `false` when there's no
+   * `FlashcardProgress` row yet. Lets the client's "Xem thẻ đã thuộc" view visually
+   * distinguish self-claimed-only vs. verified cards without a separate endpoint. */
+  verifiedKnown: boolean;
   lastReviewedAt: string | null;
 }
 
@@ -823,6 +829,12 @@ export interface StudentFlashcardSetSummaryDTO {
   unitId: string | null;
   unitName: string | null;
   cardCount: number;
+  /** T-089: this student's own running point total for THIS ONE set — the sum of
+   * `selfCheck`-type `FlashcardExerciseAttempt` point-values (+10 correct / -20
+   * incorrect) for cards belonging to this set. Deliberately per-set (unlike the
+   * Vocabulary Leaderboard's `score`, which sums across every set — see
+   * `vocabLeaderboard.ts`'s doc comment for why the two are scoped differently). */
+  selfCheckScore: number;
 }
 
 export interface StudentFlashcardSetDetailDTO {
@@ -875,6 +887,42 @@ export interface CheckVocabExerciseResponse {
   correct: boolean;
   correctAnswer: string;
   progressStatus: FlashcardProgressStatus;
+}
+
+// --- Self-check quiz for mastered flashcards (T-089) --------------------------------
+// A completely different, STUDENT-initiated, per-flashcard-set, untimed self-quiz over
+// only the cards that student has personally marked "Đã thuộc" (self-claimed `known`) in
+// ONE set — do not confuse with the unrelated, teacher-assigned "Kiểm tra từ vựng" /
+// Vocabulary Check feature (T-038/T-086, `Test`/`Attempt`/`TestAssignment`-based, see
+// `vocabularyCheckGenerator.ts`'s doc comment). Mirrors the T-024–T-027 per-card
+// "GET answer-free prompts, POST grades one submission immediately" shape, NOT the batch
+// "matching/games complete" shape.
+
+/** One multiple-choice self-check prompt (T-089): the term shown, plus `choices` —
+ * the card's real `meaning` shuffled together with distractor meanings built via
+ * `vocabularyCheckGenerator.ts`'s `buildDistractors` (reused as-is, not reinvented).
+ * Which choice is correct is deliberately withheld — same answer-free-prompt convention
+ * as `VocabExercisePromptDTO` above; the server grades the submitted text itself. Only
+ * ever built from cards where, for the calling student in this set,
+ * `FlashcardProgress.status === 'known' && verifiedKnown === false`. */
+export interface SelfCheckPromptDTO {
+  cardId: string;
+  term: string;
+  choices: string[];
+}
+
+/** Response for `POST /:setId/self-check/:cardId/answer` (T-089). `correctMeaning` is
+ * always the card's canonical `meaning` (same "reveal the right answer on every response,
+ * not just a miss" convention as `CheckVocabExerciseResponse.correctAnswer`).
+ * `pointsDelta` is the exact point-value THIS answer just added to the permanent ledger
+ * (`+10` correct / `-20` incorrect, see `server/src/lib/vocabLeaderboard.ts`'s doc
+ * comment for why this is never a stored running total) — a correct answer also flips
+ * `FlashcardProgress.verifiedKnown` to `true` server-side (not itself part of this
+ * response shape; re-fetch `GET /:setId` or the self-check prompt list to observe it). */
+export interface SelfCheckAnswerResponse {
+  correct: boolean;
+  correctMeaning: string;
+  pointsDelta: number;
 }
 
 // --- Vocabulary matching exercise (T-028) -------------------------------------------
@@ -959,14 +1007,21 @@ export interface SentenceSubmissionDTO {
 
 /** Every vocabulary "activity" type that can produce a correct/incorrect verdict on one
  * card: the four single-answer exercises (T-024-027), matching (T-028), the
- * use-in-a-sentence exercise (T-029, verdict = `containsWord`), and the two vocab games
- * (T-034/T-035). A superset of `VocabExerciseType` — every `VocabExerciseType` value is
- * also a valid `VocabActivityType`. */
+ * use-in-a-sentence exercise (T-029, verdict = `containsWord`), the two vocab games
+ * (T-034/T-035), and the "Tự kiểm tra" self-check quiz (T-089, verdict = whether the
+ * submitted meaning matched `FlashcardCard.meaning`). A superset of `VocabExerciseType` —
+ * every `VocabExerciseType` value is also a valid `VocabActivityType`.
+ *
+ * `'selfCheck'` rows are special: they double as a permanent point ledger (+10 correct /
+ * -20 incorrect per row, see `SelfCheckAnswerResponse.pointsDelta` and
+ * `server/src/lib/vocabLeaderboard.ts`'s doc comment) — never true of any other activity
+ * type here, which are informational stats only. */
 export type VocabActivityType =
   | VocabExerciseType
   | 'matching'
   | 'sentence'
-  | VocabGameType;
+  | VocabGameType
+  | 'selfCheck';
 
 /** Per-activity-type stats row: how many attempts, how many correct, and the resulting
  * accuracy — shared by the student's own progress view and the teacher's per-student/
@@ -1041,14 +1096,24 @@ export interface TeacherVocabProgressDTO {
 
 // --- Vocabulary leaderboard (T-031) + monthly/yearly ranking (T-032/T-033) ----------
 // Shared scoring shape across all three tasks — see `server/src/lib/vocabLeaderboard.ts`
-// for the documented score formula and why the all-time and period-scoped variants
-// weight things slightly differently (the latter has no period-attributable "cards
-// learned" count, only period-scoped exercise activity).
+// for the documented score formula (REPLACED by T-089 — third revision of this formula
+// the same day, see that module's doc comment for the full history) and why the all-time
+// and period-scoped variants weight things slightly differently (the latter has no
+// period-attributable "verified known cards" count, only period-scoped self-check
+// activity).
 
-/** One ranked row. `knownCardCount` is always 0 on a period-scoped leaderboard (T-032/
- * T-033) — see `vocabLeaderboard.ts`'s doc comment for why "cards learned" isn't
- * period-attributable with the data this schema tracks, so period rankings score
- * activity within the period instead. `rank` is 1-based and accounts for ties (equal
+/** One ranked row (T-089 formula). `score` is the sum of the student's `selfCheck`-type
+ * `FlashcardExerciseAttempt` point-values (+10 correct / -20 incorrect) — ACROSS EVERY
+ * flashcard set they can access for the all-time variant, or scoped additionally to the
+ * period's date range for the period variant — never per-set (contrast
+ * `StudentFlashcardSetSummaryDTO.selfCheckScore`, which IS per-set). `knownCardCount` is
+ * the count of `FlashcardProgress` rows with `verifiedKnown: true` (true verified
+ * mastery via the self-check quiz, not just self-claimed `status: 'known'`) — always 0 on
+ * a period-scoped leaderboard (T-032/T-033), since `verifiedKnown` has no
+ * period-attributable timestamp, same reasoning as before T-089. `totalAttempts`/
+ * `correctAttempts`/`accuracyPercent` are scoped to `selfCheck`-type attempts ONLY (not
+ * every exercise type, unlike pre-T-089), so the displayed accuracy is coherent with
+ * what's actually driving `score` now. `rank` is 1-based and accounts for ties (equal
  * `score` -> equal `rank`, per standard "competition ranking" — see the module for the
  * exact tie-break-then-rank rule). */
 export interface VocabLeaderboardEntryDTO {

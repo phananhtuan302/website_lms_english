@@ -1,7 +1,13 @@
 /**
  * Student-facing vocabulary endpoints: browsing flashcard sets + study/review mode
- * (T-023), and the four vocabulary exercise types built in this same batch (T-024
- * fill-blank, T-025 unscramble, T-026 listen-and-type, T-027 IPA-to-word).
+ * (T-023), the four vocabulary exercise types built in this same batch (T-024
+ * fill-blank, T-025 unscramble, T-026 listen-and-type, T-027 IPA-to-word), and the later
+ * "Tự kiểm tra" self-check quiz (T-089) — a student-initiated, per-set, untimed
+ * multiple-choice re-check of cards the student has personally marked "known", whose
+ * permanent +10/-20 point ledger drives both the per-set score below and the Vocabulary
+ * Leaderboard (`vocabLeaderboard.ts`). Do not confuse T-089 with the unrelated,
+ * teacher-assigned "Kiểm tra từ vựng" / Vocabulary Check feature (T-038/T-086, a
+ * different `Test`-based timed test in `teacherVocabularyCheck.routes.ts`).
  *
  * Class-scoped as of T-076, Phase 12: every route here is `student`-only
  * (`requireRole('student')` — a teacher gets 403, same as any student-only route) AND
@@ -9,8 +15,8 @@
  * (`FlashcardSet.classes`, T-075) — this SUPERSEDES the earlier "no enrollment concept,
  * any logged-in student can study any set" assumption this doc comment used to describe.
  * `loadSetWithCards` below is the single chokepoint every per-set route (detail,
- * exercises, matching, sentence, games, progress-marking) goes through, so the class
- * check is enforced identically everywhere with one implementation rather than
+ * exercises, matching, sentence, games, progress-marking, self-check) goes through, so
+ * the class check is enforced identically everywhere with one implementation rather than
  * per-route.
  */
 
@@ -23,6 +29,8 @@ import type {
   GameWordDTO,
   MatchingMode,
   MatchingPairDTO,
+  SelfCheckAnswerResponse,
+  SelfCheckPromptDTO,
   SentencePromptDTO,
   StudentFlashcardCardDTO,
   StudentFlashcardSetDetailDTO,
@@ -54,10 +62,13 @@ import {
   isCorrectAnswer,
   isEligible,
   isMatchingEligible,
+  normalize,
 } from '../lib/flashcardExercises';
 import { sentenceContainsWord } from '../lib/vocabSentence';
 import { summarizeActivityStats, summarizeCardStatuses } from '../lib/vocabProgress';
 import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { buildSelfCheckPrompts } from '../lib/selfCheckQuiz';
+import { selfCheckPointValue } from '../lib/selfCheckScoring';
 
 export const studentFlashcardsRouter = Router();
 
@@ -67,7 +78,14 @@ studentFlashcardsRouter.use(requireAuth, requireRole('student'));
 
 /** GET / — every `FlashcardSet` ASSIGNED TO THE CALLING STUDENT'S OWN CLASS (T-076). A
  * classless student (shouldn't happen post-T-074/T-075, see `getStudentClassId`'s doc
- * comment) sees an empty list rather than every set or a crash. */
+ * comment) sees an empty list rather than every set or a crash.
+ *
+ * `selfCheckScore` (T-089): this student's own point total for EACH set individually —
+ * the sum of their `selfCheck`-type `FlashcardExerciseAttempt` point-values for cards
+ * belonging to that one set. Computed with exactly one query across ALL of this
+ * student's `selfCheck` attempts (never scoped to a single set at the DB level), then
+ * bucketed by each attempt's card's `setId` in memory — deliberately not one query per
+ * set, which would be N+1 for a student with many sets. */
 studentFlashcardsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -82,12 +100,24 @@ studentFlashcardsRouter.get(
       orderBy: { updatedAt: 'desc' },
       include: { unit: { select: { name: true } }, _count: { select: { cards: true } } },
     });
+
+    const selfCheckAttempts = await prisma.flashcardExerciseAttempt.findMany({
+      where: { studentId: req.user!.sub, type: 'selfCheck' },
+      select: { correct: true, card: { select: { setId: true } } },
+    });
+    const scoreBySetId = new Map<string, number>();
+    for (const attempt of selfCheckAttempts) {
+      const setId = attempt.card.setId;
+      scoreBySetId.set(setId, (scoreBySetId.get(setId) ?? 0) + selfCheckPointValue(attempt.correct));
+    }
+
     const summaries: StudentFlashcardSetSummaryDTO[] = sets.map((set) => ({
       id: set.id,
       name: set.name,
       unitId: set.unitId,
       unitName: set.unit?.name ?? null,
       cardCount: set._count.cards,
+      selfCheckScore: scoreBySetId.get(set.id) ?? 0,
     }));
     res.status(200).json(summaries);
   }),
@@ -226,6 +256,10 @@ studentFlashcardsRouter.get(
         antonyms: card.antonyms,
         order: card.order,
         progressStatus: progress?.status ?? null,
+        // T-089: exposes the stricter "verified via self-check" tier alongside the
+        // self-claimed `progressStatus`, so the client's "Xem thẻ đã thuộc" view can tell
+        // the two apart without a second endpoint.
+        verifiedKnown: progress?.verifiedKnown ?? false,
         lastReviewedAt: progress?.lastReviewedAt ? progress.lastReviewedAt.toISOString() : null,
       };
     });
@@ -352,6 +386,111 @@ studentFlashcardsRouter.post(
       correct,
       correctAnswer: card.term,
       progressStatus: nextStatus,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+// --- Self-check quiz for mastered cards (T-089) -----------------------------------------
+// A completely different, STUDENT-initiated, per-flashcard-set, untimed self-quiz over
+// only the cards THIS student has personally marked "Đã thuộc" (self-claimed `known`) in
+// ONE set — never confuse with the unrelated, teacher-assigned "Kiểm tra từ vựng" /
+// Vocabulary Check feature (T-038/T-086, `teacherVocabularyCheck.routes.ts`,
+// `Test`/`Attempt`/`TestAssignment`-based). Mirrors the T-024–T-027 per-card shape just
+// above (answer-free `GET` prompts, `POST` grades one submission immediately) — NOT the
+// batch "matching/games complete" shape below. See `@platform/shared`'s
+// `SelfCheckPromptDTO`/`SelfCheckAnswerResponse` doc comments and
+// `server/src/lib/vocabLeaderboard.ts`'s doc comment for the permanent point-ledger this
+// feature drives.
+
+/** `GET /:setId/self-check` — multiple-choice, answer-free prompts (T-089) built ONLY
+ * from cards where, for the calling student in this set, `FlashcardProgress.status ===
+ * 'known' && verifiedKnown === false`. A card already verified in an earlier self-check
+ * session is excluded forever ("flashcard không hiện thẻ đó nữa" — nothing left to
+ * verify); a card never marked known yet is never offered either. Empty list is valid
+ * (nothing eligible right now), never a 4xx — same convention as the exercise-prompt
+ * route above. */
+studentFlashcardsRouter.get(
+  '/:setId/self-check',
+  asyncHandler(async (req, res) => {
+    const set = await loadSetWithCards(req.params.setId, req.user!.sub, res);
+    if (!set) return;
+
+    const progressRows = await prisma.flashcardProgress.findMany({
+      where: {
+        studentId: req.user!.sub,
+        cardId: { in: set.cards.map((c) => c.id) },
+        status: 'known',
+        verifiedKnown: false,
+      },
+      select: { cardId: true },
+    });
+    const eligibleCardIds = new Set(progressRows.map((p) => p.cardId));
+    const eligibleCards = set.cards.filter((card) => eligibleCardIds.has(card.id));
+
+    const prompts: SelfCheckPromptDTO[] = await buildSelfCheckPrompts(eligibleCards);
+    res.status(200).json(prompts);
+  }),
+);
+
+/** `POST /:setId/self-check/:cardId/answer` — grades one self-check submission (T-089),
+ * mirroring the T-024–T-027 `POST .../check` per-card-immediate pattern above.
+ * RE-VERIFIES eligibility itself (`status === 'known' && verifiedKnown === false` for
+ * THIS card+student, read fresh from the DB) before grading, even though `GET
+ * .../self-check` already filtered to the same rule — this is what stops a student from
+ * farming points by POSTing an already-verified card's id directly, and from ever
+ * grading a card that was never marked known at all. Grading compares the submitted text
+ * to the card's `meaning` (case-insensitive/trimmed via `normalize`, same convention as
+ * every other exact-match check in this codebase). Logs exactly ONE
+ * `FlashcardExerciseAttempt(type: 'selfCheck', correct)` row — this row IS the permanent
+ * point ledger (`selfCheckScoring.ts`), never a mutable running total. A correct answer
+ * additionally flips `FlashcardProgress.verifiedKnown` to `true` (never reset back to
+ * `false` afterward, per that field's own doc comment in `schema.prisma`). */
+studentFlashcardsRouter.post(
+  '/:setId/self-check/:cardId/answer',
+  asyncHandler(async (req, res) => {
+    // T-076: gate on the set's own class assignment before even looking at the card.
+    const scopedSet = await loadSetWithCards(req.params.setId, req.user!.sub, res);
+    if (!scopedSet) return;
+
+    const card = await prisma.flashcardCard.findUnique({ where: { id: req.params.cardId } });
+    if (!card || card.setId !== req.params.setId) {
+      res.status(404).json({ error: 'Card not found in this flashcard set.' });
+      return;
+    }
+
+    const body = req.body as Partial<CheckVocabExerciseRequest>;
+    if (typeof body.answer !== 'string') {
+      res.status(400).json({ error: 'answer is required and must be a string.' });
+      return;
+    }
+
+    const progress = await prisma.flashcardProgress.findUnique({
+      where: { cardId_studentId: { cardId: card.id, studentId: req.user!.sub } },
+    });
+    if (!progress || progress.status !== 'known' || progress.verifiedKnown) {
+      res.status(400).json({
+        error:
+          'This card is not eligible for the self-check quiz right now (it must be marked "known" and not already verified).',
+      });
+      return;
+    }
+
+    const correct = normalize(body.answer) === normalize(card.meaning);
+    // T-089: append-only attempt log — this row IS the permanent point ledger, summed
+    // (never overwritten) by the sets-list score and the Vocabulary Leaderboard.
+    await recordExerciseAttempt(card.id, req.user!.sub, 'selfCheck', correct);
+    if (correct) {
+      await prisma.flashcardProgress.update({
+        where: { cardId_studentId: { cardId: card.id, studentId: req.user!.sub } },
+        data: { verifiedKnown: true },
+      });
+    }
+
+    const response: SelfCheckAnswerResponse = {
+      correct,
+      correctMeaning: card.meaning,
+      pointsDelta: selfCheckPointValue(correct),
     };
     res.status(200).json(response);
   }),

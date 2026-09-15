@@ -91,7 +91,11 @@ export function buildPrompt(type: VocabExerciseType, card: ExercisableCard): Voc
   }
 }
 
-function normalize(value: string): string {
+/** Exported (T-089) so the self-check quiz's meaning-comparison check
+ * (`studentFlashcards.routes.ts`'s `POST /:setId/self-check/:cardId/answer`) uses the
+ * exact same case-insensitive/trimmed normalization as every other exact-match check in
+ * this codebase, rather than a second ad-hoc implementation. */
+export function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 

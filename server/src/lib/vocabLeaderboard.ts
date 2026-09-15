@@ -4,49 +4,62 @@
  * scoring function appropriate to their scope, defined here, rather than three separate
  * ad-hoc implementations.
  *
- * Score formula (customer-requested revision, 2026-09-15 — was additive, now multiplicative):
+ * Score formula (T-089, 2026-09-15 — THIRD revision of this formula today; see
+ * `docs/PROGRESS_LOG.md`'s two prior entries for the additive-then-multiplicative
+ * history this replaces):
  *
- *   score = accuracyPercent (0-100) * correctCount * POINTS_PER_CORRECT_CARD
+ *   score = SUM of the student's `selfCheck`-type `FlashcardExerciseAttempt`
+ *           point-values (+10 per `correct: true` row, -20 per `correct: false` row)
  *
- * where `accuracyPercent` is the student's exercise accuracy (correct / total attempts,
- * as a 0-100 number, 0 when there were no attempts) and `correctCount` is a volume
- * measure — "how much vocabulary have they actually gotten right." Multiplying (rather
- * than adding) means both factors must be genuinely strong to score well — zero accuracy
- * or zero mastered cards zeroes out the whole score, not just one term of a sum.
- * `POINTS_PER_CORRECT_CARD = 10` is an arbitrary but documented constant, unchanged from
- * the original formula, not tied to any particular scale elsewhere in the app.
+ * This is a deliberate, complete replacement, not a tweak: the leaderboard is no longer
+ * derived from exercise accuracy times a volume measure at all. It is now a direct
+ * reflection of the customer-requested "Tự kiểm tra" self-check quiz's own permanent
+ * point ledger (`server/src/lib/selfCheckScoring.ts`) — the SAME ledger driving each
+ * flashcard set's own per-set score (`StudentFlashcardSetSummaryDTO.selfCheckScore`), just
+ * summed across every set instead of one ("xếp hạng thì cứ lấy hết all điểm của học sinh
+ * đó của các bộ thẻ là được" — the customer's explicit all-sets instruction). A wrong
+ * self-check answer's `-20` is permanent: summing never overwrites or forgives an earlier
+ * row, even after a later correct retry on the same card adds its own new `+10` row
+ * (`FlashcardExerciseAttempt` is append-only by design, see its `schema.prisma` doc
+ * comment) — so the leaderboard score can legitimately go negative for a student with
+ * more wrong self-check answers than right ones.
  *
- * Class scoping (T-077, Phase 12): both functions below now take a required `classId` and
- * rank ONLY students in that one class — never the whole student body, even though the
- * scoring formula/logic is otherwise unchanged. Every caller (`vocabLeaderboard.routes.ts`
- * for the all-time leaderboard, `teacherVocabProgress.routes.ts` for the monthly/yearly
- * ranking) resolves a concrete `classId` first via `reportClassScope.ts` before calling
- * in here — this module trusts that input the same way it already trusts `range` for the
- * period variant, never re-deriving or double-checking class ownership itself.
+ * For full internal consistency with this new formula, the other fields on
+ * `VocabLeaderboardEntryDTO` were redefined alongside `score` (not left describing the
+ * old formula):
+ * - `knownCardCount` is now the count of `FlashcardProgress` rows with `verifiedKnown:
+ *   true` — TRUE verified mastery via the self-check quiz, not merely self-claimed
+ *   `status: 'known'` (which a student can set for themselves with no verification at
+ *   all, see `FlashcardProgress.verifiedKnown`'s doc comment).
+ * - `totalAttempts`/`correctAttempts`/`accuracyPercent` are now scoped to `selfCheck`-type
+ *   attempts ONLY, not every exercise/activity type as before — so the accuracy shown is
+ *   coherent with what is actually driving `score` now, rather than mixing in unrelated
+ *   fill-blank/matching/game accuracy that no longer affects ranking at all.
  *
- * Two variants share this formula but differ in what "volume" counts, because of a
- * genuine data-shape constraint:
+ * Class scoping (T-077, Phase 12): both functions below still take a required `classId`
+ * and rank ONLY students in that one class — untouched by this rewrite. Every caller
+ * (`vocabLeaderboard.routes.ts` for the all-time leaderboard, `teacherVocabProgress.
+ * routes.ts` for the monthly/yearly ranking) resolves a concrete `classId` first via
+ * `reportClassScope.ts` before calling in here — this module trusts that input the same
+ * way it already trusts `range` for the period variant, never re-deriving or
+ * double-checking class ownership itself.
  *
- * - ALL-TIME (T-031): "volume of cards learned" is read literally as the number of this
- *   student's `FlashcardProgress` rows currently at `status: 'known'` — the count of
- *   distinct cards they've actually mastered, life-to-date. This is meaningful precisely
- *   because `FlashcardProgress` holds current, unbounded-history state.
- * - PERIOD-SCOPED (T-032/T-033): `FlashcardProgress.status` is NOT period-attributable —
- *   it only records a card's CURRENT status, not when it reached that status, so "cards
- *   known" can't be filtered to "became known during March 2026." The only genuinely
- *   period-scoped signal this schema has is the append-only `FlashcardExerciseAttempt`
- *   log (T-030), so for a period leaderboard, "volume" is read as the number of CORRECT
- *   exercise attempts that occurred within that period instead. This is a documented,
- *   reasonable substitution — it still rewards active, accurate practice within the
- *   selected month/year, just measured by attempts-in-period rather than
- *   lifetime-mastery-as-of-now.
+ * The two variants still differ in scope, for the same genuine data-shape reason as
+ * before T-089:
+ *
+ * - ALL-TIME (T-031): sums `selfCheck` point-values and counts `verifiedKnown` cards with
+ *   NO date filtering at all — every self-check attempt/verification the student has ever
+ *   made, life-to-date.
+ * - PERIOD-SCOPED (T-032/T-033): sums only `selfCheck` attempts whose `createdAt` falls
+ *   in `[range.start, range.end)`. `knownCardCount` stays `0` here (same as before
+ *   T-089) — `FlashcardProgress.verifiedKnown` has no "when it became true" timestamp of
+ *   its own, so it still isn't period-attributable with the data this schema tracks.
  */
 
 import type { VocabActivityType } from '@prisma/client';
 import type { VocabLeaderboardEntryDTO } from '@platform/shared';
 import { prisma } from './prisma';
-
-const POINTS_PER_CORRECT_CARD = 10;
+import { SELF_CHECK_CORRECT_POINTS, SELF_CHECK_INCORRECT_POINTS } from './selfCheckScoring';
 
 interface RawStudent {
   id: string;
@@ -86,46 +99,48 @@ async function listStudents(classId: string): Promise<RawStudent[]> {
 }
 
 /**
- * All-time leaderboard (T-031): includes EVERY student account IN THE GIVEN CLASS (even
- * one with a zero score, ranked last) — a leaderboard showing that class's whole cohort
- * standing, not just active students, per this task's "visible to both teacher and
- * students" framing (there is no notion of "not enrolled" beyond class membership
- * anywhere in this schema — see `StudentFlashcardSetSummaryDTO`'s doc comment). Scoring
- * itself (`FlashcardProgress`/`FlashcardExerciseAttempt`) is narrowed to this class's
- * students by filtering the `groupBy` queries on the relation's `student.classId` (T-077)
- * — a card/attempt row has no `classId` of its own, only the student who owns it does.
+ * All-time leaderboard (T-031, formula replaced by T-089): includes EVERY student
+ * account IN THE GIVEN CLASS (even one with a zero score, ranked last) — a leaderboard
+ * showing that class's whole cohort standing, not just active students, per this task's
+ * "visible to both teacher and students" framing (there is no notion of "not enrolled"
+ * beyond class membership anywhere in this schema — see `StudentFlashcardSetSummaryDTO`'s
+ * doc comment). Scoring itself (`FlashcardProgress`/`FlashcardExerciseAttempt`) is
+ * narrowed to this class's students by filtering the `groupBy` queries on the relation's
+ * `student.classId` (T-077) — a card/attempt row has no `classId` of its own, only the
+ * student who owns it does.
  */
 export async function computeAllTimeLeaderboard(classId: string): Promise<VocabLeaderboardEntryDTO[]> {
   const students = await listStudents(classId);
 
-  const [knownCounts, attemptCounts, correctCounts] = await Promise.all([
+  const [verifiedKnownCounts, selfCheckByOutcome] = await Promise.all([
     prisma.flashcardProgress.groupBy({
       by: ['studentId'],
-      where: { status: 'known', student: { classId } },
+      where: { verifiedKnown: true, student: { classId } },
       _count: { _all: true },
     }),
     prisma.flashcardExerciseAttempt.groupBy({
-      by: ['studentId'],
-      where: { student: { classId } },
-      _count: { _all: true },
-    }),
-    prisma.flashcardExerciseAttempt.groupBy({
-      by: ['studentId'],
-      where: { correct: true, student: { classId } },
+      by: ['studentId', 'correct'],
+      where: { type: 'selfCheck', student: { classId } },
       _count: { _all: true },
     }),
   ]);
 
-  const knownMap = new Map(knownCounts.map((r) => [r.studentId, r._count._all]));
-  const attemptMap = new Map(attemptCounts.map((r) => [r.studentId, r._count._all]));
-  const correctMap = new Map(correctCounts.map((r) => [r.studentId, r._count._all]));
+  const knownMap = new Map(verifiedKnownCounts.map((r) => [r.studentId, r._count._all]));
+  const outcomesByStudent = new Map<string, { correct: number; incorrect: number }>();
+  for (const row of selfCheckByOutcome) {
+    const acc = outcomesByStudent.get(row.studentId) ?? { correct: 0, incorrect: 0 };
+    if (row.correct) acc.correct += row._count._all;
+    else acc.incorrect += row._count._all;
+    outcomesByStudent.set(row.studentId, acc);
+  }
 
   const entries = students.map((student) => {
     const knownCardCount = knownMap.get(student.id) ?? 0;
-    const totalAttempts = attemptMap.get(student.id) ?? 0;
-    const correctAttempts = correctMap.get(student.id) ?? 0;
+    const { correct, incorrect } = outcomesByStudent.get(student.id) ?? { correct: 0, incorrect: 0 };
+    const totalAttempts = correct + incorrect;
+    const correctAttempts = correct;
     const accuracyPercent = accuracyOf(correctAttempts, totalAttempts);
-    const score = round1((accuracyPercent ?? 0) * knownCardCount * POINTS_PER_CORRECT_CARD);
+    const score = correct * SELF_CHECK_CORRECT_POINTS + incorrect * SELF_CHECK_INCORRECT_POINTS;
     return {
       studentId: student.id,
       studentName: student.name,
@@ -141,16 +156,16 @@ export async function computeAllTimeLeaderboard(classId: string): Promise<VocabL
 }
 
 /**
- * Period-scoped leaderboard (T-032 monthly / T-033 yearly): scores ONLY exercise
- * activity whose `FlashcardExerciseAttempt.createdAt` falls within `[range.start,
- * range.end)` — see this module's doc comment for why "volume" here means correct
- * attempts in the period rather than lifetime known-card count. Only students with at
- * least one attempt in the period are included (a zero-activity student has nothing
- * meaningful to rank for "most active this month" — see
- * `VocabPeriodLeaderboardResponseDTO`'s doc comment in `@platform/shared`). `classId`
- * (T-077): narrows both the candidate student roster and the attempt query to one class,
- * same "student.classId is the only class dimension an attempt row has" reasoning as
- * `computeAllTimeLeaderboard` above.
+ * Period-scoped leaderboard (T-032 monthly / T-033 yearly, formula replaced by T-089):
+ * scores ONLY `selfCheck`-type `FlashcardExerciseAttempt` rows whose `createdAt` falls
+ * within `[range.start, range.end)` — see this module's doc comment for why
+ * `knownCardCount` stays `0` here (verified-known status has no period-attributable
+ * timestamp). Only students with at least one `selfCheck` attempt in the period are
+ * included (a zero-activity student has nothing meaningful to rank for "most active this
+ * month" — see `VocabPeriodLeaderboardResponseDTO`'s doc comment in `@platform/shared`).
+ * `classId` (T-077): narrows both the candidate student roster and the attempt query to
+ * one class, same "student.classId is the only class dimension an attempt row has"
+ * reasoning as `computeAllTimeLeaderboard` above.
  */
 export async function computePeriodLeaderboard(
   range: { start: Date; end: Date },
@@ -160,15 +175,15 @@ export async function computePeriodLeaderboard(
   const studentNameById = new Map(students.map((s) => [s.id, s.name]));
 
   const attempts = await prisma.flashcardExerciseAttempt.findMany({
-    where: { createdAt: { gte: range.start, lt: range.end }, student: { classId } },
+    where: { type: 'selfCheck', createdAt: { gte: range.start, lt: range.end }, student: { classId } },
     select: { studentId: true, correct: true },
   });
 
-  const byStudent = new Map<string, { total: number; correct: number }>();
+  const byStudent = new Map<string, { correct: number; incorrect: number }>();
   for (const attempt of attempts) {
-    const acc = byStudent.get(attempt.studentId) ?? { total: 0, correct: 0 };
-    acc.total += 1;
+    const acc = byStudent.get(attempt.studentId) ?? { correct: 0, incorrect: 0 };
     if (attempt.correct) acc.correct += 1;
+    else acc.incorrect += 1;
     byStudent.set(attempt.studentId, acc);
   }
 
@@ -179,13 +194,14 @@ export async function computePeriodLeaderboard(
     // on a `!`.
     .filter(([studentId]) => studentNameById.has(studentId))
     .map(([studentId, acc]) => {
-      const accuracyPercent = accuracyOf(acc.correct, acc.total);
-      const score = round1((accuracyPercent ?? 0) * acc.correct * POINTS_PER_CORRECT_CARD);
+      const totalAttempts = acc.correct + acc.incorrect;
+      const accuracyPercent = accuracyOf(acc.correct, totalAttempts);
+      const score = acc.correct * SELF_CHECK_CORRECT_POINTS + acc.incorrect * SELF_CHECK_INCORRECT_POINTS;
       return {
         studentId,
         studentName: studentNameById.get(studentId)!,
         knownCardCount: 0,
-        totalAttempts: acc.total,
+        totalAttempts,
         correctAttempts: acc.correct,
         accuracyPercent,
         score,

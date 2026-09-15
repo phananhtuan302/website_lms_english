@@ -16,6 +16,8 @@ import type {
   GameWordDTO,
   MatchingMode,
   MatchingPairDTO,
+  SelfCheckAnswerResponse,
+  SelfCheckPromptDTO,
   SentencePromptDTO,
   StudentFlashcardSetDetailDTO,
   StudentFlashcardSetSummaryDTO,
@@ -52,6 +54,14 @@ export const flashcardApi = {
     body: CheckVocabExerciseRequest,
   ) =>
     apiRequest<CheckVocabExerciseResponse>(`${base}/${setId}/exercises/${type}/${cardId}/check`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // --- Self-check quiz for mastered cards (T-089) -------------------------------------
+  listSelfCheckPrompts: (setId: string) => apiRequest<SelfCheckPromptDTO[]>(`${base}/${setId}/self-check`),
+  answerSelfCheck: (setId: string, cardId: string, body: CheckVocabExerciseRequest) =>
+    apiRequest<SelfCheckAnswerResponse>(`${base}/${setId}/self-check/${cardId}/answer`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
