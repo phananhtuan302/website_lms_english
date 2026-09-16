@@ -31,7 +31,11 @@ function VocabLeaderboardPage() {
   // teacher/admin view above, but harmless to read unconditionally.
   const [searchParams] = useSearchParams();
   const initialClassId = searchParams.get('classId') ?? '';
+  // T-097: locks the picker to the class when arriving via `?classId=` — see
+  // `TeacherReportsPage.tsx`'s identical pattern.
+  const isClassLocked = initialClassId !== '';
   const { classes, classId, setClassId } = useTeacherClasses(isTeacherView, initialClassId);
+  const lockedClassName = classes?.find((c) => c.id === classId)?.name ?? null;
   const [data, setData] = useState<VocabLeaderboardResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,8 +75,19 @@ function VocabLeaderboardPage() {
 
       {isTeacherView && (
         <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-          <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
-          <ClassFilterEmptyState classes={classes} />
+          {isClassLocked ? (
+            <p className="text-sm font-medium text-base-black">
+              {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
+              <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
+                {t('classFilter.switchClass')}
+              </Link>
+            </p>
+          ) : (
+            <>
+              <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
+              <ClassFilterEmptyState classes={classes} />
+            </>
+          )}
         </section>
       )}
 

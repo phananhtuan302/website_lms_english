@@ -192,6 +192,13 @@ export interface TestSummaryDTO {
   /** How many completed attempts the average above is based on — shown alongside it so
    * "average of 1 attempt" reads differently from "average of 30". */
   completedAttemptCount: number;
+  /** T-097: which of this test's own teacher's classes it's assigned to (`Test.classes`,
+   * T-075's many-to-many assignment) — OPTIONAL, only populated by
+   * `GET /api/teacher/unit-tests` so `TeacherUnitTestsPage.tsx` can narrow its list to one
+   * class reached via `?classId=`, reusing already-assigned data rather than new
+   * authorization logic. `undefined` on every other `TestSummaryDTO` producer
+   * (`GET /api/teacher/tests`), which have no class-scoped view of their own yet. */
+  classIds?: string[];
 }
 
 /** Full nested shape returned by the single-test editor endpoint. */
@@ -1767,6 +1774,12 @@ export interface TeacherStudentSummaryDTO {
   id: string;
   name: string;
   email: string;
+  /** T-097: the student's own `User.classId` (`null` when unassigned) — lets
+   * `TeacherVocabularyChecksPage.tsx` default its target-student picker to one class's
+   * roster when reached via `?classId=`, while still supporting the T-076-documented
+   * "any teacher, any student" expand-to-everyone toggle using this SAME already-fetched
+   * list (no new endpoint). */
+  classId: string | null;
 }
 
 // --- Admin: user management (T-070) -------------------------------------------------

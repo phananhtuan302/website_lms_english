@@ -41,10 +41,14 @@ function TeacherSpeakingReportsPage() {
   // `TeacherReportsPage.tsx`'s identical pattern.
   const [searchParams] = useSearchParams();
   const initialClassId = searchParams.get('classId') ?? '';
+  // T-097: locks the page to the class when arriving via `?classId=` — see
+  // `TeacherReportsPage.tsx`'s identical pattern (closes T-096 as a side effect).
+  const isClassLocked = initialClassId !== '';
   // T-077: required class dimension — see `TeacherReportsPage.tsx`'s identical pattern.
   const { classes, classId } = useTeacherClasses(true, initialClassId);
   const [selectedClassId, setSelectedClassId] = useState('');
   const effectiveClassId = selectedClassId || classId;
+  const lockedClassName = classes?.find((c) => c.id === classId)?.name ?? null;
 
   const [tests, setTests] = useState<TestSummaryDTO[]>([]);
   const [units, setUnits] = useState<UnitDTO[]>([]);
@@ -91,8 +95,19 @@ function TeacherSpeakingReportsPage() {
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
-        <ClassFilterEmptyState classes={classes} />
+        {isClassLocked ? (
+          <p className="text-sm font-medium text-base-black">
+            {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
+            <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        ) : (
+          <>
+            <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
+            <ClassFilterEmptyState classes={classes} />
+          </>
+        )}
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherSpeakingReports.groupByLabel')}
           <select

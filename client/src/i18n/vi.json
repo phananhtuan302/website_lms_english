@@ -9,7 +9,8 @@
     "label": "Lớp",
     "selectPlaceholder": "-- Chọn một lớp --",
     "noClasses": "Bạn chưa có lớp nào. Hãy tạo một lớp trước khi xem dữ liệu này.",
-    "viewingLabel": "Đang xem lớp: {{className}}"
+    "viewingLabel": "Đang xem lớp: {{className}}",
+    "lockedLabel": "Đang thao tác: Lớp {{className}}"
   },
   "roles": {
     "teacher": "Giáo viên",
@@ -121,13 +122,8 @@
     "manageTests": "Quản lý bài kiểm tra của tôi",
     "manageCurriculum": "Quản lý chương trình học (Unit & Học kỳ)",
     "manageClasses": "Quản lý lớp của tôi",
-    "manageContent": "Nội dung của tôi (gán vào lớp)",
     "manageFlashcards": "Quản lý bộ thẻ từ vựng",
-    "viewReports": "Xem báo cáo (Bài kiểm tra, Kiểm tra Unit, Từ vựng, Ngữ pháp, Nói)",
-    "vocabLeaderboard": "Bảng xếp hạng từ vựng",
-    "manageGrammar": "Quản lý chủ đề ngữ pháp",
-    "unitTests": "Kiểm tra Unit",
-    "vocabularyCheck": "Kiểm tra từ vựng"
+    "manageGrammar": "Quản lý chủ đề ngữ pháp"
   },
   "studentDashboard": {
     "heading": "Trang tổng quan học sinh",
@@ -235,6 +231,7 @@
     },
     "loadFailed": "Không thể tải danh sách Kiểm tra Unit.",
     "empty": "Chưa có Kiểm tra Unit nào — hãy mở một bài kiểm tra và đặt loại của nó thành \"Kiểm tra Unit\".",
+    "emptyForClass": "Lớp này chưa được giao bài Kiểm tra Unit nào.",
     "untaggedGroup": "Chưa gắn nhãn",
     "viewLeaderboard": "Xem bảng xếp hạng →",
     "published": "Đã xuất bản",
@@ -283,6 +280,11 @@
     "selectStudents": "Chọn học sinh mục tiêu",
     "loadingStudents": "Đang tải danh sách học sinh...",
     "noStudents": "Chưa có học sinh nào.",
+    "noStudentsInClass": "Lớp này chưa có học sinh nào.",
+    "showingClassStudents": "Đang hiển thị học sinh của lớp: {{className}}",
+    "showingAllStudents": "Đang hiển thị tất cả học sinh",
+    "showAllStudentsLink": "Xem tất cả học sinh",
+    "showClassOnlyLink": "Chỉ hiện học sinh lớp này",
     "selectAll": "Chọn tất cả",
     "selectUnit": "Chọn một unit",
     "unitPlaceholder": "-- Chọn một unit --",

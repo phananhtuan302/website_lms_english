@@ -40,6 +40,10 @@ teacherUnitTestsRouter.get(
       include: {
         sections: { include: { _count: { select: { questions: true } } } },
         unit: { select: { id: true, name: true, order: true } },
+        // T-097: which classes this test is already assigned to (T-075's `Test.classes`
+        // many-to-many) — only the id is needed, `TeacherUnitTestsPage.tsx` filters
+        // client-side against the `?classId=` it may have arrived with.
+        classes: { select: { id: true } },
       },
     });
 
@@ -67,6 +71,7 @@ teacherUnitTestsRouter.get(
         averageTimeTakenSeconds:
           stats && stats._avg.timeTakenSeconds != null ? Math.round(stats._avg.timeTakenSeconds) : null,
         completedAttemptCount: stats?._count._all ?? 0,
+        classIds: test.classes.map((c) => c.id),
         // Sort-only field, stripped before responding — see the grouping below.
         unitOrder: test.unit?.order ?? Number.MAX_SAFE_INTEGER,
       };

@@ -18,16 +18,18 @@ interface WorkspaceLink {
  * makes) and finds the class matching the `:classId` route param client-side — no new
  * endpoint needed for just a name lookup.
  *
- * Every quick-link card below hands off to an ALREADY-EXISTING page, most via T-088's
- * `?classId=` → `initialClassId` hand-off (wired into each destination page by this same
- * task) so the teacher lands already scoped to this class instead of having to re-pick it
- * there. `/teacher/content`, `/teacher/unit-tests`, and `/teacher/vocabulary-checks` are
- * deliberately left as plain links (no `?classId=`): `/teacher/content` (T-075) is an
- * inherently global, multi-class assignment view; the other two are un-scoped LISTS with
- * no single-class concept of their own (only their downstream per-item reports are
- * class-scoped, and those already go through the same `?classId=` pattern elsewhere).
- * This page adds no business logic of its own — purely a navigation layer, per the task's
- * scope discipline.
+ * Every quick-link card below hands off to an ALREADY-EXISTING page via the `?classId=`
+ * hand-off pattern (T-088), so the teacher lands already LOCKED to this class (T-097)
+ * instead of having to re-pick it there. `/teacher/content` is the one deliberate
+ * exception, left as a plain link (no `?classId=`): T-075's page is an inherently global,
+ * multi-class assignment view, not a single-class-scoped one — forcing it into
+ * class-scoping would remove that core capability, not just reorganize navigation.
+ * `/teacher/unit-tests` and `/teacher/vocabulary-checks` USED to be left plain too (no
+ * single-class concept of their own, per T-095's original reasoning) but T-097 added
+ * exactly that: the former now filters its list to this class's assigned tests, the
+ * latter now defaults its student picker to this class's roster — so both are wired with
+ * `?classId=` here like every other card. This page adds no business logic of its own —
+ * purely a navigation layer, per the task's scope discipline.
  *
  * A `:classId` that doesn't match any of the teacher's own classes (typo'd URL, another
  * teacher's class id, a stale bookmark, etc.) shows a plain "not found" message instead of
@@ -67,12 +69,12 @@ function TeacherClassWorkspacePage() {
       descriptionKey: 'teacherClassWorkspace.vocabLeaderboardDescription',
     },
     {
-      to: '/teacher/unit-tests',
+      to: `/teacher/unit-tests?classId=${encodedClassId}`,
       labelKey: 'teacherClassWorkspace.unitTests',
       descriptionKey: 'teacherClassWorkspace.unitTestsDescription',
     },
     {
-      to: '/teacher/vocabulary-checks',
+      to: `/teacher/vocabulary-checks?classId=${encodedClassId}`,
       labelKey: 'teacherClassWorkspace.vocabularyChecks',
       descriptionKey: 'teacherClassWorkspace.vocabularyChecksDescription',
     },

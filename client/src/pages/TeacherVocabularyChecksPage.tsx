@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type {
+  ClassDTO,
   FlashcardSetSummaryDTO,
   TeacherStudentSummaryDTO,
   TeacherVocabularyCheckSummaryDTO,
@@ -24,6 +25,14 @@ import { ApiError } from '../lib/apiClient';
  * `teacherApi.listFlashcardSets()` (summing `cardCount` for every set tagged with the
  * selected unit) rather than a new endpoint — that data is already fetched by other
  * teacher pages and is small enough to just reuse here.
+ *
+ * T-097: reached with `?classId=` (from `TeacherClassWorkspacePage`'s hub), the target-
+ * student list DEFAULTS to that class's own roster, filtered client-side using each
+ * student's own `classId` (`TeacherStudentSummaryDTO`'s new field, from the SAME
+ * `GET /api/teacher/students` call already made here — no new endpoint). The full
+ * "every student, any class" roster T-076 deliberately kept is still one toggle away —
+ * this only changes the DEFAULT, per that task's own documented "any teacher, any
+ * student" design, which this does not remove.
  */
 function TeacherVocabularyChecksPage() {
   const { t } = useTranslation();
@@ -31,6 +40,7 @@ function TeacherVocabularyChecksPage() {
   const [checks, setChecks] = useState<TeacherVocabularyCheckSummaryDTO[] | null>(null);
   const [units, setUnits] = useState<UnitDTO[] | null>(null);
   const [flashcardSets, setFlashcardSets] = useState<FlashcardSetSummaryDTO[] | null>(null);
+  const [classes, setClasses] = useState<ClassDTO[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [unitId, setUnitId] = useState('');
   const [questionCount, setQuestionCount] = useState('');
@@ -38,6 +48,12 @@ function TeacherVocabularyChecksPage() {
   const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [searchParams] = useSearchParams();
+  const scopeClassId = searchParams.get('classId') ?? '';
+  // T-097: starts scoped (`false` = "class roster only") whenever arriving with
+  // `?classId=`; irrelevant (never read, since `visibleStudents` below only narrows when
+  // `scopeClassId` is set) when reached without one.
+  const [showAllStudents, setShowAllStudents] = useState(false);
 
   function reload() {
     teacherApi
@@ -60,6 +76,12 @@ function TeacherVocabularyChecksPage() {
       .listFlashcardSets()
       .then(setFlashcardSets)
       .catch(() => undefined);
+    if (scopeClassId) {
+      teacherApi
+        .listClasses()
+        .then(setClasses)
+        .catch(() => setClasses([]));
+    }
   }
 
   const unitWordCount =
@@ -72,6 +94,14 @@ function TeacherVocabularyChecksPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reload, []);
 
+  const scopedClassName = classes?.find((c) => c.id === scopeClassId)?.name ?? null;
+  // T-097: the roster actually shown/selectable — narrowed to the class roster when
+  // arriving with `?classId=` UNLESS the teacher has expanded back to "every student"
+  // (T-076's kept capability). Reached without `?classId=`, this is just `students`,
+  // unchanged from before this task.
+  const visibleStudents =
+    scopeClassId && !showAllStudents ? (students?.filter((s) => s.classId === scopeClassId) ?? null) : students;
+
   function toggleStudent(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -81,11 +111,19 @@ function TeacherVocabularyChecksPage() {
     });
   }
 
-  const allStudentsSelected = students !== null && students.length > 0 && selectedIds.size === students.length;
+  const allStudentsSelected =
+    visibleStudents !== null && visibleStudents.length > 0 && visibleStudents.every((s) => selectedIds.has(s.id));
 
   function toggleSelectAll() {
-    if (!students) return;
-    setSelectedIds(allStudentsSelected ? new Set() : new Set(students.map((s) => s.id)));
+    if (!visibleStudents) return;
+    setSelectedIds((prev) => {
+      if (allStudentsSelected) {
+        const next = new Set(prev);
+        visibleStudents.forEach((s) => next.delete(s.id));
+        return next;
+      }
+      return new Set([...prev, ...visibleStudents.map((s) => s.id)]);
+    });
   }
 
   const parsedQuestionCount = Number(questionCount);
@@ -137,6 +175,14 @@ function TeacherVocabularyChecksPage() {
           {t('teacherVocabularyChecks.heading')}
         </h1>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherVocabularyChecks.description')}</p>
+        {scopeClassId && (
+          <p className="mt-1 text-sm text-primary-600">
+            {scopedClassName ? t('classFilter.lockedLabel', { className: scopedClassName }) : t('common.loading')}{' '}
+            <Link to="/teacher/classes" className="font-medium underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        )}
       </div>
 
       {error && (
@@ -149,13 +195,32 @@ function TeacherVocabularyChecksPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary-600">
           {t('teacherVocabularyChecks.selectStudents')}
         </h2>
+        {scopeClassId && students && students.length > 0 && (
+          <p className="mt-1 text-xs text-base-black/60">
+            {showAllStudents
+              ? t('teacherVocabularyChecks.showingAllStudents')
+              : t('teacherVocabularyChecks.showingClassStudents', { className: scopedClassName ?? '' })}{' '}
+            <button
+              type="button"
+              onClick={() => setShowAllStudents((prev) => !prev)}
+              className="font-medium text-primary-600 underline"
+            >
+              {showAllStudents
+                ? t('teacherVocabularyChecks.showClassOnlyLink')
+                : t('teacherVocabularyChecks.showAllStudentsLink')}
+            </button>
+          </p>
+        )}
         {!students && (
           <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.loadingStudents')}</p>
+        )}
+        {students && students.length > 0 && visibleStudents?.length === 0 && (
+          <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.noStudentsInClass')}</p>
         )}
         {students?.length === 0 && (
           <p className="mt-2 text-sm text-base-black/60">{t('teacherVocabularyChecks.noStudents')}</p>
         )}
-        {students && students.length > 0 && (
+        {visibleStudents && visibleStudents.length > 0 && (
           <label className="mt-2 flex items-center gap-2 text-sm font-medium text-base-black">
             <input
               type="checkbox"
@@ -167,7 +232,7 @@ function TeacherVocabularyChecksPage() {
           </label>
         )}
         <ul className="mt-3 flex flex-col gap-2">
-          {students?.map((student) => (
+          {visibleStudents?.map((student) => (
             <li key={student.id}>
               <label className="flex items-center gap-2 text-sm text-base-black">
                 <input

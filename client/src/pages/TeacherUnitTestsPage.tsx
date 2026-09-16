@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { TeacherUnitTestsResponseDTO } from '@platform/shared';
+import type { ClassDTO, TeacherUnitTestsResponseDTO, UnitTestGroupDTO, TestSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 
@@ -11,11 +11,23 @@ import { ApiError } from '../lib/apiClient';
  * `published`) happens in the regular test editor (`TeacherTestEditorPage.tsx`) — this
  * page is purely the grouped read-side view, plus a link into each unit's leaderboard
  * (T-037).
+ *
+ * T-097: reached with `?classId=` (from `TeacherClassWorkspacePage`'s hub), the list is
+ * filtered client-side to only tests already assigned to that class (`TestSummaryDTO`'s
+ * new optional `classIds`, populated by `GET /api/teacher/unit-tests` — T-075's existing
+ * `Test.classes` assignment data, no new authorization logic). Reached without `?classId=`
+ * (e.g. a directly-typed URL), every Unit Test the teacher owns is shown, unchanged. A
+ * small "Đang thao tác: Lớp X" line + "Đổi lớp" link (same wording/pattern as every other
+ * page this task locks) gives the same personalized-to-this-class feedback here too, even
+ * though this page never had a dropdown of its own to hide.
  */
 function TeacherUnitTestsPage() {
   const { t } = useTranslation();
   const [data, setData] = useState<TeacherUnitTestsResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const scopeClassId = searchParams.get('classId') ?? '';
+  const [classes, setClasses] = useState<ClassDTO[] | null>(null);
 
   useEffect(() => {
     teacherApi
@@ -23,6 +35,22 @@ function TeacherUnitTestsPage() {
       .then(setData)
       .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherUnitTests.loadFailed')));
   }, [t]);
+
+  useEffect(() => {
+    if (!scopeClassId) return;
+    teacherApi
+      .listClasses()
+      .then(setClasses)
+      .catch(() => setClasses([]));
+  }, [scopeClassId]);
+
+  const scopedClassName = classes?.find((c) => c.id === scopeClassId)?.name ?? null;
+
+  const groups: UnitTestGroupDTO<TestSummaryDTO>[] | undefined = scopeClassId
+    ? data?.groups
+        .map((group) => ({ ...group, tests: group.tests.filter((test) => test.classIds?.includes(scopeClassId)) }))
+        .filter((group) => group.tests.length > 0)
+    : data?.groups;
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,6 +67,14 @@ function TeacherUnitTestsPage() {
           </Link>{' '}
           {t('teacherUnitTests.description.toOpenOne')}
         </p>
+        {scopeClassId && (
+          <p className="mt-1 text-sm text-primary-600">
+            {scopedClassName ? t('classFilter.lockedLabel', { className: scopedClassName }) : t('common.loading')}{' '}
+            <Link to="/teacher/classes" className="font-medium underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        )}
       </div>
 
       {error && (
@@ -47,11 +83,15 @@ function TeacherUnitTestsPage() {
         </p>
       )}
       {!error && !data && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
-      {data?.groups.length === 0 && (
-        <p className="text-sm text-base-black/60">{t('teacherUnitTests.empty')}</p>
+      {data && groups?.length === 0 && (
+        <p className="text-sm text-base-black/60">
+          {scopeClassId && data.groups.length > 0
+            ? t('teacherUnitTests.emptyForClass')
+            : t('teacherUnitTests.empty')}
+        </p>
       )}
 
-      {data?.groups.map((group) => (
+      {groups?.map((group) => (
         <section key={group.unitId ?? 'untagged'} className="rounded-xl border border-primary-200 p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-base-black">

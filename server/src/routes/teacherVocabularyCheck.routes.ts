@@ -84,7 +84,11 @@ teacherVocabularyCheckRouter.get(
   asyncHandler(async (_req, res) => {
     const students = await prisma.user.findMany({
       where: { role: 'student' },
-      select: { id: true, name: true, email: true },
+      // T-097: `classId` lets `TeacherVocabularyChecksPage.tsx` default this roster to one
+      // class when reached via `?classId=` — the underlying "any teacher, any student"
+      // roster itself is UNCHANGED (still every student, T-076), this just exposes each
+      // one's own class so the page can filter client-side.
+      select: { id: true, name: true, email: true, classId: true },
       orderBy: { name: 'asc' },
     });
     const response: TeacherStudentSummaryDTO[] = students;

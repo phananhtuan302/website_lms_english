@@ -63,12 +63,20 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
   // straight into `useTeacherClasses` below as the starting class.
   const [searchParams] = useSearchParams();
   const initialClassId = searchParams.get('classId') ?? '';
+  // T-097: arriving WITH a `?classId=` LOCKS the page to that class — the picker below is
+  // hidden entirely rather than merely pre-filled, mirroring Google Classroom's own model
+  // (no in-page course switcher, go back to the courses list instead). This also closes
+  // T-096 as a side effect: with no dropdown rendered, `selectedClassId` can never be set
+  // to anything, so `effectiveClassId` below can never fall through to an ambiguous
+  // half-cleared state.
+  const isClassLocked = initialClassId !== '';
   // T-077: required class dimension — `useTeacherClasses` auto-selects the sole class
   // when the teacher only has one, otherwise starts empty until they pick via
   // `ClassFilterControl` below.
   const { classes, classId } = useTeacherClasses(true, initialClassId);
   const [selectedClassId, setSelectedClassId] = useState('');
   const effectiveClassId = selectedClassId || classId;
+  const lockedClassName = classes?.find((c) => c.id === classId)?.name ?? null;
 
   const [tests, setTests] = useState<TestSummaryDTO[]>([]);
   const [units, setUnits] = useState<UnitDTO[]>([]);
@@ -129,8 +137,19 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
-        <ClassFilterEmptyState classes={classes} />
+        {isClassLocked ? (
+          <p className="text-sm font-medium text-base-black">
+            {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
+            <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        ) : (
+          <>
+            <ClassFilterControl classes={classes} classId={selectedClassId} onChange={setSelectedClassId} />
+            <ClassFilterEmptyState classes={classes} />
+          </>
+        )}
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('teacherReports.groupByLabel')}
           <select

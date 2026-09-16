@@ -9,7 +9,8 @@
     "selectPlaceholder": "-- Select a class --",
     "noClasses": "You have no classes yet. Create a class first to view this data.",
     "viewingLabel": "Viewing class: {{className}}",
-    "switchClass": "Switch class"
+    "switchClass": "Switch class",
+    "lockedLabel": "Working in: Class {{className}}"
   },
   "roles": {
     "teacher": "Teacher",
@@ -121,13 +122,8 @@
     "manageTests": "Manage my tests",
     "manageCurriculum": "Manage curriculum (Units & Academic Periods)",
     "manageClasses": "Manage my classes",
-    "manageContent": "My Content (assign to classes)",
     "manageFlashcards": "Manage flashcard sets & vocabulary",
-    "viewReports": "View reports (Test, Unit Test, Vocabulary, Grammar, Speaking)",
-    "vocabLeaderboard": "Vocabulary leaderboard",
-    "manageGrammar": "Manage Grammar topics",
-    "unitTests": "Unit Tests",
-    "vocabularyCheck": "Vocabulary Check"
+    "manageGrammar": "Manage Grammar topics"
   },
   "studentDashboard": {
     "heading": "Student dashboard",
@@ -244,6 +240,7 @@
     },
     "loadFailed": "Failed to load Unit Tests.",
     "empty": "No Unit Tests yet — open a test and set its type to \"Unit Test\".",
+    "emptyForClass": "No Unit Tests are assigned to this class yet.",
     "untaggedGroup": "Untagged",
     "viewLeaderboard": "View leaderboard →",
     "published": "Published",
@@ -292,6 +289,11 @@
     "selectStudents": "Select target student(s)",
     "loadingStudents": "Loading students...",
     "noStudents": "No students yet.",
+    "noStudentsInClass": "This class has no students yet.",
+    "showingClassStudents": "Showing students in class: {{className}}",
+    "showingAllStudents": "Showing every student",
+    "showAllStudentsLink": "Show all students",
+    "showClassOnlyLink": "Show only this class",
     "selectAll": "Select all",
     "selectUnit": "Select a unit",
     "unitPlaceholder": "-- Select a unit --",

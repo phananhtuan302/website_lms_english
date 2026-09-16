@@ -50,7 +50,11 @@ function TeacherTestAttemptsReportPage() {
   const { testId } = useParams<{ testId: string }>();
   const { t } = useTranslation();
   const initialClassId = new URLSearchParams(window.location.search).get('classId') ?? '';
+  // T-097: locks the picker to the class when arriving via `?classId=` — see
+  // `TeacherReportsPage.tsx`'s identical pattern.
+  const isClassLocked = initialClassId !== '';
   const { classes, classId, setClassId } = useTeacherClasses(true, initialClassId);
+  const lockedClassName = classes?.find((c) => c.id === classId)?.name ?? null;
   const [data, setData] = useState<TestAttemptReportResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   // T-092: separate from `error` above (which is for the report load itself) so a failed
@@ -150,8 +154,19 @@ function TeacherTestAttemptsReportPage() {
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
-        <ClassFilterEmptyState classes={classes} />
+        {isClassLocked ? (
+          <p className="text-sm font-medium text-base-black">
+            {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
+            <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        ) : (
+          <>
+            <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
+            <ClassFilterEmptyState classes={classes} />
+          </>
+        )}
       </section>
 
       {/* T-092: manual publish/unpublish scores for THIS class. The badge reflects

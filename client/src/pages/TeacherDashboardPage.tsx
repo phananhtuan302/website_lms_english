@@ -14,6 +14,15 @@ import { useAuth } from '../context/useAuth';
  * "Lớp học của tôi" (everything scoped to operating within a specific class). The top
  * nav bar's own per-item links were removed in the same task — this page is now the one
  * place all of them live.
+ *
+ * T-097: the "Lớp học của tôi" section's 5 direct shortcuts (My Content/Reports/Vocab
+ * Leaderboard/Unit Tests/Vocabulary Check) DUPLICATED what T-095's
+ * `TeacherClassWorkspacePage` already offers per-class, and — being reached with no class
+ * context at all — were exactly what made those destination pages feel unscoped/
+ * unpersonalized (customer complaint, 2026-09-16). Removed here down to the single
+ * "Quản lý lớp của tôi" entry point; every one of those 5 pages is still fully reachable,
+ * just exclusively via a class's workspace hub now (`/teacher/classes/:classId`), which
+ * hands off `?classId=` so the destination arrives already locked to that class.
  */
 function TeacherDashboardPage() {
   const { user, logout } = useAuth();
@@ -75,36 +84,6 @@ function TeacherDashboardPage() {
             className="inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('teacherDashboard.manageClasses')}
-          </Link>
-          <Link
-            to="/teacher/content"
-            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {t('teacherDashboard.manageContent')}
-          </Link>
-          <Link
-            to="/teacher/reports"
-            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {t('teacherDashboard.viewReports')}
-          </Link>
-          <Link
-            to="/vocab-leaderboard"
-            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {t('teacherDashboard.vocabLeaderboard')}
-          </Link>
-          <Link
-            to="/teacher/unit-tests"
-            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {t('teacherDashboard.unitTests')}
-          </Link>
-          <Link
-            to="/teacher/vocabulary-checks"
-            className="inline-block rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {t('teacherDashboard.vocabularyCheck')}
           </Link>
         </div>
       </section>
