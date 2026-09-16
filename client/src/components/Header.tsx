@@ -23,17 +23,13 @@ interface NavItem {
  * the site-wide language setting (never a per-user switcher, see PROJECT_PLAN Guiding
  * Principle 3) is respected here too.
  */
-const TEACHER_NAV_ITEMS: NavItem[] = [
-  { labelKey: 'header.nav.teacher.myTests', to: '/teacher/tests' },
-  { labelKey: 'header.nav.teacher.flashcards', to: '/teacher/flashcard-sets' },
-  { labelKey: 'header.nav.teacher.grammar', to: '/teacher/grammar-topics' },
-  { labelKey: 'header.nav.teacher.unitTests', to: '/teacher/unit-tests' },
-  { labelKey: 'header.nav.teacher.vocabularyCheck', to: '/teacher/vocabulary-checks' },
-  { labelKey: 'header.nav.teacher.curriculum', to: '/teacher/curriculum' },
-  { labelKey: 'header.nav.teacher.reports', to: '/teacher/reports' },
-  { labelKey: 'header.nav.teacher.classes', to: '/teacher/classes' },
-  { labelKey: 'header.nav.teacher.myContent', to: '/teacher/content' },
-];
+/** T-094: the top bar used to list all 9 of these individually, which the customer
+ * found cluttered and unclear about which class an action applied to. They now live as
+ * two labeled groups on `TeacherDashboardPage` instead ("Thư viện của tôi" /
+ * "Lớp học của tôi") — the top bar's own "Trang tổng quan" (Dashboard) link below is the
+ * one entry point into that page, so this array is intentionally empty rather than
+ * deleted outright (keeps the `navItems` wiring below uniform across roles). */
+const TEACHER_NAV_ITEMS: NavItem[] = [];
 
 const STUDENT_NAV_ITEMS: NavItem[] = [
   { labelKey: 'header.nav.student.practiceTests', to: '/student/practice' },

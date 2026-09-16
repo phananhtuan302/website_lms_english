@@ -113,6 +113,10 @@
   "teacherDashboard": {
     "heading": "Trang tổng quan giáo viên",
     "welcome": "Chào mừng, {{name}}.",
+    "libraryHeading": "Thư viện của tôi",
+    "librarySubtitle": "Soạn nội dung dùng chung — chưa gắn với lớp nào cụ thể.",
+    "classWorkspaceHeading": "Lớp học của tôi",
+    "classWorkspaceSubtitle": "Thao tác trong phạm vi từng lớp: gán nội dung, xem báo cáo, điểm số.",
     "manageTests": "Quản lý bài kiểm tra của tôi",
     "manageCurriculum": "Quản lý chương trình học (Unit & Học kỳ)",
     "manageClasses": "Quản lý lớp của tôi",

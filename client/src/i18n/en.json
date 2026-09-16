@@ -113,6 +113,10 @@
   "teacherDashboard": {
     "heading": "Teacher dashboard",
     "welcome": "Welcome, {{name}}.",
+    "libraryHeading": "My Library",
+    "librarySubtitle": "Author shared content — not tied to any one class yet.",
+    "classWorkspaceHeading": "My Classes",
+    "classWorkspaceSubtitle": "Work within one class at a time: assign content, view reports and scores.",
     "manageTests": "Manage my tests",
     "manageCurriculum": "Manage curriculum (Units & Academic Periods)",
     "manageClasses": "Manage my classes",
