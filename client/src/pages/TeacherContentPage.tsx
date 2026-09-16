@@ -10,6 +10,7 @@ import type {
 } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import TestClassSchedulePanel from '../components/TestClassSchedulePanel';
 
 /**
  * Consolidated "My Content" management page (T-075, Phase 12) — the customer's explicit
@@ -32,6 +33,14 @@ function TeacherContentPage() {
   // Keyed by `${type}:${id}` — which single item's chip row is currently mid-request, so
   // only THAT row's chips are disabled while saving, not the whole page.
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  // T-098: which (test, class) pair's inline schedule settings panel is currently open —
+  // Tests section only (see `renderSection`'s `enableSchedule` param below), at most one
+  // open at a time. `null` = none open.
+  const [scheduleTarget, setScheduleTarget] = useState<{
+    testId: string;
+    classId: string;
+    className: string;
+  } | null>(null);
 
   function load() {
     teacherApi
@@ -66,9 +75,16 @@ function TeacherContentPage() {
     if (!data || pendingKey) return;
 
     const previousClassIds = item.classIds;
-    const nextClassIds = previousClassIds.includes(classId)
+    const wasAssigned = previousClassIds.includes(classId);
+    const nextClassIds = wasAssigned
       ? previousClassIds.filter((id) => id !== classId)
       : [...previousClassIds, classId];
+
+    // T-098: an unassigned chip has nothing to schedule, so unassigning the exact
+    // (test, class) pair the settings panel is currently open for closes it too.
+    if (wasAssigned && scheduleTarget && scheduleTarget.testId === item.id && scheduleTarget.classId === classId) {
+      setScheduleTarget(null);
+    }
 
     // Optimistic update first, so the chip reflects the click immediately.
     setData((prev) => (prev ? applyClassIds(prev, item.type, item.id, nextClassIds) : prev));
@@ -93,7 +109,18 @@ function TeacherContentPage() {
     }
   }
 
-  function renderSection(heading: string, emptyText: string, items: TeacherContentItemDTO[], classes: ClassDTO[]) {
+  // T-098: `enableSchedule` gates the ENTIRE new settings affordance (button + inline
+  // panel) — passed `true` only for the Tests section below. FlashcardSets/GrammarTopics
+  // call this with it omitted (defaults `false`), so they render byte-for-byte the same
+  // as before: `TestClassSchedule` is a Test-only concept (BACKLOG.md T-098 scope note),
+  // neither of those content types has a schedule/publish concept at all.
+  function renderSection(
+    heading: string,
+    emptyText: string,
+    items: TeacherContentItemDTO[],
+    classes: ClassDTO[],
+    enableSchedule = false,
+  ) {
     return (
       <section className="rounded-xl border border-primary-200 p-4">
         <h2 className="text-lg font-semibold text-primary-700">{heading}</h2>
@@ -107,34 +134,67 @@ function TeacherContentPage() {
               return (
                 <li
                   key={key}
-                  className="flex flex-col gap-2 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3"
                 >
-                  <span className="font-medium text-base-black">{item.title}</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {classes.map((cls) => {
-                      const isAssigned = item.classIds.includes(cls.id);
-                      return (
-                        <button
-                          key={cls.id}
-                          type="button"
-                          disabled={isSaving}
-                          aria-pressed={isAssigned}
-                          onClick={() => toggleClass(item, cls.id)}
-                          className={
-                            'rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ' +
-                            (isAssigned
-                              ? 'border-primary-500 bg-primary-500 text-base-white hover:bg-primary-600'
-                              : 'border-primary-300 bg-base-white text-primary-700 hover:bg-primary-100')
-                          }
-                        >
-                          {cls.name}
-                        </button>
-                      );
-                    })}
-                    {isSaving && (
-                      <span className="text-xs text-base-black/50">{t('teacherContent.saving')}</span>
-                    )}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-medium text-base-black">{item.title}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {classes.map((cls) => {
+                        const isAssigned = item.classIds.includes(cls.id);
+                        return (
+                          // The toggle chip and the settings button below are separate
+                          // sibling <button>s (not nested), so a click on one can never
+                          // bubble into the other's handler — see T-098's acceptance
+                          // criteria on keeping them as clearly separate interactive
+                          // targets.
+                          <span key={cls.id} className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={isSaving}
+                              aria-pressed={isAssigned}
+                              onClick={() => toggleClass(item, cls.id)}
+                              className={
+                                'rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ' +
+                                (isAssigned
+                                  ? 'border-primary-500 bg-primary-500 text-base-white hover:bg-primary-600'
+                                  : 'border-primary-300 bg-base-white text-primary-700 hover:bg-primary-100')
+                              }
+                            >
+                              {cls.name}
+                            </button>
+                            {enableSchedule && isAssigned && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setScheduleTarget((prev) =>
+                                    prev && prev.testId === item.id && prev.classId === cls.id
+                                      ? null
+                                      : { testId: item.id, classId: cls.id, className: cls.name },
+                                  );
+                                }}
+                                aria-label={t('teacherContent.scheduleButtonAriaLabel', { className: cls.name })}
+                                className="rounded-full border border-primary-300 bg-base-white px-2 py-1 text-[11px] font-medium text-primary-600 transition-colors hover:bg-primary-100"
+                              >
+                                {t('teacherContent.scheduleButton')}
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                      {isSaving && (
+                        <span className="text-xs text-base-black/50">{t('teacherContent.saving')}</span>
+                      )}
+                    </div>
                   </div>
+                  {enableSchedule && scheduleTarget && scheduleTarget.testId === item.id && (
+                    <TestClassSchedulePanel
+                      testId={scheduleTarget.testId}
+                      classId={scheduleTarget.classId}
+                      className={scheduleTarget.className}
+                      onClose={() => setScheduleTarget(null)}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -175,6 +235,7 @@ function TeacherContentPage() {
             t('teacherContent.testsEmpty'),
             data.tests,
             data.classes,
+            true,
           )}
           {renderSection(
             t('teacherContent.flashcardSetsHeading'),

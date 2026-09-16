@@ -540,6 +540,37 @@ teacherTestsRouter.get(
 );
 
 /**
+ * GET /api/teacher/tests/:testId/schedule (T-098) — lightweight read of the current
+ * `TestClassSchedule` for exactly one (testId, classId) pair, without the (potentially
+ * large) attempts list `GET /api/teacher/tests/:testId/attempts` above bundles it into.
+ * Added for "My Content"'s (`TeacherContentPage.tsx`) new per-class-chip settings panel:
+ * reusing the attempts report endpoint just to read a schedule would mean fetching and
+ * discarding every submitted attempt for that (test, class) on every panel open, which is
+ * wasteful for a compact settings popover — every piece this needs already exists
+ * (`requireOwnedTest`, `resolveTeacherClassId`, `findTestClassSchedule`,
+ * `toTestClassScheduleDTO`), so this route is just those wired together, same
+ * ownership/class-scope rule as every other route in this file. Writes still go through
+ * the existing `PUT` below — this is read-only.
+ */
+teacherTestsRouter.get(
+  '/tests/:testId/schedule',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const scope = await resolveTeacherClassId(req.user!, req.query.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
+    const schedule = await findTestClassSchedule(test.id, scope.classId);
+    const response: TestClassScheduleDTO = toTestClassScheduleDTO(test.id, scope.classId, schedule);
+    res.status(200).json(response);
+  }),
+);
+
+/**
  * PUT /api/teacher/tests/:testId/schedule (T-092, extended T-093) — upserts the
  * per-(test, class) availability window + score-release schedule that
  * `attempts.routes.ts`/`practice.routes.ts`/`sessions.routes.ts` read before showing a

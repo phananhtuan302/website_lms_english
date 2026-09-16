@@ -154,7 +154,10 @@ export const teacherApi = {
     return apiRequest<TestAttemptReportResponseDTO>(`${base}/${testId}/attempts${query}`);
   },
 
-  // --- Per-(test, class) availability window + score release (T-092, extended T-093) --
+  // --- Per-(test, class) availability window + score release (T-092, extended T-093, --
+  // --- lightweight read added T-098 for My Content's inline settings panel) ------------
+  getTestClassSchedule: (testId: string, classId: string) =>
+    apiRequest<TestClassScheduleDTO>(`${base}/${testId}/schedule?classId=${encodeURIComponent(classId)}`),
   updateTestClassSchedule: (testId: string, body: UpdateTestClassScheduleRequest) =>
     apiRequest<TestClassScheduleDTO>(`${base}/${testId}/schedule`, {
       method: 'PUT',
