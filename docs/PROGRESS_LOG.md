@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-16 — Dev — Per-class test availability window + auto-publish scores on close
+
+- Task IDs touched: T-093
+- What changed: T-092's `TestScoreRelease` (built minutes earlier) was extended in place into `TestClassSchedule` — same per-(test,class) key, now also carrying optional `openAt`/`closeAt` and an `autoPublishScoresOnClose` flag alongside the existing manual publish boolean. A teacher can now set a per-class open/close window for a test on the same report page T-092 added its publish button to. `POST /:testId/practice` (self-practice start) and `POST /join/:token` (QR/manual-code join) both reject a student outside that window — even a technically-`active` session's join is blocked once `closeAt` passes, since the check is against the CLASS's schedule, not the session's own status. "Is this score published" now lazily evaluates, at request time, `scoresPublishedManually === true OR (autoPublishScoresOnClose AND closeAt has passed)` — no cron job or scheduler needed.
+- Why / decisions made: **deliberately does NOT cut off an attempt already in progress before `closeAt`** — the schedule check only runs at attempt-creation (self-practice start / join), never on subsequent answer-writes, so a student who started legitimately before the deadline can still finish and submit normally. This was a judgment call, documented plainly for the customer (both in `docs/BACKLOG.md`'s task entry and directly in chat) rather than silently assumed, since forcibly cutting off a mid-attempt student (losing an in-progress essay, etc.) is a materially bigger and riskier feature than what "kể cả còn link" (even with a valid link) most naturally describes — the customer can ask for the stronger behavior if that's really what was meant. Verification was again kept deliberately light (a handful of live checks, no exhaustive suite), continuing the pace the customer asked for after T-091.
+- Status after this entry: T-093 Done, commit `54fb9f3`. Nothing further queued as of this entry.
+
 ## 2026-09-16 — Dev — Teacher-controlled score publishing per class
 
 - Task IDs touched: T-092
