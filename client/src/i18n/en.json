@@ -141,6 +141,7 @@
     "noAttempts": "You haven't joined any tests yet.",
     "scoreLine": "Score: {{percent}}% ({{correct}}/{{total}})",
     "inProgress": "In progress",
+    "awaitingPublish": "Submitted — awaiting the teacher to publish scores",
     "viewResult": "View result →",
     "resumeTest": "Resume test →"
   },
@@ -320,6 +321,7 @@
   "attemptResult": {
     "loadFailed": "Failed to load this result.",
     "loadingResult": "Loading result...",
+    "awaitingPublish": "Submitted — awaiting the teacher to publish scores",
     "correctOutOf": "{{correct}} out of {{total}} correct",
     "submittedAt": "Submitted {{date}}",
     "timeTakenSuffix": " · Time taken: {{time}}",
@@ -1095,7 +1097,12 @@
     "scoreHeader": "Score",
     "percentHeader": "Percent",
     "submittedAtHeader": "Submitted",
-    "noAttempts": "No submitted attempts yet for this class."
+    "noAttempts": "No submitted attempts yet for this class.",
+    "scoresPublished": "Scores published",
+    "scoresNotPublished": "Scores not published",
+    "publishButton": "Publish scores for this class",
+    "unpublishButton": "Unpublish scores for this class",
+    "publishFailed": "Failed to update the publish state."
   },
   "questionEditor": {
     "saveFailed": "Failed to save question.",

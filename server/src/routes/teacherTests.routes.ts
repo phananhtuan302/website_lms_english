@@ -21,6 +21,7 @@ import type {
   QuestionType,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
+  ScoreReleaseDTO,
   SectionDTO,
   TestAttemptReportEntryDTO,
   TestAttemptReportResponseDTO,
@@ -30,6 +31,7 @@ import type {
   TestVariantDTO,
   UpdateContentClassesRequest,
   UpdateQuestionRequest,
+  UpdateScoreReleaseRequest,
   UpdateSectionRequest,
   UpdateTestRequest,
 } from '@platform/shared';
@@ -496,15 +498,22 @@ teacherTestsRouter.get(
       return;
     }
 
-    const attempts = await prisma.attempt.findMany({
-      where: {
-        testId: test.id,
-        status: 'submitted',
-        student: { classId: scope.classId },
-      },
-      include: { student: { select: { id: true, name: true } } },
-      orderBy: [{ scorePercent: 'desc' }, { submittedAt: 'asc' }],
-    });
+    const [attempts, release] = await Promise.all([
+      prisma.attempt.findMany({
+        where: {
+          testId: test.id,
+          status: 'submitted',
+          student: { classId: scope.classId },
+        },
+        include: { student: { select: { id: true, name: true } } },
+        orderBy: [{ scorePercent: 'desc' }, { submittedAt: 'asc' }],
+      }),
+      // T-092: does a `TestScoreRelease` row exist for (this test, this class)? Presence
+      // = students in this class can currently see their own score for this test.
+      prisma.testScoreRelease.findUnique({
+        where: { testId_classId: { testId: test.id, classId: scope.classId } },
+      }),
+    ]);
 
     const entries: TestAttemptReportEntryDTO[] = attempts.map((a) => ({
       attemptId: a.id,
@@ -525,6 +534,61 @@ teacherTestsRouter.get(
       classId: scope.classId,
       className: scope.className,
       entries,
+      scoresPublished: release !== null,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+/**
+ * PUT /api/teacher/tests/:testId/score-release (T-092) — toggles the per-(test, class)
+ * score-release gate that `attempts.routes.ts`'s two student-facing routes check before
+ * showing a student their own score. Reached from `TeacherTestAttemptsReportPage.tsx`'s
+ * publish/unpublish control — that page is already scoped to exactly one (testId,
+ * classId) at a time via `resolveTeacherClassId`/`ClassFilterControl`, so this endpoint
+ * resolves `classId` from the request body the exact same way the report endpoint above
+ * resolves it from the query param (same ownership rule: the class must belong to the
+ * calling teacher, or be any class at all for `admin`).
+ *
+ * `published: true` upserts the `TestScoreRelease` row; `published: false` deletes it —
+ * both idempotent (toggling twice in a row, or a retried request, never errors).
+ */
+teacherTestsRouter.put(
+  '/tests/:testId/score-release',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const body = req.body as Partial<UpdateScoreReleaseRequest>;
+    if (typeof body.published !== 'boolean') {
+      res.status(400).json({ error: 'published must be a boolean.' });
+      return;
+    }
+
+    const scope = await resolveTeacherClassId(req.user!, body.classId);
+    if (isClassScopeFailure(scope)) {
+      res.status(scope.status).json({ error: scope.error });
+      return;
+    }
+
+    if (body.published) {
+      await prisma.testScoreRelease.upsert({
+        where: { testId_classId: { testId: test.id, classId: scope.classId } },
+        create: { testId: test.id, classId: scope.classId },
+        update: {},
+      });
+    } else {
+      // `deleteMany` (not `delete`) so an already-unpublished class is a no-op, not a
+      // "record not found" error — matches this route's documented idempotence.
+      await prisma.testScoreRelease.deleteMany({
+        where: { testId: test.id, classId: scope.classId },
+      });
+    }
+
+    const response: ScoreReleaseDTO = {
+      testId: test.id,
+      classId: scope.classId,
+      scoresPublished: body.published,
     };
     res.status(200).json(response);
   }),

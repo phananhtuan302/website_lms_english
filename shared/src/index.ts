@@ -511,7 +511,14 @@ export interface AttemptResultQuestionDTO {
 }
 
 /** Response for `GET /api/attempts/:attemptId/result` (student, own attempt only) and
- * `GET /api/teacher/attempts/:attemptId` (teacher, own test only). */
+ * `GET /api/teacher/attempts/:attemptId` (teacher, own test only).
+ *
+ * `scoresPublished` (T-092): teacher-facing responses (`teacherSessions.routes.ts`)
+ * always hardcode `true` — a teacher/admin sees full detail regardless of the
+ * per-(test,class) release gate. The STUDENT-facing route (`attempts.routes.ts`'s
+ * `GET /:attemptId/result`) is the only one that can return `false` for a submitted
+ * attempt, and it does so via `AttemptResultPendingDTO` below instead of this full DTO —
+ * see that route's doc comment. */
 export interface AttemptResultDTO {
   attemptId: string;
   testId: string;
@@ -535,7 +542,28 @@ export interface AttemptResultDTO {
   tabSwitchCount: number;
   tabSwitchLog: string[];
   questions: AttemptResultQuestionDTO[];
+  scoresPublished: true;
 }
+
+/** T-092: the minimal shape `GET /api/attempts/:attemptId/result` returns INSTEAD of the
+ * full `AttemptResultDTO` above when the attempt's test isn't yet score-released for the
+ * calling student's own class — deliberately a separate, narrower type (rather than a
+ * partially-nulled `AttemptResultDTO`) so it's structurally impossible to leak
+ * `scorePercent`/`correctCount`/`totalCount`/any per-question correctness or
+ * correct-answer text through this path. `scoresPublished: false` (a literal, not just
+ * `boolean`) lets client code discriminate the union below with a single check. */
+export interface AttemptResultPendingDTO {
+  attemptId: string;
+  testId: string;
+  testTitle: string;
+  status: AttemptStatus;
+  submittedAt: string | null;
+  scoresPublished: false;
+}
+
+/** Response type for `GET /api/attempts/:attemptId/result` — a discriminated union on
+ * `scoresPublished` (see `AttemptResultPendingDTO`'s doc comment). */
+export type AttemptResultResponseDTO = AttemptResultDTO | AttemptResultPendingDTO;
 
 // --- Manual essay grading (T-042) ---------------------------------------------------
 
@@ -613,7 +641,14 @@ export interface LiveAudioPlayEventDTO {
 }
 
 /** Row shape for a student's own "my attempts" list (student dashboard) and for a
- * teacher's per-session attempt list (T-014). */
+ * teacher's per-session attempt list (T-014).
+ *
+ * `scoresPublished` (T-092): teacher-facing handlers (`teacherSessions.routes.ts`'s
+ * `GET /sessions/:sessionId/attempts`) always hardcode `true` — this DTO's meaning is
+ * NOT changed for that route. Only the STUDENT-facing handler (`attempts.routes.ts`'s
+ * `GET /api/attempts`, `listMyAttempts`) ever sets this `false`, and when it does it also
+ * nulls out `correctCount`/`totalCount`/`scorePercent` for that row — see that route's
+ * doc comment. */
 export interface AttemptSummaryDTO {
   attemptId: string;
   sessionId: string;
@@ -634,6 +669,7 @@ export interface AttemptSummaryDTO {
   /** Global tab-switch / exit detection (T-044) — running count only (the full timestamp
    * log is on `AttemptResultDTO`, not repeated in this list-row shape). */
   tabSwitchCount: number;
+  scoresPublished: boolean;
 }
 
 // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
@@ -1613,13 +1649,39 @@ export interface TestAttemptReportEntryDTO {
 
 /** Response for `GET /api/teacher/tests/:testId/attempts` (T-087). `entries` is sorted
  * by `scorePercent` descending, ties broken by `submittedAt` ascending — "ranked
- * most-correct to least-correct" per the customer request. */
+ * most-correct to least-correct" per the customer request.
+ *
+ * `scoresPublished` (T-092): whether a `TestScoreRelease` row exists for (this `testId`,
+ * this `classId`) — i.e. whether students IN THIS CLASS can currently see their own
+ * score for this test. Toggled via `PUT /api/teacher/tests/:testId/score-release`. */
 export interface TestAttemptReportResponseDTO {
   testId: string;
   testTitle: string;
   classId: string;
   className: string;
   entries: TestAttemptReportEntryDTO[];
+  scoresPublished: boolean;
+}
+
+// --- Per-(test, class) score release (T-092) -----------------------------------------
+// Presence of a `TestScoreRelease` row = published; absence = not yet published. See
+// that Prisma model's doc comment in schema.prisma for the full design, and
+// `attempts.routes.ts`'s module doc comment for the student-facing gating it drives.
+
+/** Body for `PUT /api/teacher/tests/:testId/score-release`. `classId` must be one of the
+ * calling teacher's own classes (or, for `admin`, any class — same rule as
+ * `resolveTeacherClassId`, which this endpoint reuses). `published: true` upserts the
+ * `TestScoreRelease` row; `published: false` deletes it — both idempotent. */
+export interface UpdateScoreReleaseRequest {
+  classId: string;
+  published: boolean;
+}
+
+/** Response for the endpoint above. */
+export interface ScoreReleaseDTO {
+  testId: string;
+  classId: string;
+  scoresPublished: boolean;
 }
 
 // --- Vocabulary Check test type (T-038, redesigned by T-086 to a Unit-based random pool) --

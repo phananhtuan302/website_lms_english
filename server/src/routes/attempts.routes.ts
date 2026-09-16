@@ -30,6 +30,7 @@ import { Router } from 'express';
 import type {
   AttemptDetailDTO,
   AttemptResultDTO,
+  AttemptResultPendingDTO,
   AttemptSummaryDTO,
   RecordTabSwitchResponse,
   SaveAnswerRequest,
@@ -45,6 +46,25 @@ import type { VariantLayout } from '../lib/variantShuffle';
 import { buildResultQuestions, buildRuntimeSections, flattenQuestionsInAuthoredOrder } from '../lib/attemptView';
 import { gradeAnswer } from '../lib/grading';
 import { getAIGradingProvider } from '../grading';
+import { getStudentClassId } from '../lib/classScoping';
+
+/**
+ * T-092: after a student submits an attempt, they should NOT see their own score until
+ * the teacher explicitly "publishes" it FOR THEIR CLASS (`TestScoreRelease`,
+ * `schema.prisma` — per (testId, classId), since a test assigned to multiple classes may
+ * be released for one before another). This applies ONLY to the two routes below that
+ * reveal a score to the STUDENT who owns the attempt (`GET /:attemptId/result` and
+ * `GET /`, `listMyAttempts`) — every teacher-facing view of the exact same underlying
+ * data (`teacherSessions.routes.ts`) is completely untouched, always full detail.
+ */
+async function isScoreReleasedForStudent(testId: string, studentId: string): Promise<boolean> {
+  const classId = await getStudentClassId(studentId);
+  if (!classId) return false;
+  const release = await prisma.testScoreRelease.findUnique({
+    where: { testId_classId: { testId, classId } },
+  });
+  return release !== null;
+}
 
 export const attemptsRouter = Router();
 
@@ -63,33 +83,57 @@ async function loadOwnAttempt(attemptId: string, studentId: string) {
  * newest first. Not required by any single backlog task's acceptance criteria in so many
  * words, but it's what the student dashboard needs to link back into a past result
  * without the student having to remember a URL, and it's a near-zero-cost addition
- * given `AttemptSummaryDTO` already exists for the teacher's per-session list (T-014). */
+ * given `AttemptSummaryDTO` already exists for the teacher's per-session list (T-014).
+ *
+ * T-092: for each `submitted` row, `scoresPublished` reflects whether a
+ * `TestScoreRelease` row exists for (that attempt's testId, the calling student's own
+ * classId) — if not, `correctCount`/`totalCount`/`scorePercent` are nulled out here so
+ * the dashboard can't show a score the teacher hasn't published yet. Batched as ONE
+ * extra query (the student's classId, looked up once, then every released `testId` for
+ * it in a single `findMany`) rather than N+1 per attempt row. An `inProgress` attempt has
+ * no score to withhold in the first place, so it's always `scoresPublished: true`. */
 attemptsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const attempts = await prisma.attempt.findMany({
-      where: { studentId: req.user!.sub },
-      include: { test: { select: { id: true, title: true } }, student: true },
-      orderBy: { startedAt: 'desc' },
-    });
+    const [attempts, studentClassId] = await Promise.all([
+      prisma.attempt.findMany({
+        where: { studentId: req.user!.sub },
+        include: { test: { select: { id: true, title: true } }, student: true },
+        orderBy: { startedAt: 'desc' },
+      }),
+      getStudentClassId(req.user!.sub),
+    ]);
 
-    const summaries: AttemptSummaryDTO[] = attempts.map((a) => ({
-      attemptId: a.id,
-      sessionId: a.sessionId,
-      testId: a.testId,
-      testTitle: a.test.title,
-      studentId: a.studentId,
-      studentName: a.student.name,
-      studentEmail: a.student.email,
-      status: a.status,
-      correctCount: a.correctCount,
-      totalCount: a.totalCount,
-      scorePercent: a.scorePercent,
-      startedAt: a.startedAt.toISOString(),
-      submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
-      timeTakenSeconds: a.timeTakenSeconds,
-      tabSwitchCount: a.tabSwitchCount,
-    }));
+    const submittedTestIds = [...new Set(attempts.filter((a) => a.status === 'submitted').map((a) => a.testId))];
+    const releases = studentClassId
+      ? await prisma.testScoreRelease.findMany({
+          where: { classId: studentClassId, testId: { in: submittedTestIds } },
+          select: { testId: true },
+        })
+      : [];
+    const releasedTestIds = new Set(releases.map((r) => r.testId));
+
+    const summaries: AttemptSummaryDTO[] = attempts.map((a) => {
+      const scoresPublished = a.status !== 'submitted' || releasedTestIds.has(a.testId);
+      return {
+        attemptId: a.id,
+        sessionId: a.sessionId,
+        testId: a.testId,
+        testTitle: a.test.title,
+        studentId: a.studentId,
+        studentName: a.student.name,
+        studentEmail: a.student.email,
+        status: a.status,
+        correctCount: scoresPublished ? a.correctCount : null,
+        totalCount: scoresPublished ? a.totalCount : null,
+        scorePercent: scoresPublished ? a.scorePercent : null,
+        startedAt: a.startedAt.toISOString(),
+        submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
+        timeTakenSeconds: a.timeTakenSeconds,
+        tabSwitchCount: a.tabSwitchCount,
+        scoresPublished,
+      };
+    });
     res.status(200).json(summaries);
   }),
 );
@@ -312,7 +356,13 @@ attemptsRouter.post(
 /** `GET /api/attempts/:attemptId/result` — the student's own post-submission result
  * (T-014): total score plus a per-question correct/incorrect breakdown against the
  * answer key. 400 (not 404) if the attempt exists but hasn't been submitted yet — the
- * take-test runtime endpoint above is what serves an in-progress attempt. */
+ * take-test runtime endpoint above is what serves an in-progress attempt.
+ *
+ * T-092: before returning the full `AttemptResultDTO`, checks whether this attempt's
+ * test is score-released for the calling student's own class. If NOT, returns the
+ * narrower `AttemptResultPendingDTO` instead — checked (and returned) BEFORE fetching
+ * the nested test/answers at all, so it's structurally impossible for this path to leak
+ * `scorePercent`/`correctCount`/`totalCount`/per-question correctness. */
 attemptsRouter.get(
   '/:attemptId/result',
   asyncHandler(async (req, res) => {
@@ -323,6 +373,24 @@ attemptsRouter.get(
     }
     if (attempt.status !== 'submitted') {
       res.status(400).json({ error: 'This attempt has not been submitted yet.' });
+      return;
+    }
+
+    const scoresPublished = await isScoreReleasedForStudent(attempt.testId, req.user!.sub);
+    if (!scoresPublished) {
+      const test = await prisma.test.findUniqueOrThrow({
+        where: { id: attempt.testId },
+        select: { id: true, title: true },
+      });
+      const pending: AttemptResultPendingDTO = {
+        attemptId: attempt.id,
+        testId: test.id,
+        testTitle: test.title,
+        status: attempt.status,
+        submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null,
+        scoresPublished: false,
+      };
+      res.status(200).json(pending);
       return;
     }
 
@@ -364,6 +432,7 @@ attemptsRouter.get(
       tabSwitchCount: attempt.tabSwitchCount,
       tabSwitchLog: attempt.tabSwitchLog,
       questions: buildResultQuestions(test, answerMap),
+      scoresPublished: true,
     };
     res.status(200).json(response);
   }),

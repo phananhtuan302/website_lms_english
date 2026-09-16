@@ -7,7 +7,7 @@
 
 import type {
   AttemptDetailDTO,
-  AttemptResultDTO,
+  AttemptResultResponseDTO,
   AttemptSummaryDTO,
   JoinSessionResponse,
   JoinTokenCheckResponse,
@@ -42,7 +42,12 @@ export const studentApi = {
     }),
   submitAttempt: (attemptId: string) =>
     apiRequest<SubmitAttemptResponse>(`/api/attempts/${attemptId}/submit`, { method: 'POST' }),
-  getResult: (attemptId: string) => apiRequest<AttemptResultDTO>(`/api/attempts/${attemptId}/result`),
+  // T-092: `AttemptResultResponseDTO` is a discriminated union on `scoresPublished` — the
+  // full `AttemptResultDTO` when released, or the narrower `AttemptResultPendingDTO`
+  // (score/breakdown withheld) when the teacher hasn't published scores for this
+  // student's class yet.
+  getResult: (attemptId: string) =>
+    apiRequest<AttemptResultResponseDTO>(`/api/attempts/${attemptId}/result`),
 
   // --- Speaking answers (T-052–T-054) ------------------------------------------------
   // T-064: must be called the moment a timed Speaking question is first shown, before

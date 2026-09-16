@@ -83,6 +83,9 @@ adminAttemptsRouter.get(
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
       timeTakenSeconds: a.timeTakenSeconds,
       tabSwitchCount: a.tabSwitchCount,
+      // T-092: admin-facing (same "always full detail" rule as every teacher-facing
+      // view) — never gated by the per-(test,class) score-release toggle.
+      scoresPublished: true,
     }));
 
     const response: AdminAttemptListResponseDTO = { attempts: summaries, total, page, pageSize };

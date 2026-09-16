@@ -34,6 +34,10 @@ function TeacherTestAttemptsReportPage() {
   const { classes, classId, setClassId } = useTeacherClasses(true, initialClassId);
   const [data, setData] = useState<TestAttemptReportResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // T-092: separate from `error` above (which is for the report load itself) so a failed
+  // publish/unpublish toggle doesn't wipe the already-loaded report off the page.
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (!testId) return;
@@ -51,6 +55,24 @@ function TeacherTestAttemptsReportPage() {
         setError(err instanceof ApiError ? err.message : t('teacherTestReport.loadFailed'));
       });
   }, [testId, t, classId]);
+
+  /** T-092: toggles the per-(test, class) score-release gate for the class currently
+   * being viewed. Reflects the new state directly from the response (`setData`) rather
+   * than re-fetching the whole report — one round-trip either way. */
+  function handleTogglePublish() {
+    if (!testId || !data) return;
+    setPublishing(true);
+    setPublishError(null);
+    teacherApi
+      .updateScoreRelease(testId, { classId: data.classId, published: !data.scoresPublished })
+      .then((res) => {
+        setData((prev) => (prev ? { ...prev, scoresPublished: res.scoresPublished } : prev));
+      })
+      .catch((err) => {
+        setPublishError(err instanceof ApiError ? err.message : t('teacherTestReport.publishFailed'));
+      })
+      .finally(() => setPublishing(false));
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,6 +97,33 @@ function TeacherTestAttemptsReportPage() {
         <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
         <ClassFilterEmptyState classes={classes} />
       </section>
+
+      {/* T-092: publish/unpublish scores for THIS class. `data.scoresPublished` reflects
+          whether a `TestScoreRelease` row exists for (testId, this classId) right now. */}
+      {data && (
+        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-primary-200 p-4">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+              data.scoresPublished ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            {data.scoresPublished
+              ? t('teacherTestReport.scoresPublished')
+              : t('teacherTestReport.scoresNotPublished')}
+          </span>
+          <button
+            type="button"
+            onClick={handleTogglePublish}
+            disabled={publishing}
+            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:opacity-60"
+          >
+            {data.scoresPublished
+              ? t('teacherTestReport.unpublishButton')
+              : t('teacherTestReport.publishButton')}
+          </button>
+          {publishError && <p className="text-sm text-red-700">{publishError}</p>}
+        </section>
+      )}
 
       {error && <p className="text-sm text-red-700">{error}</p>}
       {!error && !data && classId && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}

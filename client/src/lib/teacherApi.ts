@@ -37,6 +37,7 @@ import type {
   ReorderSectionsRequest,
   ReportGroupBy,
   ReportResponseDTO,
+  ScoreReleaseDTO,
   SentenceSubmissionDTO,
   SpeakingReportGroupBy,
   SpeakingReportResponseDTO,
@@ -61,6 +62,7 @@ import type {
   UpdateGrammarExerciseRequest,
   UpdateGrammarTopicRequest,
   UpdateQuestionRequest,
+  UpdateScoreReleaseRequest,
   UpdateSectionRequest,
   UpdateTestRequest,
   UpdateUnitRequest,
@@ -151,6 +153,13 @@ export const teacherApi = {
     const query = classId ? `?classId=${encodeURIComponent(classId)}` : '';
     return apiRequest<TestAttemptReportResponseDTO>(`${base}/${testId}/attempts${query}`);
   },
+
+  // --- Per-(test, class) score release (T-092) ---------------------------------------
+  updateScoreRelease: (testId: string, body: UpdateScoreReleaseRequest) =>
+    apiRequest<ScoreReleaseDTO>(`${base}/${testId}/score-release`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 
   // --- Manual essay grading (T-042) --------------------------------------------------
   gradeEssayAnswer: (attemptId: string, questionId: string, body: GradeEssayAnswerRequest) =>

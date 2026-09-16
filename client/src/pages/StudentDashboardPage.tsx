@@ -121,13 +121,19 @@ function StudentDashboardPage() {
               <div>
                 <p className="font-medium text-base-black">{attempt.testTitle}</p>
                 <p className="text-xs text-base-black/50">
-                  {attempt.status === 'submitted'
-                    ? t('studentDashboard.scoreLine', {
-                        percent: attempt.scorePercent,
-                        correct: attempt.correctCount,
-                        total: attempt.totalCount,
-                      })
-                    : t('studentDashboard.inProgress')}
+                  {attempt.status !== 'submitted'
+                    ? t('studentDashboard.inProgress')
+                    : /* T-092: `scoresPublished: false` means the teacher hasn't
+                         published scores for this student's class yet — the server
+                         already nulled out correctCount/totalCount/scorePercent for
+                         this row, so show the waiting text instead of a score line. */
+                      !attempt.scoresPublished
+                      ? t('studentDashboard.awaitingPublish')
+                      : t('studentDashboard.scoreLine', {
+                          percent: attempt.scorePercent,
+                          correct: attempt.correctCount,
+                          total: attempt.totalCount,
+                        })}
                 </p>
               </div>
               <Link

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
+import { SPEAKING_SCORE_SCALE, type AttemptResultResponseDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 
@@ -11,11 +11,18 @@ import { ApiError } from '../lib/apiClient';
  * `GET /api/attempts/:attemptId/result` only ever returns the CALLING student's own
  * attempt (404 otherwise) — see `attempts.routes.ts` — so there's no separate
  * client-side ownership check needed here.
+ *
+ * T-092: the server returns a discriminated union (`AttemptResultResponseDTO`) —
+ * `scoresPublished: false` (the narrower `AttemptResultPendingDTO`, no score/breakdown
+ * fields at all) until the teacher publishes scores for this student's class, or the
+ * full `AttemptResultDTO` (`scoresPublished: true`) once released. The early return
+ * below on `!result.scoresPublished` narrows `result` to the full DTO for the rest of
+ * this component — TypeScript's discriminated-union narrowing, not a runtime cast.
  */
 function AttemptResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const { t } = useTranslation();
-  const [result, setResult] = useState<AttemptResultDTO | null>(null);
+  const [result, setResult] = useState<AttemptResultResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +49,32 @@ function AttemptResultPage() {
 
   if (!result) {
     return <p className="text-center text-base-black/60">{t('attemptResult.loadingResult')}</p>;
+  }
+
+  // T-092: awaiting publish — narrows `result` to the full `AttemptResultDTO` for
+  // everything below this point (see module doc comment).
+  if (!result.scoresPublished) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <h1 className="text-xl font-bold text-primary-700">{result.testTitle}</h1>
+          <p className="mt-3 text-lg font-semibold text-amber-800">
+            {t('attemptResult.awaitingPublish')}
+          </p>
+          <p className="mt-1 text-xs text-base-black/50">
+            {t('attemptResult.submittedAt', {
+              date: result.submittedAt ? new Date(result.submittedAt).toLocaleString() : '',
+            })}
+          </p>
+        </div>
+        <Link
+          to="/student/dashboard"
+          className="self-center text-sm font-medium text-primary-600 hover:underline"
+        >
+          {t('attemptResult.backToDashboard')}
+        </Link>
+      </div>
+    );
   }
 
   return (

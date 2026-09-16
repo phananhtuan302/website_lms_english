@@ -141,6 +141,7 @@
     "noAttempts": "Bạn chưa tham gia bài kiểm tra nào.",
     "scoreLine": "Điểm: {{percent}}% ({{correct}}/{{total}})",
     "inProgress": "Đang làm bài",
+    "awaitingPublish": "Đã nộp bài — chờ giáo viên công bố điểm",
     "viewResult": "Xem kết quả →",
     "resumeTest": "Tiếp tục làm bài →"
   },
@@ -311,6 +312,7 @@
   "attemptResult": {
     "loadFailed": "Không thể tải kết quả này.",
     "loadingResult": "Đang tải kết quả...",
+    "awaitingPublish": "Đã nộp bài — chờ giáo viên công bố điểm",
     "correctOutOf": "Đúng {{correct}}/{{total}} câu",
     "submittedAt": "Đã nộp lúc {{date}}",
     "timeTakenSuffix": " · Thời gian làm bài: {{time}}",
@@ -1086,7 +1088,12 @@
     "scoreHeader": "Điểm số",
     "percentHeader": "Phần trăm",
     "submittedAtHeader": "Thời gian nộp",
-    "noAttempts": "Chưa có lượt làm bài nào được nộp cho lớp này."
+    "noAttempts": "Chưa có lượt làm bài nào được nộp cho lớp này.",
+    "scoresPublished": "Đã công bố điểm",
+    "scoresNotPublished": "Chưa công bố điểm",
+    "publishButton": "Công bố điểm cho lớp này",
+    "unpublishButton": "Hủy công bố điểm cho lớp này",
+    "publishFailed": "Không thể cập nhật trạng thái công bố."
   },
   "questionEditor": {
     "saveFailed": "Không thể lưu câu hỏi.",

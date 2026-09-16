@@ -248,6 +248,10 @@ teacherSessionsRouter.get(
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
       timeTakenSeconds: a.timeTakenSeconds,
       tabSwitchCount: a.tabSwitchCount,
+      // T-092: this is a TEACHER-facing view — always full detail, regardless of the
+      // per-(test,class) score-release gate. Only the student-facing `listMyAttempts`
+      // (`attempts.routes.ts`) ever computes/nulls this out.
+      scoresPublished: true,
     }));
     res.status(200).json(summaries);
   }),
@@ -307,6 +311,9 @@ teacherSessionsRouter.get(
       tabSwitchCount: attempt.tabSwitchCount,
       tabSwitchLog: attempt.tabSwitchLog,
       questions: buildResultQuestions(test, answerMap),
+      // T-092: teacher-facing — always full detail, regardless of the per-(test,class)
+      // score-release gate (see this file's module doc comment / `attempts.routes.ts`).
+      scoresPublished: true,
     };
     res.status(200).json(response);
   }),
