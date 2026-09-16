@@ -27,7 +27,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedFlashcardSet } from '../lib/ownedFlashcardSet';
-import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
+import { loadOwnerClassesWithCurrentPeriod, validateClassIdsForOwner } from '../lib/contentClassAssignment';
 
 export const teacherFlashcardsRouter = Router();
 
@@ -448,11 +448,15 @@ teacherFlashcardsRouter.get(
     const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
     if (!set) return;
 
-    const withClasses = await prisma.flashcardSet.findUniqueOrThrow({
-      where: { id: set.id },
-      select: { classes: { select: { id: true } } },
-    });
-    const body: ContentClassAssignmentDTO = { classIds: withClasses.classes.map((c) => c.id) };
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(set.teacherId);
+    const assigned =
+      ownerClassPeriods.length === 0
+        ? []
+        : await prisma.flashcardSetClassPeriodAssignment.findMany({
+            where: { flashcardSetId: set.id, OR: ownerClassPeriods },
+            select: { classId: true },
+          });
+    const body: ContentClassAssignmentDTO = { classIds: assigned.map((a) => a.classId) };
     res.status(200).json(body);
   }),
 );
@@ -470,12 +474,35 @@ teacherFlashcardsRouter.put(
       return;
     }
 
-    await prisma.flashcardSet.update({
-      where: { id: set.id },
-      data: { classes: { set: result.classIds.map((id) => ({ id })) } },
-    });
+    // T-099: replace-not-merge, scoped to exactly this set's (class, CLASS'S CURRENT
+    // PERIOD) slice — see `teacherTests.routes.ts`'s identical `PUT .../classes` for the
+    // full reasoning.
+    const requested = new Set(result.classIds);
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(set.teacherId);
+    await prisma.$transaction(
+      ownerClassPeriods.map(({ classId, periodId }) =>
+        requested.has(classId)
+          ? prisma.flashcardSetClassPeriodAssignment.upsert({
+              where: {
+                flashcardSetId_classId_periodId: { flashcardSetId: set.id, classId, periodId },
+              },
+              create: { flashcardSetId: set.id, classId, periodId },
+              update: {},
+            })
+          : prisma.flashcardSetClassPeriodAssignment.deleteMany({
+              where: { flashcardSetId: set.id, classId, periodId },
+            }),
+      ),
+    );
 
-    const response: ContentClassAssignmentDTO = { classIds: result.classIds };
+    const assigned =
+      ownerClassPeriods.length === 0
+        ? []
+        : await prisma.flashcardSetClassPeriodAssignment.findMany({
+            where: { flashcardSetId: set.id, OR: ownerClassPeriods },
+            select: { classId: true },
+          });
+    const response: ContentClassAssignmentDTO = { classIds: assigned.map((a) => a.classId) };
     res.status(200).json(response);
   }),
 );

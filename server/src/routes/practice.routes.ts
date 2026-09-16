@@ -28,7 +28,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { findOrCreateAttempt } from '../lib/attemptAssignment';
-import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { checkAttemptWindow, findTestClassSchedule } from '../lib/testClassSchedule';
 
 export const practiceRouter = Router();
@@ -51,14 +51,17 @@ practiceRouter.use(requireAuth, requireRole('student'));
 practiceRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const classId = await getStudentClassId(req.user!.sub);
-    if (!classId) {
+    const scp = await getStudentClassAndPeriod(req.user!.sub);
+    if (!scp || scp.periodId == null) {
       res.status(200).json([] satisfies PracticeTestSummaryDTO[]);
       return;
     }
 
     const tests = await prisma.test.findMany({
-      where: { testType: { notIn: ['unitTest', 'vocabularyCheck'] }, classes: { some: { id: classId } } },
+      where: {
+        testType: { notIn: ['unitTest', 'vocabularyCheck'] },
+        classAssignments: { some: { classId: scp.classId, periodId: scp.periodId } },
+      },
       select: { id: true, title: true, testType: true },
       orderBy: { title: 'asc' },
     });
@@ -107,10 +110,7 @@ async function findOrCreatePracticeSession(testId: string) {
 practiceRouter.post(
   '/:testId/practice',
   asyncHandler(async (req, res) => {
-    const test = await prisma.test.findUnique({
-      where: { id: req.params.testId },
-      include: { classes: { select: { id: true } } },
-    });
+    const test = await prisma.test.findUnique({ where: { id: req.params.testId } });
     if (!test) {
       res.status(404).json({ error: 'Test not found.' });
       return;
@@ -128,16 +128,17 @@ practiceRouter.post(
     // explicitly granted a `TestAssignment` row may start it, per that model's doc
     // comment in schema.prisma (its question pool is drawn from THEIR OWN studied
     // vocabulary, so an unassigned student starting it would make no sense anyway).
-    // Deliberately NOT also checked against `test.classes` (T-076): a generated
-    // Vocabulary Check is never assigned to any class in the first place (see
+    // Deliberately NOT also checked against the test's class assignment (T-076/T-099): a
+    // generated Vocabulary Check is never assigned to any class in the first place (see
     // `teacherVocabularyCheck.routes.ts`) — class-scoping is superseded here by a strictly
     // NARROWER per-student grant, so adding a class check would only ever make this MORE
-    // restrictive for no reason (in practice `test.classes` is always empty for this type,
-    // which would reject everyone including already-assigned students).
-    // Looked up once and reused below by both the T-076 class-assignment check and the
-    // T-093 schedule-window check — `null` for a classless student or a `vocabularyCheck`
-    // (which isn't class-scoped at all, see the branch below).
-    const classId = await getStudentClassId(req.user!.sub);
+    // restrictive for no reason (in practice it has zero class-period assignments for this
+    // type, which would reject everyone including already-assigned students).
+    // Looked up once and reused below by both the T-076/T-099 class-assignment check and
+    // the T-093 schedule-window check — `null`/`periodId: null` for a classless student,
+    // a student whose class has no current semester yet, or a `vocabularyCheck` (which
+    // isn't class-scoped at all, see the branch below).
+    const scp = await getStudentClassAndPeriod(req.user!.sub);
 
     if (test.testType === 'vocabularyCheck') {
       const assignment = await prisma.testAssignment.findUnique({
@@ -148,11 +149,20 @@ practiceRouter.post(
         return;
       }
     } else {
-      // T-076: every other test type (generic/unitTest/listeningTest/mockTest) must be
-      // assigned to the calling student's own class — defense in depth alongside
-      // `GET /api/tests`/`GET /api/student/unit-tests` already filtering their lists by
-      // the same rule, in case a student POSTs a known/guessed test id directly.
-      if (!isAssignedToClass(test.classes.map((c) => c.id), classId)) {
+      // T-076/T-099: every other test type (generic/unitTest/listeningTest/mockTest)
+      // must be assigned to the calling student's own class FOR THAT CLASS'S CURRENT
+      // SEMESTER — defense in depth alongside `GET /api/tests`/`GET
+      // /api/student/unit-tests` already filtering their lists by the same rule, in case
+      // a student POSTs a known/guessed test id directly.
+      const assignment =
+        scp && scp.periodId != null
+          ? await prisma.testClassPeriodAssignment.findUnique({
+              where: {
+                testId_classId_periodId: { testId: test.id, classId: scp.classId, periodId: scp.periodId },
+              },
+            })
+          : null;
+      if (!assignment) {
         res.status(403).json({ error: 'This test is not assigned to your class.' });
         return;
       }
@@ -160,17 +170,17 @@ practiceRouter.post(
 
     const session = await findOrCreatePracticeSession(test.id);
 
-    // T-093: block STARTING a brand-new attempt if this class's `TestClassSchedule`
-    // window says so (`now < openAt` or `now > closeAt`). An already-existing attempt is
-    // exempt — resuming/continuing it is explicitly OUT OF SCOPE for being cut off
-    // mid-attempt (BACKLOG.md T-093), so this only ever gates the FIRST request that
-    // would create the row (see `findOrCreateAttempt`'s doc comment for the idempotent
-    // "already joined" check this mirrors).
+    // T-093 (extended T-099): block STARTING a brand-new attempt if this (class, period)
+    // pair's `TestClassSchedule` window says so (`now < openAt` or `now > closeAt`). An
+    // already-existing attempt is exempt — resuming/continuing it is explicitly OUT OF
+    // SCOPE for being cut off mid-attempt (BACKLOG.md T-093), so this only ever gates the
+    // FIRST request that would create the row (see `findOrCreateAttempt`'s doc comment
+    // for the idempotent "already joined" check this mirrors).
     const alreadyStarted = await prisma.attempt.findUnique({
       where: { sessionId_studentId: { sessionId: session.id, studentId: req.user!.sub } },
     });
-    if (!alreadyStarted && classId) {
-      const schedule = await findTestClassSchedule(test.id, classId);
+    if (!alreadyStarted && scp && scp.periodId != null) {
+      const schedule = await findTestClassSchedule(test.id, scp.classId, scp.periodId);
       const windowError = checkAttemptWindow(schedule);
       if (windowError) {
         res.status(403).json({ error: windowError });

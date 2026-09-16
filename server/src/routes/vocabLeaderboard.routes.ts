@@ -20,7 +20,7 @@ import type { VocabLeaderboardResponseDTO } from '@platform/shared';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { computeAllTimeLeaderboard } from '../lib/vocabLeaderboard';
-import { isClassScopeFailure, resolveViewerClassId } from '../lib/reportClassScope';
+import { isClassScopeFailure, requireClassPeriod, resolveViewerClassId } from '../lib/reportClassScope';
 
 export const vocabLeaderboardRouter = Router();
 
@@ -34,11 +34,20 @@ vocabLeaderboardRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    // T-099: the leaderboard also requires a CONCRETE period — see
+    // `computeAllTimeLeaderboard`'s doc comment in `../lib/vocabLeaderboard.ts`.
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
-    const entries = await computeAllTimeLeaderboard(scope.classId);
+    const entries = await computeAllTimeLeaderboard(periodScope.classId, periodScope.periodId);
     const response: VocabLeaderboardResponseDTO = {
-      classId: scope.classId,
-      className: scope.className,
+      classId: periodScope.classId,
+      className: periodScope.className,
+      periodId: periodScope.periodId,
+      periodName: periodScope.periodName,
       entries,
     };
     res.status(200).json(response);

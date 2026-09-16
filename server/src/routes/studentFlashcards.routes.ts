@@ -66,7 +66,7 @@ import {
 } from '../lib/flashcardExercises';
 import { sentenceContainsWord } from '../lib/vocabSentence';
 import { summarizeActivityStats, summarizeCardStatuses } from '../lib/vocabProgress';
-import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { buildSelfCheckPrompts } from '../lib/selfCheckQuiz';
 import { selfCheckPointValue } from '../lib/selfCheckScoring';
 
@@ -89,14 +89,14 @@ studentFlashcardsRouter.use(requireAuth, requireRole('student'));
 studentFlashcardsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const classId = await getStudentClassId(req.user!.sub);
-    if (!classId) {
+    const scp = await getStudentClassAndPeriod(req.user!.sub);
+    if (!scp || scp.periodId == null) {
       res.status(200).json([] satisfies StudentFlashcardSetSummaryDTO[]);
       return;
     }
 
     const sets = await prisma.flashcardSet.findMany({
-      where: { classes: { some: { id: classId } } },
+      where: { classAssignments: { some: { classId: scp.classId, periodId: scp.periodId } } },
       orderBy: { updatedAt: 'desc' },
       include: { unit: { select: { name: true } }, _count: { select: { cards: true } } },
     });
@@ -145,15 +145,16 @@ studentFlashcardsRouter.get(
   '/progress',
   asyncHandler(async (req, res) => {
     const studentId = req.user!.sub;
-    const classId = await getStudentClassId(studentId);
+    const scp = await getStudentClassAndPeriod(studentId);
 
-    const sets = classId
-      ? await prisma.flashcardSet.findMany({
-          where: { classes: { some: { id: classId } } },
-          orderBy: { updatedAt: 'desc' },
-          include: { unit: { select: { name: true } }, cards: { select: { id: true } } },
-        })
-      : [];
+    const sets =
+      scp && scp.periodId != null
+        ? await prisma.flashcardSet.findMany({
+            where: { classAssignments: { some: { classId: scp.classId, periodId: scp.periodId } } },
+            orderBy: { updatedAt: 'desc' },
+            include: { unit: { select: { name: true } }, cards: { select: { id: true } } },
+          })
+        : [];
 
     const progressRows = await prisma.flashcardProgress.findMany({
       where: { studentId },
@@ -196,21 +197,22 @@ studentFlashcardsRouter.get(
 
 /** Loads a set + its cards, or writes a 404 and returns `null`. Shared by the detail
  * view and every exercise/matching/sentence/game/progress route below (all scoped to
- * `:setId`), which is what makes T-076's class check below apply identically everywhere
- * with one implementation.
+ * `:setId`), which is what makes T-076/T-099's class+period check below apply
+ * identically everywhere with one implementation.
  *
- * T-076: also verifies `studentId`'s own class is one of this set's assigned classes,
- * writing the IDENTICAL 404 "Flashcard set not found." for BOTH "doesn't exist" and
- * "exists, but not assigned to your class" — same anti-leak reasoning as every
- * ownership-check helper in this codebase (`ownedTest.ts` et al.): a student probing
- * another class's set id learns nothing beyond "not found". */
+ * T-076 (extended T-099): also verifies this set is assigned to `studentId`'s own class
+ * FOR THAT CLASS'S CURRENT SEMESTER, writing the IDENTICAL 404 "Flashcard set not
+ * found." for "doesn't exist", "exists, but not assigned to your class", and "assigned
+ * to your class, but under a DIFFERENT semester than the one it's currently on" — same
+ * anti-leak reasoning as every ownership-check helper in this codebase (`ownedTest.ts`
+ * et al.): a student probing another class's (or another semester's) set id learns
+ * nothing beyond "not found". */
 async function loadSetWithCards(setId: string, studentId: string, res: import('express').Response) {
   const set = await prisma.flashcardSet.findUnique({
     where: { id: setId },
     include: {
       unit: { select: { name: true } },
       cards: { orderBy: { order: 'asc' } },
-      classes: { select: { id: true } },
     },
   });
   if (!set) {
@@ -218,8 +220,21 @@ async function loadSetWithCards(setId: string, studentId: string, res: import('e
     return null;
   }
 
-  const classId = await getStudentClassId(studentId);
-  if (!isAssignedToClass(set.classes.map((c) => c.id), classId)) {
+  const scp = await getStudentClassAndPeriod(studentId);
+  if (!scp || scp.periodId == null) {
+    res.status(404).json({ error: 'Flashcard set not found.' });
+    return null;
+  }
+  const assignment = await prisma.flashcardSetClassPeriodAssignment.findUnique({
+    where: {
+      flashcardSetId_classId_periodId: {
+        flashcardSetId: set.id,
+        classId: scp.classId,
+        periodId: scp.periodId,
+      },
+    },
+  });
+  if (!assignment) {
     res.status(404).json({ error: 'Flashcard set not found.' });
     return null;
   }

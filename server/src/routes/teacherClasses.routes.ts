@@ -16,7 +16,12 @@
  */
 
 import { Router } from 'express';
-import type { ClassDTO, CreateClassRequest, UpdateClassRequest } from '@platform/shared';
+import type {
+  ClassDTO,
+  CreateClassRequest,
+  UpdateClassCurrentPeriodRequest,
+  UpdateClassRequest,
+} from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -30,6 +35,8 @@ function toClassDTO(cls: {
   id: string;
   name: string;
   createdAt: Date;
+  currentPeriodId: string | null;
+  currentPeriod: { name: string } | null;
   _count: { students: number };
 }): ClassDTO {
   return {
@@ -37,6 +44,8 @@ function toClassDTO(cls: {
     name: cls.name,
     studentCount: cls._count.students,
     createdAt: cls.createdAt.toISOString(),
+    currentPeriodId: cls.currentPeriodId,
+    currentPeriodName: cls.currentPeriod?.name ?? null,
   };
 }
 
@@ -49,13 +58,21 @@ function validateClassBody(body: Partial<CreateClassRequest>): string | null {
   return null;
 }
 
+/** Every read of a `Class` in this file includes this same `currentPeriod` shape so
+ * `toClassDTO` above always has what it needs — one small shared `include` fragment
+ * rather than repeating it at every call site. */
+const CLASS_INCLUDE = {
+  _count: { select: { students: true } },
+  currentPeriod: { select: { name: true } },
+} as const;
+
 teacherClassesRouter.get(
   '/classes',
   asyncHandler(async (req, res) => {
     const classes = await prisma.class.findMany({
       where: { teacherId: req.user!.sub },
       orderBy: { createdAt: 'asc' },
-      include: { _count: { select: { students: true } } },
+      include: CLASS_INCLUDE,
     });
     res.status(200).json(classes.map(toClassDTO));
   }),
@@ -72,7 +89,7 @@ teacherClassesRouter.post(
     }
     const cls = await prisma.class.create({
       data: { name: body.name!.trim(), teacherId: req.user!.sub },
-      include: { _count: { select: { students: true } } },
+      include: CLASS_INCLUDE,
     });
     res.status(201).json(toClassDTO(cls));
   }),
@@ -94,7 +111,49 @@ teacherClassesRouter.patch(
     const updated = await prisma.class.update({
       where: { id: cls.id },
       data: { name: body.name!.trim() },
-      include: { _count: { select: { students: true } } },
+      include: CLASS_INCLUDE,
+    });
+    res.status(200).json(toClassDTO(updated));
+  }),
+);
+
+/**
+ * PATCH /api/teacher/classes/:classId/current-period (T-099) — switches which semester
+ * is presently "live" for this class. Ownership-checked (`requireOwnedClass`, same 404
+ * for another teacher's class as every other route in this file). `periodId` must
+ * reference an EXISTING `AcademicPeriod` — global, not per-teacher (same "just validate
+ * existence" rule as `Test.unitId`'s own tag validation in `teacherTests.routes.ts`).
+ *
+ * Deliberately just a plain column update: switching NEVER deletes/touches any other
+ * period's `*ClassPeriodAssignment`/`TestClassSchedule` rows for this class — they simply
+ * stop being the ones any content-visibility/enforcement check resolves to (every one of
+ * those checks keys off `Class.currentPeriodId` fresh, at read time), so the old
+ * semester's data stays fully intact and reappears correctly the moment the teacher
+ * switches back (BACKLOG.md T-099's explicit "hoàn toàn khác nhau" — completely
+ * different, no overlap — framing).
+ */
+teacherClassesRouter.patch(
+  '/classes/:classId/current-period',
+  asyncHandler(async (req, res) => {
+    const cls = await requireOwnedClass(req.params.classId, req.user!, res);
+    if (!cls) return;
+
+    const body = req.body as Partial<UpdateClassCurrentPeriodRequest>;
+    if (typeof body.periodId !== 'string' || body.periodId.trim() === '') {
+      res.status(400).json({ error: 'periodId is required.' });
+      return;
+    }
+
+    const period = await prisma.academicPeriod.findUnique({ where: { id: body.periodId } });
+    if (!period) {
+      res.status(400).json({ error: 'periodId does not reference an existing AcademicPeriod.' });
+      return;
+    }
+
+    const updated = await prisma.class.update({
+      where: { id: cls.id },
+      data: { currentPeriodId: period.id },
+      include: CLASS_INCLUDE,
     });
     res.status(200).json(toClassDTO(updated));
   }),

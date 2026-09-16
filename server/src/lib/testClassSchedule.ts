@@ -1,21 +1,27 @@
 /**
- * T-093: shared helpers for `TestClassSchedule` (the per-(test, class) availability
- * window + score-publish state — see that model's doc comment in `schema.prisma` for the
- * full design). Centralized here so the "effectively published" rule and the "can a
- * student start/join a NEW attempt right now" rule are computed IDENTICALLY everywhere
- * they're needed (`attempts.routes.ts`, `teacherTests.routes.ts`, `practice.routes.ts`,
- * `sessions.routes.ts`) instead of re-derived per route.
+ * T-093: shared helpers for `TestClassSchedule` (the per-(test, class, period)
+ * availability window + score-publish state — see that model's doc comment in
+ * `schema.prisma` for the full design). Centralized here so the "effectively published"
+ * rule and the "can a student start/join a NEW attempt right now" rule are computed
+ * IDENTICALLY everywhere they're needed (`attempts.routes.ts`, `teacherTests.routes.ts`,
+ * `practice.routes.ts`, `sessions.routes.ts`) instead of re-derived per route.
+ *
+ * T-099: every lookup gained a third key, `periodId` — a test assigned to the same class
+ * across two different semesters gets two entirely independent schedule rows (customer's
+ * explicit "hoàn toàn khác nhau, không trùng" framing).
  */
 
 import type { TestClassSchedule } from '@prisma/client';
 import type { TestClassScheduleDTO } from '@platform/shared';
 import { prisma } from './prisma';
 
-/** Looks up the (testId, classId) schedule row, or `null` if the teacher never
+/** Looks up the (testId, classId, periodId) schedule row, or `null` if the teacher never
  * configured one — callers must treat `null` as "fully unrestricted, not published",
  * exactly like every test authored before T-092/T-093 (backward compatible). */
-export function findTestClassSchedule(testId: string, classId: string) {
-  return prisma.testClassSchedule.findUnique({ where: { testId_classId: { testId, classId } } });
+export function findTestClassSchedule(testId: string, classId: string, periodId: string) {
+  return prisma.testClassSchedule.findUnique({
+    where: { testId_classId_periodId: { testId, classId, periodId } },
+  });
 }
 
 /** "Effectively published" (T-093's OR rule): `scoresPublishedManually === true` OR
@@ -52,19 +58,24 @@ export function checkAttemptWindow(
   return null;
 }
 
-/** Builds the full `TestClassScheduleDTO` for a (testId, classId) pair, including the
- * computed `scoresPublished` field — used by `GET /api/teacher/tests/:testId/attempts`
- * and `PUT /api/teacher/tests/:testId/schedule`'s response so the teacher UI always sees
- * the complete current schedule, not just a single boolean. A `null` schedule (no row
- * configured yet) renders as every field at its backward-compatible default. */
+/** Builds the full `TestClassScheduleDTO` for a (testId, classId, periodId) triple,
+ * including the computed `scoresPublished` field — used by `GET
+ * /api/teacher/tests/:testId/attempts` and `PUT /api/teacher/tests/:testId/schedule`'s
+ * response so the teacher UI always sees the complete current schedule, not just a
+ * single boolean. A `null` schedule (no row configured yet) renders as every field at
+ * its backward-compatible default. `periodId` is always the CONTEXT period being viewed
+ * (the class's current semester, resolved by the caller) — present even when `schedule`
+ * itself is `null`, since "which semester this DTO is about" is meaningful either way. */
 export function toTestClassScheduleDTO(
   testId: string,
   classId: string,
+  periodId: string,
   schedule: TestClassSchedule | null,
 ): TestClassScheduleDTO {
   return {
     testId,
     classId,
+    periodId,
     openAt: schedule?.openAt ? schedule.openAt.toISOString() : null,
     closeAt: schedule?.closeAt ? schedule.closeAt.toISOString() : null,
     scoresPublishedManually: schedule?.scoresPublishedManually ?? false,

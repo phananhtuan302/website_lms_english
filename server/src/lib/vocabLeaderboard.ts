@@ -44,6 +44,16 @@
  * way it already trusts `range` for the period variant, never re-deriving or
  * double-checking class ownership itself.
  *
+ * Semester scoping (T-099): both functions ALSO now take a required `periodId` —
+ * every self-check attempt/verified-known card counted is additionally narrowed to
+ * `FlashcardCard`s whose `FlashcardSet` is CURRENTLY assigned to (classId, periodId),
+ * so switching a class's `currentPeriodId` immediately changes which cards' activity
+ * counts toward that class's leaderboard, matching the customer's "each semester's
+ * content is completely separate" framing applied to Vocabulary the same way
+ * `reporting.ts` applies it to Test/Grammar/Speaking reports. Every caller resolves
+ * `periodId` via `reportClassScope.ts`'s `requireClassPeriod` before calling in, same
+ * division of responsibility as `classId` itself.
+ *
  * The two variants still differ in scope, for the same genuine data-shape reason as
  * before T-089:
  *
@@ -109,18 +119,24 @@ async function listStudents(classId: string): Promise<RawStudent[]> {
  * `student.classId` (T-077) — a card/attempt row has no `classId` of its own, only the
  * student who owns it does.
  */
-export async function computeAllTimeLeaderboard(classId: string): Promise<VocabLeaderboardEntryDTO[]> {
+export async function computeAllTimeLeaderboard(
+  classId: string,
+  periodId: string,
+): Promise<VocabLeaderboardEntryDTO[]> {
   const students = await listStudents(classId);
+  // T-099: only cards belonging to a `FlashcardSet` CURRENTLY assigned to (classId,
+  // periodId) count toward this class's leaderboard — see module doc comment.
+  const cardAssignedToClassPeriod = { set: { classAssignments: { some: { classId, periodId } } } };
 
   const [verifiedKnownCounts, selfCheckByOutcome] = await Promise.all([
     prisma.flashcardProgress.groupBy({
       by: ['studentId'],
-      where: { verifiedKnown: true, student: { classId } },
+      where: { verifiedKnown: true, student: { classId }, card: cardAssignedToClassPeriod },
       _count: { _all: true },
     }),
     prisma.flashcardExerciseAttempt.groupBy({
       by: ['studentId', 'correct'],
-      where: { type: 'selfCheck', student: { classId } },
+      where: { type: 'selfCheck', student: { classId }, card: cardAssignedToClassPeriod },
       _count: { _all: true },
     }),
   ]);
@@ -170,12 +186,19 @@ export async function computeAllTimeLeaderboard(classId: string): Promise<VocabL
 export async function computePeriodLeaderboard(
   range: { start: Date; end: Date },
   classId: string,
+  periodId: string,
 ): Promise<VocabLeaderboardEntryDTO[]> {
   const students = await listStudents(classId);
   const studentNameById = new Map(students.map((s) => [s.id, s.name]));
 
   const attempts = await prisma.flashcardExerciseAttempt.findMany({
-    where: { type: 'selfCheck', createdAt: { gte: range.start, lt: range.end }, student: { classId } },
+    where: {
+      type: 'selfCheck',
+      createdAt: { gte: range.start, lt: range.end },
+      student: { classId },
+      // T-099 — see `computeAllTimeLeaderboard`'s identical filter/module doc comment.
+      card: { set: { classAssignments: { some: { classId, periodId } } } },
+    },
     select: { studentId: true, correct: true },
   });
 

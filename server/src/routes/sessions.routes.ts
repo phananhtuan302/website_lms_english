@@ -11,7 +11,7 @@ import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { findOrCreateAttempt } from '../lib/attemptAssignment';
-import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { checkAttemptWindow, findTestClassSchedule } from '../lib/testClassSchedule';
 
 export const sessionsRouter = Router();
@@ -20,14 +20,15 @@ export const sessionsRouter = Router();
  * response itself and returns `null` — shared by the public check and the real join
  * below so "invalid" vs. "no longer active" are reported identically by both.
  *
- * Includes `test.testType`/`test.classes` (T-076) even though the public GET check
- * below never reads them — needed by the POST join's class-assignment check further
- * down, and loading the session row twice per join would be wasteful. */
+ * Includes `test.testType` (T-076) even though the public GET check below never reads
+ * it — needed by the POST join's class-assignment check further down (which separately
+ * queries `TestClassPeriodAssignment`, T-099, once it knows the joining student's own
+ * class+period), and loading the session row twice per join would be wasteful. */
 async function loadJoinableSession(token: string, res: import('express').Response) {
   const session = await prisma.testSession.findUnique({
     where: { joinToken: token },
     include: {
-      test: { select: { id: true, title: true, testType: true, classes: { select: { id: true } } } },
+      test: { select: { id: true, title: true, testType: true } },
     },
   });
 
@@ -105,13 +106,26 @@ sessionsRouter.post(
     const session = await loadJoinableSession(req.params.token, res);
     if (!session) return;
 
-    // Looked up once and reused below by both the T-076 class-assignment check and the
-    // T-093 schedule-window check.
-    const classId = await getStudentClassId(req.user!.sub);
+    // Looked up once and reused below by both the T-076/T-099 class-assignment check and
+    // the T-093 schedule-window check.
+    const scp = await getStudentClassAndPeriod(req.user!.sub);
 
     if (session.test.testType !== 'vocabularyCheck') {
-      const assignedClassIds = session.test.classes.map((c) => c.id);
-      if (!isAssignedToClass(assignedClassIds, classId)) {
+      // T-099: assignment is now 3-key — the joining student's class must have THIS
+      // test assigned FOR THAT CLASS'S CURRENT SEMESTER, not merely "at some point".
+      const assignment =
+        scp && scp.periodId != null
+          ? await prisma.testClassPeriodAssignment.findUnique({
+              where: {
+                testId_classId_periodId: {
+                  testId: session.test.id,
+                  classId: scp.classId,
+                  periodId: scp.periodId,
+                },
+              },
+            })
+          : null;
+      if (!assignment) {
         res.status(403).json({
           error: 'This session is only open to students in the class this test is assigned to.',
         });
@@ -119,17 +133,18 @@ sessionsRouter.post(
       }
     }
 
-    // T-093: the SAME open/close window check as `practice.routes.ts`'s self-practice
-    // start — enforced even though `loadJoinableSession` above already confirmed the
-    // session/token is still `active` (the customer's explicit "kể cả còn link" / "even
-    // with a valid link" requirement: a class's close time independently blocks the join
-    // regardless of the session's own status). Exempt once the student already has an
-    // attempt here — resuming is out of scope for being cut off (BACKLOG.md T-093).
+    // T-093 (extended T-099): the SAME open/close window check as
+    // `practice.routes.ts`'s self-practice start — enforced even though
+    // `loadJoinableSession` above already confirmed the session/token is still `active`
+    // (the customer's explicit "kể cả còn link" / "even with a valid link" requirement:
+    // a class's close time independently blocks the join regardless of the session's own
+    // status). Exempt once the student already has an attempt here — resuming is out of
+    // scope for being cut off (BACKLOG.md T-093).
     const alreadyJoined = await prisma.attempt.findUnique({
       where: { sessionId_studentId: { sessionId: session.id, studentId: req.user!.sub } },
     });
-    if (!alreadyJoined && classId) {
-      const schedule = await findTestClassSchedule(session.test.id, classId);
+    if (!alreadyJoined && scp && scp.periodId != null) {
+      const schedule = await findTestClassSchedule(session.test.id, scp.classId, scp.periodId);
       const windowError = checkAttemptWindow(schedule);
       if (windowError) {
         res.status(403).json({ error: windowError });

@@ -5,10 +5,12 @@
 // Flashcard/Vocabulary domain model. Grammar/Speaking are still owned by their own
 // later backlog tasks and must NOT be added here ahead of time. T-074 (Phase 12) adds
 // the `Class` entity + `User.classId` — see `Class`'s own doc comment for the full
-// class-based-organization design (PROJECT_PLAN Assumption A14). T-075 adds the
-// content-to-class ASSIGNMENT many-to-many relations (`Test.classes`,
-// `FlashcardSet.classes`, `GrammarTopic.classes`, all implicit Prisma m2m tables) — see
-// `Class`'s doc comment for why these are assignment, never a `classId` ownership FK.
+// class-based-organization design (PROJECT_PLAN Assumption A14). T-075 originally added
+// the content-to-class ASSIGNMENT as three implicit Prisma m2m relations
+// (`Test.classes`/`FlashcardSet.classes`/`GrammarTopic.classes`) — T-099 REPLACES all
+// three with explicit `*ClassPeriodAssignment` join models (see `Class`'s doc comment)
+// because an implicit m2m table has no room for the third key (`AcademicPeriod`) T-099
+// adds to every content-to-class assignment.
 
 generator client {
   provider   = "prisma-client-js"
@@ -112,6 +114,19 @@ model User {
   @@map("users")
 }
 
+// --- Semester-scoped content (T-099) -------------------------------------------------
+// The customer's explicit correction (2026-09-16): a class's assigned content isn't one
+// flat, ever-growing pool — it's scoped PER SEMESTER ("mỗi học kỳ là db về nội dung học
+// tập all khác nhau hoàn toàn, không trùng với học kỳ khác" — each semester's content is
+// completely different, never overlapping another semester's). `Class.currentPeriodId`
+// (below) is which semester is presently "live" for that class — a manual teacher
+// action (a "switch semester" toggle, `PATCH /api/teacher/classes/:classId/current-period`
+// in `teacherClasses.routes.ts`), NEVER auto-derived from today's date against
+// `AcademicPeriod.startDate`/`endDate` (confirmed via a direct clarifying question — see
+// BACKLOG.md T-099). Every content-to-class assignment (`Test`/`FlashcardSet`/
+// `GrammarTopic` ↔ `Class`) and `TestClassSchedule` row now carries a THIRD key,
+// `periodId`, alongside the existing two — see each new model's own doc comment below.
+
 // --- Class-based organization (T-074, Phase 12) --------------------------------------
 // A teacher's cohort/section (e.g. "Lớp 6A"). See PROJECT_PLAN Assumption A14 for the
 // full design this and every later Phase-12 task builds on: a student belongs to exactly
@@ -139,36 +154,96 @@ model User {
 /// (T-075) doesn't exist yet at this task's scope, so there's no assigned-content case to
 /// fold into this rule yet.
 model Class {
-  id             String              @id @default(uuid())
-  name           String
-  teacherId      String
-  teacher        User                @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
+  id                      String                              @id @default(uuid())
+  name                    String
+  teacherId               String
+  teacher                 User                                @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
   // Students currently assigned to this class (T-074) — see `User.classId`'s doc comment
   // for the "exactly one class, whole lifetime" rule this enforces at the app layer (not
   // the DB layer, which only enforces "at most one" via the plain scalar FK).
-  students       User[]              @relation("ClassStudents")
-  // Content-to-class ASSIGNMENT (T-075, Phase 12) — many-to-many, one implicit join table
-  // per content type. Documented choice: Prisma IMPLICIT many-to-many (no explicit join
-  // model) rather than a hand-rolled join table, because there is no extra data to hang
-  // off the join row itself (no "assigned by"/"assigned at" metadata was asked for) — an
-  // implicit relation gives the exact same queryability (`connect`/`disconnect`/`set`,
-  // `some`/`none`/`every` filters) with less boilerplate. These are ASSIGNMENTS, not
-  // ownership: a `Test`/`FlashcardSet`/`GrammarTopic` still has exactly one `teacherId` as
-  // before (PROJECT_PLAN Phase 12's "critical design correction" — content is authored
-  // once and assigned to N of that SAME teacher's classes, never re-authored per class).
-  // Nothing at the DB layer stops assigning a class to a DIFFERENT teacher's content —
-  // that cross-teacher guard is enforced at the app layer, by
-  // `lib/contentClassAssignment.ts`'s `validateClassIdsForOwner`, exactly like every other
-  // "app layer enforces it, not the FK" note already used throughout this schema.
-  tests          Test[]              @relation("TestClasses")
-  flashcardSets  FlashcardSet[]      @relation("FlashcardSetClasses")
-  grammarTopics  GrammarTopic[]      @relation("GrammarTopicClasses")
-  // T-092/T-093: per (test, class) availability window + score-release toggles for tests
-  // assigned to this class — see `TestClassSchedule`'s doc comment for the full design.
-  classSchedules TestClassSchedule[]
-  createdAt      DateTime            @default(now())
+  students                User[]                              @relation("ClassStudents")
+  // Which semester is presently "live" for this class (T-099) — `null` means the teacher
+  // hasn't picked one yet (post-migration this should never happen — see the seed's
+  // `ensureEveryClassHasCurrentPeriod` — but every reader still treats `null` exactly like
+  // "no class" already degrades everywhere else in this codebase: empty list / clean
+  // rejection, never a crash). `SetNull` on period delete: deleting the currently-selected
+  // `AcademicPeriod` should never take the class down with it or block the delete — the
+  // class just becomes "no current period" again, same defensive-FK spirit as
+  // `User.classId`'s own `SetNull` above.
+  currentPeriodId         String?
+  currentPeriod           AcademicPeriod?                     @relation(fields: [currentPeriodId], references: [id], onDelete: SetNull)
+  // Content-to-class-to-PERIOD assignment (T-099, replacing T-075's implicit m2m
+  // relations entirely) — one EXPLICIT join model per content type, each keyed
+  // `@@id([contentId, classId, periodId])`. An implicit m2m (T-075's original choice)
+  // can't carry this third key, hence the switch to explicit "small join, presence = the
+  // fact" models — same convention `TestAssignment`/`TestClassSchedule` already
+  // established elsewhere in this schema. Still ASSIGNMENTS, not ownership: a
+  // `Test`/`FlashcardSet`/`GrammarTopic` keeps exactly one `teacherId` as before: the
+  // cross-teacher guard (a class may only be assigned content owned by that class's own
+  // teacher) is still enforced at the app layer, by
+  // `lib/contentClassAssignment.ts`'s `validateClassIdsForOwner`.
+  testAssignments         TestClassPeriodAssignment[]
+  flashcardSetAssignments FlashcardSetClassPeriodAssignment[]
+  grammarTopicAssignments GrammarTopicClassPeriodAssignment[]
+  // T-092/T-093: per (test, class, period) availability window + score-release toggles
+  // for tests assigned to this class — see `TestClassSchedule`'s doc comment for the full
+  // design.
+  classSchedules          TestClassSchedule[]
+  createdAt               DateTime                            @default(now())
 
   @@map("classes")
+}
+
+/// One (Test, Class, AcademicPeriod) content assignment (T-099) — presence of a row means
+/// "this test is assigned to this class, for this semester." Replaces T-075's implicit
+/// `Test.classes` m2m relation entirely (see `Class`'s doc comment above for why an
+/// explicit model was necessary once a third key was added). No extra metadata beyond
+/// `createdAt` — same "small explicit join, presence = the fact" convention as
+/// `TestAssignment`.
+model TestClassPeriodAssignment {
+  testId    String
+  classId   String
+  periodId  String
+  test      Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  period    AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@id([testId, classId, periodId])
+  @@index([classId, periodId])
+  @@map("test_class_period_assignments")
+}
+
+/// One (FlashcardSet, Class, AcademicPeriod) content assignment (T-099) — same shape/
+/// reasoning as `TestClassPeriodAssignment`, replacing T-075's `FlashcardSet.classes`.
+model FlashcardSetClassPeriodAssignment {
+  flashcardSetId String
+  classId        String
+  periodId       String
+  flashcardSet   FlashcardSet   @relation(fields: [flashcardSetId], references: [id], onDelete: Cascade)
+  class          Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  period         AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+
+  @@id([flashcardSetId, classId, periodId])
+  @@index([classId, periodId])
+  @@map("flashcard_set_class_period_assignments")
+}
+
+/// One (GrammarTopic, Class, AcademicPeriod) content assignment (T-099) — same shape/
+/// reasoning as `TestClassPeriodAssignment`, replacing T-075's `GrammarTopic.classes`.
+model GrammarTopicClassPeriodAssignment {
+  grammarTopicId String
+  classId        String
+  periodId       String
+  grammarTopic   GrammarTopic   @relation(fields: [grammarTopicId], references: [id], onDelete: Cascade)
+  class          Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  period         AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+
+  @@id([grammarTopicId, classId, periodId])
+  @@index([classId, periodId])
+  @@map("grammar_topic_class_period_assignments")
 }
 
 /// Objective question types supported by the MVP test engine (T-007). Content types
@@ -242,17 +317,17 @@ enum TestType {
 /// plain `Test`-level column, not `unitTest`-specific storage, in case a later phase wants
 /// the same "teacher must explicitly publish" gate for another type.
 model Test {
-  id               String              @id @default(uuid())
+  id               String                      @id @default(uuid())
   title            String
   teacherId        String
-  teacher          User                @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher          User                        @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
   timeLimitMinutes Int?
-  testType         TestType            @default(generic)
-  published        Boolean             @default(false)
+  testType         TestType                    @default(generic)
+  published        Boolean                     @default(false)
   // `SetNull` (not `Cascade`/`Restrict`): deleting a `Unit` should never take a teacher's
   // tests down with it, or block the delete — the test just becomes untagged.
   unitId           String?
-  unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit             Unit?                       @relation(fields: [unitId], references: [id], onDelete: SetNull)
   sections         Section[]
   variants         TestVariant[]
   sessions         TestSession[]
@@ -260,16 +335,17 @@ model Test {
   // Per-student access grants for individually-generated tests (T-038's Vocabulary
   // Check) — see `TestAssignment`'s doc comment below.
   assignments      TestAssignment[]
-  // Content-to-class assignment (T-075) — see `Class.tests`'s doc comment for the full
-  // "assignment, not ownership" design. Zero or more of THIS test's own teacher's
-  // classes; empty means not yet assigned to any class (student visibility for T-076 is
+  // Content-to-class-to-period assignment (T-099, replacing T-075's implicit
+  // `classes Class[]` m2m) — see `TestClassPeriodAssignment`'s doc comment for the full
+  // "assignment, not ownership" design. Zero or more (class, period) pairs; empty means
+  // not yet assigned to any class for any semester (student visibility, T-076/T-099, is
   // that task's job, not this schema's).
-  classes          Class[]             @relation("TestClasses")
-  // T-092/T-093: per (test, class) availability window + score-release toggles — see
-  // `TestClassSchedule`'s doc comment for the full design.
+  classAssignments TestClassPeriodAssignment[]
+  // T-092/T-093: per (test, class, period) availability window + score-release toggles —
+  // see `TestClassSchedule`'s doc comment for the full design.
   classSchedules   TestClassSchedule[]
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
 
   @@map("tests")
 }
@@ -319,15 +395,22 @@ model Test {
 model TestClassSchedule {
   testId                   String
   classId                  String
-  test                     Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
-  class                    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  // T-099: which semester this particular open/close/publish configuration belongs to —
+  // the SAME (test, class) pair can now have two entirely independent schedules across
+  // two different periods (customer's explicit "hoàn toàn khác nhau, không trùng"
+  // framing), so `periodId` joins `testId`/`classId` as a third key rather than living as
+  // a plain extra column.
+  periodId                 String
+  test                     Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  class                    Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  period                   AcademicPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   openAt                   DateTime?
   closeAt                  DateTime?
-  scoresPublishedManually  Boolean   @default(false)
-  autoPublishScoresOnClose Boolean   @default(false)
-  updatedAt                DateTime  @updatedAt
+  scoresPublishedManually  Boolean        @default(false)
+  autoPublishScoresOnClose Boolean        @default(false)
+  updatedAt                DateTime       @updatedAt
 
-  @@id([testId, classId])
+  @@id([testId, classId, periodId])
   @@map("test_class_schedules")
 }
 
@@ -401,11 +484,16 @@ model Unit {
 /// Assumption A5) — see `server/src/routes/curriculum.routes.ts`'s `parseHcmDate` for the
 /// exact parsing convention every write path must go through.
 ///
-/// Nothing here references `Test`/`Attempt` yet — T-018 only introduces the entity so
-/// T-019's reporting engine has something to bucket by later; wiring an attempt to "which
-/// period was it taken in" is derived at query time from `Attempt.startedAt` falling
-/// within `[startDate, endDate)`, not a stored FK, since a period's dates can be edited
-/// after the fact and a derived lookup never goes stale.
+/// Originally (T-018) this only powered date-based REPORT bucketing (`Attempt.startedAt`
+/// falling within `[startDate, endDate)` at query time, never a stored FK — a period's
+/// dates can be edited after the fact and a derived lookup never goes stale, see
+/// `reporting.ts`'s `buildSemesterBuckets`). T-099 additionally makes `AcademicPeriod` a
+/// live CONTENT-SCOPING dimension: `Class.currentPeriodId` (which semester is presently
+/// "live" for a class) and every `*ClassPeriodAssignment`/`TestClassSchedule` row below
+/// now reference one directly — these ARE stored FKs, a deliberate departure from the
+/// derived-lookup convention above, because "which period is this content assigned
+/// under" is an explicit teacher choice (T-099's design doc), not something derivable
+/// from any timestamp.
 model AcademicPeriod {
   id        String   @id @default(uuid())
   name      String
@@ -413,6 +501,14 @@ model AcademicPeriod {
   endDate   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // T-099: classes currently "on" this period (`Class.currentPeriodId`), plus every
+  // content-assignment/schedule row scoped to it.
+  classesOnThisPeriod          Class[]
+  testClassAssignments         TestClassPeriodAssignment[]
+  flashcardSetClassAssignments FlashcardSetClassPeriodAssignment[]
+  grammarTopicClassAssignments GrammarTopicClassPeriodAssignment[]
+  testClassSchedules           TestClassSchedule[]
 
   @@map("academic_periods")
 }
@@ -765,18 +861,19 @@ enum FlashcardProgressStatus {
 /// curriculum `Unit` (T-018) — same optional-tag pattern as `Test.unitId`, including the
 /// `SetNull` on unit delete.
 model FlashcardSet {
-  id        String          @id @default(uuid())
-  name      String
-  teacherId String
-  teacher   User            @relation("TeacherFlashcardSets", fields: [teacherId], references: [id], onDelete: Cascade)
-  unitId    String?
-  unit      Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  cards     FlashcardCard[]
-  // Content-to-class assignment (T-075) — see `Class.tests`'s doc comment for the full
+  id               String                              @id @default(uuid())
+  name             String
+  teacherId        String
+  teacher          User                                @relation("TeacherFlashcardSets", fields: [teacherId], references: [id], onDelete: Cascade)
+  unitId           String?
+  unit             Unit?                               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  cards            FlashcardCard[]
+  // Content-to-class-to-period assignment (T-099, replacing T-075's implicit
+  // `classes Class[]` m2m) — see `TestClassPeriodAssignment`'s doc comment for the full
   // "assignment, not ownership" design; same semantics here, applied to flashcard sets.
-  classes   Class[]         @relation("FlashcardSetClasses")
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  classAssignments FlashcardSetClassPeriodAssignment[]
+  createdAt        DateTime                            @default(now())
+  updatedAt        DateTime                            @updatedAt
 
   @@map("flashcard_sets")
 }
@@ -1000,25 +1097,26 @@ model FlashcardExerciseAttempt {
 /// every topic is readable by every student (T-047), same "no enrollment concept"
 /// convention already used for `FlashcardSet`/`Unit`.
 model GrammarTopic {
-  id            String                   @id @default(uuid())
-  title         String
-  teacherId     String
-  teacher       User                     @relation("TeacherGrammarTopics", fields: [teacherId], references: [id], onDelete: Cascade)
+  id               String                              @id @default(uuid())
+  title            String
+  teacherId        String
+  teacher          User                                @relation("TeacherGrammarTopics", fields: [teacherId], references: [id], onDelete: Cascade)
   // Optional curriculum tag (T-018) — same optional-tag + `SetNull` pattern as
   // `Test.unitId`/`FlashcardSet.unitId`.
-  unitId        String?
-  unit          Unit?                    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId           String?
+  unit             Unit?                               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   /// Theory content (T-047): plain/markdown-ish text, paragraphs separated by a blank
   /// line — same "just a string, rendered as-is, no rich-text editor/sanitization"
   /// convention already established by `Section.passageText`.
-  theoryContent String
-  exercises     GrammarExercise[]
-  attempts      GrammarExerciseAttempt[]
-  // Content-to-class assignment (T-075) — see `Class.tests`'s doc comment for the full
+  theoryContent    String
+  exercises        GrammarExercise[]
+  attempts         GrammarExerciseAttempt[]
+  // Content-to-class-to-period assignment (T-099, replacing T-075's implicit
+  // `classes Class[]` m2m) — see `TestClassPeriodAssignment`'s doc comment for the full
   // "assignment, not ownership" design; same semantics here, applied to Grammar topics.
-  classes       Class[]                  @relation("GrammarTopicClasses")
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
+  classAssignments GrammarTopicClassPeriodAssignment[]
+  createdAt        DateTime                            @default(now())
+  updatedAt        DateTime                            @updatedAt
 
   @@map("grammar_topics")
 }

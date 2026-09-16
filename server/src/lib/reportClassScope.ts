@@ -22,20 +22,35 @@
  *   one (2+ classes) — never silently picks one of several or merges them.
  * - `resolveViewerClassId` — for endpoints visible to BOTH roles (the vocab leaderboard,
  *   the Unit Test leaderboard). A `student` caller's own `classId` (looked up fresh from
- *   the DB via `classScoping.ts`'s `getStudentClassId` — reused rather than
+ *   the DB via `classScoping.ts`'s `getStudentClassAndPeriod` — reused rather than
  *   reimplemented) is used UNCONDITIONALLY, ignoring any `classId` query param the caller
  *   supplied — a student can never view another class's leaderboard by passing a
  *   different id, even deliberately. A `teacher`/`admin` caller falls through to
  *   `resolveTeacherClassId`'s picker/default logic above.
+ *
+ * T-099: both resolvers now ALSO return the resolved class's current `periodId` (`null`
+ * if the teacher hasn't picked one yet) — every reporting/leaderboard engine
+ * (`reporting.ts`, `vocabLeaderboard.ts`) and the `TestClassSchedule` lookups
+ * (`teacherTests.routes.ts`) now scope to a class's CURRENTLY assigned content, not its
+ * whole all-time content history, matching the customer's "each semester's content is
+ * completely separate" framing. A `null` periodId must degrade the SAME way "no class"
+ * already does at every one of those call sites — empty results / a clean rejection,
+ * never a crash.
  */
 
 import { prisma } from './prisma';
 import { isAdminOrOwner, type AuthzUser } from './authz';
-import { getStudentClassId } from './classScoping';
+import { getStudentClassAndPeriod } from './classScoping';
 
 export interface ClassScopeSuccess {
   classId: string;
   className: string;
+  /** T-099 — see module doc comment above. */
+  periodId: string | null;
+  /** T-099 — `null` exactly when `periodId` is `null`; kept alongside it so callers that
+   * build a response DTO never need a second round-trip just to show the semester's
+   * name. */
+  periodName: string | null;
 }
 
 export interface ClassScopeFailure {
@@ -47,6 +62,27 @@ export type ClassScopeResult = ClassScopeSuccess | ClassScopeFailure;
 
 export function isClassScopeFailure(result: ClassScopeResult): result is ClassScopeFailure {
   return 'status' in result;
+}
+
+/**
+ * Extra guard (T-099) for callers that need a CONCRETE period, not just a class —
+ * every reporting/leaderboard engine and every `TestClassSchedule` lookup requires one,
+ * since both scope to a class's CURRENTLY assigned content, which doesn't exist without
+ * a period. Returns the same `scope` narrowed to `periodId: string` on success, or a
+ * `ClassScopeFailure` (400) — same shape/call pattern as `resolveTeacherClassId`/
+ * `resolveViewerClassId` themselves, so every call site handles it with the identical
+ * `if (isClassScopeFailure(...))` check it already uses for the class-resolution step.
+ */
+export function requireClassPeriod(
+  scope: ClassScopeSuccess,
+): (ClassScopeSuccess & { periodId: string; periodName: string }) | ClassScopeFailure {
+  if (scope.periodId == null) {
+    return {
+      status: 400,
+      error: `Class "${scope.className}" has no current semester selected yet. Ask the teacher to pick one first.`,
+    };
+  }
+  return { ...scope, periodId: scope.periodId, periodName: scope.periodName ?? '' };
 }
 
 function firstNonEmptyString(value: unknown): string | null {
@@ -71,22 +107,43 @@ export async function resolveTeacherClassId(
   if (explicitId) {
     const cls = await prisma.class.findUnique({
       where: { id: explicitId },
-      select: { id: true, name: true, teacherId: true },
+      select: {
+        id: true,
+        name: true,
+        teacherId: true,
+        currentPeriodId: true,
+        currentPeriod: { select: { name: true } },
+      },
     });
     if (!cls || !isAdminOrOwner(user, cls.teacherId)) {
       return { status: 404, error: 'Class not found.' };
     }
-    return { classId: cls.id, className: cls.name };
+    return {
+      classId: cls.id,
+      className: cls.name,
+      periodId: cls.currentPeriodId,
+      periodName: cls.currentPeriod?.name ?? null,
+    };
   }
 
   const classes = await prisma.class.findMany({
     where: user.role === 'admin' ? {} : { teacherId: user.sub },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      currentPeriodId: true,
+      currentPeriod: { select: { name: true } },
+    },
   });
 
   if (classes.length === 1) {
-    return { classId: classes[0].id, className: classes[0].name };
+    return {
+      classId: classes[0].id,
+      className: classes[0].name,
+      periodId: classes[0].currentPeriodId,
+      periodName: classes[0].currentPeriod?.name ?? null,
+    };
   }
   if (classes.length === 0) {
     return {
@@ -114,13 +171,21 @@ export async function resolveViewerClassId(
     return resolveTeacherClassId(user, classIdRaw);
   }
 
-  const classId = await getStudentClassId(user.sub);
-  if (!classId) {
+  const scp = await getStudentClassAndPeriod(user.sub);
+  if (!scp) {
     return {
       status: 400,
       error: 'Your account is not assigned to a class yet. Contact your teacher.',
     };
   }
-  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
-  return { classId, className: cls?.name ?? '' };
+  const cls = await prisma.class.findUnique({
+    where: { id: scp.classId },
+    select: { name: true, currentPeriod: { select: { name: true } } },
+  });
+  return {
+    classId: scp.classId,
+    className: cls?.name ?? '',
+    periodId: scp.periodId,
+    periodName: cls?.currentPeriod?.name ?? null,
+  };
 }

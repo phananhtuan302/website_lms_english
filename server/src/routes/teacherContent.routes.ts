@@ -25,6 +25,7 @@ import type { TeacherContentResponseDTO, TeacherContentItemDTO } from '@platform
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
+import { loadOwnerClassesWithCurrentPeriod } from '../lib/contentClassAssignment';
 
 export const teacherContentRouter = Router();
 
@@ -35,46 +36,86 @@ teacherContentRouter.get(
   asyncHandler(async (req, res) => {
     const teacherId = req.user!.sub;
 
-    const [classes, tests, flashcardSets, grammarTopics] = await Promise.all([
+    const [classes, tests, flashcardSets, grammarTopics, ownerClassPeriods] = await Promise.all([
       prisma.class.findMany({
         where: { teacherId },
         orderBy: { createdAt: 'asc' },
-        include: { _count: { select: { students: true } } },
+        include: { _count: { select: { students: true } }, currentPeriod: { select: { name: true } } },
       }),
       prisma.test.findMany({
         where: { teacherId },
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, classes: { select: { id: true } } },
+        select: { id: true, title: true },
       }),
       prisma.flashcardSet.findMany({
         where: { teacherId },
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, name: true, classes: { select: { id: true } } },
+        select: { id: true, name: true },
       }),
       prisma.grammarTopic.findMany({
         where: { teacherId },
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, classes: { select: { id: true } } },
+        select: { id: true, title: true },
       }),
+      // T-099: this teacher's own classes that have a current semester selected — every
+      // classIds list below means "assigned for that class's CURRENT semester" (see
+      // `TeacherContentItemDTO`'s doc comment in `@platform/shared`), computed here in
+      // bulk (one query per content type, not one per item) rather than N+1.
+      loadOwnerClassesWithCurrentPeriod(teacherId),
     ]);
+
+    const [testAssignments, flashcardSetAssignments, grammarTopicAssignments] = await Promise.all([
+      ownerClassPeriods.length === 0 || tests.length === 0
+        ? Promise.resolve([])
+        : prisma.testClassPeriodAssignment.findMany({
+            where: { testId: { in: tests.map((t) => t.id) }, OR: ownerClassPeriods },
+            select: { testId: true, classId: true },
+          }),
+      ownerClassPeriods.length === 0 || flashcardSets.length === 0
+        ? Promise.resolve([])
+        : prisma.flashcardSetClassPeriodAssignment.findMany({
+            where: { flashcardSetId: { in: flashcardSets.map((f) => f.id) }, OR: ownerClassPeriods },
+            select: { flashcardSetId: true, classId: true },
+          }),
+      ownerClassPeriods.length === 0 || grammarTopics.length === 0
+        ? Promise.resolve([])
+        : prisma.grammarTopicClassPeriodAssignment.findMany({
+            where: { grammarTopicId: { in: grammarTopics.map((g) => g.id) }, OR: ownerClassPeriods },
+            select: { grammarTopicId: true, classId: true },
+          }),
+    ]);
+
+    function groupClassIdsBy<T extends { classId: string }>(rows: T[], key: (row: T) => string): Map<string, string[]> {
+      const map = new Map<string, string[]>();
+      for (const row of rows) {
+        const list = map.get(key(row)) ?? [];
+        list.push(row.classId);
+        map.set(key(row), list);
+      }
+      return map;
+    }
+
+    const testClassIds = groupClassIdsBy(testAssignments, (a) => a.testId);
+    const flashcardSetClassIds = groupClassIdsBy(flashcardSetAssignments, (a) => a.flashcardSetId);
+    const grammarTopicClassIds = groupClassIdsBy(grammarTopicAssignments, (a) => a.grammarTopicId);
 
     const testItems: TeacherContentItemDTO[] = tests.map((t) => ({
       id: t.id,
       type: 'test',
       title: t.title,
-      classIds: t.classes.map((c) => c.id),
+      classIds: testClassIds.get(t.id) ?? [],
     }));
     const flashcardSetItems: TeacherContentItemDTO[] = flashcardSets.map((f) => ({
       id: f.id,
       type: 'flashcardSet',
       title: f.name,
-      classIds: f.classes.map((c) => c.id),
+      classIds: flashcardSetClassIds.get(f.id) ?? [],
     }));
     const grammarTopicItems: TeacherContentItemDTO[] = grammarTopics.map((g) => ({
       id: g.id,
       type: 'grammarTopic',
       title: g.title,
-      classIds: g.classes.map((c) => c.id),
+      classIds: grammarTopicClassIds.get(g.id) ?? [],
     }));
 
     const body: TeacherContentResponseDTO = {
@@ -83,6 +124,8 @@ teacherContentRouter.get(
         name: c.name,
         studentCount: c._count.students,
         createdAt: c.createdAt.toISOString(),
+        currentPeriodId: c.currentPeriodId,
+        currentPeriodName: c.currentPeriod?.name ?? null,
       })),
       tests: testItems,
       flashcardSets: flashcardSetItems,

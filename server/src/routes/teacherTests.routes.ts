@@ -39,10 +39,10 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedTest } from '../lib/ownedTest';
-import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
+import { loadOwnerClassesWithCurrentPeriod, validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import { generateVariantLayout, nextVariantCodes, type VariantLayout } from '../lib/variantShuffle';
 import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
-import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
+import { isClassScopeFailure, requireClassPeriod, resolveTeacherClassId } from '../lib/reportClassScope';
 import { findTestClassSchedule, toTestClassScheduleDTO } from '../lib/testClassSchedule';
 
 export const teacherTestsRouter = Router();
@@ -498,20 +498,29 @@ teacherTestsRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    // T-099: this report/schedule is keyed by (test, class, class's CURRENT period) —
+    // 400s cleanly if the resolved class has no current semester selected yet, same
+    // "degrades like no class" rule used everywhere else this task touches.
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
     const [attempts, schedule] = await Promise.all([
       prisma.attempt.findMany({
         where: {
           testId: test.id,
           status: 'submitted',
-          student: { classId: scope.classId },
+          student: { classId: periodScope.classId },
         },
         include: { student: { select: { id: true, name: true } } },
         orderBy: [{ scorePercent: 'desc' }, { submittedAt: 'asc' }],
       }),
-      // T-092/T-093: the full current schedule (open/close window + publish flags) for
-      // (this test, this class), if a teacher has ever configured one.
-      findTestClassSchedule(test.id, scope.classId),
+      // T-092/T-093 (extended T-099): the full current schedule (open/close window +
+      // publish flags) for (this test, this class, this class's current period), if a
+      // teacher has ever configured one.
+      findTestClassSchedule(test.id, periodScope.classId, periodScope.periodId),
     ]);
 
     const entries: TestAttemptReportEntryDTO[] = attempts.map((a) => ({
@@ -530,10 +539,12 @@ teacherTestsRouter.get(
     const response: TestAttemptReportResponseDTO = {
       testId: test.id,
       testTitle: test.title,
-      classId: scope.classId,
-      className: scope.className,
+      classId: periodScope.classId,
+      className: periodScope.className,
+      periodId: periodScope.periodId,
+      periodName: periodScope.periodName,
       entries,
-      schedule: toTestClassScheduleDTO(test.id, scope.classId, schedule),
+      schedule: toTestClassScheduleDTO(test.id, periodScope.classId, periodScope.periodId, schedule),
     };
     res.status(200).json(response);
   }),
@@ -563,9 +574,19 @@ teacherTestsRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
-    const schedule = await findTestClassSchedule(test.id, scope.classId);
-    const response: TestClassScheduleDTO = toTestClassScheduleDTO(test.id, scope.classId, schedule);
+    const schedule = await findTestClassSchedule(test.id, periodScope.classId, periodScope.periodId);
+    const response: TestClassScheduleDTO = toTestClassScheduleDTO(
+      test.id,
+      periodScope.classId,
+      periodScope.periodId,
+      schedule,
+    );
     res.status(200).json(response);
   }),
 );
@@ -604,6 +625,13 @@ teacherTestsRouter.put(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    // T-099: the schedule always applies to this class's CURRENT semester — 400 rather
+    // than writing a row with nothing to key it against if none is selected yet.
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
     // `undefined` = "field not provided, leave whatever's already saved untouched";
     // `null` = "explicitly clear this date"; a string = the new ISO date-time to parse.
@@ -636,10 +664,17 @@ teacherTestsRouter.put(
     }
 
     const schedule = await prisma.testClassSchedule.upsert({
-      where: { testId_classId: { testId: test.id, classId: scope.classId } },
+      where: {
+        testId_classId_periodId: {
+          testId: test.id,
+          classId: periodScope.classId,
+          periodId: periodScope.periodId,
+        },
+      },
       create: {
         testId: test.id,
-        classId: scope.classId,
+        classId: periodScope.classId,
+        periodId: periodScope.periodId,
         openAt: openAtResult.date ?? null,
         closeAt: closeAtResult.date ?? null,
         scoresPublishedManually: body.published ?? false,
@@ -655,7 +690,12 @@ teacherTestsRouter.put(
       },
     });
 
-    const response: TestClassScheduleDTO = toTestClassScheduleDTO(test.id, scope.classId, schedule);
+    const response: TestClassScheduleDTO = toTestClassScheduleDTO(
+      test.id,
+      periodScope.classId,
+      periodScope.periodId,
+      schedule,
+    );
     res.status(200).json(response);
   }),
 );
@@ -1069,10 +1109,15 @@ teacherTestsRouter.get(
   }),
 );
 
-// --- Content-to-class assignment (T-075) ---------------------------------------------
+// --- Content-to-class(-period) assignment (T-075; extended T-099) --------------------
 // See `lib/contentClassAssignment.ts`'s doc comment for why validation is against
 // `test.teacherId` (the content's own owner), not `req.user!.sub` — this is what lets an
-// admin caller assign a DIFFERENT teacher's test to that SAME teacher's classes.
+// admin caller assign a DIFFERENT teacher's test to that SAME teacher's classes. See
+// `UpdateContentClassesRequest`'s doc comment in `@platform/shared` (module doc comment
+// above it) for what "assigned to a class" means now that assignment is 3-key: every
+// classId here means "assigned for THAT class's own current semester" — this endpoint's
+// request/response shape is deliberately unchanged from T-075 so the existing
+// `TeacherContentPage.tsx` chip UI keeps working without modification.
 
 teacherTestsRouter.get(
   '/tests/:testId/classes',
@@ -1080,11 +1125,15 @@ teacherTestsRouter.get(
     const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
-    const withClasses = await prisma.test.findUniqueOrThrow({
-      where: { id: test.id },
-      select: { classes: { select: { id: true } } },
-    });
-    const body: ContentClassAssignmentDTO = { classIds: withClasses.classes.map((c) => c.id) };
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(test.teacherId);
+    const assigned =
+      ownerClassPeriods.length === 0
+        ? []
+        : await prisma.testClassPeriodAssignment.findMany({
+            where: { testId: test.id, OR: ownerClassPeriods },
+            select: { classId: true },
+          });
+    const body: ContentClassAssignmentDTO = { classIds: assigned.map((a) => a.classId) };
     res.status(200).json(body);
   }),
 );
@@ -1102,12 +1151,34 @@ teacherTestsRouter.put(
       return;
     }
 
-    await prisma.test.update({
-      where: { id: test.id },
-      data: { classes: { set: result.classIds.map((id) => ({ id })) } },
-    });
+    // REPLACE semantics (T-075 convention, unchanged), scoped to exactly this content's
+    // (class, CLASS'S CURRENT PERIOD) slice for every one of the owner's classes — a
+    // class's assignment under any OTHER (non-current) period is never touched, per
+    // T-099's "each semester's data is completely separate" design.
+    const requested = new Set(result.classIds);
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(test.teacherId);
+    await prisma.$transaction(
+      ownerClassPeriods.map(({ classId, periodId }) =>
+        requested.has(classId)
+          ? prisma.testClassPeriodAssignment.upsert({
+              where: { testId_classId_periodId: { testId: test.id, classId, periodId } },
+              create: { testId: test.id, classId, periodId },
+              update: {},
+            })
+          : prisma.testClassPeriodAssignment.deleteMany({
+              where: { testId: test.id, classId, periodId },
+            }),
+      ),
+    );
 
-    const response: ContentClassAssignmentDTO = { classIds: result.classIds };
+    const assigned =
+      ownerClassPeriods.length === 0
+        ? []
+        : await prisma.testClassPeriodAssignment.findMany({
+            where: { testId: test.id, OR: ownerClassPeriods },
+            select: { classId: true },
+          });
+    const response: ContentClassAssignmentDTO = { classIds: assigned.map((a) => a.classId) };
     res.status(200).json(response);
   }),
 );

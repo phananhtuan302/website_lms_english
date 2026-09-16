@@ -21,7 +21,7 @@ import type {
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
-import { getStudentClassId } from '../lib/classScoping';
+import { getStudentClassAndPeriod } from '../lib/classScoping';
 
 export const studentAssignedTestsRouter = Router();
 
@@ -61,14 +61,18 @@ async function loadMyAttemptsByTestId(
 studentAssignedTestsRouter.get(
   '/unit-tests',
   asyncHandler(async (req, res) => {
-    const classId = await getStudentClassId(req.user!.sub);
-    if (!classId) {
+    const scp = await getStudentClassAndPeriod(req.user!.sub);
+    if (!scp || scp.periodId == null) {
       res.status(200).json({ groups: [] } satisfies StudentUnitTestsResponseDTO);
       return;
     }
 
     const tests = await prisma.test.findMany({
-      where: { testType: 'unitTest', published: true, classes: { some: { id: classId } } },
+      where: {
+        testType: 'unitTest',
+        published: true,
+        classAssignments: { some: { classId: scp.classId, periodId: scp.periodId } },
+      },
       include: { unit: { select: { id: true, name: true, order: true } } },
       orderBy: { title: 'asc' },
     });

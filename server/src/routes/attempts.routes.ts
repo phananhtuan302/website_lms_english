@@ -46,7 +46,7 @@ import type { VariantLayout } from '../lib/variantShuffle';
 import { buildResultQuestions, buildRuntimeSections, flattenQuestionsInAuthoredOrder } from '../lib/attemptView';
 import { gradeAnswer } from '../lib/grading';
 import { getAIGradingProvider } from '../grading';
-import { getStudentClassId } from '../lib/classScoping';
+import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { findTestClassSchedule, isScorePublished } from '../lib/testClassSchedule';
 
 /**
@@ -61,9 +61,9 @@ import { findTestClassSchedule, isScorePublished } from '../lib/testClassSchedul
  * untouched, always full detail.
  */
 async function isScoreReleasedForStudent(testId: string, studentId: string): Promise<boolean> {
-  const classId = await getStudentClassId(studentId);
-  if (!classId) return false;
-  const schedule = await findTestClassSchedule(testId, classId);
+  const scp = await getStudentClassAndPeriod(studentId);
+  if (!scp || scp.periodId == null) return false;
+  const schedule = await findTestClassSchedule(testId, scp.classId, scp.periodId);
   return isScorePublished(schedule);
 }
 
@@ -98,22 +98,23 @@ async function loadOwnAttempt(attemptId: string, studentId: string) {
 attemptsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const [attempts, studentClassId] = await Promise.all([
+    const [attempts, scp] = await Promise.all([
       prisma.attempt.findMany({
         where: { studentId: req.user!.sub },
         include: { test: { select: { id: true, title: true } }, student: true },
         orderBy: { startedAt: 'desc' },
       }),
-      getStudentClassId(req.user!.sub),
+      getStudentClassAndPeriod(req.user!.sub),
     ]);
 
     const submittedTestIds = [...new Set(attempts.filter((a) => a.status === 'submitted').map((a) => a.testId))];
-    const schedules = studentClassId
-      ? await prisma.testClassSchedule.findMany({
-          where: { classId: studentClassId, testId: { in: submittedTestIds } },
-          select: { testId: true, scoresPublishedManually: true, autoPublishScoresOnClose: true, closeAt: true },
-        })
-      : [];
+    const schedules =
+      scp && scp.periodId != null
+        ? await prisma.testClassSchedule.findMany({
+            where: { classId: scp.classId, periodId: scp.periodId, testId: { in: submittedTestIds } },
+            select: { testId: true, scoresPublishedManually: true, autoPublishScoresOnClose: true, closeAt: true },
+          })
+        : [];
     const scheduleByTestId = new Map(schedules.map((s) => [s.testId, s]));
 
     const summaries: AttemptSummaryDTO[] = attempts.map((a) => {

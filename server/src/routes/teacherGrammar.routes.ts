@@ -29,13 +29,13 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedGrammarTopic } from '../lib/ownedGrammarTopic';
 import { isAdminOrOwner } from '../lib/authz';
-import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
+import { loadOwnerClassesWithCurrentPeriod, validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import {
   computeGrammarReport,
   GRAMMAR_REPORT_GROUP_BY_VALUES,
   type GrammarReportGroupBy,
 } from '../lib/reporting';
-import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
+import { isClassScopeFailure, requireClassPeriod, resolveTeacherClassId } from '../lib/reportClassScope';
 
 export const teacherGrammarRouter = Router();
 
@@ -265,11 +265,15 @@ teacherGrammarRouter.get(
     const topic = await requireOwnedGrammarTopic(req.params.topicId, req.user!, res);
     if (!topic) return;
 
-    const withClasses = await prisma.grammarTopic.findUniqueOrThrow({
-      where: { id: topic.id },
-      select: { classes: { select: { id: true } } },
-    });
-    const body: ContentClassAssignmentDTO = { classIds: withClasses.classes.map((c) => c.id) };
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(topic.teacherId);
+    const assigned =
+      ownerClassPeriods.length === 0
+        ? []
+        : await prisma.grammarTopicClassPeriodAssignment.findMany({
+            where: { grammarTopicId: topic.id, OR: ownerClassPeriods },
+            select: { classId: true },
+          });
+    const body: ContentClassAssignmentDTO = { classIds: assigned.map((a) => a.classId) };
     res.status(200).json(body);
   }),
 );
@@ -287,12 +291,35 @@ teacherGrammarRouter.put(
       return;
     }
 
-    await prisma.grammarTopic.update({
-      where: { id: topic.id },
-      data: { classes: { set: result.classIds.map((id) => ({ id })) } },
-    });
+    // T-099: replace-not-merge, scoped to exactly this topic's (class, CLASS'S CURRENT
+    // PERIOD) slice — see `teacherTests.routes.ts`'s identical `PUT .../classes` for the
+    // full reasoning.
+    const requested = new Set(result.classIds);
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(topic.teacherId);
+    await prisma.$transaction(
+      ownerClassPeriods.map(({ classId, periodId }) =>
+        requested.has(classId)
+          ? prisma.grammarTopicClassPeriodAssignment.upsert({
+              where: {
+                grammarTopicId_classId_periodId: { grammarTopicId: topic.id, classId, periodId },
+              },
+              create: { grammarTopicId: topic.id, classId, periodId },
+              update: {},
+            })
+          : prisma.grammarTopicClassPeriodAssignment.deleteMany({
+              where: { grammarTopicId: topic.id, classId, periodId },
+            }),
+      ),
+    );
 
-    const response: ContentClassAssignmentDTO = { classIds: result.classIds };
+    const assigned =
+      ownerClassPeriods.length === 0
+        ? []
+        : await prisma.grammarTopicClassPeriodAssignment.findMany({
+            where: { grammarTopicId: topic.id, OR: ownerClassPeriods },
+            select: { classId: true },
+          });
+    const response: ContentClassAssignmentDTO = { classIds: assigned.map((a) => a.classId) };
     res.status(200).json(response);
   }),
 );
@@ -502,6 +529,13 @@ teacherGrammarRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    // T-099: this report also requires a CONCRETE period — see `computeGrammarReport`'s
+    // `periodId` doc comment in `../lib/reporting.ts` for what it additionally narrows.
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
     const result = await computeGrammarReport({
       groupBy: groupByRaw,
@@ -510,9 +544,16 @@ teacherGrammarRouter.get(
       teacherId: topicOwnerId ?? req.user!.sub,
       topicId,
       studentId,
-      classId: scope.classId,
+      classId: periodScope.classId,
+      periodId: periodScope.periodId,
     });
-    const body: GrammarReportResponseDTO = { ...result, classId: scope.classId, className: scope.className };
+    const body: GrammarReportResponseDTO = {
+      ...result,
+      classId: periodScope.classId,
+      className: periodScope.className,
+      periodId: periodScope.periodId,
+      periodName: periodScope.periodName,
+    };
     res.status(200).json(body);
   }),
 );

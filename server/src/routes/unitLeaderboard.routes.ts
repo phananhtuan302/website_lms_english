@@ -30,7 +30,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { computeReport } from '../lib/reporting';
-import { isClassScopeFailure, resolveViewerClassId } from '../lib/reportClassScope';
+import { isClassScopeFailure, requireClassPeriod, resolveViewerClassId } from '../lib/reportClassScope';
 
 export const unitLeaderboardRouter = Router();
 
@@ -50,10 +50,29 @@ unitLeaderboardRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    // T-099: also requires a CONCRETE period — see `ComputeReportOptions.periodId`'s doc
+    // comment in `../lib/reporting.ts`.
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
     const [studentReport, unitReport] = await Promise.all([
-      computeReport({ groupBy: 'student', unitId: unit.id, testType: 'unitTest', classId: scope.classId }),
-      computeReport({ groupBy: 'unit', unitId: unit.id, testType: 'unitTest', classId: scope.classId }),
+      computeReport({
+        groupBy: 'student',
+        unitId: unit.id,
+        testType: 'unitTest',
+        classId: periodScope.classId,
+        periodId: periodScope.periodId,
+      }),
+      computeReport({
+        groupBy: 'unit',
+        unitId: unit.id,
+        testType: 'unitTest',
+        classId: periodScope.classId,
+        periodId: periodScope.periodId,
+      }),
     ]);
 
     const entries: UnitLeaderboardEntryDTO[] = studentReport.buckets.map((bucket, index) => ({
@@ -70,8 +89,10 @@ unitLeaderboardRouter.get(
     const response: UnitLeaderboardResponseDTO = {
       unitId: unit.id,
       unitName: unit.name,
-      classId: scope.classId,
-      className: scope.className,
+      classId: periodScope.classId,
+      className: periodScope.className,
+      periodId: periodScope.periodId,
+      periodName: periodScope.periodName,
       attemptCount: aggregate?.attemptCount ?? 0,
       averageScorePercent: aggregate?.averageScorePercent ?? null,
       entries,

@@ -1,18 +1,22 @@
 /**
- * Shared validation for the content-to-class assignment endpoints (T-075, Phase 12):
- * `PUT /api/teacher/{tests,flashcard-sets,grammar-topics}/:id/classes`, one per content
- * type but all sharing this exact same rule.
+ * Shared validation for the content-to-class(-period) assignment endpoints (T-075, Phase
+ * 12; extended T-099 with the semester dimension): `PUT
+ * /api/teacher/{tests,flashcard-sets,grammar-topics}/:id/classes`, one per content type
+ * but all sharing this exact same rule.
  *
  * These are ASSIGNMENTS, not ownership (PROJECT_PLAN Phase 12's "critical design
  * correction") — a `Test`/`FlashcardSet`/`GrammarTopic` keeps its single `teacherId` as
- * always, and is separately assignable to zero or more of that SAME teacher's `Class`es.
- * The one rule every call site must enforce: every incoming classId must reference a
- * `Class` owned by the CONTENT's own teacher — never the calling user's id directly.
- * This distinction matters for an admin caller (who bypasses ownership checks on the
- * content itself, per `isAdminOrOwner`/Assumption A12, but owns no classes of their own):
- * when an admin manages teacher X's test, the valid classIds are teacher X's classes, not
- * admin's — so every route below passes the loaded content row's own `teacherId`, not
- * `req.user!.sub`.
+ * always, and is separately assignable to zero or more of that SAME teacher's `Class`es
+ * (each under that class's own CURRENT semester, as of T-099 — the actual (class, period)
+ * write, per content type, lives inline in each of the three routers below this
+ * validation step, since each writes to its own distinct `*ClassPeriodAssignment` Prisma
+ * model). The one rule every call site must enforce: every incoming classId must
+ * reference a `Class` owned by the CONTENT's own teacher — never the calling user's id
+ * directly. This distinction matters for an
+ * admin caller (who bypasses ownership checks on the content itself, per
+ * `isAdminOrOwner`/Assumption A12, but owns no classes of their own): when an admin
+ * manages teacher X's test, the valid classIds are teacher X's classes, not admin's — so
+ * every route below passes the loaded content row's own `teacherId`, not `req.user!.sub`.
  */
 
 import { prisma } from './prisma';
@@ -54,4 +58,26 @@ export async function validateClassIdsForOwner(
   }
 
   return { classIds };
+}
+
+/**
+ * Every one of `ownerTeacherId`'s own classes that HAS a current semester selected
+ * (T-099), paired with that class's own `currentPeriodId` — shared by all three content
+ * types' `.../classes` GET/PUT handlers (`teacherTests.routes.ts`/
+ * `teacherFlashcards.routes.ts`/`teacherGrammar.routes.ts`), since each needs the exact
+ * same "which (class, period) pairs could this content possibly be assigned to right
+ * now" set before reading/replacing its own `*ClassPeriodAssignment` rows. A class with
+ * `currentPeriodId: null` can never appear here (nothing to key an assignment against
+ * yet) — same "degrades like no class" rule used everywhere else T-099 touches.
+ */
+export async function loadOwnerClassesWithCurrentPeriod(
+  ownerTeacherId: string,
+): Promise<Array<{ classId: string; periodId: string }>> {
+  const classes = await prisma.class.findMany({
+    where: { teacherId: ownerTeacherId },
+    select: { id: true, currentPeriodId: true },
+  });
+  return classes
+    .filter((c): c is { id: string; currentPeriodId: string } => c.currentPeriodId != null)
+    .map((c) => ({ classId: c.id, periodId: c.currentPeriodId }));
 }

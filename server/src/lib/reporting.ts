@@ -96,8 +96,19 @@ export interface ComputeReportOptions {
    * a concrete, ownership-checked `classId` via `reportClassScope.ts` BEFORE calling in
    * here — required in practice for every real caller, but left optional on this type
    * (like `testId`/`unitId`) so a caller that has already computed "every class" (there is
-   * none today) isn't forced to lie about one. */
+   * none today) isn't forced to lie about one.
+   *
+   * `periodId` (T-099): when given ALONGSIDE `classId`, additionally narrows to tests
+   * CURRENTLY assigned to that (class, period) pair — both the canonical zero-row test
+   * list (`buildTestBuckets`) and the counted attempts themselves. This is what makes a
+   * class-scoped report reflect "only this semester's assigned content" per the
+   * customer's "each semester's content is completely separate" framing: switching a
+   * class's `currentPeriodId` immediately changes what a report for that class shows,
+   * without touching any attempt or assignment row. Every real caller resolves this via
+   * `reportClassScope.ts`'s `requireClassPeriod` before calling in, same division of
+   * responsibility as `classId` itself. */
   classId?: string | null;
+  periodId?: string | null;
 }
 
 // --- Asia/Ho_Chi_Minh fixed-offset local-calendar math ------------------------------
@@ -293,6 +304,11 @@ async function fetchScopedAttempts(options: ComputeReportOptions) {
         ...(options.testId ? { id: options.testId } : {}),
         ...(options.unitId ? { unitId: options.unitId } : {}),
         ...(options.testType ? { testType: options.testType } : {}),
+        // T-099: additionally require the test to be CURRENTLY assigned to (classId,
+        // periodId) — see `ComputeReportOptions.periodId`'s doc comment.
+        ...(options.classId && options.periodId
+          ? { classAssignments: { some: { classId: options.classId, periodId: options.periodId } } }
+          : {}),
       },
     },
     select: {
@@ -341,13 +357,19 @@ async function buildTestBuckets(
 ): Promise<ReportBucketResult[]> {
   // Canonical list of the teacher's own tests (matching the same optional unit filter)
   // so a test with zero completed attempts still appears as a 0-row, same convention as
-  // `GET /api/teacher/tests` (T-017).
+  // `GET /api/teacher/tests` (T-017). T-099: further narrowed to tests CURRENTLY
+  // assigned to (classId, periodId) when both are given — a class-scoped report's 0-row
+  // list should reflect that class's THIS-SEMESTER content, not the teacher's whole
+  // catalog (see `ComputeReportOptions.periodId`'s doc comment).
   const tests = await prisma.test.findMany({
     where: {
       ...(options.teacherId ? { teacherId: options.teacherId } : {}),
       ...(options.testId ? { id: options.testId } : {}),
       ...(options.unitId ? { unitId: options.unitId } : {}),
       ...(options.testType ? { testType: options.testType } : {}),
+      ...(options.classId && options.periodId
+        ? { classAssignments: { some: { classId: options.classId, periodId: options.periodId } } }
+        : {}),
     },
     select: { id: true, title: true },
     orderBy: { title: 'asc' },
@@ -662,6 +684,9 @@ export interface ComputeGrammarReportOptions {
    * `ComputeReportOptions.classId` above. Resolved by the route handler via
    * `reportClassScope.ts` before calling in. */
   classId?: string | null;
+  /** T-099 — same "additionally require CURRENT (class, period) assignment" rule as
+   * `ComputeReportOptions.periodId`, applied to `GrammarTopic` instead of `Test`. */
+  periodId?: string | null;
 }
 
 interface GrammarBucketAccumulator {
@@ -696,7 +721,14 @@ function finalizeGrammarBucket(key: string, acc: GrammarBucketAccumulator): Repo
 async function fetchScopedGrammarAttempts(options: ComputeGrammarReportOptions) {
   return prisma.grammarExerciseAttempt.findMany({
     where: {
-      topic: { teacherId: options.teacherId },
+      topic: {
+        teacherId: options.teacherId,
+        // T-099: additionally require the topic to be CURRENTLY assigned to (classId,
+        // periodId) — see `ComputeGrammarReportOptions.periodId`'s doc comment.
+        ...(options.classId && options.periodId
+          ? { classAssignments: { some: { classId: options.classId, periodId: options.periodId } } }
+          : {}),
+      },
       ...(options.topicId ? { topicId: options.topicId } : {}),
       ...(options.studentId ? { studentId: options.studentId } : {}),
       ...(options.classId ? { student: { classId: options.classId } } : {}),
@@ -745,11 +777,15 @@ async function buildGrammarTopicBuckets(
 ): Promise<ReportBucketResult[]> {
   // Canonical list of Grammar topics (matching the same optional `topicId` filter) so a
   // topic with zero attempts yet still appears as a 0-row — same convention as
-  // `buildTestBuckets` above.
+  // `buildTestBuckets` above. T-099: further narrowed to topics CURRENTLY assigned to
+  // (classId, periodId) when both are given.
   const topics = await prisma.grammarTopic.findMany({
     where: {
       teacherId: options.teacherId,
       ...(options.topicId ? { id: options.topicId } : {}),
+      ...(options.classId && options.periodId
+        ? { classAssignments: { some: { classId: options.classId, periodId: options.periodId } } }
+        : {}),
     },
     select: { id: true, title: true },
     orderBy: { title: 'asc' },
@@ -985,6 +1021,9 @@ export interface ComputeSpeakingReportOptions {
    * reasoning as `ComputeReportOptions.classId` above. Resolved by the route handler via
    * `reportClassScope.ts` before calling in. */
   classId?: string | null;
+  /** T-099 — same "additionally require CURRENT (class, period) assignment" rule as
+   * `ComputeReportOptions.periodId`. */
+  periodId?: string | null;
 }
 
 interface SpeakingBucketAccumulator {
@@ -1024,6 +1063,11 @@ async function fetchScopedSpeakingAnswers(options: ComputeSpeakingReportOptions)
           teacherId: options.teacherId,
           ...(options.testId ? { id: options.testId } : {}),
           ...(options.unitId ? { unitId: options.unitId } : {}),
+          // T-099: additionally require the test to be CURRENTLY assigned to (classId,
+          // periodId) — see `ComputeSpeakingReportOptions.periodId`'s doc comment.
+          ...(options.classId && options.periodId
+            ? { classAssignments: { some: { classId: options.classId, periodId: options.periodId } } }
+            : {}),
         },
         ...(options.classId ? { student: { classId: options.classId } } : {}),
       },
@@ -1086,6 +1130,11 @@ async function buildSpeakingTestBuckets(
       ...(options.testId ? { id: options.testId } : {}),
       ...(options.unitId ? { unitId: options.unitId } : {}),
       sections: { some: { questions: { some: { type: 'speaking' } } } },
+      // T-099: further narrowed to tests CURRENTLY assigned to (classId, periodId) when
+      // both are given.
+      ...(options.classId && options.periodId
+        ? { classAssignments: { some: { classId: options.classId, periodId: options.periodId } } }
+        : {}),
     },
     select: { id: true, title: true },
     orderBy: { title: 'asc' },

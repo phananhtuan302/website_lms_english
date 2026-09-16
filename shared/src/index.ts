@@ -1182,6 +1182,12 @@ export interface VocabLeaderboardEntryDTO {
 export interface VocabLeaderboardResponseDTO {
   classId: string;
   className: string;
+  /** T-099 — the class's CURRENT semester. Always present: the route 400s before
+   * computing anything if the resolved class has no current semester yet
+   * (`requireClassPeriod`) — `entries` only reflects self-check activity on content
+   * currently assigned to this class for that semester. */
+  periodId: string;
+  periodName: string;
   entries: VocabLeaderboardEntryDTO[];
 }
 
@@ -1208,6 +1214,14 @@ export interface VocabPeriodLeaderboardResponseDTO {
   periodEnd: string;
   classId: string;
   className: string;
+  /** T-099 — the class's CURRENT semester (`AcademicPeriod`), unrelated to the `period`
+   * field above (which is this endpoint's own month/year date-range selector). Always
+   * present for this response: the route 400s before computing anything if the resolved
+   * class has no current semester selected yet (`requireClassPeriod`,
+   * `server/src/lib/reportClassScope.ts`) — every `entries` row is scoped to content this
+   * class currently has assigned for that semester's self-check activity. */
+  periodId: string;
+  periodName: string;
   entries: VocabLeaderboardEntryDTO[];
 }
 
@@ -1314,6 +1328,13 @@ export interface ReportResponseDTO {
   testType: TestType | null;
   classId: string;
   className: string;
+  /** T-099 — the class's CURRENT semester, same "always resolved, never null" convention
+   * as `classId`/`className` (the route 400s beforehand via `requireClassPeriod` if the
+   * class has no current semester yet). Every bucket only reflects content currently
+   * assigned to this class for this one semester — an attempt on a test that was
+   * assigned to this class under a DIFFERENT semester no longer counts here. */
+  periodId: string;
+  periodName: string;
   buckets: ReportBucketDTO[];
 }
 
@@ -1347,6 +1368,9 @@ export interface SpeakingReportResponseDTO {
   unitId: string | null;
   classId: string;
   className: string;
+  /** T-099 — see `ReportResponseDTO.periodId`'s doc comment for the identical rule. */
+  periodId: string;
+  periodName: string;
   buckets: ReportBucketDTO[];
 }
 
@@ -1554,6 +1578,9 @@ export interface GrammarReportResponseDTO {
   studentId: string | null;
   classId: string;
   className: string;
+  /** T-099 — see `ReportResponseDTO.periodId`'s doc comment for the identical rule. */
+  periodId: string;
+  periodName: string;
   buckets: ReportBucketDTO[];
 }
 
@@ -1629,6 +1656,9 @@ export interface UnitLeaderboardResponseDTO {
   unitName: string;
   classId: string;
   className: string;
+  /** T-099 — see `ReportResponseDTO.periodId`'s doc comment for the identical rule. */
+  periodId: string;
+  periodName: string;
   attemptCount: number;
   averageScorePercent: number | null;
   entries: UnitLeaderboardEntryDTO[];
@@ -1667,6 +1697,12 @@ export interface TestAttemptReportResponseDTO {
   testTitle: string;
   classId: string;
   className: string;
+  /** T-099 — the class's CURRENT semester; the route 400s beforehand
+   * (`requireClassPeriod`) if the class has none selected yet, so this is always present.
+   * `entries`/`schedule` both key off THIS one semester's `(testId, classId, periodId)`
+   * assignment/schedule row. */
+  periodId: string;
+  periodName: string;
   entries: TestAttemptReportEntryDTO[];
   schedule: TestClassScheduleDTO;
 }
@@ -1678,10 +1714,13 @@ export interface TestAttemptReportResponseDTO {
 
 /** Body for `PUT /api/teacher/tests/:testId/schedule`. `classId` must be one of the
  * calling teacher's own classes (or, for `admin`, any class — same rule as
- * `resolveTeacherClassId`, which this endpoint reuses). Every field besides `classId` is
- * OPTIONAL and independent — omit a field to leave it unchanged, so the teacher UI can
- * save the publish toggle and the open/close schedule as separate actions without one
- * clobbering the other:
+ * `resolveTeacherClassId`, which this endpoint reuses). `periodId` is NOT a request
+ * field (T-099): the schedule always applies to that class's CURRENT semester,
+ * resolved server-side (`requireClassPeriod`) — a class with no current semester
+ * selected yet 400s rather than accepting a write with nothing to key it against. Every
+ * field besides `classId` is OPTIONAL and independent — omit a field to leave it
+ * unchanged, so the teacher UI can save the publish toggle and the open/close schedule
+ * as separate actions without one clobbering the other:
  * - `published` (was T-092's whole request body): sets `scoresPublishedManually`. Same
  *   publish/unpublish semantics as T-092 — idempotent either way.
  * - `openAt`/`closeAt`: an ISO date-time string to set, or `null` to explicitly clear.
@@ -1694,15 +1733,18 @@ export interface UpdateTestClassScheduleRequest {
   autoPublishScoresOnClose?: boolean;
 }
 
-/** Full current schedule for one (testId, classId) pair — response shape for both
- * `GET /api/teacher/tests/:testId/attempts` (as `schedule`) and
+/** Full current schedule for one (testId, classId, periodId) triple — response shape for
+ * both `GET /api/teacher/tests/:testId/attempts` (as `schedule`) and
  * `PUT /api/teacher/tests/:testId/schedule`. `openAt`/`closeAt` are `null` when not set.
  * `scoresPublished` is the COMPUTED "effectively published" value (`scoresPublishedManually`
  * OR auto-publish-on-close having fired) — `scoresPublishedManually` is the raw toggle a
- * teacher explicitly controls. */
+ * teacher explicitly controls. `periodId` (T-099) is always the class's CURRENT semester
+ * — a test assigned to the same class across two different semesters has two entirely
+ * independent `TestClassScheduleDTO`s, never merged or shared. */
 export interface TestClassScheduleDTO {
   testId: string;
   classId: string;
+  periodId: string;
   openAt: string | null;
   closeAt: string | null;
   scoresPublishedManually: boolean;
@@ -1913,18 +1955,38 @@ export interface UpdateSettingsRequest {
 
 /** Full shape as the OWNING teacher sees it (`/teacher/classes`, T-074) — includes the
  * live student count so the teacher can tell at a glance which classes are actually in
- * use before attempting to delete one (see `DELETE .../classes/:id`'s 409 behavior). */
+ * use before attempting to delete one (see `DELETE .../classes/:id`'s 409 behavior).
+ *
+ * `currentPeriodId`/`currentPeriodName` (T-099): which semester is presently "live" for
+ * this class — `null` when the teacher hasn't picked one yet (should only happen for a
+ * class created after this migration, before its first "switch semester" action; every
+ * pre-existing class was backfilled). Switched via `PATCH
+ * /api/teacher/classes/:classId/current-period`. */
 export interface ClassDTO {
   id: string;
   name: string;
   studentCount: number;
   createdAt: string;
+  currentPeriodId: string | null;
+  currentPeriodName: string | null;
 }
 
 export interface CreateClassRequest {
   name: string;
 }
 export type UpdateClassRequest = CreateClassRequest;
+
+/** Body for `PATCH /api/teacher/classes/:classId/current-period` (T-099) — switches
+ * which semester is presently "live" for this class. `periodId` must reference an
+ * existing `AcademicPeriod` (global, not per-teacher — same "just validate existence"
+ * rule as `Test.unitId`'s own tag validation). Switching never deletes/touches any other
+ * period's content assignments or `TestClassSchedule` rows for this class — they simply
+ * stop being the ones shown/enforced, exactly like the customer's "hoàn toàn khác nhau"
+ * (completely different, no overlap) framing: the old semester's data stays intact and
+ * reappears correctly if the teacher switches back. */
+export interface UpdateClassCurrentPeriodRequest {
+  periodId: string;
+}
 
 /** Row shape for `GET /api/classes` (T-074, PUBLIC — no auth). Deliberately minimal, per
  * the acceptance criteria ("no sensitive data") — just enough for a prospective student
@@ -1938,12 +2000,27 @@ export interface PublicClassSummaryDTO {
   teacherName: string;
 }
 
-// --- Content-to-class assignment + "My Content" page (T-075, Phase 12) -------------
+// --- Content-to-class(-period) assignment + "My Content" page (T-075, Phase 12;
+// extended T-099 with the semester dimension) ----------------------------------------
 // A teacher authors a Test/FlashcardSet/GrammarTopic once (unchanged single-`teacherId`
 // ownership, T-007/T-021/T-046) and separately ASSIGNS it to zero or more of that SAME
-// teacher's `Class`es — see `schema.prisma`'s `Class.tests`/`.flashcardSets`/
-// `.grammarTopics` doc comment for the full "assignment, not ownership" design this
-// mirrors (PROJECT_PLAN Phase 12's "critical design correction").
+// teacher's `Class`es, each under that class's own CURRENT semester — see
+// `schema.prisma`'s `TestClassPeriodAssignment` doc comment for the full "assignment, not
+// ownership" design this mirrors (PROJECT_PLAN Phase 12's "critical design correction").
+//
+// T-099 KEPT THIS SHAPE DELIBERATELY UNCHANGED (`classIds: string[]`, no `periodId` field)
+// even though assignment is now genuinely 3-key underneath: `TeacherContentPage.tsx`'s
+// existing chip-grid UI (one chip per class, no period picker) still works completely
+// unmodified against this same request/response shape, since "assign this content to
+// class X" now implicitly means "for class X's CURRENT semester" — the server resolves
+// each classId's own `currentPeriodId` and writes/reads exactly that (class, period)
+// slice, leaving any OTHER semester's assignment rows for that same class completely
+// untouched (see `teacherTests.routes.ts`'s `PUT .../classes` handler). A class with no
+// current semester selected yet can never appear as "assigned" here (nothing to key
+// against) — same "degrades like no class" rule used everywhere else T-099 touches. This
+// is intentionally a lower-fidelity but zero-migration-effort bridge: T-100 (a separate,
+// later task) replaces this whole chip-grid page with an explicit per-(class, period)
+// toggle UI; this shape only needs to stay "correct enough to keep working" until then.
 
 /** Body for `PUT /api/teacher/tests/:id/classes` (and the equivalent flashcard-set/
  * Grammar-topic endpoints) — REPLACES the full set of assigned classIds for one item
@@ -1952,13 +2029,17 @@ export interface PublicClassSummaryDTO {
  * THIS ITEM's own teacher (checked server-side against `content.teacherId`, not
  * necessarily the caller's own id — see `contentClassAssignment.ts`'s doc comment for why
  * this matters for an admin caller managing another teacher's content) — assigning to a
- * different teacher's class is rejected with a clear 400, never silently ignored. */
+ * different teacher's class is rejected with a clear 400, never silently ignored. See
+ * this section's module doc comment above for what "assigned to a class" means now that
+ * assignment is 3-key (T-099). */
 export interface UpdateContentClassesRequest {
   classIds: string[];
 }
 
 /** Response for both the read (`GET .../:id/classes`) and replace (`PUT .../:id/classes`)
- * endpoints — the item's current, complete set of assigned classIds after the operation. */
+ * endpoints — the item's current, complete set of assigned classIds after the operation
+ * (each meaning "assigned for that class's OWN current semester" as of T-099 — see this
+ * section's module doc comment). */
 export interface ContentClassAssignmentDTO {
   classIds: string[];
 }
@@ -1971,7 +2052,9 @@ export type TeacherContentType = 'test' | 'flashcardSet' | 'grammarTopic';
 /** One row on the "My Content" page: just enough to render a title and a row of
  * toggleable class chips — never the item's full nested content (sections/cards/
  * exercises), since assigning classes deliberately doesn't require opening the full
- * editor (T-075's explicit "without re-authoring" requirement). */
+ * editor (T-075's explicit "without re-authoring" requirement). `classIds` (T-099): see
+ * this section's module doc comment for the "assigned for that class's current semester"
+ * semantics. */
 export interface TeacherContentItemDTO {
   id: string;
   type: TeacherContentType;
@@ -1982,8 +2065,9 @@ export interface TeacherContentItemDTO {
 /** Response for `GET /api/teacher/content` — every Test/FlashcardSet/GrammarTopic the
  * calling teacher has authored (grouped by type, one array each, matching
  * `TeacherContentType`), plus `classes` (this teacher's own classes, same shape as
- * `GET /api/teacher/classes`) so the page can render one chip per class without a second
- * round-trip. */
+ * `GET /api/teacher/classes` — including each one's `currentPeriodId`/`currentPeriodName`,
+ * T-099, so a future UI can show which semester each chip's toggle actually applies to)
+ * so the page can render one chip per class without a second round-trip. */
 export interface TeacherContentResponseDTO {
   classes: ClassDTO[];
   tests: TeacherContentItemDTO[];

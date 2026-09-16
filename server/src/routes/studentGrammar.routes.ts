@@ -29,7 +29,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { gradeAnswer, type GradableQuestion, type RawAnswer } from '../lib/grading';
-import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { getStudentClassAndPeriod } from '../lib/classScoping';
 
 export const studentGrammarRouter = Router();
 
@@ -43,14 +43,14 @@ studentGrammarRouter.use(requireAuth, requireRole('student'));
 studentGrammarRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const classId = await getStudentClassId(req.user!.sub);
-    if (!classId) {
+    const scp = await getStudentClassAndPeriod(req.user!.sub);
+    if (!scp || scp.periodId == null) {
       res.status(200).json([] satisfies StudentGrammarTopicSummaryDTO[]);
       return;
     }
 
     const topics = await prisma.grammarTopic.findMany({
-      where: { classes: { some: { id: classId } } },
+      where: { classAssignments: { some: { classId: scp.classId, periodId: scp.periodId } } },
       orderBy: { updatedAt: 'desc' },
       include: { unit: { select: { name: true } }, _count: { select: { exercises: true } } },
     });
@@ -68,24 +68,38 @@ studentGrammarRouter.get(
 /** Loads a topic, or writes a 404 and returns `null`. Shared by every per-topic route
  * below.
  *
- * T-076: also verifies `studentId`'s own class is one of this topic's assigned classes,
- * writing the IDENTICAL 404 "Grammar topic not found." for BOTH "doesn't exist" and
- * "exists, but not assigned to your class" — same anti-leak reasoning as every
+ * T-076 (extended T-099): also verifies this topic is assigned to `studentId`'s own
+ * class FOR THAT CLASS'S CURRENT SEMESTER, writing the IDENTICAL 404 "Grammar topic not
+ * found." for "doesn't exist", "exists, but not assigned to your class", and "assigned
+ * to your class, but under a different semester" — same anti-leak reasoning as every
  * ownership-check helper in this codebase (`ownedTest.ts` et al.) and
  * `studentFlashcards.routes.ts`'s `loadSetWithCards`: a student probing another class's
- * topic id learns nothing beyond "not found". */
+ * (or another semester's) topic id learns nothing beyond "not found". */
 async function loadTopic(topicId: string, studentId: string, res: import('express').Response) {
   const topic = await prisma.grammarTopic.findUnique({
     where: { id: topicId },
-    include: { unit: { select: { name: true } }, classes: { select: { id: true } } },
+    include: { unit: { select: { name: true } } },
   });
   if (!topic) {
     res.status(404).json({ error: 'Grammar topic not found.' });
     return null;
   }
 
-  const classId = await getStudentClassId(studentId);
-  if (!isAssignedToClass(topic.classes.map((c) => c.id), classId)) {
+  const scp = await getStudentClassAndPeriod(studentId);
+  if (!scp || scp.periodId == null) {
+    res.status(404).json({ error: 'Grammar topic not found.' });
+    return null;
+  }
+  const assignment = await prisma.grammarTopicClassPeriodAssignment.findUnique({
+    where: {
+      grammarTopicId_classId_periodId: {
+        grammarTopicId: topic.id,
+        classId: scp.classId,
+        periodId: scp.periodId,
+      },
+    },
+  });
+  if (!assignment) {
     res.status(404).json({ error: 'Grammar topic not found.' });
     return null;
   }

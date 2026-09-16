@@ -35,6 +35,23 @@
  *    per existing teacher, auto-assigning that teacher's previously-unassigned content to
  *    it, and backfilling any pre-existing student's `classId` into the first teacher's
  *    Default Class.
+ * 6. Runs `ensureEveryClassHasCurrentPeriod` (T-099, see its own doc comment below): every
+ *    `Class` with no `currentPeriodId` yet gets one — the earliest existing
+ *    `AcademicPeriod` by `startDate`, or a freshly created "Default Period" if none exist
+ *    at all. NOTE: this is the ONGOING half of T-099's migration only (a permanent
+ *    invariant this seed maintains forever, same pattern as
+ *    `migrateContentToDefaultClasses`'s own "Default Class" creation) — the ONE-TIME
+ *    historical carry-over of every pre-existing `Test`/`FlashcardSet`/`GrammarTopic` ↔
+ *    `Class` assignment (and `TestClassSchedule` row) into the new 3-key
+ *    `*ClassPeriodAssignment` shape already happened inside the Prisma migration itself
+ *    (`prisma/migrations/20260916120000_t099_semester_scoped_content/migration.sql`), not
+ *    here — see that migration file's own doc comment for why: it's the one moment the
+ *    OLD `_TestClasses`/`_FlashcardSetClasses`/`_GrammarTopicClasses` implicit join
+ *    tables (T-075) still exist to read from, immediately before they're dropped in the
+ *    very same file. A Prisma migration is itself already guaranteed to run at most once
+ *    per database (tracked via `_prisma_migrations`), which is exactly the idempotency
+ *    guarantee that one-time step needs — re-running THIS seed script can't repeat (or
+ *    need to repeat) it.
  *
  * Idempotent: safe to run multiple times — it looks up existing rows by a stable key
  * (email for the user, title+teacherId for the test, name for units/periods) instead of
@@ -556,14 +573,25 @@ async function seedSettings() {
  * - "Default Class" is looked up by name+teacherId before creating one (same convention
  *   as `seedClasses` above), so a re-run never creates a second "Default Class" row for
  *   the same teacher.
- * - Content assignment only touches rows with `classes: { none: {} }` (zero class
- *   assignments so far) — once assigned, a re-run's `none` filter no longer matches that
- *   row, so nothing is ever double-assigned (Prisma's implicit m2m join table also has a
- *   composite primary key, so even a redundant `connect` would be a harmless no-op, not a
- *   duplicate row — this filter just avoids the wasted round-trip).
+ * - Content assignment only touches rows with `classAssignments: { none: {} }` (T-099:
+ *   zero (class, period) assignments at all so far, across every class/period, not just
+ *   the Default Class's own current period) — once assigned, a re-run's `none` filter no
+ *   longer matches that row, so nothing is ever double-assigned (every
+ *   `*ClassPeriodAssignment` table also has a composite primary key, so even a redundant
+ *   `upsert` would be a harmless no-op, not a duplicate row — this filter just avoids the
+ *   wasted round-trip).
  * - The student backfill only touches `classId: null` rows — once backfilled, a re-run's
  *   filter matches zero rows, so `updateMany`'s count is 0 rather than re-applying
  *   anything.
+ *
+ * T-099 note: auto-assigning previously-unassigned content to a class is now a 3-key
+ * operation, so this function resolves/sets the Default Class's OWN `currentPeriodId`
+ * (via `resolveDefaultPeriodId`, shared with `ensureEveryClassHasCurrentPeriod` below)
+ * right where it's created/looked up, and writes every auto-assignment against THAT
+ * period — this is safe to call `resolveDefaultPeriodId` this early (before
+ * `ensureEveryClassHasCurrentPeriod` itself has necessarily run yet) because that helper
+ * is itself idempotent and side-effect-free beyond "create Default Period if truly none
+ * exists yet".
  */
 const DEFAULT_CLASS_NAME = 'Default Class';
 
@@ -581,13 +609,24 @@ async function migrateContentToDefaultClasses() {
       where: { name: DEFAULT_CLASS_NAME, teacherId: teacher.id },
     });
     if (!defaultClass) {
+      const currentPeriodId = await resolveDefaultPeriodId();
       defaultClass = await prisma.class.create({
-        data: { name: DEFAULT_CLASS_NAME, teacherId: teacher.id },
+        data: { name: DEFAULT_CLASS_NAME, teacherId: teacher.id, currentPeriodId },
       });
       console.log(
         `[seed] Created "Default Class" for teacher ${teacher.email} (id: ${defaultClass.id}).`,
       );
+    } else if (!defaultClass.currentPeriodId) {
+      // Pre-existing Default Class from before T-099 (or a fresh checkout where
+      // `ensureEveryClassHasCurrentPeriod` hasn't run yet this session) — give it a
+      // current period now, same resolution rule as a brand-new one above.
+      const currentPeriodId = await resolveDefaultPeriodId();
+      defaultClass = await prisma.class.update({
+        where: { id: defaultClass.id },
+        data: { currentPeriodId },
+      });
     }
+    const defaultClassPeriodId = defaultClass.currentPeriodId!;
 
     if (index === 0) {
       firstTeacherDefaultClassId = defaultClass.id;
@@ -595,35 +634,52 @@ async function migrateContentToDefaultClasses() {
 
     const [unassignedTests, unassignedSets, unassignedTopics] = await Promise.all([
       prisma.test.findMany({
-        where: { teacherId: teacher.id, classes: { none: {} } },
+        where: { teacherId: teacher.id, classAssignments: { none: {} } },
         select: { id: true },
       }),
       prisma.flashcardSet.findMany({
-        where: { teacherId: teacher.id, classes: { none: {} } },
+        where: { teacherId: teacher.id, classAssignments: { none: {} } },
         select: { id: true },
       }),
       prisma.grammarTopic.findMany({
-        where: { teacherId: teacher.id, classes: { none: {} } },
+        where: { teacherId: teacher.id, classAssignments: { none: {} } },
         select: { id: true },
       }),
     ]);
 
     for (const test of unassignedTests) {
-      await prisma.test.update({
-        where: { id: test.id },
-        data: { classes: { connect: { id: defaultClass.id } } },
+      await prisma.testClassPeriodAssignment.upsert({
+        where: {
+          testId_classId_periodId: { testId: test.id, classId: defaultClass.id, periodId: defaultClassPeriodId },
+        },
+        create: { testId: test.id, classId: defaultClass.id, periodId: defaultClassPeriodId },
+        update: {},
       });
     }
     for (const set of unassignedSets) {
-      await prisma.flashcardSet.update({
-        where: { id: set.id },
-        data: { classes: { connect: { id: defaultClass.id } } },
+      await prisma.flashcardSetClassPeriodAssignment.upsert({
+        where: {
+          flashcardSetId_classId_periodId: {
+            flashcardSetId: set.id,
+            classId: defaultClass.id,
+            periodId: defaultClassPeriodId,
+          },
+        },
+        create: { flashcardSetId: set.id, classId: defaultClass.id, periodId: defaultClassPeriodId },
+        update: {},
       });
     }
     for (const topic of unassignedTopics) {
-      await prisma.grammarTopic.update({
-        where: { id: topic.id },
-        data: { classes: { connect: { id: defaultClass.id } } },
+      await prisma.grammarTopicClassPeriodAssignment.upsert({
+        where: {
+          grammarTopicId_classId_periodId: {
+            grammarTopicId: topic.id,
+            classId: defaultClass.id,
+            periodId: defaultClassPeriodId,
+          },
+        },
+        create: { grammarTopicId: topic.id, classId: defaultClass.id, periodId: defaultClassPeriodId },
+        update: {},
       });
     }
 
@@ -654,6 +710,76 @@ async function migrateContentToDefaultClasses() {
   console.log('[seed] Content-to-class migration (T-075) complete.');
 }
 
+/**
+ * Ongoing, forever-idempotent invariant (T-099, Phase 12 semester scoping): every
+ * `Class` with `currentPeriodId: null` gets one assigned — reusing the earliest existing
+ * `AcademicPeriod` by `startDate` system-wide if any exist, else creating one named
+ * "Default Period" (mirrors `migrateContentToDefaultClasses`'s "Default Class"
+ * create-if-missing convention exactly, applied here to `AcademicPeriod` instead).
+ *
+ * Unlike `migrateContentToDefaultClasses` above, this function does NOT also carry
+ * forward any pre-existing content-to-class assignment data — that one-time historical
+ * conversion already happened inside the T-099 Prisma migration itself (see this file's
+ * own module doc comment, point 6, for why it had to live there instead of here). This
+ * function only maintains the "every class has a current period" invariant GOING
+ * FORWARD, which matters for e.g. a brand-new `Class` created after this migration
+ * shipped (`POST /api/teacher/classes`) — that row is created with `currentPeriodId:
+ * null` by design (a teacher must explicitly pick one via the new "switch semester"
+ * control, T-100), so this keeps a same-shaped safety net available for it exactly like
+ * `migrateContentToDefaultClasses`'s "Default Class" creation still runs every seed to
+ * catch newly-authored unassigned content, not just historical backfill.
+ *
+ * Idempotent — verified by running `npm run seed -w server` back to back and diffing row
+ * counts (same convention T-075's own migration was checked against): once every class
+ * has a non-null `currentPeriodId`, the `updateMany`'s `where: { currentPeriodId: null }`
+ * filter matches zero rows on every subsequent run, and the "resolve/create a default
+ * period" step only creates "Default Period" the very first time it's ever needed (looked
+ * up by name before creating, same convention as `DEFAULT_CLASS_NAME` above) — a re-run
+ * with `AcademicPeriod`s already present never creates a second "Default Period".
+ */
+const DEFAULT_PERIOD_NAME = 'Default Period';
+
+/** Resolves "the" period a class with no current semester yet should start on: the
+ * earliest existing `AcademicPeriod` by `startDate` system-wide, or a freshly created
+ * "Default Period" if none exist at all yet — looked up by name before creating (same
+ * convention as `DEFAULT_CLASS_NAME` above), so calling this repeatedly across the same
+ * seed run (once per newly-created Default Class, plus once more from
+ * `ensureEveryClassHasCurrentPeriod`) never creates more than one "Default Period" row.
+ * Shared by `migrateContentToDefaultClasses` (needs a period immediately when creating a
+ * brand-new Default Class) and `ensureEveryClassHasCurrentPeriod` (the general ongoing
+ * invariant), so the exact same resolution rule is applied both places. */
+async function resolveDefaultPeriodId(): Promise<string> {
+  const existing = await prisma.academicPeriod.findFirst({ orderBy: { startDate: 'asc' } });
+  if (existing) return existing.id;
+
+  const created = await prisma.academicPeriod.create({
+    data: {
+      name: DEFAULT_PERIOD_NAME,
+      startDate: hcmDate('2000-01-01'),
+      endDate: hcmDate('2100-01-01'),
+    },
+  });
+  console.log(`[seed] Created "${DEFAULT_PERIOD_NAME}" (id: ${created.id}) — no AcademicPeriod existed yet.`);
+  return created.id;
+}
+
+async function ensureEveryClassHasCurrentPeriod() {
+  const classesNeedingAPeriod = await prisma.class.count({ where: { currentPeriodId: null } });
+  if (classesNeedingAPeriod === 0) {
+    console.log('[seed] Every class already has a current semester selected (T-099) — nothing to do.');
+    return;
+  }
+
+  const defaultPeriodId = await resolveDefaultPeriodId();
+  const result = await prisma.class.updateMany({
+    where: { currentPeriodId: null },
+    data: { currentPeriodId: defaultPeriodId },
+  });
+  console.log(
+    `[seed] Assigned a current semester (id: ${defaultPeriodId}) to ${result.count} class(es) that had none (T-099).`,
+  );
+}
+
 async function main() {
   await seedAdmin();
   const teacher = await seedTeacher();
@@ -670,6 +796,7 @@ async function main() {
   await verifyGrammarRoundTrip(grammarTopicId);
   await seedSettings();
   await migrateContentToDefaultClasses();
+  await ensureEveryClassHasCurrentPeriod();
 }
 
 main()

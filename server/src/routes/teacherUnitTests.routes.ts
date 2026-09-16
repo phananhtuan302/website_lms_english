@@ -16,6 +16,7 @@ import type { TeacherUnitTestsResponseDTO, TestSummaryDTO, UnitTestGroupDTO } fr
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
+import { loadOwnerClassesWithCurrentPeriod } from '../lib/contentClassAssignment';
 
 export const teacherUnitTestsRouter = Router();
 
@@ -40,12 +41,27 @@ teacherUnitTestsRouter.get(
       include: {
         sections: { include: { _count: { select: { questions: true } } } },
         unit: { select: { id: true, name: true, order: true } },
-        // T-097: which classes this test is already assigned to (T-075's `Test.classes`
-        // many-to-many) — only the id is needed, `TeacherUnitTestsPage.tsx` filters
-        // client-side against the `?classId=` it may have arrived with.
-        classes: { select: { id: true } },
       },
     });
+
+    // T-097 (extended T-099): which of this teacher's own classes have EACH test
+    // currently assigned (for that class's own current semester) — `TestClassPeriodAssignment`
+    // replaces T-075's `Test.classes` many-to-many; `TeacherUnitTestsPage.tsx` filters
+    // client-side against the `?classId=` it may have arrived with, same as before.
+    const ownerClassPeriods = await loadOwnerClassesWithCurrentPeriod(req.user!.sub);
+    const assignments =
+      ownerClassPeriods.length === 0 || tests.length === 0
+        ? []
+        : await prisma.testClassPeriodAssignment.findMany({
+            where: { testId: { in: tests.map((t) => t.id) }, OR: ownerClassPeriods },
+            select: { testId: true, classId: true },
+          });
+    const classIdsByTestId = new Map<string, string[]>();
+    for (const a of assignments) {
+      const list = classIdsByTestId.get(a.testId) ?? [];
+      list.push(a.classId);
+      classIdsByTestId.set(a.testId, list);
+    }
 
     const timeStats = await prisma.attempt.groupBy({
       by: ['testId'],
@@ -71,7 +87,7 @@ teacherUnitTestsRouter.get(
         averageTimeTakenSeconds:
           stats && stats._avg.timeTakenSeconds != null ? Math.round(stats._avg.timeTakenSeconds) : null,
         completedAttemptCount: stats?._count._all ?? 0,
-        classIds: test.classes.map((c) => c.id),
+        classIds: classIdsByTestId.get(test.id) ?? [],
         // Sort-only field, stripped before responding — see the grouping below.
         unitOrder: test.unit?.order ?? Number.MAX_SAFE_INTEGER,
       };

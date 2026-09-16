@@ -19,7 +19,7 @@ import {
   type ReportGroupBy,
   type SpeakingReportGroupBy,
 } from '../lib/reporting';
-import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
+import { isClassScopeFailure, requireClassPeriod, resolveTeacherClassId } from '../lib/reportClassScope';
 
 export const teacherReportsRouter = Router();
 
@@ -123,6 +123,13 @@ teacherReportsRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    // T-099: also requires a CONCRETE semester — see `ComputeReportOptions.periodId`'s
+    // doc comment in `../lib/reporting.ts`.
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
     const result = await computeReport({
       // T-078 fix: the narrowed test's OWN owner when one was given (see this router's
@@ -134,10 +141,17 @@ teacherReportsRouter.get(
       testId,
       unitId,
       testType,
-      classId: scope.classId,
+      classId: periodScope.classId,
+      periodId: periodScope.periodId,
     });
 
-    const body: ReportResponseDTO = { ...result, classId: scope.classId, className: scope.className };
+    const body: ReportResponseDTO = {
+      ...result,
+      classId: periodScope.classId,
+      className: periodScope.className,
+      periodId: periodScope.periodId,
+      periodName: periodScope.periodName,
+    };
     res.status(200).json(body);
   }),
 );
@@ -196,6 +210,11 @@ teacherReportsRouter.get(
       res.status(scope.status).json({ error: scope.error });
       return;
     }
+    const periodScope = requireClassPeriod(scope);
+    if (isClassScopeFailure(periodScope)) {
+      res.status(periodScope.status).json({ error: periodScope.error });
+      return;
+    }
 
     const result = await computeSpeakingReport({
       // T-078 fix — see `/reports` above for the full reasoning.
@@ -203,10 +222,17 @@ teacherReportsRouter.get(
       groupBy: groupByRaw,
       testId,
       unitId,
-      classId: scope.classId,
+      classId: periodScope.classId,
+      periodId: periodScope.periodId,
     });
 
-    const body: SpeakingReportResponseDTO = { ...result, classId: scope.classId, className: scope.className };
+    const body: SpeakingReportResponseDTO = {
+      ...result,
+      classId: periodScope.classId,
+      className: periodScope.className,
+      periodId: periodScope.periodId,
+      periodName: periodScope.periodName,
+    };
     res.status(200).json(body);
   }),
 );
