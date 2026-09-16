@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-16 — Dev — Remove duplicate Dashboard shortcuts, lock class context everywhere (closes T-096)
+
+- Task IDs touched: T-096, T-097
+- What changed: `TeacherDashboardPage.tsx`'s "Lớp học của tôi" section shrank from 5 duplicate direct links down to just "Quản lý lớp của tôi" — every one of those 5 destination pages (My Content, Reports, Vocab Leaderboard, Unit Tests, Vocabulary Check) is now reachable exclusively through T-095's per-class workspace hub. All 6 pages that already received a `?classId=` hand-off (T-095) now go further: when reached WITH that param, the `ClassFilterControl` dropdown is hidden entirely and replaced with a fixed "Đang thao tác: Lớp X" line + the existing "Đổi lớp" link — the class is genuinely LOCKED, not just pre-filled into a still-editable picker. Reached without the param (a raw/bookmarked URL), the original dropdown fallback still works unchanged. `TeacherUnitTestsPage.tsx` now filters to one class's assigned Unit Tests when scoped (reusing the existing `Test.classes` relation), and `TeacherVocabularyChecksPage.tsx` now defaults its student picker to the class roster when scoped, with a toggle back to "every student" preserving T-076's original any-student design.
+- Why / decisions made: direct customer feedback on a screenshot of the very feature just shipped — the Dashboard's shortcuts duplicated the new class workspace, and pages reached "after choosing a class" still didn't feel personalized because they kept showing a full class-picker dropdown rather than a locked context. `TeacherContentPage.tsx` was deliberately left untouched and explicitly called out as such — it's a genuinely global, cross-class content-assignment tool by design (T-075), and forcing it into single-class scoping would remove real capability, not just tidy navigation. T-096 (a minor deselect-to-blank bug found during T-095's own verification) closed itself as a side effect of the locking fix, with no separate code change needed — the dropdown that could produce the ambiguous half-state simply no longer renders in locked mode.
+- Status after this entry: T-096 Done, T-097 Done, commit `cd1e4d9`. Nothing further queued as of this entry.
+
 ## 2026-09-16 — Dev — Class-first workspace flow (Google Classroom pattern)
 
 - Task IDs touched: T-095
