@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-16 — Dev — Per-class Test schedule settable directly from "My Content"
+
+- Task IDs touched: T-098
+- What changed: each assigned class chip in "My Content"'s Tests section gained a small settings button opening a compact inline panel with the same open/close time, auto-publish, and manual-publish controls T-093 already built on the class-scoped Report page — now reachable right where a teacher assigns a test to a class, instead of only after navigating away to a different page. A new light `GET /api/teacher/tests/:testId/schedule?classId=` endpoint feeds the panel (reusing existing ownership/class-resolution helpers); all writes still go through T-093's existing `PUT` endpoint unchanged, so this is genuinely a new UI entry point onto already-tested backend logic, not new business logic.
+- Why / decisions made: direct customer feedback on a My Content screenshot — assigning a test to a class and then needing to leave the page entirely just to set that class's exam window felt disconnected from the act of assigning it. Deliberately scoped to the Tests section only (a `TestClassSchedule` row only makes sense for a `Test`; FlashcardSet/GrammarTopic assignments have no such concept, and T-089's self-check quiz is explicitly never gated). Chose a new dedicated GET over reusing the heavier `.../attempts` report endpoint specifically to avoid fetching and discarding a full attempts list every time a teacher opens what's meant to be a quick settings popover.
+- Status after this entry: T-098 Done, commit `c7f4f41`. Nothing further queued as of this entry.
+
 ## 2026-09-16 — Dev — Remove duplicate Dashboard shortcuts, lock class context everywhere (closes T-096)
 
 - Task IDs touched: T-096, T-097
