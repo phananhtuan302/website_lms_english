@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-16 — Dev — Class-first workspace flow (Google Classroom pattern)
+
+- Task IDs touched: T-095
+- What changed: `/teacher/classes` is now the class-picker home (each class name links out, existing rename/delete controls untouched); a new `/teacher/classes/:classId` hub shows the class name persistently ("Đang thao tác: Lớp X") with quick-links into Reports and the Vocabulary Leaderboard pre-scoped via `?classId=` (reusing T-088's exact `initialClassId` hand-off pattern), plus plain links into My Content/Unit Tests/Vocabulary Check (none of which have a meaningful single-class scope to pre-fill). Every page reachable this way also gained a "Đổi lớp" link next to its existing "Đang xem lớp: X" text, so a teacher always has a one-click way back to the class picker.
+- Why / decisions made: this is the fuller version of T-094's own deferred idea, now explicitly requested — the customer pointed back at the Leader's own description of Google Classroom's pattern ("chọn lớp trước, rồi mọi thao tác diễn ra bên trong 'không gian' của lớp đó") and asked to just build it. Deliberately scoped as a navigation/wiring layer only — every class-scoped page keeps its own existing internal logic, data-fetching, and manual class-switching dropdown exactly as before; this task only changes what class a page STARTS on when arrived at via the new flow. One minor UX nit was found during verification and logged separately rather than fixed inline (see T-096) — 4 of the wired pages layer their own `selectedClassId` on top of the shared hook, so "deselect back to nothing" after arriving pre-scoped doesn't fully clear (switching to a different specific class works fine).
+- Status after this entry: T-095 Done, commit `4633832`. T-096 logged as a low-priority follow-up. Nothing else queued as of this entry.
+
 ## 2026-09-16 — Leader — Teacher nav restructured into "Thư viện" vs. "Lớp học của tôi"
 
 - Task IDs touched: T-094
