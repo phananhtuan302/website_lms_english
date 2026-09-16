@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { VocabLeaderboardResponseDTO } from '@platform/shared';
 import { vocabLeaderboardApi } from '../lib/vocabLeaderboardApi';
@@ -25,7 +26,12 @@ function VocabLeaderboardPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const isTeacherView = user?.role === 'teacher' || user?.role === 'admin';
-  const { classes, classId, setClassId } = useTeacherClasses(isTeacherView);
+  // T-095: the new per-class workspace hub links here with `?classId=`, same T-088
+  // hand-off pattern as `TeacherTestAttemptsReportPage` — only meaningful for the
+  // teacher/admin view above, but harmless to read unconditionally.
+  const [searchParams] = useSearchParams();
+  const initialClassId = searchParams.get('classId') ?? '';
+  const { classes, classId, setClassId } = useTeacherClasses(isTeacherView, initialClassId);
   const [data, setData] = useState<VocabLeaderboardResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +56,17 @@ function VocabLeaderboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('vocabLeaderboard.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('vocabLeaderboard.subtitle')}</p>
-        {data && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: data.className })}</p>}
+        {data && isTeacherView && (
+          <p className="mt-1 text-sm text-primary-600">
+            {t('classFilter.viewingLabel', { className: data.className })}{' '}
+            <Link to="/teacher/classes" className="font-medium underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        )}
+        {data && !isTeacherView && (
+          <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: data.className })}</p>
+        )}
       </div>
 
       {isTeacherView && (

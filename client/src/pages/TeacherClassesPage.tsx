@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ClassDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -14,6 +15,12 @@ import { ApiError } from '../lib/apiClient';
  * `teacherClasses.routes.ts`'s doc comment) — the error message returned is shown as-is,
  * same "server messages are plain English, not translated" convention already used by
  * every other page in this codebase (e.g. `TeacherCurriculumPage`).
+ *
+ * T-095: this page doubles as the class-picker home of the new "pick a class first"
+ * flow — each row's class name (below) is now also a `<Link>` into the new per-class
+ * `TeacherClassWorkspacePage` hub, kept as a separate target from the rename input/
+ * delete button (same "don't nest a click target inside another" split T-087 used for
+ * `TeacherTestsPage`'s cards) so all three controls keep working independently.
  */
 function TeacherClassesPage() {
   const { t } = useTranslation();
@@ -138,6 +145,12 @@ function ClassRow({
 
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-md border border-primary-100 px-3 py-2">
+      <Link
+        to={`/teacher/classes/${cls.id}`}
+        className="font-semibold text-primary-700 hover:underline"
+      >
+        {cls.name}
+      </Link>
       <input
         type="text"
         value={name}

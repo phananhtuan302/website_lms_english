@@ -36,6 +36,7 @@ import StudentVocabularyChecksPage from './pages/StudentVocabularyChecksPage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
+import TeacherClassWorkspacePage from './pages/TeacherClassWorkspacePage';
 import TeacherContentPage from './pages/TeacherContentPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
@@ -107,6 +108,11 @@ function App() {
                   own cohorts/sections. Registration's class picker reads the PUBLIC
                   `/api/classes` list, not this teacher-only page. */}
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+                {/* T-095: per-class workspace hub — the destination of the class-picker
+                  home above's now-clickable class names. Class name + quick-links only,
+                  each handing off to an already-existing page (see the page's own doc
+                  comment for exactly which ones get pre-scoped via `?classId=`). */}
+                <Route path="/teacher/classes/:classId" element={<TeacherClassWorkspacePage />} />
                 {/* Consolidated "My Content" management page (T-075, Phase 12): assign any
                   of the teacher's own Tests/FlashcardSets/GrammarTopics to any of their
                   classes without opening that item's full editor. */}

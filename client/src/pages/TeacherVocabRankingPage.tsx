@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { VocabPeriodLeaderboardResponseDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -25,8 +26,12 @@ function TeacherVocabRankingPage() {
   const [mode, setMode] = useState<'month' | 'year'>('month');
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  // T-095: the new per-class workspace hub links here with `?classId=` — see
+  // `TeacherReportsPage.tsx`'s identical pattern.
+  const [searchParams] = useSearchParams();
+  const initialClassId = searchParams.get('classId') ?? '';
   // T-077: required class dimension — see `TeacherReportsPage.tsx`'s identical pattern.
-  const { classes, classId } = useTeacherClasses(true);
+  const { classes, classId } = useTeacherClasses(true, initialClassId);
   const [selectedClassId, setSelectedClassId] = useState('');
   const effectiveClassId = selectedClassId || classId;
   const [data, setData] = useState<VocabPeriodLeaderboardResponseDTO | null>(null);
@@ -60,7 +65,14 @@ function TeacherVocabRankingPage() {
           <code>server/src/lib/vocabLeaderboard.ts</code>
           {t('teacherVocabRanking.descriptionAfterCode')}
         </p>
-        {data && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: data.className })}</p>}
+        {data && (
+          <p className="mt-1 text-sm text-primary-600">
+            {t('classFilter.viewingLabel', { className: data.className })}{' '}
+            <Link to="/teacher/classes" className="font-medium underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        )}
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">

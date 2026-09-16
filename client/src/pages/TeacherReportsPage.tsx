@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ReportGroupBy, ReportResponseDTO, TestSummaryDTO, TestType, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -58,10 +58,15 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
   const [testId, setTestId] = useState('');
   const [unitId, setUnitId] = useState('');
   const [testType, setTestType] = useState<TestType | ''>('');
+  // T-095: the new per-class workspace hub links here with `?classId=`, same T-088
+  // hand-off pattern as `TeacherTestAttemptsReportPage` — read once on mount and fed
+  // straight into `useTeacherClasses` below as the starting class.
+  const [searchParams] = useSearchParams();
+  const initialClassId = searchParams.get('classId') ?? '';
   // T-077: required class dimension — `useTeacherClasses` auto-selects the sole class
   // when the teacher only has one, otherwise starts empty until they pick via
   // `ClassFilterControl` below.
-  const { classes, classId } = useTeacherClasses(true);
+  const { classes, classId } = useTeacherClasses(true, initialClassId);
   const [selectedClassId, setSelectedClassId] = useState('');
   const effectiveClassId = selectedClassId || classId;
 
@@ -113,7 +118,14 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
         <p className="mt-1 text-sm text-base-black/60">
           {description ?? t('teacherReports.description')}
         </p>
-        {report && <p className="mt-1 text-sm text-primary-600">{t('classFilter.viewingLabel', { className: report.className })}</p>}
+        {report && (
+          <p className="mt-1 text-sm text-primary-600">
+            {t('classFilter.viewingLabel', { className: report.className })}{' '}
+            <Link to="/teacher/classes" className="font-medium underline">
+              {t('classFilter.switchClass')}
+            </Link>
+          </p>
+        )}
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
