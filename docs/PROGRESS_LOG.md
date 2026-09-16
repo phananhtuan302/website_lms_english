@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-16 — Leader — Teacher nav restructured into "Thư viện" vs. "Lớp học của tôi"
+
+- Task IDs touched: T-094
+- What changed: the teacher-facing top nav (9 flat items) and dashboard (10 flat links) were reorganized into two labeled groups — "Thư viện của tôi" (authoring: Tests, Flashcards, Grammar, Curriculum) and "Lớp học của tôi" (class-scoped operations: Classes, My Content, Reports, Vocabulary Leaderboard, Unit Tests, Vocabulary Check). The top nav bar now relies on its existing "Trang tổng quan" (Dashboard) link as the sole entry point into this now-two-sectioned dashboard, rather than listing every feature individually across the header. Every link's destination/behavior is byte-for-byte unchanged — this was a pure navigation/labeling reorganization, no backend, no new routes, no schema.
+- Why / decisions made: customer UX feedback ("cảm giác các chức năng nó hơi rối, khó nhất là cảm giác thao tác chưa được tách biệt rõ giữa các lớp") prompted the Leader to research how established LMS platforms (Google Classroom, Canvas, Moodle) solve this — the common pattern is separating "authoring" from "a class's own workspace." The customer explicitly approved this direction and explicitly asked to keep the change (and its verification) proportionate — implemented directly by the Leader rather than dispatched to a Dev agent, given the small, self-contained, zero-backend-risk scope. A fuller version of this idea (a persistent "you're working in Class X" context shared across every class-scoped page, replacing each page's own independent class-selector) was considered but deliberately deferred — that would be a materially bigger refactor across ~8 pages, not what "core functionality stays the same" called for on this pass; worth revisiting later if the lighter fix here doesn't fully resolve the customer's concern.
+- Status after this entry: T-094 Done, commit `c81e663`. Nothing further queued as of this entry.
+
 ## 2026-09-16 — Dev — Per-class test availability window + auto-publish scores on close
 
 - Task IDs touched: T-093
