@@ -21,18 +21,18 @@ import type {
   QuestionType,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
-  ScoreReleaseDTO,
   SectionDTO,
   TestAttemptReportEntryDTO,
   TestAttemptReportResponseDTO,
+  TestClassScheduleDTO,
   TestDetailDTO,
   TestSummaryDTO,
   TestType,
   TestVariantDTO,
   UpdateContentClassesRequest,
   UpdateQuestionRequest,
-  UpdateScoreReleaseRequest,
   UpdateSectionRequest,
+  UpdateTestClassScheduleRequest,
   UpdateTestRequest,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
@@ -43,6 +43,7 @@ import { validateClassIdsForOwner } from '../lib/contentClassAssignment';
 import { generateVariantLayout, nextVariantCodes, type VariantLayout } from '../lib/variantShuffle';
 import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
 import { isClassScopeFailure, resolveTeacherClassId } from '../lib/reportClassScope';
+import { findTestClassSchedule, toTestClassScheduleDTO } from '../lib/testClassSchedule';
 
 export const teacherTestsRouter = Router();
 
@@ -498,7 +499,7 @@ teacherTestsRouter.get(
       return;
     }
 
-    const [attempts, release] = await Promise.all([
+    const [attempts, schedule] = await Promise.all([
       prisma.attempt.findMany({
         where: {
           testId: test.id,
@@ -508,11 +509,9 @@ teacherTestsRouter.get(
         include: { student: { select: { id: true, name: true } } },
         orderBy: [{ scorePercent: 'desc' }, { submittedAt: 'asc' }],
       }),
-      // T-092: does a `TestScoreRelease` row exist for (this test, this class)? Presence
-      // = students in this class can currently see their own score for this test.
-      prisma.testScoreRelease.findUnique({
-        where: { testId_classId: { testId: test.id, classId: scope.classId } },
-      }),
+      // T-092/T-093: the full current schedule (open/close window + publish flags) for
+      // (this test, this class), if a teacher has ever configured one.
+      findTestClassSchedule(test.id, scope.classId),
     ]);
 
     const entries: TestAttemptReportEntryDTO[] = attempts.map((a) => ({
@@ -534,36 +533,40 @@ teacherTestsRouter.get(
       classId: scope.classId,
       className: scope.className,
       entries,
-      scoresPublished: release !== null,
+      schedule: toTestClassScheduleDTO(test.id, scope.classId, schedule),
     };
     res.status(200).json(response);
   }),
 );
 
 /**
- * PUT /api/teacher/tests/:testId/score-release (T-092) — toggles the per-(test, class)
- * score-release gate that `attempts.routes.ts`'s two student-facing routes check before
- * showing a student their own score. Reached from `TeacherTestAttemptsReportPage.tsx`'s
- * publish/unpublish control — that page is already scoped to exactly one (testId,
- * classId) at a time via `resolveTeacherClassId`/`ClassFilterControl`, so this endpoint
- * resolves `classId` from the request body the exact same way the report endpoint above
- * resolves it from the query param (same ownership rule: the class must belong to the
- * calling teacher, or be any class at all for `admin`).
+ * PUT /api/teacher/tests/:testId/schedule (T-092, extended T-093) — upserts the
+ * per-(test, class) availability window + score-release schedule that
+ * `attempts.routes.ts`/`practice.routes.ts`/`sessions.routes.ts` read before showing a
+ * student their own score or letting them start/join a NEW attempt. Reached from
+ * `TeacherTestAttemptsReportPage.tsx`'s publish toggle AND its new open/close/auto-publish
+ * controls — that page is already scoped to exactly one (testId, classId) at a time via
+ * `resolveTeacherClassId`/`ClassFilterControl`, so this endpoint resolves `classId` from
+ * the request body the exact same way the report endpoint above resolves it from the
+ * query param (same ownership rule: the class must belong to the calling teacher, or be
+ * any class at all for `admin`).
  *
- * `published: true` upserts the `TestScoreRelease` row; `published: false` deletes it —
- * both idempotent (toggling twice in a row, or a retried request, never errors).
+ * Every field besides `classId` is OPTIONAL — see `UpdateTestClassScheduleRequest`'s doc
+ * comment for why (lets the publish toggle and the schedule form save independently
+ * without one clobbering the other's already-saved values). `published: true`/`false`
+ * sets `scoresPublishedManually` — same idempotent publish/unpublish semantics as T-092,
+ * except the row itself is always upserted now rather than deleted on `false` (deleting
+ * would also wipe any `openAt`/`closeAt`/`autoPublishScoresOnClose` already configured on
+ * the same row — see `TestClassSchedule`'s doc comment in schema.prisma for why "no row"
+ * and "a row at all-default values" are treated identically by every reader).
  */
 teacherTestsRouter.put(
-  '/tests/:testId/score-release',
+  '/tests/:testId/schedule',
   asyncHandler(async (req, res) => {
     const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
-    const body = req.body as Partial<UpdateScoreReleaseRequest>;
-    if (typeof body.published !== 'boolean') {
-      res.status(400).json({ error: 'published must be a boolean.' });
-      return;
-    }
+    const body = req.body as Partial<UpdateTestClassScheduleRequest>;
 
     const scope = await resolveTeacherClassId(req.user!, body.classId);
     if (isClassScopeFailure(scope)) {
@@ -571,25 +574,57 @@ teacherTestsRouter.put(
       return;
     }
 
-    if (body.published) {
-      await prisma.testScoreRelease.upsert({
-        where: { testId_classId: { testId: test.id, classId: scope.classId } },
-        create: { testId: test.id, classId: scope.classId },
-        update: {},
-      });
-    } else {
-      // `deleteMany` (not `delete`) so an already-unpublished class is a no-op, not a
-      // "record not found" error — matches this route's documented idempotence.
-      await prisma.testScoreRelease.deleteMany({
-        where: { testId: test.id, classId: scope.classId },
-      });
+    // `undefined` = "field not provided, leave whatever's already saved untouched";
+    // `null` = "explicitly clear this date"; a string = the new ISO date-time to parse.
+    function parseOptionalDate(value: unknown, field: string): { date: Date | null | undefined } | { error: string } {
+      if (value === undefined) return { date: undefined };
+      if (value === null) return { date: null };
+      if (typeof value !== 'string') return { error: `${field} must be an ISO date-time string or null.` };
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return { error: `${field} is not a valid date-time.` };
+      return { date: parsed };
     }
 
-    const response: ScoreReleaseDTO = {
-      testId: test.id,
-      classId: scope.classId,
-      scoresPublished: body.published,
-    };
+    const openAtResult = parseOptionalDate(body.openAt, 'openAt');
+    if ('error' in openAtResult) {
+      res.status(400).json({ error: openAtResult.error });
+      return;
+    }
+    const closeAtResult = parseOptionalDate(body.closeAt, 'closeAt');
+    if ('error' in closeAtResult) {
+      res.status(400).json({ error: closeAtResult.error });
+      return;
+    }
+    if (body.published !== undefined && typeof body.published !== 'boolean') {
+      res.status(400).json({ error: 'published must be a boolean.' });
+      return;
+    }
+    if (body.autoPublishScoresOnClose !== undefined && typeof body.autoPublishScoresOnClose !== 'boolean') {
+      res.status(400).json({ error: 'autoPublishScoresOnClose must be a boolean.' });
+      return;
+    }
+
+    const schedule = await prisma.testClassSchedule.upsert({
+      where: { testId_classId: { testId: test.id, classId: scope.classId } },
+      create: {
+        testId: test.id,
+        classId: scope.classId,
+        openAt: openAtResult.date ?? null,
+        closeAt: closeAtResult.date ?? null,
+        scoresPublishedManually: body.published ?? false,
+        autoPublishScoresOnClose: body.autoPublishScoresOnClose ?? false,
+      },
+      update: {
+        ...(openAtResult.date !== undefined && { openAt: openAtResult.date }),
+        ...(closeAtResult.date !== undefined && { closeAt: closeAtResult.date }),
+        ...(body.published !== undefined && { scoresPublishedManually: body.published }),
+        ...(body.autoPublishScoresOnClose !== undefined && {
+          autoPublishScoresOnClose: body.autoPublishScoresOnClose,
+        }),
+      },
+    });
+
+    const response: TestClassScheduleDTO = toTestClassScheduleDTO(test.id, scope.classId, schedule);
     res.status(200).json(response);
   }),
 );

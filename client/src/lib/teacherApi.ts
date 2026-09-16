@@ -37,7 +37,6 @@ import type {
   ReorderSectionsRequest,
   ReportGroupBy,
   ReportResponseDTO,
-  ScoreReleaseDTO,
   SentenceSubmissionDTO,
   SpeakingReportGroupBy,
   SpeakingReportResponseDTO,
@@ -47,6 +46,7 @@ import type {
   TeacherVocabProgressDTO,
   TeacherVocabularyCheckSummaryDTO,
   TestAttemptReportResponseDTO,
+  TestClassScheduleDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestSummaryDTO,
@@ -62,8 +62,8 @@ import type {
   UpdateGrammarExerciseRequest,
   UpdateGrammarTopicRequest,
   UpdateQuestionRequest,
-  UpdateScoreReleaseRequest,
   UpdateSectionRequest,
+  UpdateTestClassScheduleRequest,
   UpdateTestRequest,
   UpdateUnitRequest,
   VocabPeriodLeaderboardResponseDTO,
@@ -154,9 +154,9 @@ export const teacherApi = {
     return apiRequest<TestAttemptReportResponseDTO>(`${base}/${testId}/attempts${query}`);
   },
 
-  // --- Per-(test, class) score release (T-092) ---------------------------------------
-  updateScoreRelease: (testId: string, body: UpdateScoreReleaseRequest) =>
-    apiRequest<ScoreReleaseDTO>(`${base}/${testId}/score-release`, {
+  // --- Per-(test, class) availability window + score release (T-092, extended T-093) --
+  updateTestClassSchedule: (testId: string, body: UpdateTestClassScheduleRequest) =>
+    apiRequest<TestClassScheduleDTO>(`${base}/${testId}/schedule`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }),

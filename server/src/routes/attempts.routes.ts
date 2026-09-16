@@ -47,23 +47,24 @@ import { buildResultQuestions, buildRuntimeSections, flattenQuestionsInAuthoredO
 import { gradeAnswer } from '../lib/grading';
 import { getAIGradingProvider } from '../grading';
 import { getStudentClassId } from '../lib/classScoping';
+import { findTestClassSchedule, isScorePublished } from '../lib/testClassSchedule';
 
 /**
- * T-092: after a student submits an attempt, they should NOT see their own score until
- * the teacher explicitly "publishes" it FOR THEIR CLASS (`TestScoreRelease`,
+ * T-092 (extended T-093): after a student submits an attempt, they should NOT see their
+ * own score until it's "effectively published" FOR THEIR CLASS (`TestClassSchedule`,
  * `schema.prisma` — per (testId, classId), since a test assigned to multiple classes may
- * be released for one before another). This applies ONLY to the two routes below that
- * reveal a score to the STUDENT who owns the attempt (`GET /:attemptId/result` and
- * `GET /`, `listMyAttempts`) — every teacher-facing view of the exact same underlying
- * data (`teacherSessions.routes.ts`) is completely untouched, always full detail.
+ * be released for one before another) — either the teacher manually published it, or
+ * T-093's auto-publish-on-close has fired (`isScorePublished`'s doc comment). This
+ * applies ONLY to the two routes below that reveal a score to the STUDENT who owns the
+ * attempt (`GET /:attemptId/result` and `GET /`, `listMyAttempts`) — every teacher-facing
+ * view of the exact same underlying data (`teacherSessions.routes.ts`) is completely
+ * untouched, always full detail.
  */
 async function isScoreReleasedForStudent(testId: string, studentId: string): Promise<boolean> {
   const classId = await getStudentClassId(studentId);
   if (!classId) return false;
-  const release = await prisma.testScoreRelease.findUnique({
-    where: { testId_classId: { testId, classId } },
-  });
-  return release !== null;
+  const schedule = await findTestClassSchedule(testId, classId);
+  return isScorePublished(schedule);
 }
 
 export const attemptsRouter = Router();
@@ -85,13 +86,15 @@ async function loadOwnAttempt(attemptId: string, studentId: string) {
  * without the student having to remember a URL, and it's a near-zero-cost addition
  * given `AttemptSummaryDTO` already exists for the teacher's per-session list (T-014).
  *
- * T-092: for each `submitted` row, `scoresPublished` reflects whether a
- * `TestScoreRelease` row exists for (that attempt's testId, the calling student's own
- * classId) — if not, `correctCount`/`totalCount`/`scorePercent` are nulled out here so
- * the dashboard can't show a score the teacher hasn't published yet. Batched as ONE
- * extra query (the student's classId, looked up once, then every released `testId` for
- * it in a single `findMany`) rather than N+1 per attempt row. An `inProgress` attempt has
- * no score to withhold in the first place, so it's always `scoresPublished: true`. */
+ * T-092 (extended T-093): for each `submitted` row, `scoresPublished` reflects the
+ * "effectively published" rule (`isScorePublished`'s doc comment — manual publish OR
+ * auto-publish-on-close) for (that attempt's testId, the calling student's own classId)
+ * — if not published, `correctCount`/`totalCount`/`scorePercent` are nulled out here so
+ * the dashboard can't show a score the teacher hasn't published yet. Batched as ONE extra
+ * query (the student's classId, looked up once, then every schedule row for the
+ * `submitted` testIds in a single `findMany`) rather than N+1 per attempt row. An
+ * `inProgress` attempt has no score to withhold in the first place, so it's always
+ * `scoresPublished: true`. */
 attemptsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -105,16 +108,16 @@ attemptsRouter.get(
     ]);
 
     const submittedTestIds = [...new Set(attempts.filter((a) => a.status === 'submitted').map((a) => a.testId))];
-    const releases = studentClassId
-      ? await prisma.testScoreRelease.findMany({
+    const schedules = studentClassId
+      ? await prisma.testClassSchedule.findMany({
           where: { classId: studentClassId, testId: { in: submittedTestIds } },
-          select: { testId: true },
+          select: { testId: true, scoresPublishedManually: true, autoPublishScoresOnClose: true, closeAt: true },
         })
       : [];
-    const releasedTestIds = new Set(releases.map((r) => r.testId));
+    const scheduleByTestId = new Map(schedules.map((s) => [s.testId, s]));
 
     const summaries: AttemptSummaryDTO[] = attempts.map((a) => {
-      const scoresPublished = a.status !== 'submitted' || releasedTestIds.has(a.testId);
+      const scoresPublished = a.status !== 'submitted' || isScorePublished(scheduleByTestId.get(a.testId) ?? null);
       return {
         attemptId: a.id,
         sessionId: a.sessionId,

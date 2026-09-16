@@ -139,14 +139,14 @@ model User {
 /// (T-075) doesn't exist yet at this task's scope, so there's no assigned-content case to
 /// fold into this rule yet.
 model Class {
-  id        String   @id @default(uuid())
-  name      String
-  teacherId String
-  teacher   User     @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
+  id             String              @id @default(uuid())
+  name           String
+  teacherId      String
+  teacher        User                @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
   // Students currently assigned to this class (T-074) — see `User.classId`'s doc comment
   // for the "exactly one class, whole lifetime" rule this enforces at the app layer (not
   // the DB layer, which only enforces "at most one" via the plain scalar FK).
-  students  User[]   @relation("ClassStudents")
+  students       User[]              @relation("ClassStudents")
   // Content-to-class ASSIGNMENT (T-075, Phase 12) — many-to-many, one implicit join table
   // per content type. Documented choice: Prisma IMPLICIT many-to-many (no explicit join
   // model) rather than a hand-rolled join table, because there is no extra data to hang
@@ -160,13 +160,13 @@ model Class {
   // that cross-teacher guard is enforced at the app layer, by
   // `lib/contentClassAssignment.ts`'s `validateClassIdsForOwner`, exactly like every other
   // "app layer enforces it, not the FK" note already used throughout this schema.
-  tests         Test[]         @relation("TestClasses")
-  flashcardSets FlashcardSet[] @relation("FlashcardSetClasses")
-  grammarTopics GrammarTopic[] @relation("GrammarTopicClasses")
-  // T-092: per (test, class) score-release toggles for tests assigned to this class —
-  // see `TestScoreRelease`'s doc comment for the full design.
-  scoreReleases TestScoreRelease[]
-  createdAt DateTime @default(now())
+  tests          Test[]              @relation("TestClasses")
+  flashcardSets  FlashcardSet[]      @relation("FlashcardSetClasses")
+  grammarTopics  GrammarTopic[]      @relation("GrammarTopicClasses")
+  // T-092/T-093: per (test, class) availability window + score-release toggles for tests
+  // assigned to this class — see `TestClassSchedule`'s doc comment for the full design.
+  classSchedules TestClassSchedule[]
+  createdAt      DateTime            @default(now())
 
   @@map("classes")
 }
@@ -242,17 +242,17 @@ enum TestType {
 /// plain `Test`-level column, not `unitTest`-specific storage, in case a later phase wants
 /// the same "teacher must explicitly publish" gate for another type.
 model Test {
-  id               String           @id @default(uuid())
+  id               String              @id @default(uuid())
   title            String
   teacherId        String
-  teacher          User             @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher          User                @relation("TeacherTests", fields: [teacherId], references: [id], onDelete: Cascade)
   timeLimitMinutes Int?
-  testType         TestType         @default(generic)
-  published        Boolean          @default(false)
+  testType         TestType            @default(generic)
+  published        Boolean             @default(false)
   // `SetNull` (not `Cascade`/`Restrict`): deleting a `Unit` should never take a teacher's
   // tests down with it, or block the delete — the test just becomes untagged.
   unitId           String?
-  unit             Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   sections         Section[]
   variants         TestVariant[]
   sessions         TestSession[]
@@ -264,39 +264,71 @@ model Test {
   // "assignment, not ownership" design. Zero or more of THIS test's own teacher's
   // classes; empty means not yet assigned to any class (student visibility for T-076 is
   // that task's job, not this schema's).
-  classes          Class[]          @relation("TestClasses")
-  // T-092: per (test, class) score-release toggles — see `TestScoreRelease`'s doc
-  // comment for the full design.
-  scoreReleases    TestScoreRelease[]
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  classes          Class[]             @relation("TestClasses")
+  // T-092/T-093: per (test, class) availability window + score-release toggles — see
+  // `TestClassSchedule`'s doc comment for the full design.
+  classSchedules   TestClassSchedule[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@map("tests")
 }
 
-/// Teacher-controlled per-(test, class) score release gate (T-092). Presence of a row =
-/// scores are published for that (testId, classId) pair; absence = not yet published.
-/// A test assigned to multiple classes (T-075's `Test.classes`) can be published for one
-/// class before another — this is deliberately a SEPARATE explicit model, not extra state
-/// bolted onto the existing implicit `Test.classes` m2m join table (which has no room for
-/// per-pair metadata like `publishedAt`).
+/// Teacher-controlled per-(test, class) availability window + score-release gate.
+/// Started as T-092's presence-based `TestScoreRelease` (row presence = published,
+/// absence = not yet published); T-093 extends it IN PLACE (customer request
+/// 2026-09-16, same day, nothing outside T-092's own code depended on the old shape
+/// yet — see BACKLOG.md T-093's design note) into a full schedule: an optional
+/// `openAt`/`closeAt` window controlling whether a STUDENT can START a NEW attempt at
+/// all, plus an `autoPublishScoresOnClose` checkbox. A test assigned to multiple classes
+/// (T-075's `Test.classes`) can have a different window/publish state per class — this is
+/// deliberately a SEPARATE explicit model, not extra state bolted onto the existing
+/// implicit `Test.classes` m2m join table (which has no room for per-pair metadata).
 ///
-/// Source: customer request 2026-09-16 — after a student submits a test attempt, they
-/// should NOT see their score until the teacher explicitly "publishes" it for their
-/// specific class. Read/write side lives in `teacherTests.routes.ts` (`PUT
-/// /api/teacher/tests/:testId/score-release` toggles a row; `GET
-/// /api/teacher/tests/:testId/attempts`'s `scoresPublished` field reflects it) and
-/// `attempts.routes.ts` (the two student-facing routes that gate on it — see that file's
-/// module doc comment).
-model TestScoreRelease {
-  testId      String
-  classId     String
-  test        Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
-  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  publishedAt DateTime @default(now())
+/// A row's absence entirely (no schedule ever configured for this (testId, classId))
+/// means fully unrestricted + unpublished — exactly like every test authored before
+/// T-092/T-093 (backward compatible by construction). Once a row exists (created the
+/// first time a teacher touches EITHER the publish toggle OR the schedule fields for a
+/// class), it is upserted in place going forward rather than deleted when toggled back to
+/// all-default — unlike T-092's original delete-on-unpublish, deleting would also wipe
+/// any `openAt`/`closeAt`/`autoPublishScoresOnClose` the teacher separately configured on
+/// the same row. This is transparent to callers: "no row" and "a row with every field at
+/// its default" are treated identically everywhere this model is read.
+///
+/// - `openAt`/`closeAt` (T-093): independent and both optional. Enforced ONLY at the two
+///   "start/join a NEW attempt" entry points (`practice.routes.ts`'s `POST
+///   /:testId/practice`, `sessions.routes.ts`'s `POST /join/:token`) — an attempt already
+///   legitimately in progress before `closeAt` is explicitly NOT cut off (BACKLOG.md
+///   T-093's documented scoping decision); never checked by any answer-writing/
+///   continuation endpoint. Student-only — teacher/admin previewing/managing a test is
+///   never subject to this window.
+/// - `scoresPublishedManually` (was T-092's row presence): teacher's explicit publish
+///   toggle, via `PUT /api/teacher/tests/:testId/schedule`.
+/// - `autoPublishScoresOnClose` (T-093): when true, scores are ALSO treated as published
+///   once `closeAt` has passed, even without a manual publish click. "Effectively
+///   published" = `scoresPublishedManually` OR (`autoPublishScoresOnClose` AND `closeAt`
+///   set AND already passed) — computed lazily at READ time against `new Date()`
+///   (`lib/testClassSchedule.ts`'s `isScorePublished`), no cron job, matching this
+///   codebase's existing "evaluate time windows lazily at request time" convention.
+///
+/// Read/write side lives in `teacherTests.routes.ts` (`PUT
+/// /api/teacher/tests/:testId/schedule` upserts this row; `GET
+/// /api/teacher/tests/:testId/attempts`'s `schedule` field reflects it) and
+/// `attempts.routes.ts`/`practice.routes.ts`/`sessions.routes.ts` (the student-facing
+/// routes that read it — see each file's module doc comment).
+model TestClassSchedule {
+  testId                   String
+  classId                  String
+  test                     Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  class                    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  openAt                   DateTime?
+  closeAt                  DateTime?
+  scoresPublishedManually  Boolean   @default(false)
+  autoPublishScoresOnClose Boolean   @default(false)
+  updatedAt                DateTime  @updatedAt
 
   @@id([testId, classId])
-  @@map("test_score_releases")
+  @@map("test_class_schedules")
 }
 
 /// Grants one student access to take a specific `Test` (T-038), independent of the
@@ -654,15 +686,15 @@ model Attempt {
 /// question just overwrites the prior value, so "save on change or interval" can never
 /// create duplicate answer rows for one question.
 model Answer {
-  id                  String    @id @default(uuid())
-  attemptId           String
-  attempt             Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  questionId          String
-  question            Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  selectedChoiceId    String?
-  selectedChoice      Choice?   @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
-  textAnswer          String?
-  isCorrect           Boolean?
+  id                      String    @id @default(uuid())
+  attemptId               String
+  attempt                 Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId              String
+  question                Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedChoiceId        String?
+  selectedChoice          Choice?   @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
+  textAnswer              String?
+  isCorrect               Boolean?
   /// Manual essay grading (T-042). Both stay `null` until a teacher grades this answer
   /// via `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade` — only
   /// meaningful when the underlying `Question.type` is `essay` (never set for any other
@@ -672,8 +704,8 @@ model Answer {
   /// alongside (not merged into) `Attempt.correctCount`/`scorePercent`, which only ever
   /// reflect auto-gradable questions. See `attempts.routes.ts`'s submit handler doc
   /// comment for the full reasoning.
-  manualScore         Float?
-  manualComment       String?
+  manualScore             Float?
+  manualComment           String?
   /// Speaking (T-052–T-056). `speakingAudioData` is the student's recorded answer,
   /// stored as a base64 `data:` URL (documented local storage convention — no real
   /// cloud/object storage exists in this build, see `attempts.routes.ts`'s module doc
@@ -692,11 +724,11 @@ model Answer {
   /// manual grading (not separate columns) — the teacher-set value wins once present,
   /// identical "teacher value wins" rule for both question types, see
   /// `AttemptResultQuestionDTO`'s doc comment in `@platform/shared`.
-  speakingAudioData   String?
-  speakingTranscript  String?
-  speakingAiScore     Float?
-  speakingAiFeedback  String?
-  speakingSubmittedAt DateTime?
+  speakingAudioData       String?
+  speakingTranscript      String?
+  speakingAiScore         Float?
+  speakingAiFeedback      String?
+  speakingSubmittedAt     DateTime?
   /// T-064: when the student's response window actually started, per the server (set by
   /// `POST .../speaking-window/start`, called by the client the moment it first shows
   /// this question's countdown — first call wins, never overwritten). Enforces
@@ -705,7 +737,7 @@ model Answer {
   /// "recording" for a short window with no pushback). `null` until the start signal
   /// arrives; a question with no `allowedResponseSeconds` configured never needs one.
   speakingWindowStartedAt DateTime?
-  updatedAt           DateTime  @updatedAt
+  updatedAt               DateTime  @updatedAt
 
   @@unique([attemptId, questionId])
   @@map("answers")

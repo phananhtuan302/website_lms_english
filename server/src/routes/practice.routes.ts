@@ -29,6 +29,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { findOrCreateAttempt } from '../lib/attemptAssignment';
 import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { checkAttemptWindow, findTestClassSchedule } from '../lib/testClassSchedule';
 
 export const practiceRouter = Router();
 
@@ -133,6 +134,11 @@ practiceRouter.post(
     // NARROWER per-student grant, so adding a class check would only ever make this MORE
     // restrictive for no reason (in practice `test.classes` is always empty for this type,
     // which would reject everyone including already-assigned students).
+    // Looked up once and reused below by both the T-076 class-assignment check and the
+    // T-093 schedule-window check — `null` for a classless student or a `vocabularyCheck`
+    // (which isn't class-scoped at all, see the branch below).
+    const classId = await getStudentClassId(req.user!.sub);
+
     if (test.testType === 'vocabularyCheck') {
       const assignment = await prisma.testAssignment.findUnique({
         where: { testId_studentId: { testId: test.id, studentId: req.user!.sub } },
@@ -146,7 +152,6 @@ practiceRouter.post(
       // assigned to the calling student's own class — defense in depth alongside
       // `GET /api/tests`/`GET /api/student/unit-tests` already filtering their lists by
       // the same rule, in case a student POSTs a known/guessed test id directly.
-      const classId = await getStudentClassId(req.user!.sub);
       if (!isAssignedToClass(test.classes.map((c) => c.id), classId)) {
         res.status(403).json({ error: 'This test is not assigned to your class.' });
         return;
@@ -154,6 +159,24 @@ practiceRouter.post(
     }
 
     const session = await findOrCreatePracticeSession(test.id);
+
+    // T-093: block STARTING a brand-new attempt if this class's `TestClassSchedule`
+    // window says so (`now < openAt` or `now > closeAt`). An already-existing attempt is
+    // exempt — resuming/continuing it is explicitly OUT OF SCOPE for being cut off
+    // mid-attempt (BACKLOG.md T-093), so this only ever gates the FIRST request that
+    // would create the row (see `findOrCreateAttempt`'s doc comment for the idempotent
+    // "already joined" check this mirrors).
+    const alreadyStarted = await prisma.attempt.findUnique({
+      where: { sessionId_studentId: { sessionId: session.id, studentId: req.user!.sub } },
+    });
+    if (!alreadyStarted && classId) {
+      const schedule = await findTestClassSchedule(test.id, classId);
+      const windowError = checkAttemptWindow(schedule);
+      if (windowError) {
+        res.status(403).json({ error: windowError });
+        return;
+      }
+    }
 
     const attempt = await findOrCreateAttempt(session, req.user!.sub);
     if (attempt === 'no-variants') {

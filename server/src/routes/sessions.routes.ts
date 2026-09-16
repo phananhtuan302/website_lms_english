@@ -12,6 +12,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { findOrCreateAttempt } from '../lib/attemptAssignment';
 import { getStudentClassId, isAssignedToClass } from '../lib/classScoping';
+import { checkAttemptWindow, findTestClassSchedule } from '../lib/testClassSchedule';
 
 export const sessionsRouter = Router();
 
@@ -104,13 +105,34 @@ sessionsRouter.post(
     const session = await loadJoinableSession(req.params.token, res);
     if (!session) return;
 
+    // Looked up once and reused below by both the T-076 class-assignment check and the
+    // T-093 schedule-window check.
+    const classId = await getStudentClassId(req.user!.sub);
+
     if (session.test.testType !== 'vocabularyCheck') {
-      const classId = await getStudentClassId(req.user!.sub);
       const assignedClassIds = session.test.classes.map((c) => c.id);
       if (!isAssignedToClass(assignedClassIds, classId)) {
         res.status(403).json({
           error: 'This session is only open to students in the class this test is assigned to.',
         });
+        return;
+      }
+    }
+
+    // T-093: the SAME open/close window check as `practice.routes.ts`'s self-practice
+    // start — enforced even though `loadJoinableSession` above already confirmed the
+    // session/token is still `active` (the customer's explicit "kể cả còn link" / "even
+    // with a valid link" requirement: a class's close time independently blocks the join
+    // regardless of the session's own status). Exempt once the student already has an
+    // attempt here — resuming is out of scope for being cut off (BACKLOG.md T-093).
+    const alreadyJoined = await prisma.attempt.findUnique({
+      where: { sessionId_studentId: { sessionId: session.id, studentId: req.user!.sub } },
+    });
+    if (!alreadyJoined && classId) {
+      const schedule = await findTestClassSchedule(session.test.id, classId);
+      const windowError = checkAttemptWindow(schedule);
+      if (windowError) {
+        res.status(403).json({ error: windowError });
         return;
       }
     }

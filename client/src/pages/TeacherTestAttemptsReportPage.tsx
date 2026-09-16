@@ -27,6 +27,25 @@ import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFi
  * off the class the teacher was already viewing there, instead of making them re-pick it
  * via `ClassFilterControl` below.
  */
+/** Converts an ISO date-time string to the local `datetime-local` input value format
+ * (`YYYY-MM-DDTHH:mm`), or `''` for `null` — the inverse of `toIsoOrNull` below. Plain
+ * local-time formatting (not UTC) so the input shows the same wall-clock time the
+ * teacher originally picked. */
+function toDatetimeLocalValue(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Converts a `datetime-local` input value back to an ISO string, or `null` for an
+ * empty/cleared input. */
+function toIsoOrNull(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function TeacherTestAttemptsReportPage() {
   const { testId } = useParams<{ testId: string }>();
   const { t } = useTranslation();
@@ -39,6 +58,16 @@ function TeacherTestAttemptsReportPage() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
+  // T-093: the open/close/auto-publish schedule form, kept as separate editable state
+  // (rather than reading straight off `data.schedule`) so the teacher can type into the
+  // date fields without every keystroke re-rendering off a re-fetch. Synced from
+  // `data.schedule` whenever a fresh report loads (new test/class), via the effect below.
+  const [openAtInput, setOpenAtInput] = useState('');
+  const [closeAtInput, setCloseAtInput] = useState('');
+  const [autoPublishInput, setAutoPublishInput] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
   useEffect(() => {
     if (!testId) return;
     // No synchronous `setData(null)` here — see `useTeacherClasses.ts`'s doc comment on
@@ -49,6 +78,9 @@ function TeacherTestAttemptsReportPage() {
       .then((res) => {
         setData(res);
         setError(null);
+        setOpenAtInput(toDatetimeLocalValue(res.schedule.openAt));
+        setCloseAtInput(toDatetimeLocalValue(res.schedule.closeAt));
+        setAutoPublishInput(res.schedule.autoPublishScoresOnClose);
       })
       .catch((err) => {
         setData(null);
@@ -56,22 +88,46 @@ function TeacherTestAttemptsReportPage() {
       });
   }, [testId, t, classId]);
 
-  /** T-092: toggles the per-(test, class) score-release gate for the class currently
-   * being viewed. Reflects the new state directly from the response (`setData`) rather
-   * than re-fetching the whole report — one round-trip either way. */
+  /** T-092: toggles the per-(test, class) manual score-release flag for the class
+   * currently being viewed. Reflects the new state directly from the response
+   * (`setData`) rather than re-fetching the whole report — one round-trip either way. */
   function handleTogglePublish() {
     if (!testId || !data) return;
     setPublishing(true);
     setPublishError(null);
     teacherApi
-      .updateScoreRelease(testId, { classId: data.classId, published: !data.scoresPublished })
+      .updateTestClassSchedule(testId, { classId: data.classId, published: !data.schedule.scoresPublishedManually })
       .then((res) => {
-        setData((prev) => (prev ? { ...prev, scoresPublished: res.scoresPublished } : prev));
+        setData((prev) => (prev ? { ...prev, schedule: res } : prev));
       })
       .catch((err) => {
         setPublishError(err instanceof ApiError ? err.message : t('teacherTestReport.publishFailed'));
       })
       .finally(() => setPublishing(false));
+  }
+
+  /** T-093: saves the open/close window + auto-publish checkbox for the class currently
+   * being viewed, independent of the manual publish toggle above (the PUT endpoint
+   * treats every field as optional/independent — see `UpdateTestClassScheduleRequest`'s
+   * doc comment). */
+  function handleSaveSchedule() {
+    if (!testId || !data) return;
+    setSavingSchedule(true);
+    setScheduleError(null);
+    teacherApi
+      .updateTestClassSchedule(testId, {
+        classId: data.classId,
+        openAt: toIsoOrNull(openAtInput),
+        closeAt: toIsoOrNull(closeAtInput),
+        autoPublishScoresOnClose: autoPublishInput,
+      })
+      .then((res) => {
+        setData((prev) => (prev ? { ...prev, schedule: res } : prev));
+      })
+      .catch((err) => {
+        setScheduleError(err instanceof ApiError ? err.message : t('teacherTestReport.scheduleSaveFailed'));
+      })
+      .finally(() => setSavingSchedule(false));
   }
 
   return (
@@ -98,16 +154,18 @@ function TeacherTestAttemptsReportPage() {
         <ClassFilterEmptyState classes={classes} />
       </section>
 
-      {/* T-092: publish/unpublish scores for THIS class. `data.scoresPublished` reflects
-          whether a `TestScoreRelease` row exists for (testId, this classId) right now. */}
+      {/* T-092: manual publish/unpublish scores for THIS class. The badge reflects
+          `data.schedule.scoresPublished` — the COMPUTED "effectively published" value
+          (manual OR T-093's auto-publish-on-close having fired) — while the button
+          itself toggles the raw `scoresPublishedManually` flag it actually controls. */}
       {data && (
         <section className="flex flex-wrap items-center gap-3 rounded-xl border border-primary-200 p-4">
           <span
             className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
-              data.scoresPublished ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+              data.schedule.scoresPublished ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
             }`}
           >
-            {data.scoresPublished
+            {data.schedule.scoresPublished
               ? t('teacherTestReport.scoresPublished')
               : t('teacherTestReport.scoresNotPublished')}
           </span>
@@ -117,11 +175,57 @@ function TeacherTestAttemptsReportPage() {
             disabled={publishing}
             className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:opacity-60"
           >
-            {data.scoresPublished
+            {data.schedule.scoresPublishedManually
               ? t('teacherTestReport.unpublishButton')
               : t('teacherTestReport.publishButton')}
           </button>
           {publishError && <p className="text-sm text-red-700">{publishError}</p>}
+        </section>
+      )}
+
+      {/* T-093: per-class availability window (open/close) + auto-publish-on-close
+          checkbox, saved independently of the manual publish toggle above. */}
+      {data && (
+        <section className="flex flex-col gap-3 rounded-xl border border-primary-200 p-4">
+          <h2 className="text-sm font-semibold text-primary-700">{t('teacherTestReport.scheduleHeading')}</h2>
+          <p className="text-xs text-base-black/60">{t('teacherTestReport.scheduleDescription')}</p>
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex flex-col gap-1 text-sm text-base-black/80">
+              {t('teacherTestReport.openAtLabel')}
+              <input
+                type="datetime-local"
+                value={openAtInput}
+                onChange={(e) => setOpenAtInput(e.target.value)}
+                className="rounded-md border border-primary-200 px-3 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-base-black/80">
+              {t('teacherTestReport.closeAtLabel')}
+              <input
+                type="datetime-local"
+                value={closeAtInput}
+                onChange={(e) => setCloseAtInput(e.target.value)}
+                className="rounded-md border border-primary-200 px-3 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-base-black/80">
+              <input
+                type="checkbox"
+                checked={autoPublishInput}
+                onChange={(e) => setAutoPublishInput(e.target.checked)}
+              />
+              {t('teacherTestReport.autoPublishLabel')}
+            </label>
+            <button
+              type="button"
+              onClick={handleSaveSchedule}
+              disabled={savingSchedule}
+              className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-60"
+            >
+              {t('teacherTestReport.saveScheduleButton')}
+            </button>
+          </div>
+          {scheduleError && <p className="text-sm text-red-700">{scheduleError}</p>}
         </section>
       )}
 

@@ -1651,36 +1651,55 @@ export interface TestAttemptReportEntryDTO {
  * by `scorePercent` descending, ties broken by `submittedAt` ascending — "ranked
  * most-correct to least-correct" per the customer request.
  *
- * `scoresPublished` (T-092): whether a `TestScoreRelease` row exists for (this `testId`,
- * this `classId`) — i.e. whether students IN THIS CLASS can currently see their own
- * score for this test. Toggled via `PUT /api/teacher/tests/:testId/score-release`. */
+ * `schedule` (T-092/T-093): the full current `TestClassSchedule` for (this `testId`,
+ * this `classId`) — open/close window, manual + auto-publish flags, and the computed
+ * `scoresPublished` ("is a student in this class currently able to see their own score").
+ * Toggled/edited via `PUT /api/teacher/tests/:testId/schedule`. */
 export interface TestAttemptReportResponseDTO {
   testId: string;
   testTitle: string;
   classId: string;
   className: string;
   entries: TestAttemptReportEntryDTO[];
-  scoresPublished: boolean;
+  schedule: TestClassScheduleDTO;
 }
 
-// --- Per-(test, class) score release (T-092) -----------------------------------------
-// Presence of a `TestScoreRelease` row = published; absence = not yet published. See
-// that Prisma model's doc comment in schema.prisma for the full design, and
-// `attempts.routes.ts`'s module doc comment for the student-facing gating it drives.
+// --- Per-(test, class) availability window + score release (T-092, extended T-093) ---
+// See `TestClassSchedule`'s doc comment in schema.prisma for the full design, and
+// `attempts.routes.ts`/`practice.routes.ts`/`sessions.routes.ts`'s module doc comments
+// for the student-facing gating it drives.
 
-/** Body for `PUT /api/teacher/tests/:testId/score-release`. `classId` must be one of the
+/** Body for `PUT /api/teacher/tests/:testId/schedule`. `classId` must be one of the
  * calling teacher's own classes (or, for `admin`, any class — same rule as
- * `resolveTeacherClassId`, which this endpoint reuses). `published: true` upserts the
- * `TestScoreRelease` row; `published: false` deletes it — both idempotent. */
-export interface UpdateScoreReleaseRequest {
+ * `resolveTeacherClassId`, which this endpoint reuses). Every field besides `classId` is
+ * OPTIONAL and independent — omit a field to leave it unchanged, so the teacher UI can
+ * save the publish toggle and the open/close schedule as separate actions without one
+ * clobbering the other:
+ * - `published` (was T-092's whole request body): sets `scoresPublishedManually`. Same
+ *   publish/unpublish semantics as T-092 — idempotent either way.
+ * - `openAt`/`closeAt`: an ISO date-time string to set, or `null` to explicitly clear.
+ * - `autoPublishScoresOnClose`: the "Tự động công bố điểm khi đóng bài" checkbox. */
+export interface UpdateTestClassScheduleRequest {
   classId: string;
-  published: boolean;
+  published?: boolean;
+  openAt?: string | null;
+  closeAt?: string | null;
+  autoPublishScoresOnClose?: boolean;
 }
 
-/** Response for the endpoint above. */
-export interface ScoreReleaseDTO {
+/** Full current schedule for one (testId, classId) pair — response shape for both
+ * `GET /api/teacher/tests/:testId/attempts` (as `schedule`) and
+ * `PUT /api/teacher/tests/:testId/schedule`. `openAt`/`closeAt` are `null` when not set.
+ * `scoresPublished` is the COMPUTED "effectively published" value (`scoresPublishedManually`
+ * OR auto-publish-on-close having fired) — `scoresPublishedManually` is the raw toggle a
+ * teacher explicitly controls. */
+export interface TestClassScheduleDTO {
   testId: string;
   classId: string;
+  openAt: string | null;
+  closeAt: string | null;
+  scoresPublishedManually: boolean;
+  autoPublishScoresOnClose: boolean;
   scoresPublished: boolean;
 }
 

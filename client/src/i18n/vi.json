@@ -1093,7 +1093,14 @@
     "scoresNotPublished": "Chưa công bố điểm",
     "publishButton": "Công bố điểm cho lớp này",
     "unpublishButton": "Hủy công bố điểm cho lớp này",
-    "publishFailed": "Không thể cập nhật trạng thái công bố."
+    "publishFailed": "Không thể cập nhật trạng thái công bố.",
+    "scheduleHeading": "Thời gian mở/đóng bài",
+    "scheduleDescription": "Tùy chọn giới hạn thời gian học sinh trong lớp này có thể bắt đầu lượt làm bài mới, và tự động công bố điểm khi đóng bài.",
+    "openAtLabel": "Mở lúc",
+    "closeAtLabel": "Đóng lúc",
+    "autoPublishLabel": "Tự động công bố điểm khi đóng bài",
+    "saveScheduleButton": "Lưu lịch",
+    "scheduleSaveFailed": "Không thể lưu thời gian mở/đóng bài."
   },
   "questionEditor": {
     "saveFailed": "Không thể lưu câu hỏi.",

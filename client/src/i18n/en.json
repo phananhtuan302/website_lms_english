@@ -1102,7 +1102,14 @@
     "scoresNotPublished": "Scores not published",
     "publishButton": "Publish scores for this class",
     "unpublishButton": "Unpublish scores for this class",
-    "publishFailed": "Failed to update the publish state."
+    "publishFailed": "Failed to update the publish state.",
+    "scheduleHeading": "Availability window",
+    "scheduleDescription": "Optionally limit when students in this class can start a new attempt of this test, and auto-publish scores once it closes.",
+    "openAtLabel": "Opens at",
+    "closeAtLabel": "Closes at",
+    "autoPublishLabel": "Automatically publish scores when closed",
+    "saveScheduleButton": "Save schedule",
+    "scheduleSaveFailed": "Failed to save the availability window."
   },
   "questionEditor": {
     "saveFailed": "Failed to save question.",
