@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-16 — Dev — Teacher-controlled score publishing per class
+
+- Task IDs touched: T-092
+- What changed: a new `TestScoreRelease` join model (`[testId, classId]` composite key — presence of a row means published) lets a teacher publish or withhold a test's scores independently per class, since the same test may be assigned to several classes. Until published for a student's own class, `GET /api/attempts/:attemptId/result` returns a minimal "submitted, awaiting publish" shape with zero score/correctness data (checked before any score data is even queried, not redacted after the fact), and `GET /api/attempts` (the dashboard's attempt list) nulls out `correctCount`/`totalCount`/`scorePercent` for the same reason. A new publish/unpublish button on T-087's class-scoped report page toggles it. Every teacher/admin-facing view that reuses the same DTOs (session monitoring, admin attempts, the attempt-detail grading view) hardcodes `scoresPublished: true` and is completely unaffected — this only ever withholds information from the STUDENT who owns the attempt.
+- Why / decisions made: applies uniformly to every `Attempt`-based test type (self-practice, live sessions, Unit Tests, Vocabulary Checks) rather than special-casing any one of them, matching this project's "one engine" convention; explicitly does NOT touch T-089's "Tự kiểm tra" self-check quiz, which has no `Attempt` row and whose whole design is immediate per-question feedback. Verification was deliberately kept light this time — a handful of the exact scenarios in `docs/BACKLOG.md`'s T-092 entry, no exhaustive matrix — directly in response to the customer's feedback on T-091 that verification depth had been outpacing what a change actually warranted.
+- Status after this entry: T-092 Done, commit `6b0cecb`. Nothing further queued as of this entry.
+
 ## 2026-09-15 — Dev — Lock a student into an in-progress test attempt
 
 - Task IDs touched: T-091
