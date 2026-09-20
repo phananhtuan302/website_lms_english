@@ -55,6 +55,7 @@ import type {
   UnitDTO,
   UnitLeaderboardResponseDTO,
   UpdateAcademicPeriodRequest,
+  UpdateClassCurrentPeriodRequest,
   UpdateClassRequest,
   UpdateContentClassesRequest,
   UpdateFlashcardCardRequest,
@@ -360,6 +361,15 @@ export const teacherApi = {
     }),
   deleteClass: (classId: string) =>
     apiRequest<void>(`${teacherBase}/classes/${classId}`, { method: 'DELETE' }),
+  // T-099/T-100: switches which `AcademicPeriod` is presently "live" for this class
+  // (the "Chuyển học kỳ" control on `TeacherClassWorkspacePage`). Returns the updated
+  // `ClassDTO` (fresh `currentPeriodId`/`currentPeriodName`) so the caller can update its
+  // local state without a second `listClasses()` round-trip.
+  updateClassCurrentPeriod: (classId: string, body: UpdateClassCurrentPeriodRequest) =>
+    apiRequest<ClassDTO>(`${teacherBase}/classes/${classId}/current-period`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 
   // --- Content-to-class assignment + "My Content" page (T-075) ----------------------
   listMyContent: () => apiRequest<TeacherContentResponseDTO>(`${teacherBase}/content`),
