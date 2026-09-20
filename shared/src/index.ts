@@ -2146,3 +2146,53 @@ export interface StudentAssignmentsResponseDTO {
   periodName: string | null;
   items: StudentAssignmentDTO[];
 }
+
+// --- T-104: class roster + gradebook (Phase 13) ------------------------------------------
+
+/** One row of `GET /api/teacher/classes/:classId/students` (the "Học sinh" tab). Both
+ * numbers are over the tests assigned to the class's CURRENT semester and use each test's
+ * BEST submitted attempt — the same figures as the student's row in the gradebook.
+ * `submittedCount` = how many of those tests the student has submitted (a test counts once
+ * however many tries they made); `averageScorePercent` = mean of their best score on each
+ * submitted test, `null` when none (or when the class has no current semester). */
+export interface ClassRosterStudentDTO {
+  id: string;
+  name: string;
+  email: string;
+  submittedCount: number;
+  averageScorePercent: number | null;
+}
+
+/** One gradebook column: a test assigned to the class for its current semester.
+ * `scoresPublished` is the per-(test, class, semester) `isScorePublished` result — `false`
+ * means students cannot see their score for this test yet. */
+export interface ClassGradebookTestDTO {
+  id: string;
+  title: string;
+  testType: TestType;
+  scoresPublished: boolean;
+}
+
+/** A gradebook cell: the student's BEST submitted attempt at that test (highest
+ * `scorePercent`; a tie goes to the latest `submittedAt`). `null` in `cells` = not submitted. */
+export interface ClassGradebookCellDTO {
+  attemptId: string;
+  scorePercent: number;
+  correctCount: number;
+  totalCount: number;
+  submittedAt: string;
+}
+
+/** `GET /api/teacher/classes/:classId/gradebook`. `cells[studentId][testId]` exists for every
+ * student × test pair (`null` = has not submitted). Averages are means over the non-null
+ * cells, rounded to 1 decimal, `null` when there is nothing to average. A class with no
+ * current semester returns `periodId: null`, its students, and an empty `tests` list. */
+export interface ClassGradebookDTO {
+  classId: string;
+  periodId: string | null;
+  students: Array<{ id: string; name: string }>;
+  tests: ClassGradebookTestDTO[];
+  cells: Record<string, Record<string, ClassGradebookCellDTO | null>>;
+  studentAverages: Record<string, number | null>;
+  testAverages: Record<string, number | null>;
+}

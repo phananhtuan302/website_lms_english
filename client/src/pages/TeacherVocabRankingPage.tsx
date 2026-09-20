@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { VocabPeriodLeaderboardResponseDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import { useClassScope } from '../hooks/useClassScope';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 const MONTH_KEYS = [
@@ -28,8 +29,9 @@ function TeacherVocabRankingPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   // T-095: the new per-class workspace hub links here with `?classId=` — see
   // `TeacherReportsPage.tsx`'s identical pattern.
-  const [searchParams] = useSearchParams();
-  const initialClassId = searchParams.get('classId') ?? '';
+  // T-104: the class comes from the ROUTE param when this page is embedded in the class
+  // workspace (`/teacher/classes/:classId/stats/...`), else from `?classId=` — see `useClassScope`.
+  const { isEmbedded, initialClassId } = useClassScope();
   // T-097: locks the page to the class when arriving via `?classId=` — see
   // `TeacherReportsPage.tsx`'s identical pattern (closes T-096 as a side effect).
   const isClassLocked = initialClassId !== '';
@@ -69,7 +71,7 @@ function TeacherVocabRankingPage() {
           <code>server/src/lib/vocabLeaderboard.ts</code>
           {t('teacherVocabRanking.descriptionAfterCode')}
         </p>
-        {data && (
+        {data && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">
             {t('classFilter.viewingLabel', { className: data.className })}{' '}
             <Link to="/teacher/classes" className="font-medium underline">
@@ -80,7 +82,7 @@ function TeacherVocabRankingPage() {
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        {isClassLocked ? (
+        {isEmbedded ? null : isClassLocked ? (
           <p className="text-sm font-medium text-base-black">
             {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
             <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">

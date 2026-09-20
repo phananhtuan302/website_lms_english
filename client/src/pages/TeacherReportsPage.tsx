@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ReportGroupBy, ReportResponseDTO, TestSummaryDTO, TestType, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import { useClassScope } from '../hooks/useClassScope';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
+import { classTabPath } from '../lib/classWorkspace';
 
 const GROUP_BY_OPTIONS: Array<{ value: ReportGroupBy; labelKey: string }> = [
   { value: 'test', labelKey: 'teacherReports.groupByOptions.test' },
@@ -61,8 +63,9 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
   // T-095: the new per-class workspace hub links here with `?classId=`, same T-088
   // hand-off pattern as `TeacherTestAttemptsReportPage` — read once on mount and fed
   // straight into `useTeacherClasses` below as the starting class.
-  const [searchParams] = useSearchParams();
-  const initialClassId = searchParams.get('classId') ?? '';
+  // T-104: the class comes from the ROUTE param when this page is embedded in the class
+  // workspace (`/teacher/classes/:classId/stats/...`), else from `?classId=` — see `useClassScope`.
+  const { isEmbedded, initialClassId } = useClassScope();
   // T-097: arriving WITH a `?classId=` LOCKS the page to that class — the picker below is
   // hidden entirely rather than merely pre-filled, mirroring Google Classroom's own model
   // (no in-page course switcher, go back to the courses list instead). This also closes
@@ -126,7 +129,7 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
         <p className="mt-1 text-sm text-base-black/60">
           {description ?? t('teacherReports.description')}
         </p>
-        {report && (
+        {report && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">
             {t('classFilter.viewingLabel', { className: report.className })}{' '}
             <Link to="/teacher/classes" className="font-medium underline">
@@ -137,7 +140,7 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        {isClassLocked ? (
+        {isEmbedded ? null : isClassLocked ? (
           <p className="text-sm font-medium text-base-black">
             {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
             <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
@@ -186,7 +189,11 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
             "all tests" has nothing coherent to link to. */}
         {testId !== '' && (
           <Link
-            to={`/teacher/tests/${testId}/report?classId=${encodeURIComponent(effectiveClassId)}`}
+            to={
+              isEmbedded
+                ? classTabPath(effectiveClassId, `tests/${testId}/results`)
+                : `/teacher/tests/${testId}/report?classId=${encodeURIComponent(effectiveClassId)}`
+            }
             className="text-sm font-medium text-primary-600 hover:underline"
           >
             {t('teacherReports.viewDetailedReport')}

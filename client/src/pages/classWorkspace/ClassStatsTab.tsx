@@ -1,34 +1,18 @@
-import { useClassWorkspace } from '../../hooks/useClassWorkspace';
-import { legacyClassPaths } from '../../lib/classWorkspace';
-import ClassPlaceholderTab from './ClassPlaceholderTab';
+import TeacherReportsHubPage from '../TeacherReportsHubPage';
 
 /**
- * "Thống kê" tab — PLACEHOLDER until T-104 replaces this file with the reports hub embedded
- * in the class layout. Until then it links the same legacy reports hub and vocabulary
- * leaderboard as the Điểm số placeholder.
+ * "Thống kê" tab (T-104): the existing reports hub (Bài kiểm tra / Kiểm tra Unit / Từ vựng /
+ * Ngữ pháp / Nói) rendered INSIDE the class workspace, plus the vocabulary leaderboard as a
+ * sixth sub-tab ("Xếp hạng từ vựng"). No report is reimplemented here.
+ *
+ * The hub and every report page under it detect that they are embedded from the route's
+ * `:classId` param (see `hooks/useClassScope.ts`), so the class is locked to this workspace's
+ * class and their own "Đổi lớp" links are hidden. The active sub-tab is the optional
+ * `:module` segment — `/teacher/classes/:classId/stats/:module?` (see `App.tsx`); it stays
+ * under the "Thống kê" tab in the tab bar because that tab matches on the `stats` segment.
  */
 function ClassStatsTab() {
-  const { cls } = useClassWorkspace();
-  const paths = legacyClassPaths(cls);
-
-  return (
-    <ClassPlaceholderTab
-      titleKey="classWorkspace.tabs.stats"
-      noteKey="classWorkspace.placeholder.statsNote"
-      links={[
-        {
-          to: paths.reports,
-          labelKey: 'classWorkspace.legacy.reports',
-          descriptionKey: 'classWorkspace.legacy.reportsDescription',
-        },
-        {
-          to: paths.vocabLeaderboard,
-          labelKey: 'classWorkspace.legacy.vocabLeaderboard',
-          descriptionKey: 'classWorkspace.legacy.vocabLeaderboardDescription',
-        },
-      ]}
-    />
-  );
+  return <TeacherReportsHubPage />;
 }
 
 export default ClassStatsTab;

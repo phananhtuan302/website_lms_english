@@ -12,6 +12,8 @@ import type {
   BulkCreateFlashcardCardsRequest,
   BulkCreateFlashcardCardsResponse,
   ClassDTO,
+  ClassGradebookDTO,
+  ClassRosterStudentDTO,
   ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
   CreateClassRequest,
@@ -388,4 +390,10 @@ export const teacherApi = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  // --- Class roster + gradebook (T-104) ---------------------------------------------
+  getClassRoster: (classId: string) =>
+    apiRequest<ClassRosterStudentDTO[]>(`${teacherBase}/classes/${encodeURIComponent(classId)}/students`),
+  getClassGradebook: (classId: string) =>
+    apiRequest<ClassGradebookDTO>(`${teacherBase}/classes/${encodeURIComponent(classId)}/gradebook`),
 };

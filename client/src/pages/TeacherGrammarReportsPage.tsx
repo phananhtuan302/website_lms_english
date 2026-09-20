@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { GrammarReportGroupBy, GrammarReportResponseDTO, GrammarTopicSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import { useClassScope } from '../hooks/useClassScope';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 const GROUP_BY_OPTIONS: Array<{ value: GrammarReportGroupBy; labelKey: string }> = [
@@ -31,8 +32,9 @@ function TeacherGrammarReportsPage() {
   const [topicId, setTopicId] = useState('');
   // T-095: the new per-class workspace hub links here with `?classId=` — see
   // `TeacherReportsPage.tsx`'s identical pattern.
-  const [searchParams] = useSearchParams();
-  const initialClassId = searchParams.get('classId') ?? '';
+  // T-104: the class comes from the ROUTE param when this page is embedded in the class
+  // workspace (`/teacher/classes/:classId/stats/...`), else from `?classId=` — see `useClassScope`.
+  const { isEmbedded, initialClassId } = useClassScope();
   // T-097: locks the page to the class when arriving via `?classId=` — see
   // `TeacherReportsPage.tsx`'s identical pattern (closes T-096 as a side effect).
   const isClassLocked = initialClassId !== '';
@@ -71,7 +73,7 @@ function TeacherGrammarReportsPage() {
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('teacherGrammarReports.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherGrammarReports.subtitle')}</p>
-        {report && (
+        {report && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">
             {t('classFilter.viewingLabel', { className: report.className })}{' '}
             <Link to="/teacher/classes" className="font-medium underline">
@@ -82,7 +84,7 @@ function TeacherGrammarReportsPage() {
       </div>
 
       <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        {isClassLocked ? (
+        {isEmbedded ? null : isClassLocked ? (
           <p className="text-sm font-medium text-base-black">
             {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
             <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">

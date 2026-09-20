@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { VocabLeaderboardResponseDTO } from '@platform/shared';
 import { vocabLeaderboardApi } from '../lib/vocabLeaderboardApi';
 import { ApiError } from '../lib/apiClient';
 import { useAuth } from '../context/useAuth';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
+import { useClassScope } from '../hooks/useClassScope';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 
 /**
@@ -29,8 +30,9 @@ function VocabLeaderboardPage() {
   // T-095: the new per-class workspace hub links here with `?classId=`, same T-088
   // hand-off pattern as `TeacherTestAttemptsReportPage` — only meaningful for the
   // teacher/admin view above, but harmless to read unconditionally.
-  const [searchParams] = useSearchParams();
-  const initialClassId = searchParams.get('classId') ?? '';
+  // T-104: the class comes from the ROUTE param when this page is embedded in the class
+  // workspace (`/teacher/classes/:classId/stats/...`), else from `?classId=` — see `useClassScope`.
+  const { isEmbedded, initialClassId } = useClassScope();
   // T-097: locks the picker to the class when arriving via `?classId=` — see
   // `TeacherReportsPage.tsx`'s identical pattern.
   const isClassLocked = initialClassId !== '';
@@ -60,7 +62,7 @@ function VocabLeaderboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('vocabLeaderboard.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('vocabLeaderboard.subtitle')}</p>
-        {data && isTeacherView && (
+        {data && isTeacherView && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">
             {t('classFilter.viewingLabel', { className: data.className })}{' '}
             <Link to="/teacher/classes" className="font-medium underline">
@@ -73,7 +75,7 @@ function VocabLeaderboardPage() {
         )}
       </div>
 
-      {isTeacherView && (
+      {isTeacherView && !isEmbedded && (
         <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
           {isClassLocked ? (
             <p className="text-sm font-medium text-base-black">

@@ -32,6 +32,7 @@ import { adminSettingsRouter } from './routes/adminSettings.routes';
 import { teacherClassesRouter } from './routes/teacherClasses.routes';
 import { classesRouter } from './routes/classes.routes';
 import { teacherContentRouter } from './routes/teacherContent.routes';
+import { teacherClassGradebookRouter } from './routes/teacherClassGradebook.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -186,6 +187,10 @@ app.use('/api/teacher', teacherClassesRouter);
 // router above (`PUT .../:id/classes`), not here. Same `/api/teacher` mount point as
 // every other teacher-only router.
 app.use('/api/teacher', teacherContentRouter);
+
+// Class workspace "Học sinh" roster + "Điểm số" gradebook read models (T-104, Phase 13):
+// best-attempt grid of students × the class's current-semester tests. Read-only.
+app.use('/api/teacher', teacherClassGradebookRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

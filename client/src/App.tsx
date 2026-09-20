@@ -126,7 +126,10 @@ function App() {
                   <Route path="assignments" element={<ClassAssignmentsTab />} />
                   <Route path="students" element={<ClassStudentsTab />} />
                   <Route path="grades" element={<ClassGradesTab />} />
+                  {/* T-104: `stats/:module` = the Thống kê sub-tab (test / unit-test /
+                    vocabulary / grammar / speaking / leaderboard) — see TeacherReportsHubPage. */}
                   <Route path="stats" element={<ClassStatsTab />} />
+                  <Route path="stats/:module" element={<ClassStatsTab />} />
                   <Route path="settings" element={<ClassSettingsTab />} />
                   <Route path="*" element={<ClassUnknownTabRedirect />} />
                 </Route>
