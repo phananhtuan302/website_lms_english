@@ -11,6 +11,8 @@ import type { UserRole } from '@platform/shared';
  */
 export function dashboardPathForRole(role: UserRole): string {
   if (role === 'admin') return '/admin/dashboard';
-  if (role === 'teacher') return '/teacher/dashboard';
+  // T-102: teachers land on the class-card home; the old `/teacher/dashboard` is now only
+  // a redirect to it (kept for old bookmarks).
+  if (role === 'teacher') return '/teacher/classes';
   return '/student/dashboard';
 }

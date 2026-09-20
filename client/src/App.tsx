@@ -33,10 +33,17 @@ import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
-import TeacherClassWorkspacePage from './pages/TeacherClassWorkspacePage';
+import ClassAssignmentsTab from './pages/classWorkspace/ClassAssignmentsTab';
+import ClassGradesTab from './pages/classWorkspace/ClassGradesTab';
+import ClassOverviewTab from './pages/classWorkspace/ClassOverviewTab';
+import ClassSettingsTab from './pages/classWorkspace/ClassSettingsTab';
+import ClassStatsTab from './pages/classWorkspace/ClassStatsTab';
+import ClassStudentsTab from './pages/classWorkspace/ClassStudentsTab';
+import ClassUnknownTabRedirect from './pages/classWorkspace/ClassUnknownTabRedirect';
+import ClassWorkspaceLayout from './pages/classWorkspace/ClassWorkspaceLayout';
+import TeacherLibraryPage from './pages/TeacherLibraryPage';
 import TeacherContentPage from './pages/TeacherContentPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
-import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
 import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
 import TeacherFlashcardSetProgressPage from './pages/TeacherFlashcardSetProgressPage';
@@ -90,7 +97,11 @@ function App() {
                 server-side ownership checks behind every one of these pages' API calls
                 were extended the same way (see `server/src/lib/authz.ts`). */}
               <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
-                <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+                {/* T-102: the old dashboard is retired — teachers land on the class-card
+                  home now; this stays only so old bookmarks/links don't break. */}
+                <Route path="/teacher/dashboard" element={<Navigate to="/teacher/classes" replace />} />
+                {/* "Thư viện" landing (T-102): four cards leading into the authoring pages. */}
+                <Route path="/teacher/library" element={<TeacherLibraryPage />} />
                 <Route path="/teacher/tests" element={<TeacherTestsPage />} />
                 <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
                 {/* Per-test attempt report (T-087): ranked list of every submitted
@@ -101,15 +112,24 @@ function App() {
                   element={<TeacherTestAttemptsReportPage />}
                 />
                 <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
-                {/* Class management (T-074, Phase 12): create/rename/delete the teacher's
-                  own cohorts/sections. Registration's class picker reads the PUBLIC
+                {/* Class-card home (T-074 → rewritten in T-102): one card per class, plus
+                  inline "+ Tạo lớp". Registration's class picker reads the PUBLIC
                   `/api/classes` list, not this teacher-only page. */}
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
-                {/* T-095: per-class workspace hub — the destination of the class-picker
-                  home above's now-clickable class names. Class name + quick-links only,
-                  each handing off to an already-existing page (see the page's own doc
-                  comment for exactly which ones get pre-scoped via `?classId=`). */}
-                <Route path="/teacher/classes/:classId" element={<TeacherClassWorkspacePage />} />
+                {/* Class workspace (T-102): a LAYOUT route — persistent header + tab bar,
+                  the class loaded once and handed to every tab via outlet context
+                  (`useClassWorkspace`). Later tasks fill the placeholder tabs by replacing
+                  each tab's own file (T-103: assignments, T-104: students/grades/stats) and
+                  may add more sibling child routes here (e.g. `tests/:testId/results`). */}
+                <Route path="/teacher/classes/:classId" element={<ClassWorkspaceLayout />}>
+                  <Route index element={<ClassOverviewTab />} />
+                  <Route path="assignments" element={<ClassAssignmentsTab />} />
+                  <Route path="students" element={<ClassStudentsTab />} />
+                  <Route path="grades" element={<ClassGradesTab />} />
+                  <Route path="stats" element={<ClassStatsTab />} />
+                  <Route path="settings" element={<ClassSettingsTab />} />
+                  <Route path="*" element={<ClassUnknownTabRedirect />} />
+                </Route>
                 {/* Consolidated "My Content" management page (T-075, Phase 12): assign any
                   of the teacher's own Tests/FlashcardSets/GrammarTopics to any of their
                   classes without opening that item's full editor. */}

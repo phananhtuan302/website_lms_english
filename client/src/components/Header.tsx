@@ -8,6 +8,15 @@ import { dashboardPathForRole } from '../lib/roles';
 interface NavItem {
   labelKey: string;
   to: string;
+  /** T-102: path prefixes that count as "inside this item" for the active highlight (a
+   * prefix matches itself or any deeper path segment-wise). Defaults to a plain
+   * `startsWith(to)` when omitted, which is what every other nav array here relies on. */
+  activePrefixes?: string[];
+}
+
+function isNavItemActive(item: NavItem, pathname: string): boolean {
+  if (!item.activePrefixes) return pathname.startsWith(item.to);
+  return item.activePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 /**
@@ -23,13 +32,30 @@ interface NavItem {
  * the site-wide language setting (never a per-user switcher, see PROJECT_PLAN Guiding
  * Principle 3) is respected here too.
  */
-/** T-094: the top bar used to list all 9 of these individually, which the customer
- * found cluttered and unclear about which class an action applied to. They now live as
- * two labeled groups on `TeacherDashboardPage` instead ("Thư viện của tôi" /
- * "Lớp học của tôi") — the top bar's own "Trang tổng quan" (Dashboard) link below is the
- * one entry point into that page, so this array is intentionally empty rather than
- * deleted outright (keeps the `navItems` wiring below uniform across roles). */
-const TEACHER_NAV_ITEMS: NavItem[] = [];
+/** T-102 (Phase 13): a teacher's whole world is two places — "Lớp học" (the class-card
+ * home and every class workspace under it) and "Thư viện" (authoring content once, shared
+ * across classes). These two items REPLACE both the old nine-item bar (T-094) and the
+ * generic "Trang tổng quan" link, which is no longer rendered for teachers (the class-card
+ * home IS their landing page; `/teacher/dashboard` just redirects to it). The Library item
+ * stays highlighted on every authoring page it leads to. */
+const TEACHER_NAV_ITEMS: NavItem[] = [
+  {
+    labelKey: 'teacherNav.classes',
+    to: '/teacher/classes',
+    activePrefixes: ['/teacher/classes'],
+  },
+  {
+    labelKey: 'teacherNav.library',
+    to: '/teacher/library',
+    activePrefixes: [
+      '/teacher/library',
+      '/teacher/tests',
+      '/teacher/flashcard-sets',
+      '/teacher/grammar-topics',
+      '/teacher/curriculum',
+    ],
+  },
+];
 
 /** T-105 (Phase 13): the student nav is four items, not six. Everything a student has to DO
  * (practice tests, Unit Tests, Vocabulary Checks) is now one list, "Bài tập" — the
@@ -101,7 +127,7 @@ function Header() {
 
         <nav aria-label={t('header.mainNavAriaLabel')}>
           <ul className="flex flex-wrap items-center gap-1 sm:gap-2">
-            {!isLocked && user && user.role !== 'student' && (
+            {!isLocked && user && user.role !== 'student' && user.role !== 'teacher' && (
               <li>
                 <Link
                   to={dashboardPath}
@@ -116,7 +142,7 @@ function Header() {
               <li key={item.to}>
                 <Link
                   to={item.to}
-                  aria-current={location.pathname.startsWith(item.to) ? 'page' : undefined}
+                  aria-current={isNavItemActive(item, location.pathname) ? 'page' : undefined}
                   className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t(item.labelKey)}
