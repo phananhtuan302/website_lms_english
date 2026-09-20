@@ -146,6 +146,75 @@
     "viewResult": "Xem kết quả →",
     "resumeTest": "Tiếp tục làm bài →"
   },
+  "studentNav": {
+    "assignments": "Bài tập",
+    "flashcards": "Thẻ từ vựng",
+    "grammar": "Ngữ pháp",
+    "leaderboard": "Xếp hạng"
+  },
+  "studentHome": {
+    "heading": "Bài cần làm",
+    "greeting": "Xin chào, {{name}}!",
+    "classLine": "Lớp {{className}} · {{periodName}}",
+    "classOnly": "Lớp {{className}}",
+    "noClassHelp": "Bạn chưa được xếp vào lớp nào. Hãy nhờ giáo viên hoặc quản trị viên thêm bạn vào lớp để nhận bài.",
+    "noPeriodHelp": "Lớp của bạn chưa được chọn học kỳ nên chưa có bài nào được giao. Bạn quay lại sau nhé.",
+    "emptyTitle": "Hiện chưa có bài nào cần làm",
+    "emptyHint": "Khi giáo viên giao bài, bài sẽ hiện ở đây. Trong lúc chờ, bạn có thể học từ vựng và ngữ pháp ở bên dưới.",
+    "loadFailed": "Không tải được danh sách bài. Bạn thử lại nhé.",
+    "retry": "Thử lại",
+    "startFailed": "Không thể mở bài này. Bạn thử lại nhé.",
+    "section": {
+      "inProgress": "Tiếp tục làm",
+      "open": "Đang mở",
+      "upcoming": "Sắp mở",
+      "submitted": "Đã nộp",
+      "closed": "Đã đóng"
+    },
+    "sectionHint": {
+      "inProgress": "Những bài bạn đang làm dở",
+      "open": "Những bài bạn có thể làm ngay bây giờ",
+      "upcoming": "Những bài chưa đến giờ mở",
+      "submitted": "Những bài bạn đã nộp",
+      "closed": "Những bài đã hết hạn mà bạn chưa làm"
+    },
+    "kind": {
+      "test": "Bài kiểm tra",
+      "unitTest": "Kiểm tra Unit",
+      "vocabularyCheck": "Kiểm tra từ vựng"
+    },
+    "action": {
+      "start": "Làm bài",
+      "starting": "Đang mở bài...",
+      "resume": "Tiếp tục",
+      "viewResult": "Xem kết quả",
+      "notOpen": "Chưa mở"
+    },
+    "meta": {
+      "inProgress": "Bạn đang làm dở bài này",
+      "closesAt": "Đóng lúc {{time}}",
+      "noDeadline": "Không giới hạn thời gian",
+      "opensAt": "Mở lúc {{time}}",
+      "notOpenYet": "Chưa đến giờ mở",
+      "score": "Điểm: {{percent}}%",
+      "awaitingPublish": "Chờ giáo viên công bố điểm",
+      "closedAt": "Đã đóng lúc {{time}} — bạn chưa làm bài này",
+      "closed": "Bài đã đóng — bạn chưa làm bài này"
+    },
+    "unitRanking": "Xếp hạng Unit →",
+    "study": {
+      "heading": "Học tập",
+      "flashcards": "Thẻ từ vựng",
+      "flashcardsHint": "Có {{count}} bộ thẻ để học",
+      "grammar": "Ngữ pháp",
+      "grammarHint": "Có {{count}} chủ đề để học",
+      "noneAssigned": "Giáo viên chưa giao nội dung nào",
+      "progress": "Tiến độ từ vựng",
+      "progressHint": "Xem bạn đã học được bao nhiêu từ",
+      "leaderboard": "Xếp hạng",
+      "leaderboardHint": "Xem thứ hạng từ vựng của lớp"
+    }
+  },
   "appShell": {
     "footer": "Nền tảng Kiểm tra Tiếng Anh — bản phát triển nội bộ"
   },

@@ -13,6 +13,7 @@
 
 import { Router } from 'express';
 import type {
+  StudentAssignmentsResponseDTO,
   StudentUnitTestSummaryDTO,
   StudentUnitTestsResponseDTO,
   StudentVocabularyCheckSummaryDTO,
@@ -22,6 +23,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { getStudentClassAndPeriod } from '../lib/classScoping';
+import { buildStudentAssignments } from '../lib/studentAssignments';
 
 export const studentAssignedTestsRouter = Router();
 
@@ -139,6 +141,19 @@ studentAssignedTestsRouter.get(
       myAttempt: myAttempts.get(test.id) ?? null,
       createdAt: test.createdAt.toISOString(),
     }));
+    res.status(200).json(response);
+  }),
+);
+
+/** `GET /api/student/assignments` (T-105, Phase 13) — the student's unified "Bài cần làm"
+ * list: everything assigned to their own class + that class's current semester (plus their
+ * personally-granted Vocabulary Checks), across every content type, each with a
+ * server-derived status. All the rules live in `lib/studentAssignments.ts`, which composes
+ * the same checks the start endpoints enforce — this route is just the HTTP shell. */
+studentAssignedTestsRouter.get(
+  '/assignments',
+  asyncHandler(async (req, res) => {
+    const response: StudentAssignmentsResponseDTO = await buildStudentAssignments(req.user!.sub);
     res.status(200).json(response);
   }),
 );

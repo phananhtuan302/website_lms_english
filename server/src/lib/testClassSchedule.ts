@@ -50,9 +50,13 @@ export function isScorePublished(
  * NOT cut off mid-attempt). Never called from any answer-writing/continuation endpoint. */
 export function checkAttemptWindow(
   schedule: Pick<TestClassSchedule, 'openAt' | 'closeAt'> | null,
+  /** T-105: lets `studentAssignments.ts` evaluate a whole list against ONE instant and
+   * then classify a rejection as "upcoming" vs "closed" with that same instant, so a
+   * boundary crossing mid-request can't make the two disagree. Every enforcement call
+   * site omits it (defaults to "right now"), so their behavior is unchanged. */
+  now: Date = new Date(),
 ): string | null {
   if (!schedule) return null;
-  const now = new Date();
   if (schedule.openAt && now < schedule.openAt) return 'Bài chưa mở, quay lại sau.';
   if (schedule.closeAt && now > schedule.closeAt) return 'Đã quá giờ làm bài, bài này đã đóng.';
   return null;

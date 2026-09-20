@@ -14,6 +14,7 @@ import type {
   PracticeTestSummaryDTO,
   RecordTabSwitchResponse,
   SaveAnswerRequest,
+  StudentAssignmentsResponseDTO,
   StudentUnitTestsResponseDTO,
   StudentVocabularyCheckSummaryDTO,
   SubmitAttemptResponse,
@@ -84,4 +85,10 @@ export const studentApi = {
   // `TestAssignment` (see `practice.routes.ts`).
   listVocabularyChecks: () =>
     apiRequest<StudentVocabularyCheckSummaryDTO[]>('/api/student/vocabulary-checks'),
+
+  // --- Unified "Bài cần làm" home (T-105, Phase 13) ----------------------------------
+  // One list of everything assigned to my class for its current semester, each row with a
+  // server-derived status. "Làm bài" on an `open` row still goes through `startPractice`
+  // above — the list never bypasses the start endpoint's own checks.
+  listAssignments: () => apiRequest<StudentAssignmentsResponseDTO>('/api/student/assignments'),
 };

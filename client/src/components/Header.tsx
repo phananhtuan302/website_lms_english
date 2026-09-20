@@ -31,13 +31,17 @@ interface NavItem {
  * deleted outright (keeps the `navItems` wiring below uniform across roles). */
 const TEACHER_NAV_ITEMS: NavItem[] = [];
 
+/** T-105 (Phase 13): the student nav is four items, not six. Everything a student has to DO
+ * (practice tests, Unit Tests, Vocabulary Checks) is now one list, "Bài tập" — the
+ * `/student/dashboard` "Bài cần làm" page — so the old Luyện tập / Kiểm tra Unit / Kiểm tra
+ * từ vựng items are gone (their old routes redirect there). Students get "Bài tập" from
+ * this array instead of the generic "Trang tổng quan" link the other roles use (see the
+ * `role !== 'student'` guard on that link below). */
 const STUDENT_NAV_ITEMS: NavItem[] = [
-  { labelKey: 'header.nav.student.practiceTests', to: '/student/practice' },
-  { labelKey: 'header.nav.student.flashcards', to: '/student/flashcard-sets' },
-  { labelKey: 'header.nav.student.grammar', to: '/student/grammar-topics' },
-  { labelKey: 'header.nav.student.unitTests', to: '/student/unit-tests' },
-  { labelKey: 'header.nav.student.vocabularyCheck', to: '/student/vocabulary-checks' },
-  { labelKey: 'header.nav.student.leaderboard', to: '/vocab-leaderboard' },
+  { labelKey: 'studentNav.assignments', to: '/student/dashboard' },
+  { labelKey: 'studentNav.flashcards', to: '/student/flashcard-sets' },
+  { labelKey: 'studentNav.grammar', to: '/student/grammar-topics' },
+  { labelKey: 'studentNav.leaderboard', to: '/vocab-leaderboard' },
 ];
 
 /** Admin nav set (T-069/T-071), translated as part of T-068 — mirrors the teacher/student
@@ -97,7 +101,7 @@ function Header() {
 
         <nav aria-label={t('header.mainNavAriaLabel')}>
           <ul className="flex flex-wrap items-center gap-1 sm:gap-2">
-            {!isLocked && user && (
+            {!isLocked && user && user.role !== 'student' && (
               <li>
                 <Link
                   to={dashboardPath}

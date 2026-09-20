@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -23,16 +23,13 @@ import StudentGrammarExercisePage from './pages/StudentGrammarExercisePage';
 import StudentGrammarPage from './pages/StudentGrammarPage';
 import StudentGrammarSpaceShooterGamePage from './pages/StudentGrammarSpaceShooterGamePage';
 import StudentGrammarTopicPage from './pages/StudentGrammarTopicPage';
-import StudentPracticeTestsPage from './pages/StudentPracticeTestsPage';
 import StudentRunnerGamePage from './pages/StudentRunnerGamePage';
 import StudentSpaceShooterGamePage from './pages/StudentSpaceShooterGamePage';
-import StudentUnitTestsPage from './pages/StudentUnitTestsPage';
 import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
 import StudentVocabMatchingPage from './pages/StudentVocabMatchingPage';
 import StudentVocabProgressPage from './pages/StudentVocabProgressPage';
 import StudentVocabSelfCheckPage from './pages/StudentVocabSelfCheckPage';
 import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
-import StudentVocabularyChecksPage from './pages/StudentVocabularyChecksPage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
@@ -186,7 +183,7 @@ function App() {
                 <Route path="/student/dashboard" element={<StudentDashboardPage />} />
                 {/* Home self-practice picker (T-040) — starts/resumes a standalone attempt
                   for any test, outside a teacher-run QR/live session. */}
-                <Route path="/student/practice" element={<StudentPracticeTestsPage />} />
+                <Route path="/student/practice" element={<Navigate to="/student/dashboard" replace />} />
                 <Route path="/student/attempts/:attemptId" element={<TakeTestPage />} />
                 <Route path="/student/attempts/:attemptId/result" element={<AttemptResultPage />} />
                 <Route path="/student/flashcard-sets" element={<StudentFlashcardsPage />} />
@@ -246,12 +243,12 @@ function App() {
                 {/* Unit Tests I can take (T-036) — grouped by curriculum unit, gated by
                   `Test.published`. "Take"/"Resume" reuse the self-practice start
                   endpoint, same as `/student/practice`. */}
-                <Route path="/student/unit-tests" element={<StudentUnitTestsPage />} />
+                <Route path="/student/unit-tests" element={<Navigate to="/student/dashboard" replace />} />
                 {/* Vocabulary Checks assigned to me (T-038) — 15-minute checks generated
                   from vocabulary I've already studied. */}
                 <Route
                   path="/student/vocabulary-checks"
-                  element={<StudentVocabularyChecksPage />}
+                  element={<Navigate to="/student/dashboard" replace />}
                 />
               </Route>
 

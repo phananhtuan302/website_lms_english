@@ -2074,3 +2074,75 @@ export interface TeacherContentResponseDTO {
   flashcardSets: TeacherContentItemDTO[];
   grammarTopics: TeacherContentItemDTO[];
 }
+
+// --- Student "Bài cần làm" unified assignment list (T-105, Phase 13) ------------------
+// One list for everything the calling student has been given, across every content type,
+// for the student's OWN class + that class's CURRENT semester — replaces the old
+// per-content-type student menus (Luyện tập / Kiểm tra Unit / Kiểm tra từ vựng). Served by
+// `GET /api/student/assignments` (`studentAssignedTests.routes.ts`), composed in
+// `server/src/lib/studentAssignments.ts` from the SAME rules the existing start/join
+// endpoints enforce, so this list never advertises something starting would reject.
+
+/** Which content type one row of the list is. `test` covers every test type the
+ * self-practice list shows (generic/listening/mock); `unitTest` and `vocabularyCheck` are
+ * kept separate because each has its own visibility rule (published flag / per-student
+ * grant). `flashcardSet`/`grammarTopic` are study areas, always `open`. */
+export type StudentAssignmentKind =
+  | 'test'
+  | 'unitTest'
+  | 'vocabularyCheck'
+  | 'flashcardSet'
+  | 'grammarTopic';
+
+/** Where a row sits in the student's to-do view. Only ever set for tests-like kinds
+ * (`test`/`unitTest`/`vocabularyCheck`) except `open`, which flashcard sets/grammar topics
+ * always carry.
+ * - `inProgress`: the student has an attempt in progress (resume it).
+ * - `open`: nothing started yet and starting is allowed right now.
+ * - `upcoming`: nothing started yet and the teacher's `openAt` is still in the future.
+ * - `closed`: nothing started yet and the teacher's `closeAt` has passed (missed).
+ * - `submitted`: the student has already submitted an attempt. */
+export type StudentAssignmentStatus = 'inProgress' | 'open' | 'upcoming' | 'closed' | 'submitted';
+
+/** The student's own attempt for a row: an in-progress one wins over a submitted one,
+ * else the most recent. `scorePercent` is `null` unless `scoresPublished` (same rule as
+ * `GET /api/attempts`: nulled until the teacher publishes for the student's class+period;
+ * an `inProgress` attempt has no score to withhold, so it reports `scoresPublished: true`
+ * with a `null` score). */
+export interface StudentAssignmentAttemptDTO {
+  attemptId: string;
+  status: AttemptStatus;
+  scorePercent: number | null;
+  scoresPublished: boolean;
+}
+
+export interface StudentAssignmentDTO {
+  kind: StudentAssignmentKind;
+  id: string;
+  title: string;
+  status: StudentAssignmentStatus;
+  /** ISO timestamps from the class's `TestClassSchedule` for the current semester; `null`
+   * when no window is set (and always `null` for flashcard sets/grammar topics). */
+  openAt: string | null;
+  closeAt: string | null;
+  /** The test's curriculum Unit, when tagged — lets a Unit Test row link to that Unit's
+   * leaderboard (previously reachable only from the retired "Kiểm tra Unit" page). */
+  unitId: string | null;
+  unitName: string | null;
+  myAttempt: StudentAssignmentAttemptDTO | null;
+}
+
+/** Response for `GET /api/student/assignments`. `items` is already in display order:
+ * in-progress, open (soonest close first), upcoming (soonest open first), submitted
+ * (newest first), closed (most recently closed first), then flashcard sets and grammar
+ * topics by title. A student with no class or whose class has no current semester gets
+ * the class/period fields set as far as they exist and an empty `items` (never an error);
+ * the only exception is per-student Vocabulary Checks, which are granted individually
+ * rather than through a class/semester and are therefore still listed. */
+export interface StudentAssignmentsResponseDTO {
+  classId: string | null;
+  className: string | null;
+  periodId: string | null;
+  periodName: string | null;
+  items: StudentAssignmentDTO[];
+}

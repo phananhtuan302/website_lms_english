@@ -146,6 +146,75 @@
     "viewResult": "View result →",
     "resumeTest": "Resume test →"
   },
+  "studentNav": {
+    "assignments": "Assignments",
+    "flashcards": "Flashcards",
+    "grammar": "Grammar",
+    "leaderboard": "Leaderboard"
+  },
+  "studentHome": {
+    "heading": "Things to do",
+    "greeting": "Hello, {{name}}!",
+    "classLine": "Class {{className}} · {{periodName}}",
+    "classOnly": "Class {{className}}",
+    "noClassHelp": "You haven't been placed in a class yet. Ask your teacher or an administrator to add you to a class so you can receive work.",
+    "noPeriodHelp": "Your class doesn't have a semester selected yet, so no work has been assigned. Please check back later.",
+    "emptyTitle": "Nothing to do right now",
+    "emptyHint": "When your teacher assigns work, it will show up here. In the meantime you can study vocabulary and grammar below.",
+    "loadFailed": "Couldn't load your list. Please try again.",
+    "retry": "Try again",
+    "startFailed": "Couldn't open this one. Please try again.",
+    "section": {
+      "inProgress": "Continue",
+      "open": "Open now",
+      "upcoming": "Opening soon",
+      "submitted": "Submitted",
+      "closed": "Closed"
+    },
+    "sectionHint": {
+      "inProgress": "Things you've started but not finished",
+      "open": "Things you can do right now",
+      "upcoming": "Things that haven't opened yet",
+      "submitted": "Things you've handed in",
+      "closed": "Things that closed before you did them"
+    },
+    "kind": {
+      "test": "Test",
+      "unitTest": "Unit Test",
+      "vocabularyCheck": "Vocabulary Check"
+    },
+    "action": {
+      "start": "Start",
+      "starting": "Opening...",
+      "resume": "Continue",
+      "viewResult": "View result",
+      "notOpen": "Not open yet"
+    },
+    "meta": {
+      "inProgress": "You've started this one",
+      "closesAt": "Closes {{time}}",
+      "noDeadline": "No time limit",
+      "opensAt": "Opens {{time}}",
+      "notOpenYet": "Not open yet",
+      "score": "Score: {{percent}}%",
+      "awaitingPublish": "Waiting for your teacher to publish scores",
+      "closedAt": "Closed {{time}} — you didn't do this one",
+      "closed": "Closed — you didn't do this one"
+    },
+    "unitRanking": "Unit leaderboard →",
+    "study": {
+      "heading": "Study",
+      "flashcards": "Flashcards",
+      "flashcardsHint": "{{count}} set(s) to study",
+      "grammar": "Grammar",
+      "grammarHint": "{{count}} topic(s) to study",
+      "noneAssigned": "Your teacher has not assigned anything yet",
+      "progress": "Vocabulary progress",
+      "progressHint": "See how many words you've learned",
+      "leaderboard": "Leaderboard",
+      "leaderboardHint": "See your class's vocabulary ranking"
+    }
+  },
   "appShell": {
     "footer": "English Test Platform — local development build"
   },
