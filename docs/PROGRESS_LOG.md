@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-20 — Dev/Leader — "My Content" redesigned around one (class, period) + semester switch (T-100); test-data cleanup
+
+- Task IDs touched: T-100 (new follow-up logged: T-101)
+- What changed: the workspace hub for a class now shows "Đang thao tác: Lớp X — Học kỳ Y" and has a new "Chuyển học kỳ" control (period dropdown → `window.confirm` naming the target period → T-099's `PATCH .../current-period`; heading and My Content link update in place). "Nội dung của tôi" replaced its old one-row-of-class-chips grid with a single on/off `role="switch"` toggle per content item for that one class's CURRENT semester (writing through the existing `PUT .../classes` endpoints, adding/removing only that class), since a class can only be on one period at a time and each (class, period) is now its own isolated cycle — trading away the old "bulk-assign to many classes on one screen" convenience for correctness, per the customer's own framing. The T-098 schedule button is kept on assigned Tests only. No backend change.
+- Process notes: (1) the Dev agent was cut off mid-verification by a session boundary (4 days elapsed, its environment changed — port 5173 is now held by an unrelated project, "GoVap Travel AI", so this project's client now runs on **5175**, API still on 4000); it was resumed from its saved transcript, re-read its own uncommitted diff before trusting it, and finished. (2) Applying the T-099 lesson, the Leader did NOT rely on the agent's self-report: independently confirmed the commit held exactly the 5 intended files, re-audited every real content item (all intact), and confirmed zero T-100 fixture rows remained. (3) That audit also surfaced ~17 orphaned throwaway QA accounts (plus 16 classes / 4 tests) left behind by the T-091/T-092/T-093 agents' earlier verification runs despite their reports of having cleaned up — evidently retried/failed attempts left leftovers the final cleanup didn't cover. Safety-asserted disjoint from all real data (none related to the real teacher or any real class), then deleted by the Leader; the DB now holds exactly 40 real students + 3 teacher accounts (the real one plus the two seed.ts demo fixtures). Worth remembering: an agent saying "fixtures cleaned up" has repeatedly meant "the final successful run's fixtures cleaned up."
+- Status after this entry: T-100 Done (commit `052af1d`). T-101 (stale e2e helpers) logged, low priority. Nothing else queued.
+
 ## 2026-09-16 — Dev/Leader — Semester-scoped content (T-099) + a real-data regression caught and fixed
 
 - Task IDs touched: T-099
