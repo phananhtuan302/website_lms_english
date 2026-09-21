@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-21 — Leader/Dev — Phase 13 continues: T-104 (Học sinh / Điểm số / Thống kê tabs) and T-103 (Bài tập tab + "Giao bài mới")
+
+- Task IDs touched: T-104 (`fc6f49f`), T-103 (`98a0357`)
+- What changed: T-104 added the class roster, a student × test gradebook grid with row/column averages, "Chưa công bố điểm" marking and client-side Excel export, and embedded the existing report pages into the class workspace as the Thống kê tab (`GET /api/teacher/classes/:classId/students` + `/gradebook`, `useClassScope` hook). T-103 added `GET /api/teacher/classes/:classId/assignments` and replaced the Bài tập placeholder with one unified list (tests / flashcard sets / grammar topics, schedule + score-publish state, "N/M đã nộp"), a "Giao bài mới" modal (multi-select from the Library, optional schedule for tests, per-item progress/retry), and class-embedded results and vocabulary-check routes.
+- Why / decisions made: (1) The `PUT .../classes` endpoints replace a whole class set, so assign/unassign is a per-item read-modify-write; a scheduled test gets its schedule written BEFORE it is assigned so students never see it without its window. (2) Both agents stalled on the 600s watchdog several times; the T-104 agent committed but never sent its final report, so the Leader verified it independently (API reads on real 1A1, screenshots, zero T104 rows). (3) Both were verified with throwaway fixtures that the agents cleaned up; the Leader re-audited the DB after each (0 leftover fixture rows, 1A1 = 40 students, real assignments intact, 43 non-admin users).
+- Status after this entry: T-102, T-103, T-104, T-105 Done. Only T-106 (retire old pages/redirects, terminology pass, stale e2e helpers incl. T-101, final click-through) remains in Phase 13.
+
 ## 2026-09-21 — Leader/Dev — Phase 13 (LMS-style redesign) begins: plan, T-102 (teacher shell) and T-105 (student "Bài cần làm")
 
 - Task IDs touched: T-102, T-105 (Phase 13 planned: T-102–T-106)
