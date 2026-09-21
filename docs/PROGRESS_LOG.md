@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-21 — Leader/Dev — Phase 13 complete: T-106 (retire old pages, redirects, copy pass, e2e) + login-after-logout fix
+
+- Task IDs touched: T-106 (`e42ef81`), T-101 (folded into T-106); login fix `3f37aca`
+- What changed: Old teacher pages (My Content, old class hub, dashboard, Unit tests) are deleted and every legacy URL redirects into the class workspace (or the class picker); Library pages gained a "Thư viện › …" breadcrumb; 180 orphaned i18n keys removed; footer and developer-flavoured copy neutralised; e2e specs/helpers updated to the new "Bài tập → Giao bài mới" flow (statically only). Leader's final click-through found that a student logging in right after a teacher's logout (same tab) was bounced to `/unauthorized`; fixed with `postLoginPath()`.
+- Why / decisions made: Redirects carry `?classId=` into the matching class route; `/vocab-leaderboard` stays a student page (only teacher/admin are redirected). The login bug pre-dates Phase 13 (the login screen honoured `from` regardless of role) but matters more now that classrooms share computers.
+- Status after this entry: Phase 13 (T-102–T-106) Done. Known leftovers: dead non-embedded branches in the Thống kê report pages; English type badges ("Mock Test"/"Unit Test") in the Library test list; e2e suite still not runnable here so the rewritten specs are statically checked only.
+
 ## 2026-09-21 — Leader/Dev — Phase 13 continues: T-104 (Học sinh / Điểm số / Thống kê tabs) and T-103 (Bài tập tab + "Giao bài mới")
 
 - Task IDs touched: T-104 (`fc6f49f`), T-103 (`98a0357`)
