@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-21 — Leader/Dev — Phase 14 wave A: T-107 overview, T-108 announcements, T-110 student grades, T-111 roster import
+
+- Task IDs touched: T-107, T-108, T-110, T-111 (one combined commit: the four agents shared one working tree and several shared files — `App.tsx`, `Header.tsx`, both i18n files, `shared/src/index.ts`, `server/src/index.ts`, the API helper files — so per-task commits would not have been self-consistent)
+- What changed: the class Tổng quan tab became a "Cần chú ý" dashboard; class announcements (new table, additive migration) with a teacher tab and a student home card; a student "Điểm của tôi" page and nav item (unpublished scores are absent from the JSON, not null); a "Thêm học sinh" modal (single form + Excel import, generated passwords, credentials download).
+- Why / decisions made: (1) Before the phase the Leader dumped every table to a JSON backup (no `pg_dump` on this machine) and after the wave compared every table's row count and every backup user's email/role/class — 0 differences. (2) Agents were told NOT to commit in the shared tree; the Leader committed the wave with explicit paths. (3) Findings worth remembering: the running Vite dev client pre-bundles `@platform/shared` once, so RUNTIME constants added to `shared/src` read as `undefined` in the browser until Vite is restarted with `--force` (done; types-only changes are unaffected) and `shared/dist` must be rebuilt (`npm run build -w shared`) for server/client typecheck; `prisma generate` fails with EPERM while the API holds the engine DLL (stop API → generate → restart); a student with an in-progress attempt is locked out of every page by T-091 by design (a fixture with an open attempt blocked a browser test); Vocabulary Check tests never appear in "Điểm của tôi" because they have no per-semester schedule so their score is never "published". Overview "needs grading" covers Writing only (Speaking is AI-scored on submit).
+- Status after this entry: T-107, T-108, T-110, T-111 Done. Next: T-109 (student bell + Lịch), then T-112 (375px mobile pass), then T-113 (simulated cold-start walkthrough + fixes).
+
 ## 2026-09-21 — Leader/Dev — Phase 13 complete: T-106 (retire old pages, redirects, copy pass, e2e) + login-after-logout fix
 
 - Task IDs touched: T-106 (`e42ef81`), T-101 (folded into T-106); login fix `3f37aca`

@@ -849,8 +849,8 @@ Customer request (2026-09-21, after Phase 13): "làm hết đống này" — the
 
 Standing rules for every Phase 14 task: real customer data lives in the DB (teacher.1a1, class 1A1 with 40 students, 1A2, `test1`, set "1A1", topic "Present Simple") — additive migrations only, never `migrate reset`, never seed; fixtures use the task's prefix (e.g. `T107`) and are deleted afterwards; verification is proportionate (feature-scoped, no full regression); Vietnamese plain-language UI copy in `vi.json` with `en.json` leaf parity; a pre-Phase-14 JSON backup of every table exists (Leader scratchpad `db-backup-pre-phase14.json`).
 
-- [ ] **T-107 — Class "Tổng quan" becomes a "Cần chú ý" dashboard (teacher)**
-  - Status: Not Started
+- [x] **T-107 — Class "Tổng quan" becomes a "Cần chú ý" dashboard (teacher)**
+  - Status: Done (2026-09-21) — wave-A commit (see PROGRESS_LOG). `GET /api/teacher/classes/:classId/overview` (`teacherClassOverview.routes.ts`) + rewritten `ClassOverviewTab`; "needs grading" = submitted attempts with an essay answer whose `manualScore` is null (Speaking is AI-scored on submit, so it has no awaiting-grading state); scores shown only when published. Dev: 29/29 API + browser (1280/375). Leader: typecheck/lint/i18n clean, zero T107 rows, real 1A1 overview screenshot (1 attempt awaiting grading: Học sinh 01 / test1).
   - Depends on: T-103, T-104
   - Acceptance Criteria:
     1. New endpoint `GET /api/teacher/classes/:classId/overview` (ownership-checked, admin bypass, period = the class's current period; degrade to empty lists when there is no current period) returning: `studentCount`, `periodName`, and four lists — **closingSoon** (assigned tests whose schedule `closeAt` is within the next 72h, each with title, closeAt, submittedCount/studentCount), **needsGrading** (submitted attempts of this class/period still awaiting manual grading — Writing/Speaking teacher grading that already exists in the product; use the existing "pending review" notion, do not invent a new one; return count + top N with student, test, submittedAt and a link target), **notSubmitted** (for each CLOSED or closing-soon test: the students who have not submitted, capped with a "+N nữa" total), **recentActivity** (the last ~10 submissions in this class/period: student, test/exercise, time, score if published). Query-efficient (no N+1).
@@ -858,8 +858,8 @@ Standing rules for every Phase 14 task: real customer data lives in the DB (teac
     3. No regression to the tab's use of `useClassWorkspace()`; no-semester state handled.
   - Verify (proportionate): API against throwaway `T107` fixtures (closing-soon window, a submitted writing attempt awaiting grading, a non-submitting student), degrade path, 404/403; browser screenshot of the tab on a throwaway class and a read-only look at real 1A1 (which must not error). Delete fixtures.
 
-- [ ] **T-108 — Class announcements ("Thông báo lớp")**
-  - Status: Not Started
+- [x] **T-108 — Class announcements ("Thông báo lớp")**
+  - Status: Done (2026-09-21) — wave-A commit. Additive `ClassAnnouncement` model + migration `20260921025851_t108_class_announcements` (Leader read the SQL: CREATE TABLE + INDEX + 2 FKs only); teacher CRUD/pin at `/api/teacher/classes/:classId/announcements`, student read `/api/student/announcements` (own class, pinned first, max 30), "Thông báo" class tab, "Thông báo từ giáo viên" card on the student home. Dev: 46/46 API + 34/34 browser. Leader: every table row count identical to the pre-phase JSON backup (0 tables differ, 0 backup users changed), zero T108 rows.
   - Depends on: T-102
   - Acceptance Criteria:
     1. ONE additive Prisma model `ClassAnnouncement` (id, classId FK→Class cascade, authorId FK→User, body text, pinned bool default false, createdAt, updatedAt) + migration containing ONLY `CREATE TABLE`/index/FK statements — inspect the generated SQL before applying; NEVER accept a reset/drift prompt; row counts of all other tables must be unchanged before/after.
@@ -878,8 +878,8 @@ Standing rules for every Phase 14 task: real customer data lives in the DB (teac
     4. On the Bài cần làm home, items closing within 48h get a visible "Sắp đóng — còn X giờ" tag.
   - Verify: API with throwaway `T109` fixtures (each notification type incl. an already-submitted test NOT producing a closing-soon item and another class's data not leaking); browser as a throwaway student (bell badge → open → read state persists across reload; calendar renders; lockdown hides the bell). Delete fixtures.
 
-- [ ] **T-110 — Student "Điểm của tôi" page**
-  - Status: Not Started
+- [x] **T-110 — Student "Điểm của tôi" page**
+  - Status: Done (2026-09-21) — wave-A commit. `GET /api/student/grades` (`studentGrades.routes.ts`) + `StudentGradesPage` "Điểm của tôi" + nav item; only `graded` rows carry score/correct/attemptId keys (absent, not null, otherwise); best attempt per test; vocabulary/grammar progress; semester switch. Dev: 43/43 API + 28/28 browser. Leader: real-student01 screenshot renders (test1 shows "Chờ công bố điểm").
   - Depends on: T-105, T-092
   - Acceptance Criteria:
     1. Endpoint `GET /api/student/grades` (optional `?periodId=`, default = the student's class's current period; the list of the class's periods is returned so the student can switch): per assigned test the student's BEST submitted attempt score/percent and submitted time — **but only where scores are effectively published** (T-092 withholding rules; unpublished → return status "chờ công bố" with NO score or correct-count leakage), plus an overall average over published scores, plus a small vocabulary/grammar progress summary (cards known from existing progress data, grammar exercises correct/attempted) if cheap to derive from existing helpers.
@@ -887,8 +887,8 @@ Standing rules for every Phase 14 task: real customer data lives in the DB (teac
     3. A student never sees another student's or another class's data.
   - Verify: API with throwaway `T110` fixtures (published vs unpublished vs not attempted; multiple attempts → best; previous-semester switch; a second student isolated); assert NO score fields appear in the JSON for an unpublished test; browser screenshot. Delete fixtures.
 
-- [ ] **T-111 — Add students to a class: manual form + Excel roster import**
-  - Status: Not Started
+- [x] **T-111 — Add students to a class: manual form + Excel roster import**
+  - Status: Done (2026-09-21) — wave-A commit. `POST /api/teacher/classes/:classId/students/bulk` (`teacherClassRoster.routes.ts`, max 200 rows, per-row results, existing emails skipped and NEVER modified, generated 8-char passwords returned once) + "Thêm học sinh" modal (single form + Excel import with template/preview/credentials download). Dev verified on `T111` fixtures (a 200-row batch took ~47s under load — button says it may take a few seconds); real student01 was correctly reported `emailExists` and unchanged. Leader: zero T111 rows, real 1A1 still 40 students, modal opens on real 1A1 (not submitted).
   - Depends on: T-104
   - Acceptance Criteria:
     1. Endpoint `POST /api/teacher/classes/:classId/students/bulk` (owner/admin) taking up to ~200 rows `{ name, email, password? }`; creates student accounts assigned to the class. A blank password → a generated 8-char random password returned ONCE in the response; invalid email/name → per-row error; an email that already exists → per-row "đã có tài khoản" and NOTHING is changed for that account (never silently move a student between classes, never overwrite a password); duplicate emails within the file flagged; whole request validated so partial success is reported row by row (each row independent). Passwords hashed exactly like registration.
