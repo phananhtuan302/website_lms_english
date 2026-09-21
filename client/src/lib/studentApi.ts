@@ -16,7 +16,9 @@ import type {
   SaveAnswerRequest,
   StudentAnnouncementsResponseDTO,
   StudentAssignmentsResponseDTO,
+  StudentCalendarResponseDTO,
   StudentGradesResponseDTO,
+  StudentNotificationsResponseDTO,
   StudentUnitTestsResponseDTO,
   StudentVocabularyCheckSummaryDTO,
   SubmitAttemptResponse,
@@ -106,4 +108,9 @@ export const studentApi = {
   // My own class's announcements, pinned first then newest first (at most 30).
   listAnnouncements: () =>
     apiRequest<StudentAnnouncementsResponseDTO>('/api/student/announcements'),
+
+  // --- Reminders (T-109): the notification bell + the "Lịch" agenda page --------------
+  getNotifications: () =>
+    apiRequest<StudentNotificationsResponseDTO>('/api/student/notifications'),
+  getCalendar: () => apiRequest<StudentCalendarResponseDTO>('/api/student/calendar'),
 };

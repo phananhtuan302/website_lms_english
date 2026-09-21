@@ -1279,5 +1279,70 @@
   },
   "libraryBreadcrumb": {
     "ariaLabel": "Breadcrumb"
+  },
+  "studentNotifications": {
+    "bellLabel": "Notifications",
+    "bellLabelUnread_one": "Notifications, {{count}} new",
+    "bellLabelUnread_other": "Notifications, {{count}} new",
+    "heading": "Notifications",
+    "emptyTitle": "No notifications yet",
+    "emptyHint": "When there is a new test, a test closing soon, new scores or a message from your teacher, you will see it here.",
+    "loadFailed": "Could not load notifications. Please try again.",
+    "retry": "Try again",
+    "newBadge": "New",
+    "viewCalendar": "View assignment calendar →",
+    "type": {
+      "closingSoon": "Closing soon",
+      "newAssignment": "New test",
+      "scoresPublished": "Scores out",
+      "newAnnouncement": "Announcement"
+    },
+    "closingTag": {
+      "lessThanHour": "Closing soon — under 1 hour left",
+      "hours_one": "Closing soon — {{count}} hour left",
+      "hours_other": "Closing soon — {{count}} hours left"
+    }
+  },
+  "studentCalendar": {
+    "heading": "Assignment calendar",
+    "subtitle": "See when each test opens and closes, so you never miss a deadline.",
+    "homeLink": "View assignment calendar →",
+    "backToHome": "← Back to My assignments",
+    "classLine": "Class {{className}} · {{periodName}}",
+    "classOnly": "Class {{className}}",
+    "loadFailed": "Could not load the calendar. Please try again.",
+    "retry": "Try again",
+    "noClassHelp": "You are not in a class yet, so there is no calendar. Ask your teacher to add you to a class.",
+    "noPeriodHelp": "Your class has no semester selected yet, so no tests have been assigned. Please come back later.",
+    "emptyTitle": "No scheduled tests yet",
+    "emptyHint": "When your teacher sets an opening or closing time for a test, it will show up here.",
+    "upcoming": {
+      "heading": "Coming up",
+      "hint": "Tests that are about to open or close",
+      "empty": "No test is about to open or close."
+    },
+    "past": {
+      "heading": "Recently",
+      "hint": "In the last 14 days"
+    },
+    "day": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "yesterday": "Yesterday"
+    },
+    "event": {
+      "openTag": "Opens",
+      "closeTag": "Closes",
+      "opens": "Opens at {{time}}",
+      "closes": "Closes at {{time}}",
+      "opened": "Opened at {{time}}",
+      "closed": "Closed at {{time}}"
+    },
+    "standing": {
+      "submitted": "Submitted",
+      "inProgress": "In progress",
+      "missed": "Closed — you did not do it",
+      "closingSoon": "Closing soon"
+    }
   }
 }

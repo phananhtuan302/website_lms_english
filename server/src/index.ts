@@ -41,6 +41,7 @@ import {
   studentAnnouncementsRouter,
   teacherClassAnnouncementsRouter,
 } from './routes/classAnnouncements.routes';
+import { studentNotificationsRouter } from './routes/studentNotifications.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -221,6 +222,10 @@ app.use('/api/teacher', teacherClassRosterRouter);
 // class's announcements; a student reads only their own class's (`/api/student/announcements`).
 app.use('/api/teacher', teacherClassAnnouncementsRouter);
 app.use('/api/student', studentAnnouncementsRouter);
+
+// Student reminders (T-109, Phase 14): the notification bell (`/api/student/notifications`) and
+// the "Lịch" agenda (`/api/student/calendar`) — both derived on request, nothing stored.
+app.use('/api/student', studentNotificationsRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

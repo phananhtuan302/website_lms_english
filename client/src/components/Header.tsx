@@ -4,6 +4,7 @@ import { APP_NAME } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
 import { useAttemptLock } from '../context/useAttemptLock';
 import { dashboardPathForRole } from '../lib/roles';
+import NotificationBell from './NotificationBell';
 
 interface NavItem {
   labelKey: string;
@@ -119,8 +120,13 @@ function Header() {
 
   return (
     <header className="border-b border-primary-200 bg-base-white">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6">
-        <Link to="/" className="text-lg font-bold text-primary-600">
+      <div
+        className={`mx-auto flex flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 ${
+          // T-109: the student header also holds the reminders bell, so it gets a little more room.
+          user?.role === 'student' ? 'max-w-6xl' : 'max-w-5xl'
+        }`}
+      >
+        <Link to="/" className="shrink-0 text-lg font-bold text-primary-600">
           {APP_NAME}
         </Link>
 
@@ -168,7 +174,9 @@ function Header() {
             {t('header.attemptLockNotice')}
           </p>
         ) : user ? (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 sm:flex-nowrap">
+            {/* T-109: reminders bell (student only). This branch is not rendered while an attempt is locked (T-091). */}
+            {user.role === 'student' && <NotificationBell key={user.id} />}
             <span className="text-sm text-base-black/70">
               {user.name}{' '}
               <span className="text-xs font-medium uppercase text-primary-600">

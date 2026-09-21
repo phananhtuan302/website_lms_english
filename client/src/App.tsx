@@ -17,6 +17,7 @@ import JoinPage from './pages/JoinPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import RegisterPage from './pages/RegisterPage';
+import StudentCalendarPage from './pages/StudentCalendarPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import StudentFlashcardsPage from './pages/StudentFlashcardsPage';
 import StudentFlashcardSetPage from './pages/StudentFlashcardSetPage';
@@ -212,6 +213,7 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={['student']} />}>
                 <Route path="/student/dashboard" element={<StudentDashboardPage />} />
                 <Route path="/student/grades" element={<StudentGradesPage />} />
+                <Route path="/student/calendar" element={<StudentCalendarPage />} />
                 {/* Home self-practice picker (T-040) — starts/resumes a standalone attempt
                   for any test, outside a teacher-run QR/live session. */}
                 <Route path="/student/practice" element={<Navigate to="/student/dashboard" replace />} />

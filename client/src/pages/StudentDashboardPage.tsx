@@ -10,6 +10,7 @@ import { useAuth } from '../context/useAuth';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import StudentAnnouncementsCard from '../components/StudentAnnouncementsCard';
+import { closingSoonRemaining } from '../lib/closingSoon';
 
 /**
  * Student home = "Bài cần làm" (T-105, Phase 13): ONE to-do list of everything the student
@@ -65,6 +66,9 @@ interface RowProps {
 function AssignmentRow({ item, startingId, onStart }: RowProps) {
   const { t, i18n } = useTranslation();
   const attempt = item.myAttempt;
+  // T-109: an item still to be handed in that closes within 48 hours gets a "Sắp đóng" tag.
+  const closing =
+    item.status === 'open' || item.status === 'inProgress' ? closingSoonRemaining(item.closeAt) : null;
   const primaryButton =
     'inline-flex shrink-0 items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -151,6 +155,13 @@ function AssignmentRow({ item, startingId, onStart }: RowProps) {
             {t(`studentHome.kind.${item.kind}`)}
           </span>
           {item.unitName && <span className="text-xs text-base-black/50">{item.unitName}</span>}
+          {closing && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              {closing.lessThanHour
+                ? t('studentNotifications.closingTag.lessThanHour')
+                : t('studentNotifications.closingTag.hours', { count: closing.hours })}
+            </span>
+          )}
         </div>
         <p className="mt-1 text-base font-semibold text-base-black">
           {titleLink ? (
@@ -258,6 +269,12 @@ function StudentDashboardPage() {
         <h1 className="text-2xl font-bold text-primary-700">{t('studentHome.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/70">{t('studentHome.greeting', { name: user?.name })}</p>
         {classLine && <p className="mt-1 text-sm font-medium text-primary-700">{classLine}</p>}
+        <Link
+          to="/student/calendar"
+          className="mt-1 inline-flex min-h-10 items-center text-sm font-medium text-primary-600 hover:underline"
+        >
+          {t('studentCalendar.homeLink')}
+        </Link>
       </div>
 
       <StudentAnnouncementsCard />

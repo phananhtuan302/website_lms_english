@@ -1270,5 +1270,70 @@
   },
   "libraryBreadcrumb": {
     "ariaLabel": "Đường dẫn"
+  },
+  "studentNotifications": {
+    "bellLabel": "Thông báo",
+    "bellLabelUnread_one": "Thông báo, có {{count}} thông báo mới",
+    "bellLabelUnread_other": "Thông báo, có {{count}} thông báo mới",
+    "heading": "Thông báo",
+    "emptyTitle": "Chưa có thông báo nào",
+    "emptyHint": "Khi có bài mới, bài sắp đóng, điểm mới hoặc thông báo từ giáo viên, bạn sẽ thấy ở đây.",
+    "loadFailed": "Không tải được thông báo. Bạn thử lại nhé.",
+    "retry": "Thử lại",
+    "newBadge": "Mới",
+    "viewCalendar": "Xem lịch bài tập →",
+    "type": {
+      "closingSoon": "Sắp đóng",
+      "newAssignment": "Bài mới",
+      "scoresPublished": "Có điểm",
+      "newAnnouncement": "Thông báo"
+    },
+    "closingTag": {
+      "lessThanHour": "Sắp đóng — còn dưới 1 giờ",
+      "hours_one": "Sắp đóng — còn {{count}} giờ",
+      "hours_other": "Sắp đóng — còn {{count}} giờ"
+    }
+  },
+  "studentCalendar": {
+    "heading": "Lịch bài tập",
+    "subtitle": "Xem lúc nào bài mở và lúc nào bài đóng, để bạn không lỡ hạn nộp bài.",
+    "homeLink": "Xem lịch bài tập →",
+    "backToHome": "← Về Bài cần làm",
+    "classLine": "Lớp {{className}} · {{periodName}}",
+    "classOnly": "Lớp {{className}}",
+    "loadFailed": "Không tải được lịch. Bạn thử lại nhé.",
+    "retry": "Thử lại",
+    "noClassHelp": "Bạn chưa được xếp vào lớp nào nên chưa có lịch. Hãy nhờ giáo viên thêm bạn vào lớp.",
+    "noPeriodHelp": "Lớp của bạn chưa được chọn học kỳ nên chưa có bài nào được giao. Bạn quay lại sau nhé.",
+    "emptyTitle": "Chưa có bài nào hẹn giờ",
+    "emptyHint": "Khi giáo viên đặt giờ mở hoặc giờ đóng cho một bài, bài đó sẽ hiện ở đây.",
+    "upcoming": {
+      "heading": "Sắp tới",
+      "hint": "Những bài sắp mở và sắp đóng",
+      "empty": "Không có bài nào sắp mở hoặc sắp đóng."
+    },
+    "past": {
+      "heading": "Vừa qua",
+      "hint": "Trong 14 ngày gần đây"
+    },
+    "day": {
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai",
+      "yesterday": "Hôm qua"
+    },
+    "event": {
+      "openTag": "Mở bài",
+      "closeTag": "Đóng bài",
+      "opens": "Mở lúc {{time}}",
+      "closes": "Đóng lúc {{time}}",
+      "opened": "Đã mở lúc {{time}}",
+      "closed": "Đã đóng lúc {{time}}"
+    },
+    "standing": {
+      "submitted": "Đã nộp",
+      "inProgress": "Đang làm dở",
+      "missed": "Đã đóng — bạn chưa làm",
+      "closingSoon": "Sắp đóng"
+    }
   }
 }

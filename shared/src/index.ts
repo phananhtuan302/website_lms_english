@@ -2525,3 +2525,67 @@ export interface UpdateClassAnnouncementRequest {
 export interface StudentAnnouncementsResponseDTO {
   items: ClassAnnouncementDTO[];
 }
+
+// --- T-109: student reminders — notification bell + "Lịch" agenda (Phase 14) ---------------
+// Both are DERIVED on request from data that already exists (assignments, schedules, attempts,
+// announcements) — nothing is stored. Types only.
+
+/** What a notification is about.
+ * - `closingSoon`: an open test the student has not submitted closes within 48 hours.
+ * - `newAssignment`: a test assigned in the last 7 days that the student has not started.
+ * - `scoresPublished`: scores of a test the student submitted became visible in the last 7 days.
+ * - `newAnnouncement`: the teacher posted a class announcement in the last 7 days. */
+export type StudentNotificationType =
+  | 'closingSoon'
+  | 'newAssignment'
+  | 'scoresPublished'
+  | 'newAnnouncement';
+
+export interface StudentNotificationDTO {
+  /** Stable per (type, subject) — safe as a React key. */
+  id: string;
+  type: StudentNotificationType;
+  /** The test title, or "Thông báo mới từ <teacher>" for an announcement. */
+  title: string;
+  /** One plain-Vietnamese sentence; never contains a score. */
+  message: string;
+  /** ISO time the item became noteworthy (sorting + the client's "unread" comparison). */
+  at: string;
+  /** In-app path the item leads to. */
+  link: string;
+}
+
+/** `GET /api/student/notifications` — newest first, at most 30. A student with no class gets
+ * an empty list. */
+export interface StudentNotificationsResponseDTO {
+  items: StudentNotificationDTO[];
+}
+
+/** One point on the student's agenda: a scheduled test opening or closing. */
+export interface StudentCalendarEventDTO {
+  /** Stable per (test, event) — safe as a React key. */
+  id: string;
+  testId: string;
+  title: string;
+  kind: 'test' | 'unitTest';
+  event: 'opens' | 'closes';
+  /** ISO time of the event. */
+  at: string;
+  /** `at` is already behind the server's `now`. */
+  isPast: boolean;
+  /** The student's current standing on this test (same derivation as the "Bài cần làm" list),
+   * so the page can say "Đã nộp" / "Đã đóng — chưa làm" without guessing. */
+  status: StudentAssignmentStatus;
+  /** In-app path the event leads to. */
+  link: string;
+}
+
+/** `GET /api/student/calendar` — every scheduled open/close event of the student's current
+ * semester that is still ahead or happened in the last 14 days, oldest first. */
+export interface StudentCalendarResponseDTO {
+  className: string | null;
+  periodName: string | null;
+  /** The server's clock at the moment the response was built. */
+  now: string;
+  events: StudentCalendarEventDTO[];
+}
