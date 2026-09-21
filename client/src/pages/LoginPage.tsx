@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
-import { dashboardPathForRole } from '../lib/roles';
+import { postLoginPath } from '../lib/roles';
 
 interface LocationState {
   from?: { pathname: string };
@@ -37,7 +37,7 @@ function LoginPage() {
   // the join page).
   if (user) {
     const from = (location.state as LocationState | null)?.from?.pathname;
-    return <Navigate to={from ?? dashboardPathForRole(user.role)} replace />;
+    return <Navigate to={postLoginPath(from, user.role)} replace />;
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -47,7 +47,7 @@ function LoginPage() {
     try {
       const loggedInUser = await login({ email, password });
       const from = (location.state as LocationState | null)?.from?.pathname;
-      navigate(from ?? dashboardPathForRole(loggedInUser.role), { replace: true });
+      navigate(postLoginPath(from, loggedInUser.role), { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('auth.genericError'));
     } finally {

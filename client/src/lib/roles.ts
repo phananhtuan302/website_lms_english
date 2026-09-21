@@ -16,3 +16,24 @@ export function dashboardPathForRole(role: UserRole): string {
   if (role === 'teacher') return '/teacher/classes';
   return '/student/dashboard';
 }
+
+/**
+ * Where to send someone right after signing in: the page they were originally headed to
+ * (`from`, T-011) when their role may open it, otherwise their own dashboard.
+ */
+export function postLoginPath(from: string | undefined, role: UserRole): string {
+  // A logout on a role-guarded page leaves that page in the login screen's `from` state;
+  // the next person to sign in on that computer (e.g. a student after the teacher) must
+  // not be sent back to an area their role can't open — it would land on /unauthorized.
+  if (from) {
+    const teacherArea = from.startsWith('/teacher');
+    const studentArea = from.startsWith('/student');
+    const adminArea = from.startsWith('/admin');
+    const allowed =
+      (!teacherArea || role === 'teacher' || role === 'admin') &&
+      (!studentArea || role === 'student') &&
+      (!adminArea || role === 'admin');
+    if (allowed) return from;
+  }
+  return dashboardPathForRole(role);
+}

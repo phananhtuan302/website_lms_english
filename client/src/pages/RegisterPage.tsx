@@ -5,7 +5,7 @@ import type { PublicClassSummaryDTO } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
 import { classesApi } from '../lib/classesApi';
-import { dashboardPathForRole } from '../lib/roles';
+import { postLoginPath } from '../lib/roles';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -64,7 +64,7 @@ function RegisterPage() {
   // below takes effect — both must target the same place or they race).
   if (user) {
     const from = (location.state as LocationState | null)?.from?.pathname;
-    return <Navigate to={from ?? dashboardPathForRole(user.role)} replace />;
+    return <Navigate to={postLoginPath(from, user.role)} replace />;
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -82,7 +82,7 @@ function RegisterPage() {
     try {
       await register({ name, email, password, classId });
       const from = (location.state as LocationState | null)?.from?.pathname;
-      navigate(from ?? '/student/dashboard', { replace: true });
+      navigate(postLoginPath(from, 'student'), { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('auth.genericError'));
     } finally {
