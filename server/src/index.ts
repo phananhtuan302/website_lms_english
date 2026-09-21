@@ -32,6 +32,7 @@ import { adminSettingsRouter } from './routes/adminSettings.routes';
 import { teacherClassesRouter } from './routes/teacherClasses.routes';
 import { classesRouter } from './routes/classes.routes';
 import { teacherContentRouter } from './routes/teacherContent.routes';
+import { teacherClassAssignmentsRouter } from './routes/teacherClassAssignments.routes';
 import { teacherClassGradebookRouter } from './routes/teacherClassGradebook.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
@@ -187,6 +188,11 @@ app.use('/api/teacher', teacherClassesRouter);
 // router above (`PUT .../:id/classes`), not here. Same `/api/teacher` mount point as
 // every other teacher-only router.
 app.use('/api/teacher', teacherContentRouter);
+
+// Class workspace "Bài tập" tab read model (T-103, Phase 13): everything currently
+// assigned to one class for its current semester, across all three content types. Read-only;
+// the writes stay on each content type's own `PUT .../:id/classes` + the test schedule route.
+app.use('/api/teacher', teacherClassAssignmentsRouter);
 
 // Class workspace "Học sinh" roster + "Điểm số" gradebook read models (T-104, Phase 13):
 // best-attempt grid of students × the class's current-semester tests. Read-only.

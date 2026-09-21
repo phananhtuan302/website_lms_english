@@ -11,6 +11,7 @@ import type {
   AttemptSummaryDTO,
   BulkCreateFlashcardCardsRequest,
   BulkCreateFlashcardCardsResponse,
+  ClassAssignmentsResponseDTO,
   ClassDTO,
   ClassGradebookDTO,
   ClassRosterStudentDTO,
@@ -375,6 +376,20 @@ export const teacherApi = {
 
   // --- Content-to-class assignment + "My Content" page (T-075) ----------------------
   listMyContent: () => apiRequest<TeacherContentResponseDTO>(`${teacherBase}/content`),
+  // --- Class "Bài tập" tab (T-103) ----------------------------------------------------
+  // Read model: everything assigned to one class for its current semester.
+  getClassAssignments: (classId: string) =>
+    apiRequest<ClassAssignmentsResponseDTO>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/assignments`,
+    ),
+  // The read half of the read-modify-write the `PUT .../classes` endpoints below need
+  // (those REPLACE the item's whole class set, so a caller must read it first).
+  getTestClasses: (testId: string) =>
+    apiRequest<ContentClassAssignmentDTO>(`${base}/${testId}/classes`),
+  getFlashcardSetClasses: (setId: string) =>
+    apiRequest<ContentClassAssignmentDTO>(`${flashcardBase}/${setId}/classes`),
+  getGrammarTopicClasses: (topicId: string) =>
+    apiRequest<ContentClassAssignmentDTO>(`${grammarBase}/${topicId}/classes`),
   updateTestClasses: (testId: string, body: UpdateContentClassesRequest) =>
     apiRequest<ContentClassAssignmentDTO>(`${base}/${testId}/classes`, {
       method: 'PUT',

@@ -9,6 +9,9 @@ interface TestClassSchedulePanelProps {
   classId: string;
   className: string;
   onClose: () => void;
+  /** Called after the schedule or publish state was saved (T-103: lets the Bài tập tab refresh
+   * the row's status badges immediately instead of waiting for the panel to close). */
+  onChanged?: () => void;
 }
 
 /** Converts an ISO date-time string to the local `datetime-local` input value format
@@ -48,7 +51,7 @@ function toIsoOrNull(value: string): string | null {
  * Fetches fresh every time it opens (no caching layer of its own), so it can never show a
  * stale value left over from an edit made on the Report page in a different tab/session.
  */
-function TestClassSchedulePanel({ testId, classId, className, onClose }: TestClassSchedulePanelProps) {
+function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged }: TestClassSchedulePanelProps) {
   const { t } = useTranslation();
   const [schedule, setSchedule] = useState<TestClassScheduleDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -98,7 +101,10 @@ function TestClassSchedulePanel({ testId, classId, className, onClose }: TestCla
         closeAt: toIsoOrNull(closeAtInput),
         autoPublishScoresOnClose: autoPublishInput,
       })
-      .then((res) => setSchedule(res))
+      .then((res) => {
+        setSchedule(res);
+        onChanged?.();
+      })
       .catch((err) => {
         setScheduleError(err instanceof ApiError ? err.message : t('teacherTestReport.scheduleSaveFailed'));
       })
@@ -111,7 +117,10 @@ function TestClassSchedulePanel({ testId, classId, className, onClose }: TestCla
     setPublishError(null);
     teacherApi
       .updateTestClassSchedule(testId, { classId, published: !schedule.scoresPublishedManually })
-      .then((res) => setSchedule(res))
+      .then((res) => {
+        setSchedule(res);
+        onChanged?.();
+      })
       .catch((err) => {
         setPublishError(err instanceof ApiError ? err.message : t('teacherTestReport.publishFailed'));
       })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -29,6 +29,7 @@ interface GradeDraft {
 function TeacherAttemptDetailPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const [result, setResult] = useState<AttemptResultDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,8 +122,19 @@ function TeacherAttemptDetailPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <button type="button" onClick={() => navigate(-1)} className="self-start text-sm text-primary-600 hover:underline">
-        {t('teacherAttemptDetail.backToAttempts')}
+      <button
+        type="button"
+        onClick={() => {
+          // T-103: back returns to wherever the teacher came from (a class's results page, the
+          // gradebook, a session's attempt list, ...). A `default` key means this page was the
+          // first entry in the tab's history (opened from a bookmark / new tab), where
+          // `navigate(-1)` would leave the app — fall back to this test's report instead.
+          if (location.key !== 'default') navigate(-1);
+          else navigate(`/teacher/tests/${encodeURIComponent(result.testId)}/report`);
+        }}
+        className="self-start text-sm text-primary-600 hover:underline"
+      >
+        {t('classAssignments.back')}
       </button>
 
       <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">

@@ -124,6 +124,12 @@ function App() {
                 <Route path="/teacher/classes/:classId" element={<ClassWorkspaceLayout />}>
                   <Route index element={<ClassOverviewTab />} />
                   <Route path="assignments" element={<ClassAssignmentsTab />} />
+                  {/* T-103: class-embedded pages of the Bài tập tab (the tab bar keeps
+                    "Bài tập" lit through `alsoSegments` in lib/classWorkspace.ts). Both read
+                    the class from the ROUTE (`:classId`) and fall back to `?classId=` only when
+                    rendered standalone. */}
+                  <Route path="tests/:testId/results" element={<TeacherTestAttemptsReportPage />} />
+                  <Route path="vocabulary-checks" element={<TeacherVocabularyChecksPage />} />
                   <Route path="students" element={<ClassStudentsTab />} />
                   <Route path="grades" element={<ClassGradesTab />} />
                   {/* T-104: `stats/:module` = the Thống kê sub-tab (test / unit-test /

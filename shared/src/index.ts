@@ -2147,6 +2147,75 @@ export interface StudentAssignmentsResponseDTO {
   items: StudentAssignmentDTO[];
 }
 
+// --- Class "Bài tập" tab: unified assignment list (T-103, Phase 13) --------------------
+// `GET /api/teacher/classes/:classId/assignments` — everything the class workspace's Bài tập
+// tab needs in ONE round-trip: what is currently assigned to this class (for the class's
+// CURRENT semester), across every content type, with the per-test schedule/score-release
+// state and a "how many students have submitted" count. Read-only; assigning/removing goes
+// through each content type's existing `PUT .../:id/classes` endpoint and the schedule
+// through the existing `PUT /api/teacher/tests/:testId/schedule`.
+
+/** A test's `TestClassSchedule` row for (this class, the class's current semester); the whole
+ * field is `null` on `ClassAssignmentTestDTO.schedule` when the teacher never configured one
+ * (fully unrestricted, scores not published — exactly how every reader treats "no row"). */
+export interface ClassAssignmentScheduleDTO {
+  openAt: string | null;
+  closeAt: string | null;
+  autoPublishScoresOnClose: boolean;
+  scoresPublishedManually: boolean;
+  /** COMPUTED "effectively published" — see `isScorePublished` (manual OR auto-on-close fired). */
+  scoresPublished: boolean;
+}
+
+export interface ClassAssignmentTestDTO {
+  id: string;
+  title: string;
+  testType: TestType;
+  unitId: string | null;
+  unitName: string | null;
+  sectionCount: number;
+  questionCount: number;
+  /** `Test.published` — a Unit Test is invisible to students until this is true. */
+  published: boolean;
+  /** Number of generated variants ("mã đề") — a test with none cannot be started by a student. */
+  variantCount: number;
+  /** When it was assigned to this class for this semester (newest first in the list). */
+  assignedAt: string;
+  schedule: ClassAssignmentScheduleDTO | null;
+  /** Distinct students OF THIS CLASS with at least one submitted attempt at this test. */
+  submittedStudentCount: number;
+}
+
+export interface ClassAssignmentFlashcardSetDTO {
+  id: string;
+  name: string;
+  unitName: string | null;
+  cardCount: number;
+  assignedAt: string;
+}
+
+export interface ClassAssignmentGrammarTopicDTO {
+  id: string;
+  title: string;
+  unitName: string | null;
+  exerciseCount: number;
+  assignedAt: string;
+}
+
+/** Response for `GET /api/teacher/classes/:classId/assignments`. A class with no current
+ * semester answers `periodId: null`, `periodName: null` and three empty lists (never an
+ * error) — every assignment is keyed by (class, semester), so there is nothing to list. */
+export interface ClassAssignmentsResponseDTO {
+  classId: string;
+  periodId: string | null;
+  periodName: string | null;
+  /** Students in the class — the "M" of "N/M đã nộp". */
+  studentCount: number;
+  tests: ClassAssignmentTestDTO[];
+  flashcardSets: ClassAssignmentFlashcardSetDTO[];
+  grammarTopics: ClassAssignmentGrammarTopicDTO[];
+}
+
 // --- T-104: class roster + gradebook (Phase 13) ------------------------------------------
 
 /** One row of `GET /api/teacher/classes/:classId/students` (the "Học sinh" tab). Both

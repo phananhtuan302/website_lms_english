@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type {
   ClassDTO,
@@ -10,6 +10,7 @@ import type {
 } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { classAssignmentsPath } from '../lib/classAssignments';
 
 /**
  * Teacher: generate a Vocabulary Check (T-038, redesigned by T-086 to a Unit-based random
@@ -33,6 +34,13 @@ import { ApiError } from '../lib/apiClient';
  * "every student, any class" roster T-076 deliberately kept is still one toggle away —
  * this only changes the DEFAULT, per that task's own documented "any teacher, any
  * student" design, which this does not remove.
+ *
+ * T-103: ALSO rendered inside the class workspace at
+ * `/teacher/classes/:classId/vocabulary-checks` ("embedded"): the class then comes from the
+ * ROUTE param (falling back to `?classId=` only when standalone), the roster defaults to
+ * that class exactly as above (the "show all students" toggle is kept), and the page hides
+ * its own "Đang thao tác: Lớp X — Đổi lớp" line (the workspace header already shows the
+ * class) and points its back link at the class's Bài tập tab.
  */
 function TeacherVocabularyChecksPage() {
   const { t } = useTranslation();
@@ -49,7 +57,11 @@ function TeacherVocabularyChecksPage() {
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchParams] = useSearchParams();
-  const scopeClassId = searchParams.get('classId') ?? '';
+  const { classId: routeClassId } = useParams<{ classId?: string }>();
+  const isEmbedded = routeClassId !== undefined;
+  // Embedded, the workspace header already owns the page's <h1> (the class name).
+  const Heading = isEmbedded ? 'h2' : 'h1';
+  const scopeClassId = routeClassId ?? searchParams.get('classId') ?? '';
   // T-097: starts scoped (`false` = "class roster only") whenever arriving with
   // `?classId=`; irrelevant (never read, since `visibleStudents` below only narrows when
   // `scopeClassId` is set) when reached without one.
@@ -168,14 +180,20 @@ function TeacherVocabularyChecksPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link to="/teacher/dashboard" className="text-sm text-primary-600 hover:underline">
-          {t('teacherVocabularyChecks.backToDashboard')}
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-primary-700">
+        {isEmbedded ? (
+          <Link to={classAssignmentsPath(routeClassId)} className="text-sm text-primary-600 hover:underline">
+            {t('classAssignments.backToAssignments')}
+          </Link>
+        ) : (
+          <Link to="/teacher/dashboard" className="text-sm text-primary-600 hover:underline">
+            {t('teacherVocabularyChecks.backToDashboard')}
+          </Link>
+        )}
+        <Heading className="mt-2 text-2xl font-bold text-primary-700">
           {t('teacherVocabularyChecks.heading')}
-        </h1>
+        </Heading>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherVocabularyChecks.description')}</p>
-        {scopeClassId && (
+        {scopeClassId && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">
             {scopedClassName ? t('classFilter.lockedLabel', { className: scopedClassName }) : t('common.loading')}{' '}
             <Link to="/teacher/classes" className="font-medium underline">

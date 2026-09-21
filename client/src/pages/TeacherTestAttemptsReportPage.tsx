@@ -6,6 +6,7 @@ import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
+import { classAssignmentsPath } from '../lib/classAssignments';
 
 /**
  * Per-test attempt report (T-087), reached from `TeacherTestsPage`'s new "Report"
@@ -26,6 +27,13 @@ import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFi
  * detailed report" link (from `TeacherReportsPage`/`TeacherSpeakingReportsPage`) can hand
  * off the class the teacher was already viewing there, instead of making them re-pick it
  * via `ClassFilterControl` below.
+ *
+ * T-103: ALSO rendered inside the class workspace at
+ * `/teacher/classes/:classId/tests/:testId/results` ("embedded"). The class then comes from
+ * the ROUTE param (falling back to `?classId=` only when standalone), stays locked, and the
+ * page hides its own "Đổi lớp" / "Đang thao tác: Lớp X" / "Đang xem lớp" lines — the workspace
+ * header already shows the class — and its back link returns to that class's Bài tập tab.
+ * The standalone `/teacher/tests/:testId/report?classId=` route behaves exactly as before.
  */
 /** Converts an ISO date-time string to the local `datetime-local` input value format
  * (`YYYY-MM-DDTHH:mm`), or `''` for `null` — the inverse of `toIsoOrNull` below. Plain
@@ -47,13 +55,18 @@ function toIsoOrNull(value: string): string | null {
 }
 
 function TeacherTestAttemptsReportPage() {
-  const { testId } = useParams<{ testId: string }>();
+  const { testId, classId: routeClassId } = useParams<{ testId: string; classId?: string }>();
   const { t } = useTranslation();
-  const initialClassId = new URLSearchParams(window.location.search).get('classId') ?? '';
+  // T-103: embedded in the class workspace when the class comes from the route.
+  const isEmbedded = routeClassId !== undefined;
+  // Embedded, the workspace header already owns the page's <h1> (the class name).
+  const Heading = isEmbedded ? 'h2' : 'h1';
+  const initialClassId = routeClassId ?? new URLSearchParams(window.location.search).get('classId') ?? '';
   // T-097: locks the picker to the class when arriving via `?classId=` — see
   // `TeacherReportsPage.tsx`'s identical pattern.
   const isClassLocked = initialClassId !== '';
-  const { classes, classId, setClassId } = useTeacherClasses(true, initialClassId);
+  // Embedded, the class is fixed by the route — no need to load the class list for a picker.
+  const { classes, classId, setClassId } = useTeacherClasses(!isEmbedded, initialClassId);
   const lockedClassName = classes?.find((c) => c.id === classId)?.name ?? null;
   const [data, setData] = useState<TestAttemptReportResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,37 +150,47 @@ function TeacherTestAttemptsReportPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
-          {t('teacherTestReport.backToTests')}
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-primary-700">
+        {isEmbedded ? (
+          <Link to={classAssignmentsPath(routeClassId)} className="text-sm text-primary-600 hover:underline">
+            {t('classAssignments.backToAssignments')}
+          </Link>
+        ) : (
+          <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
+            {t('teacherTestReport.backToTests')}
+          </Link>
+        )}
+        <Heading className="mt-2 text-2xl font-bold text-primary-700">
           {data
             ? t('teacherTestReport.headingWithTitle', { testTitle: data.testTitle })
             : t('teacherTestReport.heading')}
-        </h1>
+        </Heading>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherTestReport.description')}</p>
-        {data && (
+        {data && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">
             {t('classFilter.viewingLabel', { className: data.className })}
           </p>
         )}
       </div>
 
-      <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
-        {isClassLocked ? (
-          <p className="text-sm font-medium text-base-black">
-            {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
-            <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
-              {t('classFilter.switchClass')}
-            </Link>
-          </p>
-        ) : (
-          <>
-            <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
-            <ClassFilterEmptyState classes={classes} />
-          </>
-        )}
-      </section>
+      {/* Embedded: the class is locked by the route and shown in the workspace header, so
+          there is nothing to pick or switch here. */}
+      {!isEmbedded && (
+        <section className="flex flex-wrap items-end gap-4 rounded-xl border border-primary-200 p-4">
+          {isClassLocked ? (
+            <p className="text-sm font-medium text-base-black">
+              {lockedClassName ? t('classFilter.lockedLabel', { className: lockedClassName }) : t('common.loading')}{' '}
+              <Link to="/teacher/classes" className="font-medium text-primary-600 hover:underline">
+                {t('classFilter.switchClass')}
+              </Link>
+            </p>
+          ) : (
+            <>
+              <ClassFilterControl classes={classes} classId={classId} onChange={setClassId} />
+              <ClassFilterEmptyState classes={classes} />
+            </>
+          )}
+        </section>
+      )}
 
       {/* T-092: manual publish/unpublish scores for THIS class. The badge reflects
           `data.schedule.scoresPublished` — the COMPUTED "effectively published" value
