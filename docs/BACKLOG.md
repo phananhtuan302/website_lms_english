@@ -912,3 +912,20 @@ Standing rules for every Phase 14 task: real customer data lives in the DB (teac
     1. Run "first-time user" walkthroughs by fresh agents that are given ONLY the app URL, an account, and a plain-language goal (no hints about where things are, no code access): teacher goals — "tạo một lớp mới", "thêm học sinh vào lớp", "giao một bài kiểm tra cho lớp và đặt giờ đóng", "xem điểm của lớp và xuất Excel", "đăng một thông báo"; student goals — "tìm bài cần làm và làm bài", "xem điểm của tôi", "xem thông báo mới". Each walkthrough records where the agent hesitated, took a wrong turn, could not find something, or found wording unclear (this is a SIMULATED cold-start test and must be reported as such — it does not replace real users).
     2. Triage the findings; fix the clear wins (labels, button placement, empty-state hints, missing links) with small changes; list the rest as recommendations.
   - Verify: re-run the failed goals after the fixes.
+
+---
+
+## Phase 15 — Fixes from the older-teacher review (T-114–T-116)
+
+Source: a simulated review by an AI role-playing "Cô Thu" (58, low tech comfort) who did the whole teacher lifecycle (first login → author a test → assign → grade → let students see scores → gradebook/Excel → announcement). Customer decisions (2026-09-22): hide the reports feature for now ("Báo cáo cho hiệu trưởng" — done: `REPORTS_ENABLED = false` in `client/src/lib/featureFlags.ts`, commit `0abc3e1`), and "fix everything in her table, then have her try the fixed functions again". Standing rules as in Phase 14 (real customer data, additive only, fixtures with a prefix, Leader cleanup + row-by-row comparison with the pre-Phase-14 JSON backup).
+
+- [ ] **T-114 — Test editor + assign flow** (Dev "E")
+  - Status: Not Started
+  - Scope: visible autosave ("Đang lưu… / Đã lưu lúc HH:mm / Chưa lưu được"), numeric fields saved on change, root-cause fix of the duplicate-choices bug (serialize saves, idempotent server write), Vietnamese calm errors and no error for a still-empty new choice, new MCQ starts with 4 choices and an unmistakable "Đáp án đúng", safe deletes (confirm question delete, undo for choice delete, Xóa separated from "Mở trình chỉnh sửa"), variants ("mã đề") created automatically when a test is assigned/started, "Xem thử như học sinh" (creates no attempt), "Bước tiếp theo" strip + "Giao bài này cho lớp…" dialog from the editor, shared deadline chips (1/2/3 ngày, 1 tuần; highlight clears on manual edit), wording ("Thư viện" → "Kho bài soạn", "Phần" → "Nhóm câu", QR block).
+- [ ] **T-115 — Scoring, grading, gradebook, Excel, publishing** (Dev "G1")
+  - Status: Not Started
+  - Scope: attempt total includes graded essay/speaking points (points model: auto question = 1 point, manual = its max score; provisional "tạm tính" while an essay is ungraded; byte-identical for tests without manual questions), thang điểm 10 on every human-facing score, Excel gradebook with title rows / STT / "Chưa nộp" / numeric scores / no internal note in headers, download confirmation message, confirm dialog before "Cho xem điểm" (warns about ungraded essays), publish button on the assignment row, grading UI (multi-line comment, saved message, "Lưu và chấm bài kế tiếp").
+- [ ] **T-116 — Help, big text, readability, wording** (Dev "G2")
+  - Status: Not Started
+  - Scope: "Trợ giúp" page (teacher + student guides that interpolate live UI labels) and header link, "Chữ to" toggle (112.5% / 125%, persisted), site-wide contrast for the muted greys and 13px helper text, wording ("Ghim" → "Đưa lên đầu", "nộp thiếu bài" → "chưa nộp bài", semester helper line).
+- Not doing (customer decision or out of scope): the class statistics/report features ("câu nào sai nhiều nhất", distribution, "Month"/seconds formatting) — hidden by the flag; renaming AcademicPeriod data ("Semester 1 2026", "Semester 2 2026", "Học kì 1") — customer-owned data, needs the customer's decision; editing a student's name/email; importing questions from Word/Excel and AI-generated tests (recommended next, not built).
