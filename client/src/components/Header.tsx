@@ -55,7 +55,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-/** T-105 (Phase 13): the student nav is four items, not six. Everything a student has to DO
+/** T-105 (Phase 13): the student nav is a handful of items, not six (T-110 added "Điểm của tôi"). Everything a student has to DO
  * (practice tests, Unit Tests, Vocabulary Checks) is now one list, "Bài tập" — the
  * `/student/dashboard` "Bài cần làm" page — so the old Luyện tập / Kiểm tra Unit / Kiểm tra
  * từ vựng items are gone (their old routes redirect there). Students get "Bài tập" from
@@ -63,6 +63,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
  * `role !== 'student'` guard on that link below). */
 const STUDENT_NAV_ITEMS: NavItem[] = [
   { labelKey: 'studentNav.assignments', to: '/student/dashboard' },
+  { labelKey: 'studentNav.grades', to: '/student/grades' },
   { labelKey: 'studentNav.flashcards', to: '/student/flashcard-sets' },
   { labelKey: 'studentNav.grammar', to: '/student/grammar-topics' },
   { labelKey: 'studentNav.leaderboard', to: '/vocab-leaderboard' },

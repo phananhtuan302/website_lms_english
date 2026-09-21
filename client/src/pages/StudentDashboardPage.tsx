@@ -9,6 +9,7 @@ import type {
 import { useAuth } from '../context/useAuth';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
+import StudentAnnouncementsCard from '../components/StudentAnnouncementsCard';
 
 /**
  * Student home = "Bài cần làm" (T-105, Phase 13): ONE to-do list of everything the student
@@ -258,6 +259,8 @@ function StudentDashboardPage() {
         <p className="mt-1 text-sm text-base-black/70">{t('studentHome.greeting', { name: user?.name })}</p>
         {classLine && <p className="mt-1 text-sm font-medium text-primary-700">{classLine}</p>}
       </div>
+
+      <StudentAnnouncementsCard />
 
       {startError && (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

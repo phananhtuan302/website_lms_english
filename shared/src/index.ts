@@ -2265,3 +2265,263 @@ export interface ClassGradebookDTO {
   studentAverages: Record<string, number | null>;
   testAverages: Record<string, number | null>;
 }
+
+// --- T-110: student "Điểm của tôi" (Phase 14) --------------------------------------------
+// `GET /api/student/grades[?periodId=]` (`server/src/routes/studentGrades.routes.ts`): the
+// calling student's own grades for ONE semester of their own class. A score is only ever
+// present on a row whose status is `graded` — for every other status the score fields are
+// ABSENT from the JSON (not `null`), so an unpublished score can never leak.
+
+/** Where one test sits for the student.
+ * - `notStarted`: no attempt yet (may still be open, not yet open, or already closed).
+ * - `inProgress`: an attempt exists but is not submitted.
+ * - `awaitingPublish`: submitted, but the teacher has not released scores for this class +
+ *   semester yet (the same "effectively published" rule as `GET /api/attempts`).
+ * - `graded`: submitted and the score is released. */
+export type StudentGradeStatus = 'notStarted' | 'inProgress' | 'awaitingPublish' | 'graded';
+
+/** A semester the class has tests in (plus its current one), for the semester switcher.
+ * Newest semester first. */
+export interface StudentGradesPeriodDTO {
+  id: string;
+  name: string;
+  isCurrent: boolean;
+}
+
+interface StudentGradeTestBaseDTO {
+  testId: string;
+  title: string;
+  kind: 'test' | 'unitTest';
+  /** From the class's schedule for the semester shown; `null` when no window is set. */
+  openAt: string | null;
+  closeAt: string | null;
+  /** How many submitted attempts the student has at this test (no scores implied). */
+  attemptCount: number;
+}
+
+/** A test whose score is not (yet) visible: no score field of any kind is present. For
+ * `awaitingPublish`, `submittedAt` is the student's latest submission — deliberately not the
+ * best attempt's, because picking "best" would itself reveal something about the hidden scores. */
+export interface StudentGradePendingTestDTO extends StudentGradeTestBaseDTO {
+  status: 'notStarted' | 'inProgress' | 'awaitingPublish';
+  submittedAt: string | null;
+}
+
+/** A test with a released score: the student's BEST submitted attempt (highest score; a tie
+ * goes to the later submission). `attemptId` is set only when the detailed result page will
+ * actually open with the score — i.e. when the semester shown is the class's current one,
+ * because the result endpoint checks release against the current semester's schedule. */
+export interface StudentGradeGradedTestDTO extends StudentGradeTestBaseDTO {
+  status: 'graded';
+  scorePercent: number;
+  correctCount: number;
+  totalCount: number;
+  submittedAt: string;
+  attemptId: string | null;
+}
+
+export type StudentGradeTestDTO = StudentGradePendingTestDTO | StudentGradeGradedTestDTO;
+
+/** Small learning-progress summary for the sets/topics assigned to the class in the semester
+ * shown. `vocabulary`: how many of those cards the student has marked known/learning.
+ * `grammar`: their answers on those topics' exercises (`attempted` = every answer given,
+ * `correct` = the right ones). */
+export interface StudentGradesProgressDTO {
+  vocabulary: { setCount: number; cardCount: number; knownCount: number; learningCount: number };
+  grammar: { attempted: number; correct: number };
+}
+
+/** Response of `GET /api/student/grades`. A student with no class gets `classId: null` and
+ * empty lists; a class with no current semester (and no `periodId` asked for) gets
+ * `periodId: null`, no tests and no progress — never an error. `averageScorePercent` is the
+ * mean (1 decimal) of the BEST score on every `graded` test, `null` when there is none;
+ * unpublished tests never contribute. */
+export interface StudentGradesResponseDTO {
+  classId: string | null;
+  className: string | null;
+  /** The semester the data is for (the asked-for one, else the class's current one). */
+  periodId: string | null;
+  periodName: string | null;
+  /** Id of the class's current semester (`null` = none selected yet). */
+  currentPeriodId: string | null;
+  periods: StudentGradesPeriodDTO[];
+  tests: StudentGradeTestDTO[];
+  averageScorePercent: number | null;
+  progress: StudentGradesProgressDTO | null;
+}
+
+// --- T-111: add students to a class — manual form + Excel roster import (Phase 14) ----------
+
+/** Most rows one `POST /api/teacher/classes/:classId/students/bulk` request may carry. Each new
+ * account costs a bcrypt hash (deliberately slow), so the ceiling bounds one request's work; it
+ * is comfortably above a real class (the largest is ~40 students). */
+export const CLASS_ROSTER_BULK_MAX_ROWS = 200;
+
+/** Shortest password a teacher may set for a new student — the same minimum public
+ * registration (`POST /api/auth/register`) enforces. A blank password is not "too short": it
+ * asks the server to generate one. */
+export const CLASS_ROSTER_MIN_PASSWORD_LENGTH = 8;
+
+/** One student to create. `password` blank/omitted → the server generates one. */
+export interface ClassRosterBulkRowDTO {
+  name: string;
+  email: string;
+  password?: string | null;
+}
+
+/** Body of `POST /api/teacher/classes/:classId/students/bulk`. */
+export interface ClassRosterBulkRequestDTO {
+  students: ClassRosterBulkRowDTO[];
+}
+
+/** Why a row was skipped. `emailExists` = an account with that email is already registered
+ * (anywhere — the existing account is never changed, moved or given a new password). */
+export type ClassRosterBulkSkipReason =
+  | 'nameRequired'
+  | 'emailInvalid'
+  | 'passwordInvalid'
+  | 'duplicateInFile'
+  | 'emailExists';
+
+/** The outcome of one submitted row. `row` is the 1-based position in the submitted array. */
+export interface ClassRosterBulkResultDTO {
+  row: number;
+  /** The row as the server understood it (email is trimmed + lower-cased). */
+  name: string;
+  email: string;
+  status: 'created' | 'skipped';
+  /** Set when `status` is `skipped`. */
+  reason: ClassRosterBulkSkipReason | null;
+  /** Set when `status` is `created`. */
+  studentId: string | null;
+  /** The password the server GENERATED for this row (blank password submitted) — returned
+   * once, here, and never again; `null` for a skipped row or when the caller chose the
+   * password. */
+  generatedPassword: string | null;
+}
+
+/** Response of the bulk endpoint: every row is independent, so it is a per-row report. */
+export interface ClassRosterBulkResponseDTO {
+  created: number;
+  skipped: number;
+  results: ClassRosterBulkResultDTO[];
+}
+
+// --- T-107: class "Tổng quan" — "Cần chú ý" dashboard (Phase 14) ---------------------------
+
+/** A test that is open right now and whose `closeAt` is within the next 72 hours. */
+export interface ClassOverviewClosingSoonDTO {
+  testId: string;
+  title: string;
+  closeAt: string;
+  /** Distinct students of the class who have submitted this test. */
+  submittedCount: number;
+  studentCount: number;
+}
+
+/** One submitted attempt still waiting for the teacher's manual grade: it holds at least one
+ * `essay` (Writing) answer with no `manualScore` yet — the same "not graded yet" state the
+ * teacher attempt page and the student result page already show. Speaking answers are scored
+ * by the AI on submit, so they never "wait for grading" and are not part of this list. */
+export interface ClassOverviewNeedsGradingItemDTO {
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  testId: string;
+  testTitle: string;
+  submittedAt: string;
+  /** How many essay answers in this attempt are still ungraded (>= 1). */
+  ungradedCount: number;
+}
+
+/** A closed or closing-soon test with the students who have not submitted it. `students` is
+ * capped; `moreCount` = how many further students are not listed (`missingCount` =
+ * `students.length + moreCount`). */
+export interface ClassOverviewNotSubmittedDTO {
+  testId: string;
+  title: string;
+  closeAt: string;
+  /** `true` when `closeAt` has already passed, `false` when it is still to come (closing soon). */
+  closed: boolean;
+  missingCount: number;
+  students: Array<{ id: string; name: string }>;
+  moreCount: number;
+}
+
+/** One of the latest submissions in the class. `scorePercent` is `null` unless the test's
+ * scores are effectively published (`isScorePublished`). */
+export interface ClassOverviewActivityDTO {
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  testId: string;
+  testTitle: string;
+  submittedAt: string;
+  scoresPublished: boolean;
+  scorePercent: number | null;
+}
+
+/** `GET /api/teacher/classes/:classId/overview`. All lists describe the tests assigned to the
+ * class for its CURRENT semester. A class with no current semester returns `periodId: null`,
+ * its `studentCount`, and every count/list empty — never an error. */
+export interface ClassOverviewDTO {
+  classId: string;
+  periodId: string | null;
+  periodName: string | null;
+  studentCount: number;
+  /** Tests + flashcard sets + grammar topics assigned for the current semester (0 = the
+   * class is still empty, so the tab shows its "getting started" shortcuts). */
+  assignmentCount: number;
+  /** Assigned tests students can start right now (inside their open/close window). */
+  openCount: number;
+  closingSoon: ClassOverviewClosingSoonDTO[];
+  needsGrading: {
+    /** Total submitted attempts waiting for a manual grade (may exceed `items.length`). */
+    count: number;
+    /** The oldest waiting ones first. */
+    items: ClassOverviewNeedsGradingItemDTO[];
+  };
+  notSubmitted: {
+    /** Tests that have at least one missing student (capped). */
+    tests: ClassOverviewNotSubmittedDTO[];
+    /** How many further such tests are not listed. */
+    moreTestCount: number;
+  };
+  recentActivity: ClassOverviewActivityDTO[];
+}
+
+// --- T-108: class announcements "Thông báo lớp" (Phase 14) -------------------------------
+
+/** Longest announcement body (characters, after trimming) the API accepts. */
+export const CLASS_ANNOUNCEMENT_MAX_LENGTH = 2000;
+
+/** One announcement a teacher posted to a class. `body` is plain text (line breaks kept) —
+ * clients must render it as text, never as HTML. `edited` = the text was changed after it
+ * was posted (pinning/unpinning does not count). */
+export interface ClassAnnouncementDTO {
+  id: string;
+  body: string;
+  pinned: boolean;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+  edited: boolean;
+}
+
+/** `POST /api/teacher/classes/:classId/announcements`. */
+export interface CreateClassAnnouncementRequest {
+  body: string;
+  pinned?: boolean;
+}
+
+/** `PATCH /api/teacher/classes/:classId/announcements/:id` — at least one field. */
+export interface UpdateClassAnnouncementRequest {
+  body?: string;
+  pinned?: boolean;
+}
+
+/** `GET /api/student/announcements` — the student's own class only; pinned first, then
+ * newest first, at most 30. A student with no class gets an empty list. */
+export interface StudentAnnouncementsResponseDTO {
+  items: ClassAnnouncementDTO[];
+}

@@ -11,12 +11,17 @@ import type {
   AttemptSummaryDTO,
   BulkCreateFlashcardCardsRequest,
   BulkCreateFlashcardCardsResponse,
+  ClassAnnouncementDTO,
   ClassAssignmentsResponseDTO,
   ClassDTO,
   ClassGradebookDTO,
+  ClassOverviewDTO,
+  ClassRosterBulkRequestDTO,
+  ClassRosterBulkResponseDTO,
   ClassRosterStudentDTO,
   ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
+  CreateClassAnnouncementRequest,
   CreateClassRequest,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
@@ -57,6 +62,7 @@ import type {
   UnitDTO,
   UnitLeaderboardResponseDTO,
   UpdateAcademicPeriodRequest,
+  UpdateClassAnnouncementRequest,
   UpdateClassCurrentPeriodRequest,
   UpdateClassRequest,
   UpdateContentClassesRequest,
@@ -409,4 +415,36 @@ export const teacherApi = {
     apiRequest<ClassRosterStudentDTO[]>(`${teacherBase}/classes/${encodeURIComponent(classId)}/students`),
   getClassGradebook: (classId: string) =>
     apiRequest<ClassGradebookDTO>(`${teacherBase}/classes/${encodeURIComponent(classId)}/gradebook`),
+
+  // --- Class "Tổng quan" attention dashboard (T-107) ---------------------------------
+  getClassOverview: (classId: string) =>
+    apiRequest<ClassOverviewDTO>(`${teacherBase}/classes/${encodeURIComponent(classId)}/overview`),
+
+  // --- Add students to a class (T-111) ----------------------------------------------
+  addClassStudents: (classId: string, body: ClassRosterBulkRequestDTO) =>
+    apiRequest<ClassRosterBulkResponseDTO>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/students/bulk`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
+  // --- Class announcements "Thông báo lớp" (T-108) ----------------------------------
+  listClassAnnouncements: (classId: string) =>
+    apiRequest<ClassAnnouncementDTO[]>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/announcements`,
+    ),
+  createClassAnnouncement: (classId: string, body: CreateClassAnnouncementRequest) =>
+    apiRequest<ClassAnnouncementDTO>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/announcements`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  updateClassAnnouncement: (classId: string, id: string, body: UpdateClassAnnouncementRequest) =>
+    apiRequest<ClassAnnouncementDTO>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/announcements/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
+  deleteClassAnnouncement: (classId: string, id: string) =>
+    apiRequest<void>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/announcements/${encodeURIComponent(id)}`,
+      { method: 'DELETE' },
+    ),
 };

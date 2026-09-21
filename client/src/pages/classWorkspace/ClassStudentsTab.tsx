@@ -5,6 +5,7 @@ import type { ClassRosterStudentDTO } from '@platform/shared';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classTabPath } from '../../lib/classWorkspace';
 import { teacherApi } from '../../lib/teacherApi';
+import AddStudentsModal from './AddStudentsModal';
 
 /** Lower-cases and strips Vietnamese diacritics so "nguyen" finds "Nguyễn" — teachers often
  * type search terms without accents. */
@@ -24,7 +25,8 @@ function formatAverage(value: number | null): string {
 /**
  * "Học sinh" tab (T-104): the class roster — name, email, how many of the class's current-
  * semester tests the student has submitted, and their average score — with a search box.
- * Read-only: moving/removing a student is an Admin action (a hint says so).
+ * Moving/removing a student is an Admin action (a hint says so); adding students (T-111) is
+ * the "Thêm học sinh" button — a dialog with a one-student form and an Excel roster import.
  *
  * The numbers come from `GET /api/teacher/classes/:classId/students`, which computes them
  * from the same best-attempt grid as the gradebook, so this tab and "Điểm số" always agree.
@@ -34,7 +36,7 @@ function formatAverage(value: number | null): string {
  */
 function ClassStudentsTab() {
   const { t } = useTranslation();
-  const { cls } = useClassWorkspace();
+  const { cls, reload: reloadClasses } = useClassWorkspace();
   const periodKey = cls.currentPeriodId ?? '';
 
   // Tagged with the semester it was loaded for, so a stale roster (previous semester) is
@@ -43,6 +45,9 @@ function ClassStudentsTab() {
   const [loaded, setLoaded] = useState<{ key: string; roster: ClassRosterStudentDTO[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  // Bumped after students are added so the roster below is fetched again.
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +64,13 @@ function ClassStudentsTab() {
     return () => {
       cancelled = true;
     };
-  }, [cls.id, periodKey]);
+  }, [cls.id, periodKey, reloadToken]);
+
+  function handleStudentsAdded() {
+    setReloadToken((n) => n + 1);
+    // The header's "N học sinh" count comes from the class list — refresh it too.
+    void reloadClasses().catch(() => undefined);
+  }
 
   const roster = loaded && loaded.key === periodKey ? loaded.roster : null;
 
@@ -91,18 +102,27 @@ function ClassStudentsTab() {
             {t('classStudents.count', { count: roster.length })}
           </p>
         </div>
-        {roster.length > 0 && (
-          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            {t('classStudents.searchLabel')}
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t('classStudents.searchPlaceholder')}
-              className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
-          </label>
-        )}
+        <div className="flex flex-wrap items-end gap-3">
+          {roster.length > 0 && (
+            <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+              {t('classStudents.searchLabel')}
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t('classStudents.searchPlaceholder')}
+                className="w-64 max-w-full rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              />
+            </label>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            className="min-h-[2.5rem] rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          >
+            {t('classRoster.addButton')}
+          </button>
+        </div>
       </div>
 
       {roster.length === 0 ? (
@@ -172,6 +192,15 @@ function ClassStudentsTab() {
           </p>
         )}
       </div>
+
+      {showAdd && (
+        <AddStudentsModal
+          classId={cls.id}
+          className={cls.name}
+          onClose={() => setShowAdd(false)}
+          onChanged={handleStudentsAdded}
+        />
+      )}
     </section>
   );
 }

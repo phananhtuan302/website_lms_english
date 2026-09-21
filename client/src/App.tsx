@@ -20,6 +20,7 @@ import RegisterPage from './pages/RegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import StudentFlashcardsPage from './pages/StudentFlashcardsPage';
 import StudentFlashcardSetPage from './pages/StudentFlashcardSetPage';
+import StudentGradesPage from './pages/StudentGradesPage';
 import StudentGrammarExercisePage from './pages/StudentGrammarExercisePage';
 import StudentGrammarPage from './pages/StudentGrammarPage';
 import StudentGrammarSpaceShooterGamePage from './pages/StudentGrammarSpaceShooterGamePage';
@@ -34,6 +35,7 @@ import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
+import ClassAnnouncementsTab from './pages/classWorkspace/ClassAnnouncementsTab';
 import ClassAssignmentsTab from './pages/classWorkspace/ClassAssignmentsTab';
 import ClassGradesTab from './pages/classWorkspace/ClassGradesTab';
 import ClassOverviewTab from './pages/classWorkspace/ClassOverviewTab';
@@ -143,6 +145,7 @@ function App() {
                   may add more sibling child routes here (e.g. `tests/:testId/results`). */}
                 <Route path="/teacher/classes/:classId" element={<ClassWorkspaceLayout />}>
                   <Route index element={<ClassOverviewTab />} />
+                  <Route path="announcements" element={<ClassAnnouncementsTab />} />
                   <Route path="assignments" element={<ClassAssignmentsTab />} />
                   {/* T-103: class-embedded pages of the Bài tập tab (the tab bar keeps
                     "Bài tập" lit through `alsoSegments` in lib/classWorkspace.ts). Both read
@@ -208,6 +211,7 @@ function App() {
 
               <Route element={<ProtectedRoute allowedRoles={['student']} />}>
                 <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+                <Route path="/student/grades" element={<StudentGradesPage />} />
                 {/* Home self-practice picker (T-040) — starts/resumes a standalone attempt
                   for any test, outside a teacher-run QR/live session. */}
                 <Route path="/student/practice" element={<Navigate to="/student/dashboard" replace />} />

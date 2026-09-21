@@ -14,7 +14,9 @@ import type {
   PracticeTestSummaryDTO,
   RecordTabSwitchResponse,
   SaveAnswerRequest,
+  StudentAnnouncementsResponseDTO,
   StudentAssignmentsResponseDTO,
+  StudentGradesResponseDTO,
   StudentUnitTestsResponseDTO,
   StudentVocabularyCheckSummaryDTO,
   SubmitAttemptResponse,
@@ -91,4 +93,17 @@ export const studentApi = {
   // server-derived status. "Làm bài" on an `open` row still goes through `startPractice`
   // above — the list never bypasses the start endpoint's own checks.
   listAssignments: () => apiRequest<StudentAssignmentsResponseDTO>('/api/student/assignments'),
+
+  // --- "Điểm của tôi" (T-110, Phase 14) ----------------------------------------------
+  // My own grades for one semester of my class (default = the current one). Scores only
+  // come back for tests whose scores are published.
+  getGrades: (periodId?: string) =>
+    apiRequest<StudentGradesResponseDTO>(
+      periodId ? `/api/student/grades?periodId=${encodeURIComponent(periodId)}` : '/api/student/grades',
+    ),
+
+  // --- Class announcements "Thông báo từ giáo viên" (T-108) --------------------------
+  // My own class's announcements, pinned first then newest first (at most 30).
+  listAnnouncements: () =>
+    apiRequest<StudentAnnouncementsResponseDTO>('/api/student/announcements'),
 };

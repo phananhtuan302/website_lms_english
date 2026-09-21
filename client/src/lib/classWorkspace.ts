@@ -24,6 +24,7 @@ export interface ClassTab {
 /** Tab bar order = display order. Add a segment here and a `<Route>` in `App.tsx`. */
 export const CLASS_TABS: ClassTab[] = [
   { segment: '', labelKey: 'classWorkspace.tabs.overview' },
+  { segment: 'announcements', labelKey: 'classWorkspace.tabs.announcements' },
   {
     segment: 'assignments',
     labelKey: 'classWorkspace.tabs.assignments',

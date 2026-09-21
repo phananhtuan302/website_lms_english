@@ -23,6 +23,7 @@ import { studentGrammarRouter } from './routes/studentGrammar.routes';
 import { teacherUnitTestsRouter } from './routes/teacherUnitTests.routes';
 import { teacherVocabularyCheckRouter } from './routes/teacherVocabularyCheck.routes';
 import { studentAssignedTestsRouter } from './routes/studentAssignedTests.routes';
+import { studentGradesRouter } from './routes/studentGrades.routes';
 import { unitLeaderboardRouter } from './routes/unitLeaderboard.routes';
 import { settingsRouter } from './routes/settings.routes';
 import { adminUsersRouter } from './routes/adminUsers.routes';
@@ -34,6 +35,12 @@ import { classesRouter } from './routes/classes.routes';
 import { teacherContentRouter } from './routes/teacherContent.routes';
 import { teacherClassAssignmentsRouter } from './routes/teacherClassAssignments.routes';
 import { teacherClassGradebookRouter } from './routes/teacherClassGradebook.routes';
+import { teacherClassOverviewRouter } from './routes/teacherClassOverview.routes';
+import { teacherClassRosterRouter } from './routes/teacherClassRoster.routes';
+import {
+  studentAnnouncementsRouter,
+  teacherClassAnnouncementsRouter,
+} from './routes/classAnnouncements.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -154,6 +161,10 @@ app.use('/api/teacher', teacherVocabularyCheckRouter);
 // other prefix above — see `studentAssignedTests.routes.ts`'s module doc comment.
 app.use('/api/student', studentAssignedTestsRouter);
 
+// Student "Điểm của tôi" (T-110, Phase 14): the caller's own grades per semester, scores
+// withheld until published. Shares the `/api/student` prefix (student-only).
+app.use('/api/student', studentGradesRouter);
+
 // Unit Test report & leaderboard (T-037) — visible to BOTH roles, built on T-019's
 // `computeReport` engine. Own top-level mount point (`/api/units`), distinct from
 // `/api/teacher/units` (curriculum Unit CRUD, T-018) — see that router's doc comment.
@@ -197,6 +208,19 @@ app.use('/api/teacher', teacherClassAssignmentsRouter);
 // Class workspace "Học sinh" roster + "Điểm số" gradebook read models (T-104, Phase 13):
 // best-attempt grid of students × the class's current-semester tests. Read-only.
 app.use('/api/teacher', teacherClassGradebookRouter);
+
+// Class workspace "Tổng quan" attention dashboard read model (T-107, Phase 14): closing-soon,
+// awaiting-grading, not-submitted and recent-activity lists for one class. Read-only.
+app.use('/api/teacher', teacherClassOverviewRouter);
+
+// Add students to a class in bulk (T-111, Phase 14): the "Thêm học sinh" dialog's endpoint —
+// creates student accounts (form or Excel roster import), one result per row.
+app.use('/api/teacher', teacherClassRosterRouter);
+
+// Class announcements "Thông báo lớp" (T-108, Phase 14): the owning teacher/admin manages a
+// class's announcements; a student reads only their own class's (`/api/student/announcements`).
+app.use('/api/teacher', teacherClassAnnouncementsRouter);
+app.use('/api/student', studentAnnouncementsRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

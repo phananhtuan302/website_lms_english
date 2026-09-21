@@ -101,6 +101,10 @@ model User {
   // student-role user from being the FK target.
   classes Class[] @relation("TeacherClasses")
 
+  // Announcements this user posted to a class (T-108). Same "app layer enforces the role"
+  // note as `classes` above.
+  classAnnouncements ClassAnnouncement[] @relation("AuthoredClassAnnouncements")
+
   // The single class this student belongs to for their whole lifetime (T-074, Phase 12,
   // PROJECT_PLAN Assumption A14) — meaningful for `student`-role users only; always
   // `null` for `teacher`/`admin` accounts (nothing in this batch's routes ever sets it
@@ -189,6 +193,9 @@ model Class {
   // for tests assigned to this class — see `TestClassSchedule`'s doc comment for the full
   // design.
   classSchedules          TestClassSchedule[]
+  // Teacher announcements posted to this class (T-108) — see `ClassAnnouncement`'s doc
+  // comment. Cascade: deleting a class takes its announcements with it.
+  announcements           ClassAnnouncement[]
   createdAt               DateTime                            @default(now())
 
   @@map("classes")
@@ -1200,6 +1207,30 @@ model GrammarExerciseAttempt {
   @@index([topicId])
   @@index([createdAt])
   @@map("grammar_exercise_attempts")
+}
+
+// --- Class announcements (T-108, Phase 14) ---------------------------------------------
+
+/// A short plain-text notice a teacher posts to ONE class ("Thông báo lớp"), shown on the
+/// class workspace's "Thông báo" tab and on the class's students' home page. Not scoped to a
+/// semester — an announcement belongs to the class, whichever semester is current. `pinned`
+/// announcements sort first. `body` is plain text (never rendered as HTML); its length cap
+/// is enforced by the API, not the DB. Cascades away with its class; the author FK cascades
+/// too (a deleted user's announcements are meaningless, and a hard restrict would block
+/// deleting them).
+model ClassAnnouncement {
+  id        String   @id @default(uuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AuthoredClassAnnouncements", fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([classId, pinned, createdAt])
+  @@map("class_announcements")
 }
 
 // --- Site-wide settings (T-067, Phase 10 Vietnamese localization) -------------------
