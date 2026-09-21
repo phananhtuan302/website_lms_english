@@ -67,7 +67,7 @@ function TeacherFlashcardsPage() {
         <button
           type="submit"
           disabled={isCreating || !newName.trim()}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isCreating ? t('teacherFlashcards.creating') : t('teacherFlashcards.createSet')}
         </button>

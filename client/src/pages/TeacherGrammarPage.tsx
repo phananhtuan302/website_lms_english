@@ -70,7 +70,7 @@ function TeacherGrammarPage() {
         <button
           type="submit"
           disabled={isCreating || !newTitle.trim()}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isCreating ? t('teacherGrammar.creating') : t('teacherGrammar.createTopic')}
         </button>

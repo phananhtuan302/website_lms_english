@@ -73,7 +73,7 @@ function StudentFlashcardSetPage() {
   if (set.cards.length === 0) {
     return (
       <div>
-        <Link to="/student/flashcard-sets" className="text-sm text-primary-600 hover:underline">
+        <Link to="/student/flashcard-sets" className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
           {t('studentFlashcardSet.backToVocabulary')}
         </Link>
         <p className="mt-4 text-sm text-base-black/60">{t('studentFlashcardSet.emptySet')}</p>
@@ -115,7 +115,7 @@ function StudentFlashcardSetPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <div className="flex items-center justify-between">
-        <Link to="/student/flashcard-sets" className="text-sm text-primary-600 hover:underline">
+        <Link to="/student/flashcard-sets" className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
           {t('studentFlashcardSet.backToVocabulary')}
         </Link>
         <span className="text-sm text-base-black/60">
@@ -173,7 +173,7 @@ function StudentFlashcardSetPage() {
             setIndex((i) => Math.max(0, i - 1));
           }}
           disabled={index === 0}
-          className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {t('studentFlashcardSet.previousButton')}
         </button>
@@ -182,7 +182,7 @@ function StudentFlashcardSetPage() {
             type="button"
             onClick={() => void mark('learning')}
             disabled={isSaving}
-            className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('studentFlashcardSet.stillLearningButton')}
           </button>
@@ -190,7 +190,7 @@ function StudentFlashcardSetPage() {
             type="button"
             onClick={() => void mark('known')}
             disabled={isSaving}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('studentFlashcardSet.statusKnown')}
           </button>
@@ -202,7 +202,7 @@ function StudentFlashcardSetPage() {
             setIndex((i) => Math.min(set.cards.length - 1, i + 1));
           }}
           disabled={index === set.cards.length - 1}
-          className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {t('studentFlashcardSet.nextButton')}
         </button>
@@ -216,20 +216,20 @@ function StudentFlashcardSetPage() {
             <Link
               key={link.type}
               to={`/student/flashcard-sets/${setId}/exercises/${link.type}`}
-              className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+              className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
             >
               {t(link.labelKey)}
             </Link>
           ))}
           <Link
             to={`/student/flashcard-sets/${setId}/matching`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {t('studentFlashcardSet.matchingLink')}
           </Link>
           <Link
             to={`/student/flashcard-sets/${setId}/sentence`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {t('studentFlashcardSet.sentenceLink')}
           </Link>
@@ -242,13 +242,13 @@ function StudentFlashcardSetPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             to={`/student/flashcard-sets/${setId}/games/space-shooter`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {t('studentFlashcardSet.spaceShooterLink')}
           </Link>
           <Link
             to={`/student/flashcard-sets/${setId}/games/runner`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {t('studentFlashcardSet.wordRunnerLink')}
           </Link>
@@ -265,14 +265,14 @@ function StudentFlashcardSetPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             to={`/student/flashcard-sets/${setId}/self-check`}
-            className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-semibold text-base-white hover:bg-primary-600"
+            className="rounded-md bg-primary-500 px-3 py-2.5 sm:py-1.5 text-sm font-semibold text-base-white hover:bg-primary-600"
           >
             {t('studentFlashcardSet.selfCheckStartButton')}
           </Link>
           <button
             type="button"
             onClick={() => setShowKnownCards((v) => !v)}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {showKnownCards
               ? t('studentFlashcardSet.hideKnownCardsButton')

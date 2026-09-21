@@ -139,7 +139,7 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
         <button
           type="button"
           onClick={onClose}
-          className="text-xs font-medium text-primary-600 hover:underline"
+          className="-my-2 px-2 py-3 text-xs font-medium text-primary-600 hover:underline sm:my-0 sm:px-0 sm:py-0"
         >
           {t('teacherContent.closeSchedulePanel')}
         </button>
@@ -181,7 +181,7 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
               type="button"
               onClick={handleSaveSchedule}
               disabled={savingSchedule}
-              className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-60"
+              className="rounded-md border border-primary-300 bg-base-white px-3 py-3 sm:py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-60"
             >
               {t('teacherTestReport.saveScheduleButton')}
             </button>
@@ -202,7 +202,7 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
               type="button"
               onClick={handleTogglePublish}
               disabled={publishing}
-              className="rounded-md bg-primary-500 px-3 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:opacity-60"
+              className="rounded-md bg-primary-500 px-3 py-3 sm:py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:opacity-60"
             >
               {schedule.scoresPublishedManually
                 ? t('teacherTestReport.unpublishButton')

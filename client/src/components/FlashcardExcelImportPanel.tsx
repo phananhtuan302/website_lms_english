@@ -129,7 +129,7 @@ function FlashcardExcelImportPanel({ setId, onImported }: FlashcardExcelImportPa
         <button
           type="button"
           onClick={() => downloadFlashcardImportTemplate()}
-          className="rounded-md border border-primary-300 px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-50"
+          className="rounded-md border border-primary-300 px-3 py-2.5 text-sm font-medium text-primary-700 hover:bg-primary-50 sm:py-1.5"
         >
           {t('teacherFlashcardImport.downloadTemplate')}
         </button>
@@ -179,7 +179,7 @@ function FlashcardExcelImportPanel({ setId, onImported }: FlashcardExcelImportPa
               type="button"
               onClick={() => void handleConfirmImport()}
               disabled={validRows.length === 0 || isSubmitting}
-              className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting
                 ? t('teacherFlashcardImport.importing')

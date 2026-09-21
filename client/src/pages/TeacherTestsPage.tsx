@@ -102,7 +102,7 @@ function TeacherTestsPage() {
         <button
           type="submit"
           disabled={isCreating || !newTitle.trim()}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isCreating ? t('teacherTests.creating') : t('teacherTests.createButton')}
         </button>
@@ -125,9 +125,9 @@ function TeacherTestsPage() {
         {tests?.map((test) => (
           <li
             key={test.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300"
+            className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
           >
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold text-primary-700">{test.title}</p>
               <p className="mt-1 text-xs text-base-black/60">
                 {t('teacherTests.sectionCount', { count: test.sectionCount })} ·{' '}
@@ -163,24 +163,24 @@ function TeacherTestsPage() {
                   : t('teacherTests.averageTimeTakenNone')}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-4">
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
               {/* T-087: ranked per-student report, all sessions + self-practice. */}
               <Link
                 to={`/teacher/tests/${test.id}/report`}
-                className="text-sm font-medium text-primary-600 hover:underline"
+                className="py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
               >
                 {t('teacherTests.viewReport')}
               </Link>
               <Link
                 to={`/teacher/tests/${test.id}`}
-                className="text-sm font-medium text-primary-600 hover:underline"
+                className="py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
               >
                 {t('teacherTests.openEditor')}
               </Link>
               <button
                 type="button"
                 onClick={() => handleDelete(test.id)}
-                className="text-sm font-medium text-red-600 hover:underline"
+                className="py-2.5 text-sm font-medium text-red-600 hover:underline sm:py-0"
               >
                 {t('teacherTests.deleteButton')}
               </button>

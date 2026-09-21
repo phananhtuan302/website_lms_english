@@ -194,7 +194,7 @@ function TeacherGrammarTopicEditorPage() {
           type="button"
           onClick={handleAddExercise}
           disabled={isAddingExercise}
-          className="self-start rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="self-start rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isAddingExercise ? t('teacherGrammarTopicEditor.adding') : t('teacherGrammarTopicEditor.addExercise')}
         </button>

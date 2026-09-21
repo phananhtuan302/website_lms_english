@@ -125,7 +125,7 @@ function VocabLeaderboardPage() {
                   className={entry.studentId === user?.id ? 'bg-primary-50 font-semibold' : ''}
                 >
                   <td className="px-4 py-3 text-base-black">#{entry.rank}</td>
-                  <td className="px-4 py-3 text-base-black">
+                  <td className="whitespace-nowrap px-4 py-3 text-base-black">
                     {entry.studentName}
                     {entry.studentId === user?.id && (
                       <span className="ml-2 text-xs text-primary-600">{t('vocabLeaderboard.youLabel')}</span>

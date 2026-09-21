@@ -164,17 +164,17 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
 
   return (
     <div className="rounded-lg border border-primary-100 bg-base-white p-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
           {t('questionEditor.questionHeading', { number: index + 1, type: typeLabel[type] })}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             type="button"
             onClick={() => onMove('up')}
             disabled={index === 0}
             aria-label={t('questionEditor.moveUpAriaLabel')}
-            className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
+            className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↑
           </button>
@@ -183,7 +183,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             onClick={() => onMove('down')}
             disabled={index === count - 1}
             aria-label={t('questionEditor.moveDownAriaLabel')}
-            className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
+            className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↓
           </button>
@@ -202,7 +202,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
           <button
             type="button"
             onClick={onDelete}
-            className="ml-2 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            className="ml-2 whitespace-nowrap rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
           >
             {t('questionEditor.deleteButton')}
           </button>
@@ -307,7 +307,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
                   aria-label={t('questionEditor.removeChoiceAriaLabel', {
                     number: choiceIndex + 1,
                   })}
-                  className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  className="rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
                   {t('questionEditor.removeButton')}
                 </button>
@@ -318,7 +318,7 @@ function QuestionEditor({ question, index, count, onSave, onDelete, onMove }: Qu
             <button
               type="button"
               onClick={addChoice}
-              className="self-start rounded-md border border-primary-200 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
+              className="self-start rounded-md border border-primary-200 px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-50 sm:py-1"
             >
               {t('questionEditor.addChoiceButton')}
             </button>

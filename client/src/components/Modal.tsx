@@ -109,7 +109,7 @@ function Modal({ title, onClose, busy = false, closeLabel, children, footer }: M
             onClick={onClose}
             disabled={busy}
             aria-label={closeLabel}
-            className="-mr-1 rounded-md px-2 py-1 text-lg leading-none text-base-black/60 transition-colors hover:bg-primary-50 hover:text-base-black disabled:cursor-not-allowed disabled:opacity-40"
+            className="-my-2 -mr-2 rounded-md px-3 py-3 text-lg leading-none sm:my-0 sm:-mr-1 sm:px-2 sm:py-1 text-base-black/60 transition-colors hover:bg-primary-50 hover:text-base-black disabled:cursor-not-allowed disabled:opacity-40"
           >
             ✕
           </button>

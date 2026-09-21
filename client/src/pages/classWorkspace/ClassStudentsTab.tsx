@@ -159,8 +159,8 @@ function ClassStudentsTab() {
               )}
               {visible.map((student) => (
                 <tr key={student.id}>
-                  <td className="px-4 py-3 font-medium text-base-black">{student.name}</td>
-                  <td className="px-4 py-3 text-base-black/70">{student.email}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-medium text-base-black">{student.name}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-base-black/70">{student.email}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-base-black/80">
                     {student.submittedCount}
                   </td>

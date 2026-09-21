@@ -12,7 +12,7 @@ function UnauthorizedPage() {
       <p className="mt-2 text-base-black/70">{t('unauthorized.message')}</p>
       <Link
         to="/"
-        className="mt-6 inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+        className="mt-6 inline-block rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
       >
         {t('common.goToHomePage')}
       </Link>

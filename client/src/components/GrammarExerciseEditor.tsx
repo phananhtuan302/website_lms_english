@@ -148,7 +148,7 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
           <button
             type="button"
             onClick={onDelete}
-            className="ml-2 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            className="ml-2 rounded px-2 py-3 text-xs font-medium text-red-600 hover:bg-red-50 sm:py-1"
           >
             {t('grammarExerciseEditor.delete')}
           </button>
@@ -203,7 +203,7 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
                   type="button"
                   onClick={() => removeChoice(choiceIndex)}
                   aria-label={t('grammarExerciseEditor.removeChoiceAriaLabel', { number: choiceIndex + 1 })}
-                  className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  className="rounded px-2 py-3 text-xs font-medium text-red-600 hover:bg-red-50 sm:py-1"
                 >
                   {t('grammarExerciseEditor.remove')}
                 </button>
@@ -214,7 +214,7 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
             <button
               type="button"
               onClick={addChoice}
-              className="self-start rounded-md border border-primary-200 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
+              className="self-start rounded-md border border-primary-200 px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-50 sm:py-1"
             >
               {t('grammarExerciseEditor.addChoice')}
             </button>

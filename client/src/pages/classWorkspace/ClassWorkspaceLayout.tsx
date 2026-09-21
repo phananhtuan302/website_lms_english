@@ -72,7 +72,10 @@ function ClassWorkspaceLayout() {
   );
 
   const backLink = (
-    <Link to={CLASSES_HOME_PATH} className="text-sm font-medium text-primary-600 hover:underline">
+    <Link
+      to={CLASSES_HOME_PATH}
+      className="inline-block py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
+    >
       {t('classWorkspace.backToClasses')}
     </Link>
   );
@@ -105,7 +108,7 @@ function ClassWorkspaceLayout() {
         <div>
           <Link
             to={CLASSES_HOME_PATH}
-            className="inline-block rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="inline-block rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('classWorkspace.notFoundBack')}
           </Link>

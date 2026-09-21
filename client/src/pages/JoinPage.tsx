@@ -121,14 +121,14 @@ function JoinPage() {
             <Link
               to="/login"
               state={joinState}
-              className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
               {t('header.logIn')}
             </Link>
             <Link
               to="/register"
               state={joinState}
-              className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+              className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
             >
               {t('home.createStudentAccount')}
             </Link>
@@ -153,7 +153,7 @@ function JoinPage() {
               <button
                 type="button"
                 onClick={attemptJoin}
-                className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+                className="mt-3 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
               >
                 {t('join.tryAgain')}
               </button>

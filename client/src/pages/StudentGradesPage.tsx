@@ -96,7 +96,7 @@ function TestRow({ test }: { test: StudentGradeTestDTO }) {
         {test.status === 'graded' && test.attemptId && (
           <Link
             to={`/student/attempts/${test.attemptId}/result`}
-            className="inline-flex items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+            className="inline-flex items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
           >
             {t('studentGrades.viewResult')}
           </Link>

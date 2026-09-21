@@ -50,7 +50,7 @@ function StudentGrammarTopicPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div className="flex items-center justify-between">
-        <Link to="/student/grammar-topics" className="text-sm text-primary-600 hover:underline">
+        <Link to="/student/grammar-topics" className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
           {t('studentGrammarTopic.backToGrammar')}
         </Link>
         {topic.unitName && (
@@ -86,7 +86,7 @@ function StudentGrammarTopicPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             to={`/student/grammar-topics/${topicId}/practice`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {t('studentGrammarTopic.startPractice')}
           </Link>
@@ -99,7 +99,7 @@ function StudentGrammarTopicPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             to={`/student/grammar-topics/${topicId}/games/space-shooter`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
           >
             {t('studentGrammarTopic.spaceShooter')}
           </Link>

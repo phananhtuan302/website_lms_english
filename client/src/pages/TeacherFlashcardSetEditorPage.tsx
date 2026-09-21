@@ -134,7 +134,7 @@ function TeacherFlashcardSetEditorPage() {
       <div>
         <div className="flex items-center justify-between">
           <LibraryBreadcrumb section="flashcards" linkSection />
-          <Link to={`/teacher/flashcard-sets/${setId}/progress`} className="text-sm font-medium text-primary-600 hover:underline">
+          <Link to={`/teacher/flashcard-sets/${setId}/progress`} className="inline-block py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0">
             {t('teacherFlashcardSetEditor.viewProgress')}
           </Link>
         </div>
@@ -188,7 +188,7 @@ function TeacherFlashcardSetEditorPage() {
           <button
             type="submit"
             disabled={isAddingCard}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isAddingCard ? t('teacherFlashcardSetEditor.addingCard') : t('teacherFlashcardSetEditor.addCardButton')}
           </button>

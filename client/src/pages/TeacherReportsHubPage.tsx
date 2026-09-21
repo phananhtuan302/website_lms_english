@@ -101,8 +101,8 @@ function TeacherReportsHubPage() {
             aria-current={activeModule === tab.value ? 'page' : undefined}
             className={
               activeModule === tab.value
-                ? 'rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white'
-                : 'rounded-md border border-primary-200 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50'
+                ? 'rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white'
+                : 'rounded-md border border-primary-200 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50'
             }
           >
             {t(tab.labelKey)}

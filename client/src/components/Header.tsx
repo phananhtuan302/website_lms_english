@@ -137,7 +137,7 @@ function Header() {
                 <Link
                   to={dashboardPath}
                   aria-current={location.pathname === dashboardPath ? 'page' : undefined}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t('header.dashboard')}
                 </Link>
@@ -148,7 +148,7 @@ function Header() {
                 <Link
                   to={item.to}
                   aria-current={isNavItemActive(item, location.pathname) ? 'page' : undefined}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t(item.labelKey)}
                 </Link>
@@ -159,7 +159,7 @@ function Header() {
                 <Link
                   to={item.to}
                   aria-current={location.pathname.startsWith(item.to) ? 'page' : undefined}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t(item.labelKey)}
                 </Link>
@@ -186,7 +186,7 @@ function Header() {
             <button
               type="button"
               onClick={logout}
-              className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
               {t('header.logOut')}
             </button>
@@ -195,13 +195,13 @@ function Header() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/register"
-              className="rounded-md px-3 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700"
+              className="rounded-md px-3 py-2.5 text-sm font-medium sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700"
             >
               {t('header.register')}
             </Link>
             <Link
               to="/login"
-              className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
               {t('header.logIn')}
             </Link>

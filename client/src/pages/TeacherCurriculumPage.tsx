@@ -189,7 +189,7 @@ function TeacherCurriculumPage() {
           </label>
           <button
             type="submit"
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('teacherCurriculum.units.addButton')}
           </button>
@@ -247,7 +247,7 @@ function TeacherCurriculumPage() {
           </label>
           <button
             type="submit"
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('teacherCurriculum.periods.addButton')}
           </button>
@@ -322,7 +322,7 @@ function UnitRow({
       <button
         type="button"
         onClick={onDelete}
-        className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+        className="rounded px-2 py-3 text-xs font-medium text-red-600 hover:bg-red-50 sm:py-1"
       >
         {t('teacherCurriculum.units.deleteButton')}
       </button>
@@ -383,7 +383,7 @@ function PeriodRow({
       <button
         type="button"
         onClick={onDelete}
-        className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+        className="rounded px-2 py-3 text-xs font-medium text-red-600 hover:bg-red-50 sm:py-1"
       >
         {t('teacherCurriculum.periods.deleteButton')}
       </button>

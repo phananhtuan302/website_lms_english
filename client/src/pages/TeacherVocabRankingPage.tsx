@@ -166,7 +166,7 @@ function TeacherVocabRankingPage() {
                 {data.entries.map((entry) => (
                   <tr key={entry.studentId}>
                     <td className="px-4 py-3 text-base-black">#{entry.rank}</td>
-                    <td className="px-4 py-3 text-base-black">{entry.studentName}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-base-black">{entry.studentName}</td>
                     <td className="px-4 py-3 text-base-black/80">
                       {entry.correctAttempts}/{entry.totalAttempts}
                     </td>

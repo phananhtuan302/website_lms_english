@@ -78,7 +78,7 @@ function TeacherClassesPage() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('teacherHome.createButton')}
           </button>
@@ -108,7 +108,7 @@ function TeacherClassesPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? t('teacherHome.creating') : t('teacherHome.createSubmit')}
             </button>
@@ -147,7 +147,7 @@ function TeacherClassesPage() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="mt-1 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="mt-1 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('teacherHome.createButton')}
           </button>

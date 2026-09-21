@@ -151,11 +151,11 @@ function TeacherTestAttemptsReportPage() {
     <div className="flex flex-col gap-6">
       <div>
         {isEmbedded ? (
-          <Link to={classAssignmentsPath(routeClassId)} className="text-sm text-primary-600 hover:underline">
+          <Link to={classAssignmentsPath(routeClassId)} className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
             {t('classAssignments.backToAssignments')}
           </Link>
         ) : (
-          <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
+          <Link to="/teacher/tests" className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
             {t('teacherTestReport.backToTests')}
           </Link>
         )}
@@ -211,7 +211,7 @@ function TeacherTestAttemptsReportPage() {
             type="button"
             onClick={handleTogglePublish}
             disabled={publishing}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:opacity-60"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:opacity-60"
           >
             {data.schedule.scoresPublishedManually
               ? t('teacherTestReport.unpublishButton')
@@ -258,7 +258,7 @@ function TeacherTestAttemptsReportPage() {
               type="button"
               onClick={handleSaveSchedule}
               disabled={savingSchedule}
-              className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-60"
+              className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-60"
             >
               {t('teacherTestReport.saveScheduleButton')}
             </button>

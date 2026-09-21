@@ -70,7 +70,7 @@ function AssignmentRow({ item, startingId, onStart }: RowProps) {
   const closing =
     item.status === 'open' || item.status === 'inProgress' ? closingSoonRemaining(item.closeAt) : null;
   const primaryButton =
-    'inline-flex shrink-0 items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60';
+    'inline-flex shrink-0 items-center justify-center rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60';
 
   let meta: string;
   switch (item.status) {
@@ -122,7 +122,7 @@ function AssignmentRow({ item, startingId, onStart }: RowProps) {
     action = (
       <Link
         to={`/student/attempts/${attempt.attemptId}/result`}
-        className="inline-flex shrink-0 items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+        className="inline-flex shrink-0 items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
       >
         {t('studentHome.action.viewResult')}
       </Link>

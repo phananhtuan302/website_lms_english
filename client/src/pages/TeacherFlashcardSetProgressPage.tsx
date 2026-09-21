@@ -30,7 +30,7 @@ function TeacherFlashcardSetProgressPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link to={`/teacher/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+        <Link to={`/teacher/flashcard-sets/${setId}`} className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
           {t('teacherFlashcardSetProgress.backToEditor')}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-primary-700">

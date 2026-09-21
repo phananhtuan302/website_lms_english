@@ -259,7 +259,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
         <button
           type="button"
           onClick={handleRetryFailed}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
           {t('assignDialog.retryFailed')}
         </button>
@@ -268,7 +268,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
         type="button"
         onClick={() => onClose(assignedCount)}
         disabled={running}
-        className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {t('assignDialog.close')}
       </button>
@@ -283,7 +283,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
       <button
         type="button"
         onClick={() => onClose(0)}
-        className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+        className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
       >
         {t('assignDialog.cancel')}
       </button>
@@ -291,7 +291,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
         type="button"
         onClick={handleConfirm}
         disabled={pickedItems.length === 0 || scheduleOrderError}
-        className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {t('assignDialog.confirm', { count: pickedItems.length })}
       </button>
@@ -314,7 +314,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
           <button
             type="button"
             onClick={handleRetryLoad}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-sm font-semibold text-primary-700 hover:bg-primary-100"
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-semibold text-primary-700 hover:bg-primary-100"
           >
             {t('assignDialog.retryLoad')}
           </button>
@@ -334,14 +334,14 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/teacher/library"
-              className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
               {t('assignDialog.goToLibrary')}
             </Link>
             <button
               type="button"
               onClick={() => onClose(assignedCount)}
-              className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
+              className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
             >
               {t('assignDialog.close')}
             </button>
@@ -410,7 +410,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
                   aria-selected={active}
                   onClick={() => setTab(type)}
                   className={
-                    'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ' +
+                    'rounded-full border px-4 py-2.5 sm:py-1.5 text-sm font-medium transition-colors ' +
                     (active
                       ? 'border-primary-500 bg-primary-500 text-base-white'
                       : 'border-primary-200 bg-base-white text-primary-700 hover:bg-primary-50')

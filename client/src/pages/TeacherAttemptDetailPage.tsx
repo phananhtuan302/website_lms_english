@@ -132,7 +132,7 @@ function TeacherAttemptDetailPage() {
           if (location.key !== 'default') navigate(-1);
           else navigate(`/teacher/tests/${encodeURIComponent(result.testId)}/report`);
         }}
-        className="self-start text-sm text-primary-600 hover:underline"
+        className="self-start py-2.5 text-sm text-primary-600 hover:underline sm:py-0"
       >
         {t('classAssignments.back')}
       </button>
@@ -265,7 +265,7 @@ function TeacherAttemptDetailPage() {
                     type="button"
                     onClick={() => handleSaveGrade(q.questionId, q.essayMaxScore)}
                     disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
-                    className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-md bg-primary-500 px-4 py-3 text-xs font-semibold sm:py-1.5 text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveGrade')}
                   </button>
@@ -339,7 +339,7 @@ function TeacherAttemptDetailPage() {
                       type="button"
                       onClick={() => handleSaveGrade(q.questionId, SPEAKING_SCORE_SCALE)}
                       disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
-                      className="rounded-md bg-primary-500 px-4 py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-md bg-primary-500 px-4 py-3 text-xs font-semibold sm:py-1.5 text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveOverride')}
                     </button>

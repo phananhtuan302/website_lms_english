@@ -69,7 +69,7 @@ function AttemptResultPage() {
         </div>
         <Link
           to="/student/dashboard"
-          className="self-center text-sm font-medium text-primary-600 hover:underline"
+          className="self-center py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
         >
           {t('attemptResult.backToDashboard')}
         </Link>
@@ -218,7 +218,7 @@ function AttemptResultPage() {
 
       <Link
         to="/student/dashboard"
-        className="self-center text-sm font-medium text-primary-600 hover:underline"
+        className="self-center py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
       >
         {t('attemptResult.backToDashboard')}
       </Link>

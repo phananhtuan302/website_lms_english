@@ -557,15 +557,15 @@ function TeacherTestEditorPage() {
                 onBlur={(event) =>
                   handleSectionTitleBlur(section.id, event.target.value, section.title)
                 }
-                className="flex-1 rounded-md border border-primary-200 bg-base-white px-3 py-1.5 text-base font-semibold text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                className="min-w-0 flex-1 rounded-md border border-primary-200 bg-base-white px-3 py-1.5 text-base font-semibold text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
               />
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={() => handleMoveSection(section.id, 'up')}
                   disabled={sectionIndex === 0}
                   aria-label={t('teacherTestEditor.sections.moveUp')}
-                  className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   ↑
                 </button>
@@ -574,14 +574,14 @@ function TeacherTestEditorPage() {
                   onClick={() => handleMoveSection(section.id, 'down')}
                   disabled={sectionIndex === test.sections.length - 1}
                   aria-label={t('teacherTestEditor.sections.moveDown')}
-                  className="rounded px-2 py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   ↓
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteSection(section.id)}
-                  className="ml-2 rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  className="ml-2 whitespace-nowrap rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
                   {t('teacherTestEditor.sections.delete')}
                 </button>
@@ -699,35 +699,35 @@ function TeacherTestEditorPage() {
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'multipleChoice')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
               >
                 {t('teacherTestEditor.sections.addMultipleChoice')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'trueFalse')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
               >
                 {t('teacherTestEditor.sections.addTrueFalse')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'fillBlank')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
               >
                 {t('teacherTestEditor.sections.addFillBlank')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'essay')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
               >
                 {t('teacherTestEditor.sections.addEssay')}
               </button>
               <button
                 type="button"
                 onClick={() => handleAddQuestion(section.id, 'speaking')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
               >
                 {t('teacherTestEditor.sections.addSpeaking')}
               </button>
@@ -749,7 +749,7 @@ function TeacherTestEditorPage() {
           <button
             type="submit"
             disabled={!newSectionTitle.trim()}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('teacherTestEditor.sections.addSection')}
           </button>
@@ -765,7 +765,7 @@ function TeacherTestEditorPage() {
           type="button"
           onClick={handleGenerateVariants}
           disabled={isGeneratingVariants}
-          className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isGeneratingVariants
             ? t('teacherTestEditor.variants.generating')
@@ -796,7 +796,7 @@ function TeacherTestEditorPage() {
           type="button"
           onClick={handleStartSession}
           disabled={isStartingSession}
-          className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isStartingSession
             ? t('teacherTestEditor.sessions.starting')
@@ -835,7 +835,7 @@ function TeacherTestEditorPage() {
           {sessions.map((session) => (
             <li
               key={session.id}
-              className="flex items-center justify-between rounded-md border border-primary-100 px-3 py-2 text-sm"
+              className="flex flex-col gap-2 rounded-md border border-primary-100 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <span>
                 {t('teacherTestEditor.sessions.codeLabel')}{' '}
@@ -850,18 +850,18 @@ function TeacherTestEditorPage() {
                   date: new Date(session.createdAt).toLocaleString(),
                 })}
               </span>
-              <span className="flex items-center gap-3">
+              <span className="flex flex-wrap items-center gap-x-3">
                 <button
                   type="button"
                   onClick={() => navigate(`/teacher/sessions/${session.id}/live`)}
-                  className="text-xs font-medium text-primary-600 hover:underline"
+                  className="py-3 text-xs font-medium text-primary-600 hover:underline sm:py-0"
                 >
                   {t('teacherTestEditor.sessions.liveMonitor')}
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate(`/teacher/sessions/${session.id}/attempts`)}
-                  className="text-xs font-medium text-primary-600 hover:underline"
+                  className="py-3 text-xs font-medium text-primary-600 hover:underline sm:py-0"
                 >
                   {t('teacherTestEditor.sessions.viewAttempts')}
                 </button>
@@ -869,7 +869,7 @@ function TeacherTestEditorPage() {
                   <button
                     type="button"
                     onClick={() => handleCloseSession(session.id)}
-                    className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    className="rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                   >
                     {t('teacherTestEditor.sessions.close')}
                   </button>

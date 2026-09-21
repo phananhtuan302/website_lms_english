@@ -181,11 +181,11 @@ function TeacherVocabularyChecksPage() {
     <div className="flex flex-col gap-6">
       <div>
         {isEmbedded ? (
-          <Link to={classAssignmentsPath(routeClassId)} className="text-sm text-primary-600 hover:underline">
+          <Link to={classAssignmentsPath(routeClassId)} className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
             {t('classAssignments.backToAssignments')}
           </Link>
         ) : (
-          <Link to="/teacher/classes" className="text-sm text-primary-600 hover:underline">
+          <Link to="/teacher/classes" className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
             {t('teacherVocabularyChecks.backToClasses')}
           </Link>
         )}
@@ -319,14 +319,14 @@ function TeacherVocabularyChecksPage() {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder={t('teacherVocabularyChecks.titlePlaceholder')}
-            className="w-96 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="w-full rounded-md border border-primary-200 px-3 py-1.5 sm:w-96 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
         </label>
 
         <button
           type="submit"
           disabled={!canSubmit || isGenerating}
-          className="mt-4 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-4 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isGenerating
             ? t('teacherVocabularyChecks.generating')

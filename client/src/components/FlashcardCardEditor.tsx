@@ -65,7 +65,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
         <button
           type="button"
           onClick={onDelete}
-          className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+          className="rounded px-2 py-3 text-xs font-medium text-red-600 hover:bg-red-50 sm:py-1"
         >
           {t('flashcardCardEditor.delete')}
         </button>
