@@ -26,10 +26,16 @@
  * Query budget is constant (roster, assignments, schedules, three counts, one distinct
  * (test, student) submission scan, the grading count + top-N, the recent-N) — no per-student or
  * per-test loops that issue queries.
+ *
+ * The same router also serves `GET /api/teacher/classes-attention` (Phase 14, usability pass): the
+ * per-class counts behind the badges on the teacher home page's class cards. The rules both
+ * endpoints share (startable test, closing soon / closed, awaiting grading) live in
+ * `lib/classAttention.ts`.
  */
 
 import { Router } from 'express';
 import type {
+  ClassesAttentionResponseDTO,
   ClassOverviewActivityDTO,
   ClassOverviewClosingSoonDTO,
   ClassOverviewDTO,
@@ -40,14 +46,13 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { isAdminOrOwner } from '../lib/authz';
-import { checkAttemptWindow, isScorePublished } from '../lib/testClassSchedule';
+import { isScorePublished } from '../lib/testClassSchedule';
+import { awaitingGradingWhere, classifyClassTests, computeClassesAttention } from '../lib/classAttention';
 
 export const teacherClassOverviewRouter = Router();
 
 teacherClassOverviewRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
-/** A test whose `closeAt` falls within this long from now is "closing soon". */
-const CLOSING_SOON_WINDOW_MS = 72 * 60 * 60 * 1000;
 /** How many awaiting-grading attempts the list shows (the total is returned separately). */
 const NEEDS_GRADING_LIMIT = 8;
 /** How many tests / students per test the "chưa nộp" card lists (the rest is a "+N"). */
@@ -132,38 +137,16 @@ teacherClassOverviewRouter.get(
     const scheduleByTest = new Map(schedules.map((schedule) => [schedule.testId, schedule]));
 
     // Classify every test against ONE instant so a boundary crossed mid-request cannot make
-    // the lists disagree with each other.
+    // the lists disagree with each other (rules shared with the class-card badges).
     const now = new Date();
-    const soonLimit = now.getTime() + CLOSING_SOON_WINDOW_MS;
-    const closingSoonTests: Array<{ id: string; title: string; closeAt: Date }> = [];
-    const closedTests: Array<{ id: string; title: string; closeAt: Date }> = [];
-    for (const test of tests) {
-      // Students can only ever do what the student list would show them (see module doc).
-      const startable =
-        test.testType !== 'vocabularyCheck' &&
-        (test.testType !== 'unitTest' || test.published) &&
-        test._count.variants > 0;
-      if (!startable) continue;
-      const schedule = scheduleByTest.get(test.id) ?? null;
-      if (checkAttemptWindow(schedule, now) === null) {
-        body.openCount += 1;
-        const closeAt = schedule?.closeAt ?? null;
-        if (closeAt && closeAt.getTime() <= soonLimit) {
-          closingSoonTests.push({ id: test.id, title: test.title, closeAt });
-        }
-      } else if (schedule?.closeAt && now > schedule.closeAt) {
-        closedTests.push({ id: test.id, title: test.title, closeAt: schedule.closeAt });
-      }
-    }
-    closingSoonTests.sort((a, b) => a.closeAt.getTime() - b.closeAt.getTime());
-    closedTests.sort((a, b) => b.closeAt.getTime() - a.closeAt.getTime());
+    const {
+      openCount,
+      closingSoon: closingSoonTests,
+      closed: closedTests,
+    } = classifyClassTests(tests, scheduleByTest, now);
+    body.openCount = openCount;
 
-    const gradingWhere = {
-      status: 'submitted' as const,
-      testId: { in: testIds },
-      student: { classId: cls.id },
-      answers: { some: { manualScore: null, question: { type: 'essay' as const } } },
-    };
+    const gradingWhere = awaitingGradingWhere(testIds, cls.id);
     const watchedTestIds = [...closingSoonTests, ...closedTests].map((test) => test.id);
     const studentIds = students.map((student) => student.id);
 
@@ -272,6 +255,26 @@ teacherClassOverviewRouter.get(
       };
     });
 
+    res.status(200).json(body);
+  }),
+);
+
+/**
+ * `GET /api/teacher/classes-attention` — for each of the calling teacher's classes (the same set
+ * as `GET /api/teacher/classes`), how many tests are closing soon, how many students have not
+ * submitted a closing-soon or closed test, and how many submissions await grading. All three
+ * are 0 for a class with no current semester or nothing assigned. The path deliberately is not
+ * under `/classes/:classId`, so it can never be mistaken for a class id.
+ */
+teacherClassOverviewRouter.get(
+  '/classes-attention',
+  asyncHandler(async (req, res) => {
+    const classes = await prisma.class.findMany({
+      where: { teacherId: req.user!.sub },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, currentPeriodId: true },
+    });
+    const body: ClassesAttentionResponseDTO = { classes: await computeClassesAttention(classes) };
     res.status(200).json(body);
   }),
 );

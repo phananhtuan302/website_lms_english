@@ -87,8 +87,22 @@ teacherClassesRouter.post(
       res.status(400).json({ error: validationError });
       return;
     }
+    // Optional semester to start in, so the new class can be assigned work straight away.
+    // Same "must reference an existing AcademicPeriod" rule as the current-period PATCH below.
+    let currentPeriodId: string | undefined;
+    if (body.currentPeriodId !== undefined && body.currentPeriodId !== null) {
+      const period =
+        typeof body.currentPeriodId === 'string' && body.currentPeriodId.trim() !== ''
+          ? await prisma.academicPeriod.findUnique({ where: { id: body.currentPeriodId } })
+          : null;
+      if (!period) {
+        res.status(400).json({ error: 'currentPeriodId does not reference an existing AcademicPeriod.' });
+        return;
+      }
+      currentPeriodId = period.id;
+    }
     const cls = await prisma.class.create({
-      data: { name: body.name!.trim(), teacherId: req.user!.sub },
+      data: { name: body.name!.trim(), teacherId: req.user!.sub, currentPeriodId },
       include: CLASS_INCLUDE,
     });
     res.status(201).json(toClassDTO(cls));

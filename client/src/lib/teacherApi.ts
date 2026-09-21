@@ -19,6 +19,8 @@ import type {
   ClassRosterBulkRequestDTO,
   ClassRosterBulkResponseDTO,
   ClassRosterStudentDTO,
+  ClassStudentResetPasswordResponseDTO,
+  ClassesAttentionResponseDTO,
   ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
   CreateClassAnnouncementRequest,
@@ -426,6 +428,16 @@ export const teacherApi = {
       `${teacherBase}/classes/${encodeURIComponent(classId)}/students/bulk`,
       { method: 'POST', body: JSON.stringify(body) },
     ),
+  // Gives one student of the class a new generated password, returned once in the response.
+  resetClassStudentPassword: (classId: string, studentId: string) =>
+    apiRequest<ClassStudentResetPasswordResponseDTO>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/reset-password`,
+      { method: 'POST' },
+    ),
+
+  // --- Class-card badges on the teacher home page ---------------------------------------
+  getClassesAttention: () =>
+    apiRequest<ClassesAttentionResponseDTO>(`${teacherBase}/classes-attention`),
 
   // --- Class announcements "Thông báo lớp" (T-108) ----------------------------------
   listClassAnnouncements: (classId: string) =>

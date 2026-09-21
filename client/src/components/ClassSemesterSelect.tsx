@@ -15,8 +15,8 @@ interface ClassSemesterSelectProps {
 }
 
 /**
- * The class's current-semester dropdown (T-102) — used by the workspace header, the "no
- * semester yet" banner and the Cài đặt tab, so all three behave identically. Picking a
+ * The class's current-semester dropdown (T-102) — used by the workspace header and the Cài đặt
+ * tab, so both behave identically (the "no semester yet" banner just points at the header one). Picking a
  * different semester asks `window.confirm` (naming the target semester — same convention as
  * every other consequential action in this codebase) and only then calls T-099's
  * `PATCH /api/teacher/classes/:classId/current-period`, because the switch immediately

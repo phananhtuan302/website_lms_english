@@ -725,32 +725,49 @@ function TakeTestPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1.5" aria-label={t('takeTest.questionNavigatorLabel')}>
-        {flatQuestions.map((q, index) => {
-          const isAnswered = isQuestionAnswered(q);
-          return (
-            <button
-              key={q.id}
-              type="button"
-              onClick={() => setCurrentIndex(index)}
-              disabled={isAnySpeakingRecording}
-              aria-current={index === currentIndex ? 'true' : undefined}
-              aria-label={t(
-                isAnswered ? 'takeTest.goToQuestionAnswered' : 'takeTest.goToQuestionUnanswered',
-                { number: index + 1 },
-              )}
-              className={`h-8 w-8 rounded-md text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                index === currentIndex
-                  ? 'bg-primary-700 text-base-white'
-                  : isAnswered
-                    ? 'bg-primary-500 text-base-white hover:bg-primary-600'
-                    : 'border border-primary-200 bg-base-white text-base-black/70 hover:bg-primary-50'
-              }`}
-            >
-              {index + 1}
-            </button>
-          );
-        })}
+      <div className="flex flex-col gap-2">
+        {/* T-113: 40px squares (easy to tap on a phone) and a tiny legend saying what the colours mean. */}
+        <div className="flex flex-wrap gap-2" aria-label={t('takeTest.questionNavigatorLabel')}>
+          {flatQuestions.map((q, index) => {
+            const isAnswered = isQuestionAnswered(q);
+            return (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => setCurrentIndex(index)}
+                disabled={isAnySpeakingRecording}
+                aria-current={index === currentIndex ? 'true' : undefined}
+                aria-label={t(
+                  isAnswered ? 'takeTest.goToQuestionAnswered' : 'takeTest.goToQuestionUnanswered',
+                  { number: index + 1 },
+                )}
+                className={`h-10 w-10 rounded-md text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  index === currentIndex
+                    ? 'bg-primary-700 text-base-white ring-2 ring-primary-300 ring-offset-1'
+                    : isAnswered
+                      ? 'bg-primary-500 text-base-white hover:bg-primary-600'
+                      : 'border border-primary-200 bg-base-white text-base-black/70 hover:bg-primary-50'
+                }`}
+              >
+                {index + 1}
+              </button>
+            );
+          })}
+        </div>
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-base-black/60">
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="inline-block h-3.5 w-3.5 rounded bg-primary-500" />
+            {t('takeTest.legendAnswered')}
+          </li>
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="inline-block h-3.5 w-3.5 rounded border border-primary-200 bg-base-white" />
+            {t('takeTest.legendUnanswered')}
+          </li>
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="inline-block h-3.5 w-3.5 rounded bg-primary-700 ring-2 ring-primary-300 ring-offset-1" />
+            {t('takeTest.legendCurrent')}
+          </li>
+        </ul>
       </div>
 
       {tabSwitchNotice && (
@@ -968,7 +985,7 @@ function TakeTestPage() {
           type="button"
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
           disabled={currentIndex === 0 || isAnySpeakingRecording}
-          className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="min-h-11 rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           ← {t('takeTest.previous')}
         </button>
@@ -978,7 +995,7 @@ function TakeTestPage() {
             type="button"
             onClick={() => setCurrentIndex((i) => Math.min(totalQuestions - 1, i + 1))}
             disabled={isAnySpeakingRecording}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-11 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {t('takeTest.next')} →
           </button>
@@ -987,7 +1004,7 @@ function TakeTestPage() {
             type="button"
             onClick={() => void handleSubmit(false)}
             disabled={isSubmitting || isAnySpeakingRecording}
-            className="rounded-md bg-primary-700 px-6 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 rounded-md bg-primary-700 px-6 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? t('takeTest.submitting') : t('takeTest.submitTest')}
           </button>
@@ -999,7 +1016,7 @@ function TakeTestPage() {
           type="button"
           onClick={() => void handleSubmit(false)}
           disabled={isSubmitting || isAnySpeakingRecording}
-          className="self-center text-sm font-medium text-primary-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 self-center rounded-md border-2 border-primary-500 bg-base-white px-6 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? t('takeTest.submitting') : t('takeTest.finishEarlyAndSubmit')}
         </button>

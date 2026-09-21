@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import type { StudentGradeStatus, StudentGradeTestDTO, StudentGradesResponseDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
+import { withClassPrefix } from '../lib/classLabel';
 
 /**
  * Student "Điểm của tôi" (T-110, Phase 14) at `/student/grades`, behind
- * `ProtectedRoute allowedRoles={['student']}`: my grades for one semester of my class — an
- * average card, a small learning-progress strip, and one row per test with its status.
+ * `ProtectedRoute allowedRoles={['student']}`: my grades for one semester of my class — one row
+ * per test with its status first (T-113: that is what a student came to see), then an average
+ * card and a small learning-progress strip.
  *
  * Everything is decided on the server (`GET /api/student/grades`,
  * `server/src/routes/studentGrades.routes.ts`): a score only exists on a row whose status is
@@ -143,9 +145,10 @@ function StudentGradesPage() {
 
   let classLine: string | null = null;
   if (data?.className) {
+    const className = withClassPrefix(data.className);
     classLine = data.periodName
-      ? t('studentGrades.classLine', { className: data.className, periodName: data.periodName })
-      : t('studentGrades.classOnly', { className: data.className });
+      ? t('studentGrades.classLine', { className, periodName: data.periodName })
+      : t('studentGrades.classOnly', { className });
   }
 
   return (
@@ -174,7 +177,9 @@ function StudentGradesPage() {
 
       {data && data.classId && (
         <>
-          {data.periods.length > 0 && (
+          {/* T-113: a lone semester needs no chooser — unless there is no current semester, where
+              choosing the one old semester is the only way to see anything. */}
+          {(data.periods.length > 1 || (data.periods.length > 0 && data.periodId === null)) && (
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="grades-period" className="text-sm font-medium text-base-black">
                 {t('studentGrades.periodLabel')}
@@ -207,6 +212,35 @@ function StudentGradesPage() {
 
           {data.periodId !== null && (
             <div className={`flex flex-col gap-6 ${switching ? 'opacity-60' : ''}`} aria-busy={switching}>
+              <section aria-labelledby="grades-tests">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 id="grades-tests" className="text-lg font-bold text-base-black">
+                    {t('studentGrades.tests.heading')}
+                  </h2>
+                  <Link to="/student/dashboard" className="text-sm font-medium text-primary-600 hover:underline">
+                    {t('studentGrades.tests.goAssignments')}
+                  </Link>
+                </div>
+
+                {data.tests.length === 0 ? (
+                  <div className="mt-3 rounded-lg border border-primary-100 px-4 py-8 text-center">
+                    <p className="text-base font-semibold text-base-black">{t('studentGrades.tests.emptyTitle')}</p>
+                    <p className="mt-1 text-sm text-base-black/60">{t('studentGrades.tests.emptyHint')}</p>
+                  </div>
+                ) : (
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {data.tests.map((test) => (
+                      <TestRow key={test.testId} test={test} />
+                    ))}
+                  </ul>
+                )}
+
+                <p className="mt-3 text-xs text-base-black/50">{t('studentGrades.footnote')}</p>
+                {showingOldPeriod && gradedCount > 0 && (
+                  <p className="mt-1 text-xs text-base-black/50">{t('studentGrades.oldPeriodNote')}</p>
+                )}
+              </section>
+
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-primary-200 bg-base-white px-4 py-3 sm:col-span-1">
                   <p className="text-sm font-medium text-base-black/60">{t('studentGrades.average.title')}</p>
@@ -262,35 +296,6 @@ function StudentGradesPage() {
                   </>
                 )}
               </div>
-
-              <section aria-labelledby="grades-tests">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 id="grades-tests" className="text-lg font-bold text-base-black">
-                    {t('studentGrades.tests.heading')}
-                  </h2>
-                  <Link to="/student/dashboard" className="text-sm font-medium text-primary-600 hover:underline">
-                    {t('studentGrades.tests.goAssignments')}
-                  </Link>
-                </div>
-
-                {data.tests.length === 0 ? (
-                  <div className="mt-3 rounded-lg border border-primary-100 px-4 py-8 text-center">
-                    <p className="text-base font-semibold text-base-black">{t('studentGrades.tests.emptyTitle')}</p>
-                    <p className="mt-1 text-sm text-base-black/60">{t('studentGrades.tests.emptyHint')}</p>
-                  </div>
-                ) : (
-                  <ul className="mt-3 flex flex-col gap-2">
-                    {data.tests.map((test) => (
-                      <TestRow key={test.testId} test={test} />
-                    ))}
-                  </ul>
-                )}
-
-                <p className="mt-3 text-xs text-base-black/50">{t('studentGrades.footnote')}</p>
-                {showingOldPeriod && gradedCount > 0 && (
-                  <p className="mt-1 text-xs text-base-black/50">{t('studentGrades.oldPeriodNote')}</p>
-                )}
-              </section>
             </div>
           )}
         </>

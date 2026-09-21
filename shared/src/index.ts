@@ -1973,8 +1973,11 @@ export interface ClassDTO {
 
 export interface CreateClassRequest {
   name: string;
+  /** Optional semester to start the class in (an existing `AcademicPeriod`), so a new class can
+   * be assigned work straight away. Omitted = the class starts with no semester (legacy). */
+  currentPeriodId?: string;
 }
-export type UpdateClassRequest = CreateClassRequest;
+export type UpdateClassRequest = Pick<CreateClassRequest, 'name'>;
 
 /** Body for `PATCH /api/teacher/classes/:classId/current-period` (T-099) — switches
  * which semester is presently "live" for this class. `periodId` must reference an
@@ -2588,4 +2591,34 @@ export interface StudentCalendarResponseDTO {
   /** The server's clock at the moment the response was built. */
   now: string;
   events: StudentCalendarEventDTO[];
+}
+
+// --- Teacher-side usability pass (Phase 14): class-card badges + per-student password reset ---
+
+/** What needs the teacher's attention in ONE class (current semester) — the numbers behind the
+ * badges on the teacher home page's class cards. Each equals the matching figure of that
+ * class's `ClassOverviewDTO`; all 0 for a class with no current semester or nothing assigned. */
+export interface ClassAttentionDTO {
+  classId: string;
+  /** Open tests that close within the next 72 hours (= `ClassOverviewDTO.closingSoon.length`). */
+  closingSoonCount: number;
+  /** Distinct students who have not submitted at least one closing-soon or closed test. */
+  notSubmittedStudentCount: number;
+  /** Submitted attempts waiting for a manual grade (= `ClassOverviewDTO.needsGrading.count`). */
+  needsGradingCount: number;
+}
+
+/** `GET /api/teacher/classes-attention` — one entry per class of the calling teacher, in the
+ * same order as `GET /api/teacher/classes`. */
+export interface ClassesAttentionResponseDTO {
+  classes: ClassAttentionDTO[];
+}
+
+/** Response of `POST /api/teacher/classes/:classId/students/:studentId/reset-password`. The new
+ * password is returned ONCE, here — only its hash is stored, so it can never be shown again. */
+export interface ClassStudentResetPasswordResponseDTO {
+  studentId: string;
+  name: string;
+  email: string;
+  generatedPassword: string;
 }

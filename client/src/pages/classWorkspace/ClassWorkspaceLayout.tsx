@@ -16,7 +16,8 @@ import { teacherApi } from '../../lib/teacherApi';
  * Layout route for `/teacher/classes/:classId` (T-102, Phase 13) — the persistent "class
  * workspace" every class-scoped screen renders INSIDE, Google Classroom / Canvas style:
  * a header (class name, semester dropdown, back link, quick class-switcher), a "no
- * semester yet" banner when the class has none, a tab bar, and the active tab via
+ * semester yet" banner when the class has none (it points at the header's dropdown — there is
+ * only ever one), a tab bar, and the active tab via
  * `<Outlet/>`.
  *
  * The class list and semester list are each fetched ONCE here and shared with the tabs
@@ -168,15 +169,6 @@ function ClassWorkspaceLayout() {
           className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900"
         >
           <p className="font-semibold">{t('classWorkspace.noSemesterBanner')}</p>
-          <div className="mt-3">
-            <ClassSemesterSelect
-              key={cls.id}
-              cls={cls}
-              periods={periods}
-              periodsError={periodsError}
-              onChanged={setClass}
-            />
-          </div>
         </div>
       )}
 

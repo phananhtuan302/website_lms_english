@@ -19,6 +19,12 @@
  * Email normalising (trim + lower-case), the email pattern, the minimum password length and the
  * hashing (`hashPassword`, bcrypt) are exactly what public registration (`auth.routes.ts`) uses,
  * so an account made here can log in through the same `/api/auth/login` as any other.
+ *
+ * `POST /api/teacher/classes/:classId/students/:studentId/reset-password` gives ONE student of
+ * the class a new generated password (same generator + hashing as above) and returns it once —
+ * the teacher's answer to "a student lost their password". The student must belong to THAT class
+ * (`role: 'student'`, `classId` = the class), otherwise the same 404 as a missing student; the
+ * password is never logged and only its hash is stored. Nothing else about the student changes.
  */
 
 import { randomInt } from 'node:crypto';
@@ -30,6 +36,7 @@ import {
   type ClassRosterBulkResponseDTO,
   type ClassRosterBulkResultDTO,
   type ClassRosterBulkSkipReason,
+  type ClassStudentResetPasswordResponseDTO,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { hashPassword } from '../lib/password';
@@ -222,5 +229,36 @@ teacherClassRosterRouter.post(
       results,
     };
     res.status(200).json(response);
+  }),
+);
+
+teacherClassRosterRouter.post(
+  '/classes/:classId/students/:studentId/reset-password',
+  asyncHandler(async (req, res) => {
+    const cls = await requireOwnedClass(req.params.classId, req.user!, res);
+    if (!cls) return;
+
+    const student = await prisma.user.findFirst({
+      where: { id: req.params.studentId, classId: cls.id, role: 'student' },
+      select: { id: true, name: true, email: true },
+    });
+    if (!student) {
+      res.status(404).json({ error: 'Student not found.' });
+      return;
+    }
+
+    const generatedPassword = generatePassword();
+    await prisma.user.update({
+      where: { id: student.id },
+      data: { passwordHash: await hashPassword(generatedPassword) },
+    });
+    const body: ClassStudentResetPasswordResponseDTO = {
+      studentId: student.id,
+      name: student.name,
+      email: student.email,
+      generatedPassword,
+    };
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json(body);
   }),
 );

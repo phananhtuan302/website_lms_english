@@ -63,7 +63,8 @@ function UnitLeaderboardPage() {
     <div className="flex flex-col gap-6">
       <div>
         <Link to={backPath} className="text-sm text-primary-600 hover:underline">
-          {t('unitLeaderboard.backToAssignments')}
+          {/* T-113: a student's home is called "Bài cần làm"; only teachers have a "Bài tập" tab. */}
+          {t(isTeacherView ? 'unitLeaderboard.backToAssignments' : 'unitLeaderboard.backToTodo')}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-primary-700">
           {data

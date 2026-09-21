@@ -57,9 +57,9 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
 ];
 
 /** T-105 (Phase 13): the student nav is a handful of items, not six (T-110 added "Điểm của tôi"). Everything a student has to DO
- * (practice tests, Unit Tests, Vocabulary Checks) is now one list, "Bài tập" — the
+ * (practice tests, Unit Tests, Vocabulary Checks) is now one list, "Bài cần làm" — the
  * `/student/dashboard` "Bài cần làm" page — so the old Luyện tập / Kiểm tra Unit / Kiểm tra
- * từ vựng items are gone (their old routes redirect there). Students get "Bài tập" from
+ * từ vựng items are gone (their old routes redirect there). Students get "Bài cần làm" from
  * this array instead of the generic "Trang tổng quan" link the other roles use (see the
  * `role !== 'student'` guard on that link below). */
 const STUDENT_NAV_ITEMS: NavItem[] = [
@@ -170,7 +170,11 @@ function Header() {
 
         {isLocked ? (
           // T-091: no logout, no nav — just the reason why, in place of both.
-          <p role="status" className="text-sm font-medium text-primary-700">
+          // T-113: a calm note (not an alarm) — the answers really are saved as the student goes.
+          <p
+            role="status"
+            className="w-full rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-900 sm:w-auto sm:max-w-md"
+          >
             {t('header.attemptLockNotice')}
           </p>
         ) : user ? (

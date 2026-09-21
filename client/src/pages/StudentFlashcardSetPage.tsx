@@ -28,6 +28,41 @@ const EXERCISE_LINKS: Array<{ type: VocabExerciseType; labelKey: string }> = [
   { type: 'ipaToWord', labelKey: 'studentFlashcardSet.exerciseIpaToWord' },
 ];
 
+/** T-113: "🔊 Nghe" reads the English word aloud with the browser's own voice (no audio files,
+ * no library). Where the browser has no speech synthesis the button is simply not shown. */
+function canSpeakEnglish(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.speechSynthesis) && typeof SpeechSynthesisUtterance !== 'undefined';
+}
+
+function speakEnglish(text: string): void {
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // Best effort: a browser that refuses to speak must never break the card.
+  }
+}
+
+function FlipIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <path d="M21 4v5h-5" />
+    </svg>
+  );
+}
+
 /**
  * Flashcard study/review mode (T-023): flip through cards one at a time (front: term,
  * back: meaning + details), mark each Known/Still learning, which updates
@@ -125,20 +160,18 @@ function StudentFlashcardSetPage() {
 
       <h1 className="text-xl font-bold text-primary-700">{set.name}</h1>
 
+      {/* T-113: the card looks like a card you can press (raised, bordered, with a visible hint). */}
       <button
         type="button"
         onClick={() => setIsFlipped((f) => !f)}
         aria-label={t('studentFlashcardSet.flipCardAriaLabel')}
-        className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-primary-200 bg-primary-50 p-8 text-center transition-colors hover:border-primary-400"
+        className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-primary-300 bg-primary-50 p-6 text-center shadow-md transition hover:border-primary-400 hover:shadow-lg active:scale-[0.99] sm:p-8"
       >
         {!isFlipped ? (
-          <>
-            <p className="text-3xl font-bold text-base-black">{card.term}</p>
-            <p className="text-xs uppercase tracking-wide text-base-black/50">{t('studentFlashcardSet.tapToReveal')}</p>
-          </>
+          <p className="break-words text-3xl font-bold text-base-black">{card.term}</p>
         ) : (
           <>
-            <p className="text-lg font-semibold text-base-black">{card.meaning}</p>
+            <p className="break-words text-lg font-semibold text-base-black">{card.meaning}</p>
             {card.ipa && <p className="text-base-black/70">{card.ipa}</p>}
             {card.synonyms.length > 0 && (
               <p className="text-sm text-base-black/60">
@@ -155,34 +188,39 @@ function StudentFlashcardSetPage() {
             )}
           </>
         )}
+        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-base-white px-4 py-1.5 text-sm font-semibold text-primary-700 shadow-sm">
+          <FlipIcon />
+          {isFlipped ? t('studentFlashcardSet.tapToFlipBack') : t('studentFlashcardSet.tapToReveal')}
+        </span>
       </button>
 
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASS[card.progressStatus ?? 'new']}`}
         >
           {t(STATUS_LABEL_KEY[card.progressStatus ?? 'new'])}
         </span>
+        {canSpeakEnglish() && (
+          <button
+            type="button"
+            onClick={() => speakEnglish(card.term)}
+            aria-label={t('studentFlashcardSet.listenAriaLabel')}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            {t('studentFlashcardSet.listenButton')}
+          </button>
+        )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            setIsFlipped(false);
-            setIndex((i) => Math.max(0, i - 1));
-          }}
-          disabled={index === 0}
-          className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t('studentFlashcardSet.previousButton')}
-        </button>
-        <div className="flex gap-2">
+      {/* T-113: two equal-weight choices (same size, same border) on one row, and Trước / Tiếp theo
+          on another, so no label wraps on a phone. */}
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => void mark('learning')}
             disabled={isSaving}
-            className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 rounded-md border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('studentFlashcardSet.stillLearningButton')}
           </button>
@@ -190,22 +228,35 @@ function StudentFlashcardSetPage() {
             type="button"
             onClick={() => void mark('known')}
             disabled={isSaving}
-            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 rounded-md border-2 border-green-300 bg-green-50 px-3 py-2 text-sm font-semibold text-green-900 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t('studentFlashcardSet.statusKnown')}
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setIsFlipped(false);
-            setIndex((i) => Math.min(set.cards.length - 1, i + 1));
-          }}
-          disabled={index === set.cards.length - 1}
-          className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t('studentFlashcardSet.nextButton')}
-        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setIsFlipped(false);
+              setIndex((i) => Math.max(0, i - 1));
+            }}
+            disabled={index === 0}
+            className="min-h-11 rounded-md border border-primary-300 bg-base-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t('studentFlashcardSet.previousButton')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsFlipped(false);
+              setIndex((i) => Math.min(set.cards.length - 1, i + 1));
+            }}
+            disabled={index === set.cards.length - 1}
+            className="min-h-11 rounded-md border border-primary-300 bg-base-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t('studentFlashcardSet.nextButton')}
+          </button>
+        </div>
       </div>
 
       <section className="rounded-xl border border-primary-200 p-4">

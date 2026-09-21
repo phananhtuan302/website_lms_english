@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { ClassDTO } from '@platform/shared';
+import type { AcademicPeriodDTO, ClassAttentionDTO, ClassDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { classTabPath } from '../lib/classWorkspace';
@@ -13,12 +13,83 @@ import { classTabPath } from '../lib/classWorkspace';
 const CARD_BANDS = ['bg-primary-500', 'bg-primary-600', 'bg-primary-700', 'bg-primary-800'];
 
 /**
+ * The semester a NEW class should start in, so it can be given work straight away: the one most
+ * of the teacher's existing classes already use (ties go to the later one); with no such class,
+ * the semester that includes today; failing that, the latest one. `''` when there are none.
+ */
+function defaultPeriodId(periods: AcademicPeriodDTO[], classes: ClassDTO[]): string {
+  if (periods.length === 0) return '';
+  const latestFirst = [...periods].sort((a, b) => b.startDate.localeCompare(a.startDate));
+  const usage = new Map<string, number>();
+  for (const cls of classes) {
+    if (cls.currentPeriodId) usage.set(cls.currentPeriodId, (usage.get(cls.currentPeriodId) ?? 0) + 1);
+  }
+  let best: AcademicPeriodDTO | null = null;
+  for (const period of latestFirst) {
+    const count = usage.get(period.id) ?? 0;
+    if (count > 0 && (best === null || count > (usage.get(best.id) ?? 0))) best = period;
+  }
+  if (best) return best.id;
+  const now = Date.now();
+  const current = latestFirst.find(
+    (period) => Date.parse(period.startDate) <= now && now <= Date.parse(period.endDate),
+  );
+  return (current ?? latestFirst[0]).id;
+}
+
+/** The "what needs you" line of a class card: one small badge per non-zero count, or a quiet
+ * "no urgent work" when the class has a semester and all three are zero. Nothing while the
+ * counts are still loading (or failed to load), and nothing for a class with no semester (it
+ * already carries the amber "Chưa chọn học kỳ" badge). */
+function AttentionBadges({ cls, attention }: { cls: ClassDTO; attention: ClassAttentionDTO | null }) {
+  const { t } = useTranslation();
+  if (!attention || !cls.currentPeriodId) return null;
+  const badges: Array<{ key: string; text: string; className: string }> = [];
+  if (attention.closingSoonCount > 0) {
+    badges.push({
+      key: 'closingSoon',
+      text: t('teacherHome.attention.closingSoon', { count: attention.closingSoonCount }),
+      className: 'bg-amber-100 text-amber-900',
+    });
+  }
+  if (attention.notSubmittedStudentCount > 0) {
+    badges.push({
+      key: 'notSubmitted',
+      text: t('teacherHome.attention.notSubmitted', { count: attention.notSubmittedStudentCount }),
+      className: 'bg-red-100 text-red-800',
+    });
+  }
+  if (attention.needsGradingCount > 0) {
+    badges.push({
+      key: 'needsGrading',
+      text: t('teacherHome.attention.needsGrading', { count: attention.needsGradingCount }),
+      className: 'bg-primary-100 text-primary-800',
+    });
+  }
+  if (badges.length === 0) {
+    return <p className="text-xs text-base-black/50">{t('teacherHome.attention.none')}</p>;
+  }
+  return (
+    <ul className="flex flex-wrap gap-1.5" aria-label={t('teacherHome.attention.label')}>
+      {badges.map((badge) => (
+        <li key={badge.key} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badge.className}`}>
+          {badge.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * Teacher home = the class-card grid (T-102, Phase 13; rewrites T-074/T-095's CRUD list).
  * One card per class — class name, semester badge (amber "Chưa chọn học kỳ" when the class
- * has none yet), student count — and the whole card is a link into that class's workspace
+ * has none yet), what needs attention (small badges from `GET /api/teacher/classes-attention`:
+ * tests closing soon, students who have not submitted, submissions to grade — only the
+ * non-zero ones), student count — and the whole card is a link into that class's workspace
  * (`/teacher/classes/:classId`). Rename / change semester / delete now live in the class's
  * own Cài đặt tab, not here; the only management action on this page is creating a class
- * (name only), inline.
+ * (name + semester, inline). The semester is preselected (`defaultPeriodId`) so a new class is
+ * ready to be given work at once, without a detour through the class's semester switch.
  */
 function TeacherClassesPage() {
   const { t } = useTranslation();
@@ -28,12 +99,27 @@ function TeacherClassesPage() {
   const [newClassName, setNewClassName] = useState('');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // `null` while loading; `[]` when there are none (or they could not be loaded).
+  const [periods, setPeriods] = useState<AcademicPeriodDTO[] | null>(null);
+  // The teacher's own pick in the create form; `''` = not touched, so the default applies.
+  const [pickedPeriodId, setPickedPeriodId] = useState('');
+  // Per-class attention counts; `null` until loaded — the cards simply have no badges then (and
+  // stay that way if the request fails: the badges are a bonus, never a reason to break the page).
+  const [attention, setAttention] = useState<Map<string, ClassAttentionDTO> | null>(null);
 
   useEffect(() => {
     teacherApi
       .listClasses()
       .then(setClasses)
       .catch(() => setLoadFailed(true));
+    teacherApi
+      .listAcademicPeriods()
+      .then(setPeriods)
+      .catch(() => setPeriods([]));
+    teacherApi
+      .getClassesAttention()
+      .then((response) => setAttention(new Map(response.classes.map((item) => [item.classId, item]))))
+      .catch(() => setAttention(null));
   }, []);
 
   function openCreateForm() {
@@ -44,8 +130,12 @@ function TeacherClassesPage() {
   function closeCreateForm() {
     setCreating(false);
     setNewClassName('');
+    setPickedPeriodId('');
     setCreateError(null);
   }
+
+  // Resolved lazily so it is right even if the semester list arrives after the form opened.
+  const newPeriodId = pickedPeriodId || defaultPeriodId(periods ?? [], classes ?? []);
 
   async function handleCreateClass(event: FormEvent) {
     event.preventDefault();
@@ -57,7 +147,10 @@ function TeacherClassesPage() {
     setSaving(true);
     setCreateError(null);
     try {
-      const created = await teacherApi.createClass({ name });
+      const created = await teacherApi.createClass({
+        name,
+        ...(newPeriodId ? { currentPeriodId: newPeriodId } : {}),
+      });
       setClasses((prev) => [...(prev ?? []), created]);
       closeCreateForm();
     } catch (err) {
@@ -105,6 +198,22 @@ function TeacherClassesPage() {
                 className="w-72 max-w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
               />
             </label>
+            {periods !== null && periods.length > 0 && (
+              <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                {t('teacherHome.semesterLabel')}
+                <select
+                  value={newPeriodId}
+                  onChange={(event) => setPickedPeriodId(event.target.value)}
+                  className="w-56 max-w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                >
+                  {periods.map((period) => (
+                    <option key={period.id} value={period.id}>
+                      {period.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button
               type="submit"
               disabled={saving}
@@ -120,6 +229,17 @@ function TeacherClassesPage() {
               {t('teacherHome.cancel')}
             </button>
           </div>
+          {periods !== null && periods.length > 0 && (
+            <p className="text-xs text-base-black/60">{t('teacherHome.semesterHint')}</p>
+          )}
+          {periods !== null && periods.length === 0 && (
+            <p className="text-xs text-base-black/60">
+              {t('teacherHome.noPeriods')}{' '}
+              <Link to="/teacher/curriculum" className="font-medium text-primary-600 hover:underline">
+                {t('teacherHome.noPeriodsLink')}
+              </Link>
+            </p>
+          )}
           {createError && (
             <p role="alert" className="text-sm text-red-700">
               {createError}
@@ -177,6 +297,7 @@ function TeacherClassesPage() {
                       {t('teacherHome.noSemester')}
                     </span>
                   )}
+                  <AttentionBadges cls={cls} attention={attention?.get(cls.id) ?? null} />
                   <p className="mt-auto text-sm text-base-black/60">
                     {t('teacherHome.studentCount', { count: cls.studentCount })}
                   </p>

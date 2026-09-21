@@ -69,6 +69,10 @@ function ClassGradesTab() {
 
   const hasGrid = gradebook.students.length > 0 && gradebook.tests.length > 0;
   const hasUnpublished = gradebook.tests.some((test) => !test.scoresPublished);
+  // Every cell is a submitted attempt; none at all means the table below is just dashes.
+  const hasAnySubmission = Object.values(gradebook.cells).some((row) =>
+    Object.values(row ?? {}).some((cell) => cell),
+  );
 
   const handleExport = () => {
     setExportFailed(false);
@@ -145,6 +149,14 @@ function ClassGradesTab() {
 
       {hasGrid && (
         <>
+          {!hasAnySubmission && (
+            <p
+              role="status"
+              className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800"
+            >
+              {t('classGrades.noSubmissions')}
+            </p>
+          )}
           <div
             className="max-h-[70vh] overflow-auto rounded-xl border border-primary-200"
             role="region"

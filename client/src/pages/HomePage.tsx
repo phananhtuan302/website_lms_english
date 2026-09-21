@@ -38,19 +38,22 @@ function HomePage() {
             {t('home.goToDashboard')}
           </Link>
         ) : (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/register"
-              className="rounded-md border border-primary-300 bg-base-white px-6 py-3 text-base font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-            >
-              {t('home.createStudentAccount')}
-            </Link>
+          // T-113: one obvious first step. "Đăng nhập" is the solid button (teachers and students
+          // both use it); creating an account is the quieter second choice for a new student.
+          <div className="flex w-full max-w-xs flex-col items-stretch gap-3">
             <Link
               to="/login"
               className="rounded-md bg-primary-500 px-6 py-3 text-base font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
               {t('home.logIn')}
             </Link>
+            <Link
+              to="/register"
+              className="rounded-md border border-primary-300 bg-base-white px-6 py-3 text-base font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+            >
+              {t('home.createStudentAccount')}
+            </Link>
+            <p className="text-sm text-base-black/60">{t('home.loginHint')}</p>
           </div>
         )}
       </div>

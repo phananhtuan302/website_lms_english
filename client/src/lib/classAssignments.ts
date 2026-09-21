@@ -68,6 +68,12 @@ export function formatDateTime(iso: string, locale: string): string {
   return new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
 }
 
+/** A moment → the local `datetime-local` input value (`YYYY-MM-DDTHH:mm`). */
+export function dateToDatetimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** A `datetime-local` input value → ISO string, or `null` for empty / unparsable input. */
 export function datetimeLocalToIso(value: string): string | null {
   if (!value) return null;

@@ -22,6 +22,7 @@ function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -69,17 +70,28 @@ function LoginPage() {
             onChange={(event) => setEmail(event.target.value)}
             className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
+          <span className="text-xs font-normal text-base-black/60">{t('auth.emailHint')}</span>
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('auth.password')}
           <input
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             required
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
+        </label>
+        {/* T-113: lets a young student check what they typed. */}
+        <label className="-mt-2 flex min-h-10 w-fit items-center gap-2 text-sm text-base-black/80">
+          <input
+            type="checkbox"
+            checked={showPassword}
+            onChange={(event) => setShowPassword(event.target.checked)}
+            className="h-4 w-4 accent-primary-500"
+          />
+          {t('auth.login.showPassword')}
         </label>
 
         {error && (

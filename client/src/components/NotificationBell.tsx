@@ -38,10 +38,10 @@ function BellIcon() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="h-6 w-6"
+      className="h-7 w-7"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
@@ -186,7 +186,7 @@ function NotificationBell() {
         aria-label={label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-base-black/85 transition-colors hover:bg-primary-50 hover:text-primary-700"
       >
         <BellIcon />
         {unread > 0 && (

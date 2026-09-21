@@ -56,12 +56,13 @@ function AttemptResultPage() {
   if (!result.scoresPublished) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
+        {/* T-113: a friendly "well done, now wait" box (green, not the yellow of a warning). */}
+        <div role="status" className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
           <h1 className="text-xl font-bold text-primary-700">{result.testTitle}</h1>
-          <p className="mt-3 text-lg font-semibold text-amber-800">
+          <p className="mt-3 text-lg font-semibold text-green-800">
             {t('attemptResult.awaitingPublish')}
           </p>
-          <p className="mt-1 text-xs text-base-black/50">
+          <p className="mt-1 text-xs text-base-black/60">
             {t('attemptResult.submittedAt', {
               date: result.submittedAt ? new Date(result.submittedAt).toLocaleString() : '',
             })}
@@ -69,7 +70,7 @@ function AttemptResultPage() {
         </div>
         <Link
           to="/student/dashboard"
-          className="self-center py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
+          className="inline-flex min-h-11 items-center justify-center self-center rounded-md bg-primary-500 px-6 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
         >
           {t('attemptResult.backToDashboard')}
         </Link>

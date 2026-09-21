@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CLASS_ROSTER_BULK_MAX_ROWS,
@@ -66,12 +66,16 @@ const SECONDARY_BUTTON_CLASS =
  *    `CLASS_ROSTER_BULK_MAX_ROWS` rows).
  * Either way it ends on the same result table (created / skipped + why) with a download of the
  * created accounts and their passwords — a password the system generated is only ever returned
- * once, in that response, so the teacher is warned to download it before closing.
+ * once, in that response, so nothing is ever dropped while the dialog is open: every account
+ * created since it opened stays in ONE list (the table and the .xlsx cover all of them, however
+ * many times "Thêm học sinh khác" was pressed), and closing while some generated password was
+ * never downloaded asks first, inside the dialog, with clear buttons.
  */
 function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudentsModalProps) {
   const { t } = useTranslation();
   const formId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const confirmBackRef = useRef<HTMLButtonElement | null>(null);
 
   const [mode, setMode] = useState<Mode>('form');
   const [name, setName] = useState('');
@@ -84,11 +88,24 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // The latest batch (table of created + skipped rows) ...
   const [result, setResult] = useState<ResultView | null>(null);
-  const [credentials, setCredentials] = useState<Array<{ name: string; email: string; password: string }>>([]);
-  const [downloaded, setDownloaded] = useState(false);
+  // ... and every account created by the batches before it, since the dialog opened.
+  const [earlier, setEarlier] = useState<ResultRow[]>([]);
+  // How many of the accounts (earlier first, then this batch's) the last download covered; the
+  // list only ever grows at the end, so anything past this index is not in any file yet.
+  const [downloadedCount, setDownloadedCount] = useState(0);
+  const [confirmingClose, setConfirmingClose] = useState(false);
 
-  const hasGeneratedPasswords = result?.rows.some((row) => row.passwordGenerated) ?? false;
+  const currentCreated = result?.rows.filter((row) => row.status === 'created') ?? [];
+  const allCreated = [...earlier, ...currentCreated];
+  const hasGeneratedPasswords = allCreated.some((row) => row.passwordGenerated);
+  const hasUnsavedPasswords = allCreated.slice(downloadedCount).some((row) => row.passwordGenerated);
+
+  // The question replaces the dialog's content, so hand keyboard focus to its safe answer.
+  useEffect(() => {
+    if (confirmingClose) confirmBackRef.current?.focus();
+  }, [confirmingClose]);
 
   function reasonText(reason: ClassRosterBulkSkipReason | RosterRowIssue, duplicateOfRow: number | null): string {
     if (reason === 'duplicateInFile' && duplicateOfRow !== null) {
@@ -98,11 +115,19 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
   }
 
   function handleClose() {
-    if (hasGeneratedPasswords && !downloaded && !window.confirm(t('classRoster.closeConfirm'))) return;
-    onClose();
+    if (!hasUnsavedPasswords) {
+      onClose();
+      return;
+    }
+    // Escape / ✕ / backdrop while the question is showing means "go back", never "lose them".
+    setConfirmingClose((asking) => !asking);
   }
 
-  function resetForNext() {
+  function resetForNext(event?: MouseEvent) {
+    // The footer button that was clicked turns into the form's submit button in this very
+    // render; without this the browser would go on to "submit" the freshly emptied form.
+    event?.preventDefault();
+    setEarlier(allCreated.map((row) => ({ ...row, key: `earlier-${row.key}`, row: null })));
     setName('');
     setEmail('');
     setPassword('');
@@ -111,8 +136,6 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
     setPreviewRows(null);
     setSubmitError(null);
     setResult(null);
-    setCredentials([]);
-    setDownloaded(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -139,7 +162,7 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
         })),
       });
 
-      const created: Array<{ name: string; email: string; password: string }> = [];
+      let createdCount = 0;
       const resultRows = rows.map((row): ResultRow => {
         const base = { key: `${row.row}-${row.email}`, row: showRowNumbers ? row.row : null };
         if (row.issue !== null) {
@@ -166,7 +189,7 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
           };
         }
         const finalPassword = server.generatedPassword ?? row.password;
-        created.push({ name: server.name, email: server.email, password: finalPassword });
+        createdCount += 1;
         return {
           ...base,
           name: server.name,
@@ -180,14 +203,12 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
 
       setResult({
         rows: resultRows,
-        created: created.length,
-        skipped: resultRows.length - created.length,
+        created: createdCount,
+        skipped: resultRows.length - createdCount,
         showRowNumbers,
       });
-      setCredentials(created);
-      setDownloaded(false);
       setPreviewRows(null);
-      if (created.length > 0) onChanged();
+      if (createdCount > 0) onChanged();
     } catch {
       setSubmitError(t('classRoster.submitFailed'));
     } finally {
@@ -239,35 +260,49 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
 
   function handleDownloadCredentials() {
     downloadCredentialsXlsx(
-      credentials,
+      allCreated.map((row) => ({ name: row.name, email: row.email, password: row.password ?? '' })),
       {
         sheetName: t('classRoster.files.credentialsSheet'),
         nameHeader: t('classRoster.files.name'),
-        emailHeader: t('classRoster.files.email'),
+        emailHeader: t('classRoster.files.emailLogin'),
         passwordHeader: t('classRoster.files.password'),
       },
       `tai-khoan-${className}`,
     );
-    setDownloaded(true);
+    setDownloadedCount(allCreated.length);
   }
 
   const validCount = previewRows?.filter((row) => row.issue === null).length ?? 0;
   const invalidCount = (previewRows?.length ?? 0) - validCount;
 
   // ---- footer ---------------------------------------------------------------------------
+  // Each footer button has its own `key`, so a button never turns into a different one (say the
+  // result's "Thêm học sinh khác" into the form's submit button) when the screen changes.
   let footer;
-  if (result) {
+  if (confirmingClose) {
+    footer = undefined; // the question carries its own buttons
+  } else if (result) {
     footer = (
       <>
-        {credentials.length > 0 && (
-          <button type="button" onClick={handleDownloadCredentials} className={SECONDARY_BUTTON_CLASS}>
+        {allCreated.length > 0 && (
+          <button
+            key="download"
+            type="button"
+            onClick={handleDownloadCredentials}
+            className={hasUnsavedPasswords ? PRIMARY_BUTTON_CLASS : SECONDARY_BUTTON_CLASS}
+          >
             {t('classRoster.result.download')}
           </button>
         )}
-        <button type="button" onClick={resetForNext} className={SECONDARY_BUTTON_CLASS}>
+        <button key="more" type="button" onClick={resetForNext} className={SECONDARY_BUTTON_CLASS}>
           {t('classRoster.result.addMore')}
         </button>
-        <button type="button" onClick={handleClose} className={PRIMARY_BUTTON_CLASS}>
+        <button
+          key="done"
+          type="button"
+          onClick={handleClose}
+          className={hasUnsavedPasswords ? SECONDARY_BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
+        >
           {t('classRoster.result.done')}
         </button>
       </>
@@ -275,10 +310,16 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
   } else if (mode === 'form') {
     footer = (
       <>
-        <button type="button" onClick={handleClose} disabled={submitting} className={SECONDARY_BUTTON_CLASS}>
+        <button
+          key="close"
+          type="button"
+          onClick={handleClose}
+          disabled={submitting}
+          className={SECONDARY_BUTTON_CLASS}
+        >
           {t('classRoster.closeLabel')}
         </button>
-        <button type="submit" form={formId} disabled={submitting} className={PRIMARY_BUTTON_CLASS}>
+        <button key="submit" type="submit" form={formId} disabled={submitting} className={PRIMARY_BUTTON_CLASS}>
           {submitting ? t('classRoster.form.submitting') : t('classRoster.form.submit')}
         </button>
       </>
@@ -286,11 +327,18 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
   } else {
     footer = (
       <>
-        <button type="button" onClick={handleClose} disabled={submitting} className={SECONDARY_BUTTON_CLASS}>
+        <button
+          key="close"
+          type="button"
+          onClick={handleClose}
+          disabled={submitting}
+          className={SECONDARY_BUTTON_CLASS}
+        >
           {t('classRoster.closeLabel')}
         </button>
         {previewRows && (
           <button
+            key="confirm"
             type="button"
             onClick={() => void send(previewRows, true)}
             disabled={validCount === 0 || submitting}
@@ -316,16 +364,43 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
       closeLabel={t('classRoster.closeLabel')}
       footer={footer}
     >
-      {result ? (
+      {confirmingClose ? (
+        <div role="alert" className="flex flex-col gap-4">
+          <h3 className="text-base font-bold text-base-black">{t('classRoster.closeConfirmTitle')}</h3>
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+            {t('classRoster.closeConfirm')}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              ref={confirmBackRef}
+              onClick={() => setConfirmingClose(false)}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {t('classRoster.closeConfirmBack')}
+            </button>
+            <button type="button" onClick={onClose} className={SECONDARY_BUTTON_CLASS}>
+              {t('classRoster.closeConfirmClose')}
+            </button>
+          </div>
+        </div>
+      ) : result ? (
         <div className="flex flex-col gap-3">
           <h3 className="text-base font-bold text-base-black">{t('classRoster.result.heading')}</h3>
           <p role="status" className="text-sm font-medium text-base-black">
             {t('classRoster.result.summary', { created: result.created, skipped: result.skipped })}
+            {earlier.length > 0 && <> {t('classRoster.result.total', { accounts: allCreated.length })}</>}
           </p>
           {hasGeneratedPasswords && (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p
+              role="alert"
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-base font-semibold text-amber-900"
+            >
               {t('classRoster.result.passwordWarning')}
             </p>
+          )}
+          {allCreated.length > 0 && (
+            <p className="text-sm text-base-black/70">{t('classRoster.result.loginHint')}</p>
           )}
           <div className="overflow-x-auto rounded-xl border border-primary-200">
             <table className="min-w-full divide-y divide-primary-100 text-sm">
@@ -351,13 +426,13 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-100">
-                {result.rows.map((row) => (
+                {[...earlier, ...result.rows].map((row) => (
                   <tr key={row.key}>
                     {result.showRowNumbers && (
-                      <td className="px-3 py-2 tabular-nums text-base-black/60">{row.row}</td>
+                      <td className="px-3 py-2 tabular-nums text-base-black/60">{row.row ?? '—'}</td>
                     )}
                     <td className="px-3 py-2 font-medium text-base-black">{row.name}</td>
-                    <td className="px-3 py-2 text-base-black/70">{row.email}</td>
+                    <td className="break-all px-3 py-2 text-base-black/70">{row.email}</td>
                     <td className="px-3 py-2">
                       {row.status === 'created' ? (
                         <span className="font-semibold text-green-700">{t('classRoster.result.created')}</span>
@@ -387,6 +462,16 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
         </div>
       ) : (
         <div className="flex flex-col gap-4">
+          {earlier.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2">
+              <p role="status" className="text-sm font-medium text-base-black">
+                {t('classRoster.earlier.summary', { accounts: earlier.length })}
+              </p>
+              <button type="button" onClick={handleDownloadCredentials} className={SECONDARY_BUTTON_CLASS}>
+                {t('classRoster.result.download')}
+              </button>
+            </div>
+          )}
           <div
             role="group"
             aria-label={t('classRoster.modeLabel')}
@@ -456,6 +541,7 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
                   {reasonText(formIssue.issue!, formIssue.duplicateOfRow)}
                 </p>
               )}
+              <p className="text-sm text-base-black/60">{t('classRoster.form.manyHint')}</p>
             </form>
           ) : (
             <div className="flex flex-col gap-3">

@@ -6,6 +6,7 @@ import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classTabPath } from '../../lib/classWorkspace';
 import { teacherApi } from '../../lib/teacherApi';
 import AddStudentsModal from './AddStudentsModal';
+import ResetStudentPasswordModal from './ResetStudentPasswordModal';
 
 /** Lower-cases and strips Vietnamese diacritics so "nguyen" finds "Nguyễn" — teachers often
  * type search terms without accents. */
@@ -27,6 +28,9 @@ function formatAverage(value: number | null): string {
  * semester tests the student has submitted, and their average score — with a search box.
  * Moving/removing a student is an Admin action (a hint says so); adding students (T-111) is
  * the "Thêm học sinh" button — a dialog with a one-student form and an Excel roster import.
+ * Each row also has "Đặt lại mật khẩu" (a student who lost their password): it sits under the
+ * name, not in a column of its own, so it stays in view on a phone where the table scrolls
+ * sideways inside its card.
  *
  * The numbers come from `GET /api/teacher/classes/:classId/students`, which computes them
  * from the same best-attempt grid as the gradebook, so this tab and "Điểm số" always agree.
@@ -46,6 +50,7 @@ function ClassStudentsTab() {
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [resetTarget, setResetTarget] = useState<ClassRosterStudentDTO | null>(null);
   // Bumped after students are added so the roster below is fetched again.
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -159,7 +164,17 @@ function ClassStudentsTab() {
               )}
               {visible.map((student) => (
                 <tr key={student.id}>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-base-black">{student.name}</td>
+                  <td className="whitespace-nowrap px-4 py-2 font-medium text-base-black sm:py-3">
+                    {student.name}
+                    <button
+                      type="button"
+                      onClick={() => setResetTarget(student)}
+                      aria-label={t('classResetPassword.buttonAria', { name: student.name })}
+                      className="-ml-3 mt-0.5 flex min-h-[2.5rem] items-center rounded-md px-3 text-xs font-medium text-primary-600 hover:bg-primary-50 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 sm:min-h-0 sm:py-1"
+                    >
+                      {t('classResetPassword.button')}
+                    </button>
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-base-black/70">{student.email}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-base-black/80">
                     {student.submittedCount}
@@ -192,6 +207,14 @@ function ClassStudentsTab() {
           </p>
         )}
       </div>
+
+      {resetTarget && (
+        <ResetStudentPasswordModal
+          classId={cls.id}
+          student={resetTarget}
+          onClose={() => setResetTarget(null)}
+        />
+      )}
 
       {showAdd && (
         <AddStudentsModal

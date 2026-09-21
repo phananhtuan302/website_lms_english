@@ -5,9 +5,10 @@ import type { StudentCalendarEventDTO, StudentCalendarResponseDTO } from '@platf
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import { closingSoonRemaining } from '../lib/closingSoon';
+import { withClassPrefix } from '../lib/classLabel';
 
 /**
- * Student "Lịch bài tập" (T-109, Phase 14) at `/student/calendar`, behind
+ * Student "Hạn nộp bài" (T-109, Phase 14; renamed from "Lịch bài tập" in T-113) at `/student/calendar`, behind
  * `ProtectedRoute allowedRoles={['student']}`: an agenda (no month grid) of when each of my
  * tests opens and closes — what is coming up, grouped by day, and what happened in the last two
  * weeks, with missed deadlines marked.
@@ -187,9 +188,10 @@ function StudentCalendarPage() {
 
   let classLine: string | null = null;
   if (data?.className) {
+    const className = withClassPrefix(data.className);
     classLine = data.periodName
-      ? t('studentCalendar.classLine', { className: data.className, periodName: data.periodName })
-      : t('studentCalendar.classOnly', { className: data.className });
+      ? t('studentCalendar.classLine', { className, periodName: data.periodName })
+      : t('studentCalendar.classOnly', { className });
   }
 
   return (
