@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-22 — Leader/Dev — Phase 15: hide reports, fixes from the older-teacher review, second simulated round
+
+- Task IDs touched: T-114, T-115, T-116 (plus `REPORTS_ENABLED` flag, commit `0abc3e1`)
+- What changed: the class reports ("Thống kê" tab, Library "Báo cáo" link) are hidden behind one flag at the customer's request; three parallel Dev agents fixed the test editor/assign flow, scoring/grading/gradebook/Excel/publish confirmation, and Help/big-text/readability; a fresh simulated Cô Thu (58, low tech) then redid the whole lifecycle: all 9 goals completed, ease 7/10 (first round 6/10, authoring 3/10 → "hơi khó", now doable).
+- Why / decisions made: (1) Points model for totals decided by the Leader: auto question = 1 point, essay = its max score, speaking = 1 point scaled by score/100 (the Dev first used 100 points which would swamp MCQs); provisional while an essay is ungraded; tests without manual questions unchanged (verified against every stored attempt). (2) The simulated reviewer is a proxy, not a user: two of her statements were wrong when checked (the Excel download message IS shown; the "TRẮC NGHIỆM · CÂU 5/5" label is her own group title) and one Dev claim was wrong (Excel column widths were reported present but are not). (3) Process: three agents edited one tree, none committed, the Leader audited (typecheck, lint, i18n 1930 = 1930, DB fixtures deleted by a prefix/ownership script after a dry run, row-by-row comparison with the pre-Phase-14 JSON backup: 433 rows, 0 differences) and committed once. (4) Not done: cross-class "Hôm nay cần để ý", statistics/reports (hidden), semester name clean-up (customer data), importing questions from Word/Excel and AI-generated tests (recommended next).
+- Status after this entry: Phase 15 (T-114–T-116) Done. Open polish list from the second round is in the T-114/T-115/T-116 notes.
+
 ## 2026-09-21 — Leader/Dev — Phase 14 complete: T-109 (student bell + Lịch), T-112 (375px pass), T-113 (simulated cold-start test + fixes)
 
 - Task IDs touched: T-109, T-112, T-113 (plus the round-1/round-2 UX fix commits)
