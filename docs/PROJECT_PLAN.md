@@ -92,6 +92,9 @@ The reference model (Google Classroom / Canvas / Moodle) and how it maps here:
 
 Tasks (sequential where they share the layout shell, parallel otherwise): `T-102` (class-card home, class workspace shell/layout, Library landing, new top-level nav, Tổng quan + Cài đặt tabs) → then in parallel `T-103` (Bài tập tab + "Giao bài mới" + class-embedded results/vocab-check pages), `T-104` (Học sinh + Điểm số gradebook + Thống kê tabs), `T-105` (student "Bài cần làm" home + simplified student nav) → `T-106` (retire the old scattered pages/routes/links, terminology + breadcrumb consistency pass, stale e2e helpers).
 
+### Phase 14 — Closing the LMS Gaps (`T-107`–`T-113`)
+Requested 2026-09-21 ("làm hết đống này") right after the Leader's honest gap list versus large LMSs. Scope: a "Cần chú ý" class overview (`T-107`), class announcements (`T-108`, the only new table — additive), student reminders: notification bell + "Lịch" (`T-109`), student "Điểm của tôi" (`T-110`), teacher roster import from Excel (`T-111`), a 375px mobile pass over the whole new flow (`T-112`) and a simulated cold-start usability walkthrough with fixes (`T-113`). Order: wave A in parallel (`T-107`, `T-108`, `T-110`, `T-111` — largely disjoint files), then `T-109` (needs announcements), then `T-112`, then `T-113`. The cold-start test is done by fresh agents and is reported as simulated — it does not replace real users. A JSON backup of every table was taken before the phase (real customer data is live).
+
 ## 5. Requirements Traceability Matrix
 
 Every row of `requirements-raw.md`'s table and every item in its "Ghi chú bổ sung" notes maps to at least one backlog task, so nothing is dropped.

@@ -840,3 +840,75 @@ Customer request 2026-09-21: "tôi thấy vẫn rất khó sử dụng ... bạn
     4. **T-101**: update `e2e/07-content-class-assignment.spec.ts` and `assignContentToClass` in `e2e/utils.ts` to the new assignment flow (class Bài tập tab → "Giao bài mới"), and any other e2e spec locators broken by the new nav/dashboard — they need not be RUN (the suite is not runnable in this environment) but must be statically correct against the new UI and pass `typecheck`.
     5. A final independent click-through of the whole teacher and student flow by the Leader after this task, to catch any remaining dead end.
   - Verify: repo-wide `typecheck` + `lint` clean; every legacy URL above resolves to a sensible new destination; a click-through of the complete teacher journey (home → class → semester → Giao bài mới → Điểm số → Cài đặt; Library → edit a test) and student journey (Bài cần làm → do a test → result) with no dead ends; i18n parity.
+
+---
+
+## Phase 14 — Closing the LMS Gaps (T-107–T-113)
+
+Customer request (2026-09-21, after Phase 13): "làm hết đống này" — the Leader's honest gap list versus large LMSs: (1) the class Tổng quan tab is thin, (2) no notifications / deadline reminders / calendar / class announcements, (3) students have no "Điểm của tôi" page, (4) adding students to a class is not convenient (no roster import), (5) the new flow has not been checked on phones, (6) nobody outside the dev team has used the flow. Experience/feature layer only; class × semester × schedule × publish data model is unchanged except ONE additive table (announcements, T-108).
+
+Standing rules for every Phase 14 task: real customer data lives in the DB (teacher.1a1, class 1A1 with 40 students, 1A2, `test1`, set "1A1", topic "Present Simple") — additive migrations only, never `migrate reset`, never seed; fixtures use the task's prefix (e.g. `T107`) and are deleted afterwards; verification is proportionate (feature-scoped, no full regression); Vietnamese plain-language UI copy in `vi.json` with `en.json` leaf parity; a pre-Phase-14 JSON backup of every table exists (Leader scratchpad `db-backup-pre-phase14.json`).
+
+- [ ] **T-107 — Class "Tổng quan" becomes a "Cần chú ý" dashboard (teacher)**
+  - Status: Not Started
+  - Depends on: T-103, T-104
+  - Acceptance Criteria:
+    1. New endpoint `GET /api/teacher/classes/:classId/overview` (ownership-checked, admin bypass, period = the class's current period; degrade to empty lists when there is no current period) returning: `studentCount`, `periodName`, and four lists — **closingSoon** (assigned tests whose schedule `closeAt` is within the next 72h, each with title, closeAt, submittedCount/studentCount), **needsGrading** (submitted attempts of this class/period still awaiting manual grading — Writing/Speaking teacher grading that already exists in the product; use the existing "pending review" notion, do not invent a new one; return count + top N with student, test, submittedAt and a link target), **notSubmitted** (for each CLOSED or closing-soon test: the students who have not submitted, capped with a "+N nữa" total), **recentActivity** (the last ~10 submissions in this class/period: student, test/exercise, time, score if published). Query-efficient (no N+1).
+    2. `ClassOverviewTab` replaced: header stats (Học sinh, Học kỳ hiện tại, Bài đang mở, Bài cần chấm) then cards "Sắp đóng", "Cần chấm", "Chưa nộp bài", "Hoạt động gần đây", each with an empty state in plain Vietnamese and a link into the right tab/page (Bài tập, Kết quả of that test, attempt detail). Keep the two existing "Bước tiếp theo" shortcuts only when the class has no assignments yet (onboarding).
+    3. No regression to the tab's use of `useClassWorkspace()`; no-semester state handled.
+  - Verify (proportionate): API against throwaway `T107` fixtures (closing-soon window, a submitted writing attempt awaiting grading, a non-submitting student), degrade path, 404/403; browser screenshot of the tab on a throwaway class and a read-only look at real 1A1 (which must not error). Delete fixtures.
+
+- [ ] **T-108 — Class announcements ("Thông báo lớp")**
+  - Status: Not Started
+  - Depends on: T-102
+  - Acceptance Criteria:
+    1. ONE additive Prisma model `ClassAnnouncement` (id, classId FK→Class cascade, authorId FK→User, body text, pinned bool default false, createdAt, updatedAt) + migration containing ONLY `CREATE TABLE`/index/FK statements — inspect the generated SQL before applying; NEVER accept a reset/drift prompt; row counts of all other tables must be unchanged before/after.
+    2. Endpoints: teacher/admin (owner of the class) `GET/POST /api/teacher/classes/:classId/announcements`, `PATCH/DELETE .../announcements/:id` (edit, pin/unpin, delete); student `GET /api/student/announcements` (their own class only; newest first, pinned first, paginated/limited to ~30). Body max length enforced (e.g. 2000), whitespace-only rejected, 404 for foreign class, 403 wrong role.
+    3. Class workspace gets a new tab **"Thông báo"** (add to `CLASS_TABS` after Tổng quan): composer (textarea + "Đăng thông báo"), list with pin/edit/delete (delete asks confirmation), empty state. Student home ("Bài cần làm") shows the latest 1–3 announcements in a "Thông báo từ giáo viên" card above the list (hidden when none) with a "Xem tất cả" expanding to the full list.
+    4. Plain-language Vietnamese copy; teacher name + relative/absolute time shown on each announcement.
+  - Verify: API (CRUD, pin ordering, validation, class isolation — a student of another class sees nothing, a foreign teacher gets 404); browser: post → appears on the class tab and on the student's home; edit/pin/delete; screenshots. Delete fixtures (announcements are cascade-deleted with their throwaway class — still prove zero `T108` rows).
+
+- [ ] **T-109 — Student reminders: notification bell + "Lịch" (upcoming) page**
+  - Status: Not Started
+  - Depends on: T-108, T-105
+  - Acceptance Criteria:
+    1. Derived (no new table) endpoint `GET /api/student/notifications`: items computed on the fly for the student's class/period — **assignment closing soon** (open test the student has not submitted, `closeAt` within 48h), **new assignment** (assigned within the last 7 days and not yet started), **scores published** (score-publication effective within the last 7 days), **new announcement** (last 7 days). Each item: type, title, message in plain Vietnamese, timestamp, link target. Server derives "effective publication" with the existing `isScorePublished` helper.
+    2. **Bell in the Header** (student role only; not shown during an attempt lockdown — reuse the T-091 lock logic) with an unread badge and a dropdown list; "unread" = newer than a per-user `localStorage` timestamp updated when the dropdown opens (wrapped in try/catch; degrade to "all read" if storage is unavailable); accessible (button with aria-label, Escape closes, focus handling).
+    3. **"Lịch" page** `/student/calendar` (add to student nav only if the nav stays usable at 375px; otherwise link it from the Bài cần làm home): an agenda grouped by day/week of upcoming and recent open/close events for the student's assigned tests ("Mở lúc…", "Đóng lúc…"), overdue/closed items marked, empty state. List/agenda layout (no month grid needed).
+    4. On the Bài cần làm home, items closing within 48h get a visible "Sắp đóng — còn X giờ" tag.
+  - Verify: API with throwaway `T109` fixtures (each notification type incl. an already-submitted test NOT producing a closing-soon item and another class's data not leaking); browser as a throwaway student (bell badge → open → read state persists across reload; calendar renders; lockdown hides the bell). Delete fixtures.
+
+- [ ] **T-110 — Student "Điểm của tôi" page**
+  - Status: Not Started
+  - Depends on: T-105, T-092
+  - Acceptance Criteria:
+    1. Endpoint `GET /api/student/grades` (optional `?periodId=`, default = the student's class's current period; the list of the class's periods is returned so the student can switch): per assigned test the student's BEST submitted attempt score/percent and submitted time — **but only where scores are effectively published** (T-092 withholding rules; unpublished → return status "chờ công bố" with NO score or correct-count leakage), plus an overall average over published scores, plus a small vocabulary/grammar progress summary (cards known from existing progress data, grammar exercises correct/attempted) if cheap to derive from existing helpers.
+    2. Page `/student/grades` "Điểm của tôi": semester selector, average card, a table/list of tests with score badge, status ("Chưa làm", "Chờ công bố điểm", "Đã có điểm"), and a link to view the detailed result when published. Empty states. Student nav gets **"Điểm của tôi"** (check the nav at 375px does not overflow; if it crowds, group secondary items instead of dropping this one).
+    3. A student never sees another student's or another class's data.
+  - Verify: API with throwaway `T110` fixtures (published vs unpublished vs not attempted; multiple attempts → best; previous-semester switch; a second student isolated); assert NO score fields appear in the JSON for an unpublished test; browser screenshot. Delete fixtures.
+
+- [ ] **T-111 — Add students to a class: manual form + Excel roster import**
+  - Status: Not Started
+  - Depends on: T-104
+  - Acceptance Criteria:
+    1. Endpoint `POST /api/teacher/classes/:classId/students/bulk` (owner/admin) taking up to ~200 rows `{ name, email, password? }`; creates student accounts assigned to the class. A blank password → a generated 8-char random password returned ONCE in the response; invalid email/name → per-row error; an email that already exists → per-row "đã có tài khoản" and NOTHING is changed for that account (never silently move a student between classes, never overwrite a password); duplicate emails within the file flagged; whole request validated so partial success is reported row by row (each row independent). Passwords hashed exactly like registration.
+    2. "Học sinh" tab: **"Thêm học sinh"** button opens a modal (reuse `components/Modal.tsx`) with two ways — (a) a small form to add one student (name, email, optional password), (b) **"Nhập từ Excel"**: download-template link (client-generated `.xlsx` with headers "Họ tên", "Email", "Mật khẩu (không bắt buộc)"), file picker (`xlsx`/SheetJS already a client dependency), preview table with per-row validation before sending, then the result table (Đã tạo / Bỏ qua + reason) and a **"Tải danh sách tài khoản (.xlsx)"** download containing the created accounts with their passwords so the teacher can hand them out. The class roster refreshes afterwards.
+    3. Header/tab copy in plain Vietnamese; the modal is keyboard accessible.
+  - Verify: API + browser against a throwaway teacher/class `T111` (create via form and via a generated `.xlsx`; existing-email row skipped and the existing account untouched; blank-password generation and the generated password actually logs in; another teacher's class → 404). NEVER import into real class 1A1/1A2. Delete every fixture account/class and prove zero `t111` rows.
+
+- [ ] **T-112 — Mobile (375px) pass over the whole new flow**
+  - Status: Not Started
+  - Depends on: T-107, T-108, T-109, T-110, T-111
+  - Acceptance Criteria:
+    1. Using real Chrome at 375×812 (and one 768px spot check), walk every screen of the teacher flow (class cards, class header/tabs, Tổng quan, Thông báo, Bài tập + Giao bài mới dialog, Học sinh + Thêm học sinh modal, Điểm số grid, Thống kê, Cài đặt, Library lists/editors' top area) and the student flow (nav, Bài cần làm, bell dropdown, Lịch, Điểm của tôi, flashcards/grammar entry pages, result page): no horizontal page scroll (wide tables/grids may scroll inside their own container), tap targets ≥ 40px for primary actions, tabs and nav usable (scrollable tab row or wrap; nav does not overflow), modals fit the viewport and scroll internally, text not clipped.
+    2. Fix what is broken with minimal, style-consistent changes (Tailwind responsive utilities); no behavior changes.
+    3. Save a screenshot per screen in the scratchpad and list the fixes made in the report.
+  - Verify: scripted overflow check (`document.documentElement.scrollWidth <= innerWidth`) per screen + screenshots reviewed.
+
+- [ ] **T-113 — Cold-start usability walkthrough + fixes**
+  - Status: Not Started
+  - Depends on: T-112
+  - Acceptance Criteria:
+    1. Run "first-time user" walkthroughs by fresh agents that are given ONLY the app URL, an account, and a plain-language goal (no hints about where things are, no code access): teacher goals — "tạo một lớp mới", "thêm học sinh vào lớp", "giao một bài kiểm tra cho lớp và đặt giờ đóng", "xem điểm của lớp và xuất Excel", "đăng một thông báo"; student goals — "tìm bài cần làm và làm bài", "xem điểm của tôi", "xem thông báo mới". Each walkthrough records where the agent hesitated, took a wrong turn, could not find something, or found wording unclear (this is a SIMULATED cold-start test and must be reported as such — it does not replace real users).
+    2. Triage the findings; fix the clear wins (labels, button placement, empty-state hints, missing links) with small changes; list the rest as recommendations.
+  - Verify: re-run the failed goals after the fixes.
