@@ -5,14 +5,16 @@ import {
   generateVariants,
   newStudentContext,
   newTeacherContext,
+  startTestFromHome,
   uniqueTitle,
 } from './utils';
 
 /**
  * T-060: a Unit Test (T-036) + its report/leaderboard (T-037).
  *
- * Unlike the core QR-session flow, a Unit Test is taken via the student's own
- * self-practice picker (`/student/unit-tests`), never a QR session — but it still needs
+ * Unlike the core QR-session flow, a Unit Test is taken from the student's own "Bài cần
+ * làm" home (`/student/dashboard`, where it is just a row with a Unit Test badge — the old
+ * `/student/unit-tests` page is gone, T-105/T-106), never a QR session — but it still needs
  * at least one generated variant first (`findOrCreateAttempt` rejects an attempt start
  * otherwise, same rule as the QR flow).
  *
@@ -51,11 +53,11 @@ test('teacher creates a published Unit Test, student takes it, both see the unit
 
     await Promise.all([
       teacherPage.waitForResponse(patchUrl),
-      teacherPage.getByLabel('Unit (optional, T-018)').selectOption({ label: 'Unit 1 — Getting Started' }),
+      teacherPage.getByLabel('Unit (optional)').selectOption({ label: 'Unit 1 — Getting Started' }),
     ]);
     await Promise.all([
       teacherPage.waitForResponse(patchUrl),
-      teacherPage.getByLabel('Test type (T-036)').selectOption('unitTest'),
+      teacherPage.getByLabel('Test type', { exact: true }).selectOption('unitTest'),
     ]);
     // `.click()`, not `.check()` — the checkbox is a fully-controlled React input whose
     // DOM `checked` briefly reverts between the click and this field's own PATCH
@@ -79,12 +81,13 @@ test('teacher creates a published Unit Test, student takes it, both see the unit
     // of `published` — assign this test to the e2e student's own class ("Class 6A").
     await assignContentToClass(teacherContext, title, 'Class 6A');
 
-    // Student: find the published Unit Test grouped under its unit and take it.
-    await studentPage.goto('/student/unit-tests');
-    await expect(studentPage.getByText('Unit 1 — Getting Started')).toBeVisible();
-    const testRow = studentPage.getByRole('listitem').filter({ hasText: title });
-    await testRow.getByRole('button', { name: 'Take test →' }).click();
-    await studentPage.waitForURL(/\/student\/attempts\/[a-zA-Z0-9-]+$/, { timeout: 15_000 });
+    // Student: the published Unit Test is a row on the "Bài cần làm" home (its row names the
+    // curriculum unit). Check that, then start it.
+    await studentPage.goto('/student/dashboard');
+    await expect(
+      studentPage.getByRole('listitem').filter({ hasText: title }).getByText('Unit 1 — Getting Started'),
+    ).toBeVisible();
+    await startTestFromHome(studentPage, title);
 
     await studentPage.getByLabel('Option A').check();
     studentPage.once('dialog', (dialog) => dialog.accept());
@@ -92,9 +95,11 @@ test('teacher creates a published Unit Test, student takes it, both see the unit
     await studentPage.waitForURL(/\/result$/, { timeout: 15_000 });
     await expect(studentPage.getByText('100%')).toBeVisible();
 
-    // Student's own Unit Tests list now shows the score directly, without re-opening it.
-    await studentPage.goto('/student/unit-tests');
-    await expect(studentPage.getByText('Score: 100%')).toBeVisible();
+    // The student's home now lists it under "Submitted" with the score, without re-opening it.
+    await studentPage.goto('/student/dashboard');
+    await expect(
+      studentPage.getByRole('listitem').filter({ hasText: title }).getByText('Score: 100%'),
+    ).toBeVisible();
 
     // Unit leaderboard/report (T-037), built on the shared T-019 reporting engine —
     // checked from BOTH roles per its "visible to both teacher and students" criteria.

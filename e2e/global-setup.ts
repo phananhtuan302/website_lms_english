@@ -41,7 +41,8 @@ export default async function globalSetup(config: FullConfig) {
     await teacherPage.getByLabel('Email').fill(TEACHER_EMAIL);
     await teacherPage.getByLabel('Password').fill(TEACHER_PASSWORD);
     await teacherPage.getByRole('button', { name: 'Log in' }).click();
-    await teacherPage.waitForURL(/\/teacher\/dashboard/, { timeout: 15_000 });
+    // T-102/T-106: teachers land on the class-card home (`/teacher/classes`).
+    await teacherPage.waitForURL(/\/teacher\/classes/, { timeout: 15_000 });
     await teacherContext.storageState({ path: TEACHER_STORAGE });
     await teacherContext.close();
 

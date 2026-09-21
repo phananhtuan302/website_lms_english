@@ -5,6 +5,7 @@ import {
   generateVariants,
   newStudentContext,
   newTeacherContext,
+  startTestFromHome,
   uniqueTitle,
 } from './utils';
 
@@ -38,11 +39,9 @@ test('pasting into and copying out of an essay answer is blocked with a visible 
     // this freshly-authored test to the e2e student's own class ("Class 6A").
     await assignContentToClass(teacherContext, title, 'Class 6A');
 
-    // Essay questions are taken via self-practice (no session/QR needed for this flow).
-    await studentPage.goto('/student/practice');
-    const row = studentPage.getByRole('listitem').filter({ hasText: title });
-    await row.getByRole('button', { name: 'Practice →' }).click();
-    await studentPage.waitForURL(/\/student\/attempts\/[a-zA-Z0-9-]+$/, { timeout: 15_000 });
+    // Essay questions are taken from the student's "Bài cần làm" home (no session/QR needed
+    // for this flow) — the old self-practice picker is gone (T-105/T-106).
+    await startTestFromHome(studentPage, title);
 
     const essay = studentPage.getByPlaceholder(/Write your response here/);
     await expect(essay).toBeVisible();

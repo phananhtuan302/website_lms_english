@@ -45,7 +45,6 @@ import type {
   SpeakingReportResponseDTO,
   TeacherContentResponseDTO,
   TeacherStudentSummaryDTO,
-  TeacherUnitTestsResponseDTO,
   TeacherVocabProgressDTO,
   TeacherVocabularyCheckSummaryDTO,
   TestAttemptReportResponseDTO,
@@ -336,8 +335,7 @@ export const teacherApi = {
     return apiRequest<GrammarReportResponseDTO>(`${teacherBase}/grammar-reports?${query.toString()}`);
   },
 
-  // --- Unit Test management (T-036) + leaderboard (T-037) ---------------------------
-  listUnitTests: () => apiRequest<TeacherUnitTestsResponseDTO>(`${teacherBase}/unit-tests`),
+  // --- Unit Test leaderboard (T-037) ------------------------------------------------
   getUnitLeaderboard: (unitId: string, classId?: string | null) => {
     const query = classId ? `?classId=${encodeURIComponent(classId)}` : '';
     return apiRequest<UnitLeaderboardResponseDTO>(`/api/units/${unitId}/leaderboard${query}`);
@@ -365,7 +363,7 @@ export const teacherApi = {
   deleteClass: (classId: string) =>
     apiRequest<void>(`${teacherBase}/classes/${classId}`, { method: 'DELETE' }),
   // T-099/T-100: switches which `AcademicPeriod` is presently "live" for this class
-  // (the "Chuyển học kỳ" control on `TeacherClassWorkspacePage`). Returns the updated
+  // (the semester dropdown in the class workspace header). Returns the updated
   // `ClassDTO` (fresh `currentPeriodId`/`currentPeriodName`) so the caller can update its
   // local state without a second `listClasses()` round-trip.
   updateClassCurrentPeriod: (classId: string, body: UpdateClassCurrentPeriodRequest) =>

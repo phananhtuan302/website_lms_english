@@ -27,8 +27,8 @@ const MODULE_TABS: ModuleTab[] = [
   { value: 'speaking', slug: 'speaking', labelKey: 'teacherReportsHub.tabs.speaking' },
 ];
 
-/** T-104: only offered inside the class workspace — the standalone hub keeps linking to the
- * separate `/vocab-leaderboard` page from its Vocabulary tab, exactly as before. */
+/** T-104: only offered inside the class workspace (the hub is only ever rendered there since
+ * T-106 turned the standalone `/teacher/reports` route into a redirect). */
 const LEADERBOARD_TAB: ModuleTab = {
   value: 'leaderboard',
   slug: 'leaderboard',
@@ -49,8 +49,8 @@ const LEADERBOARD_TAB: ModuleTab = {
  * filter is available inside it); "Unit Test" reuses the exact same component with
  * `fixedTestType="unitTest"` locked in, narrowing to `Test.testType: 'unitTest'` via the
  * same `computeReport` engine field T-037 already added. Deep links to each module's
- * previous standalone route (`/teacher/vocab-ranking`, `/teacher/grammar-reports`) still
- * work unchanged — this hub is additive, not a replacement of those routes.
+ * previous standalone routes (`/teacher/vocab-ranking`, `/teacher/grammar-reports`) now
+ * redirect into this hub inside the class workspace (T-106).
  *
  * T-104: also rendered EMBEDDED in the class workspace's "Thống kê" tab
  * (`/teacher/classes/:classId/stats/:module?`). Embedded (detected from the route's
@@ -58,7 +58,8 @@ const LEADERBOARD_TAB: ModuleTab = {
  * reads the same route param), the active module lives in the URL (so refresh/back keep the
  * sub-tab), the page's own title block is dropped (the workspace header + tab already say
  * where you are), and a sixth "Xếp hạng từ vựng" module renders the vocabulary leaderboard.
- * Standalone (`/teacher/reports`) is unchanged: local state, five modules.
+ * The non-embedded branch (local state, five modules) is what the standalone `/teacher/reports`
+ * page used to be; that route is now a redirect (T-106), so only the embedded branch is reachable.
  */
 function TeacherReportsHubPage() {
   const { t } = useTranslation();

@@ -25,25 +25,6 @@
     "logOut": "Đăng xuất",
     "attemptLockNotice": "Bạn đang làm bài dở, hãy nộp bài trước khi rời khỏi trang",
     "nav": {
-      "teacher": {
-        "myTests": "Bài kiểm tra của tôi",
-        "flashcards": "Thẻ từ vựng",
-        "grammar": "Ngữ pháp",
-        "unitTests": "Kiểm tra Unit",
-        "vocabularyCheck": "Kiểm tra từ vựng",
-        "curriculum": "Chương trình học",
-        "reports": "Báo cáo",
-        "classes": "Lớp học",
-        "myContent": "Nội dung của tôi"
-      },
-      "student": {
-        "practiceTests": "Luyện tập",
-        "flashcards": "Thẻ từ vựng",
-        "grammar": "Ngữ pháp",
-        "unitTests": "Kiểm tra Unit",
-        "vocabularyCheck": "Kiểm tra từ vựng",
-        "leaderboard": "Bảng xếp hạng"
-      },
       "admin": {
         "users": "Người dùng",
         "tests": "Bài kiểm tra",
@@ -54,7 +35,7 @@
   },
   "home": {
     "subtitle": "Kiểm tra, học tập và theo dõi tiến độ tiếng Anh — bài kiểm tra với điểm danh bằng mã QR, luyện từ vựng và ngữ pháp, cùng phần Nói được chấm điểm tức thì, tất cả trong một nền tảng dành cho cả giáo viên và học sinh.",
-    "goToDashboard": "Đi đến trang tổng quan của bạn",
+    "goToDashboard": "Vào trang của bạn",
     "createStudentAccount": "Tạo tài khoản học sinh",
     "logIn": "Đăng nhập",
     "highlights": {
@@ -113,38 +94,7 @@
     "message": "Trang bạn đang tìm kiếm không tồn tại."
   },
   "teacherDashboard": {
-    "heading": "Trang tổng quan giáo viên",
-    "welcome": "Chào mừng, {{name}}.",
-    "libraryHeading": "Thư viện của tôi",
-    "librarySubtitle": "Soạn nội dung dùng chung — chưa gắn với lớp nào cụ thể.",
-    "classWorkspaceHeading": "Lớp học của tôi",
-    "classWorkspaceSubtitle": "Thao tác trong phạm vi từng lớp: gán nội dung, xem báo cáo, điểm số.",
-    "manageTests": "Quản lý bài kiểm tra của tôi",
-    "manageCurriculum": "Quản lý chương trình học (Unit & Học kỳ)",
-    "manageClasses": "Quản lý lớp của tôi",
-    "manageFlashcards": "Quản lý bộ thẻ từ vựng",
-    "manageGrammar": "Quản lý chủ đề ngữ pháp"
-  },
-  "studentDashboard": {
-    "heading": "Trang tổng quan học sinh",
-    "welcome": "Chào mừng, {{name}}. Quét mã hoặc mở liên kết tham gia của giáo viên để bắt đầu bài kiểm tra — bài kiểm tra sẽ hiện ở bên dưới ngay sau khi bạn tham gia.",
-    "yourClass": "Lớp của bạn: {{className}}",
-    "noClassAssigned": "Chưa được gán vào lớp nào.",
-    "studyVocabulary": "Học từ vựng",
-    "practiceAtHome": "Luyện tập bài kiểm tra tại nhà",
-    "myVocabProgress": "Tiến độ từ vựng của tôi",
-    "vocabLeaderboard": "Bảng xếp hạng từ vựng",
-    "studyGrammar": "Học ngữ pháp",
-    "unitTests": "Kiểm tra Unit",
-    "vocabularyCheck": "Kiểm tra từ vựng",
-    "myAttemptsHeading": "Các lần làm bài của tôi",
-    "loadFailed": "Không thể tải danh sách bài đã làm.",
-    "noAttempts": "Bạn chưa tham gia bài kiểm tra nào.",
-    "scoreLine": "Điểm: {{percent}}% ({{correct}}/{{total}})",
-    "inProgress": "Đang làm bài",
-    "awaitingPublish": "Đã nộp bài — chờ giáo viên công bố điểm",
-    "viewResult": "Xem kết quả →",
-    "resumeTest": "Tiếp tục làm bài →"
+    "manageCurriculum": "Quản lý chương trình học (Unit & Học kỳ)"
   },
   "studentNav": {
     "assignments": "Bài tập",
@@ -216,7 +166,7 @@
     }
   },
   "appShell": {
-    "footer": "Nền tảng Kiểm tra Tiếng Anh — bản phát triển nội bộ"
+    "footer": "Nền tảng Kiểm tra Tiếng Anh"
   },
   "takeTest": {
     "loadAttemptError": "Không thể tải bài làm này.",
@@ -282,60 +232,24 @@
   "adminGrammarTopics": { "heading": "Tất cả chủ đề ngữ pháp", "subtitle": "Tất cả chủ đề ngữ pháp trong hệ thống, của mọi giáo viên. Mở một chủ đề để chỉnh sửa hoặc xóa bằng chính trình soạn thảo mà giáo viên sử dụng.", "empty": "Chưa có chủ đề ngữ pháp nào.", "owner": "Giáo viên: {{name}} ({{email}})", "exerciseCount_one": "{{count}} bài tập", "exerciseCount_other": "{{count}} bài tập", "updatedAt": "cập nhật {{date}}", "openEditor": "Mở trình soạn thảo →", "errors": { "loadFailed": "Không thể tải danh sách chủ đề ngữ pháp." } },
   "adminAttempts": { "heading": "Tất cả lượt làm bài", "subtitle": "Tất cả lượt làm bài trong hệ thống, của mọi học sinh và mọi bài kiểm tra — không giới hạn theo một phiên cụ thể. Tìm kiếm theo học sinh hoặc bài kiểm tra, sau đó mở một lượt làm bài để chỉnh sửa điểm chấm tay (tự luận/Nói) bằng chính biểu mẫu chấm điểm mà giáo viên sử dụng, hoặc xóa lượt làm bài đó.", "searchLabel": "Tìm kiếm (tên/email học sinh hoặc tên bài kiểm tra)", "searchSubmit": "Tìm kiếm", "noResults": "Không có lượt làm bài nào khớp với tìm kiếm này.", "columns": { "student": "Học sinh", "test": "Bài kiểm tra", "status": "Trạng thái", "score": "Điểm", "timeTaken": "Thời gian làm bài", "started": "Bắt đầu" }, "status": { "submitted": "Đã nộp", "inProgress": "Đang làm" }, "viewDetail": "Xem / chỉnh sửa", "delete": "Xóa", "confirmDelete": "Xóa lượt làm bài này? Thao tác này sẽ xóa vĩnh viễn lượt làm bài và toàn bộ câu trả lời; không thể hoàn tác.", "previousPage": "Trước", "nextPage": "Sau", "pageOf": "Trang {{page}} / {{totalPages}}", "errors": { "loadFailed": "Không thể tải danh sách lượt làm bài.", "deleteFailed": "Không thể xóa lượt làm bài." } },
   "adminSettings": { "heading": "Cài đặt ngôn ngữ hệ thống", "subtitle": "Kiểm soát ngôn ngữ mà mọi khách truy cập nhìn thấy — dù đã đăng nhập hay chưa, ở mọi nơi trong sản phẩm. Đây là nơi duy nhất trong toàn bộ hệ thống có thể thay đổi ngôn ngữ này; không có bộ chuyển ngôn ngữ theo từng người dùng hay công khai ở bất kỳ đâu khác.", "currentLanguage": "Ngôn ngữ hệ thống hiện tại: {{language}}", "languageNames": { "en": "Tiếng Anh", "vi": "Tiếng Việt" }, "switching": "Đang chuyển...", "saved": "Đã chuyển ngôn ngữ hệ thống sang {{language}}. Mọi khách truy cập sẽ thấy thay đổi này từ lần tải trang tiếp theo.", "note": "Thay đổi này áp dụng cho mọi khách truy cập, kể cả khách chưa đăng nhập ở trang chủ và trang đăng nhập. Giao diện hiện tại của bạn sẽ không đổi cho đến khi bạn tải lại trang.", "errors": { "loadFailed": "Không thể tải ngôn ngữ hệ thống hiện tại.", "saveFailed": "Không thể chuyển ngôn ngữ hệ thống." } },
-  "teacherCurriculum": { "heading": "Chương trình học", "description": "Unit và học kỳ được dùng chung cho mọi tài khoản giáo viên. Hãy gắn một Unit cho bài kiểm tra ngay tại trang chỉnh sửa của bài đó.", "units": { "heading": "Danh sách Unit", "nameLabel": "Tên", "namePlaceholder": "VD: Unit 3 — Food & Drink", "orderLabel": "Thứ tự", "addButton": "Thêm Unit", "empty": "Chưa có Unit nào.", "deleteButton": "Xóa", "loadFailed": "Không thể tải danh sách Unit.", "validationError": "Vui lòng nhập tên Unit và thứ tự là một số nguyên.", "createFailed": "Không thể tạo Unit.", "saveFailed": "Không thể lưu Unit.", "deleteFailed": "Không thể xóa Unit." }, "periods": { "heading": "Học kỳ", "timezoneNote": "Ngày tháng được tính theo lịch cố định theo múi giờ Asia/Ho_Chi_Minh.", "nameLabel": "Tên", "namePlaceholder": "VD: Học kỳ 1 - 2026", "startDateLabel": "Ngày bắt đầu", "endDateLabel": "Ngày kết thúc", "addButton": "Thêm học kỳ", "empty": "Chưa có học kỳ nào.", "deleteButton": "Xóa", "loadFailed": "Không thể tải danh sách học kỳ.", "validationError": "Vui lòng nhập tên, ngày bắt đầu và ngày kết thúc.", "createFailed": "Không thể tạo học kỳ.", "saveFailed": "Không thể lưu học kỳ.", "deleteFailed": "Không thể xóa học kỳ." } },
+  "teacherCurriculum": { "heading": "Chương trình học", "description": "Unit và học kỳ được dùng chung cho mọi tài khoản giáo viên. Hãy gắn một Unit cho bài kiểm tra ngay tại trang chỉnh sửa của bài đó.", "units": { "heading": "Danh sách Unit", "nameLabel": "Tên", "namePlaceholder": "VD: Unit 3 — Food & Drink", "orderLabel": "Thứ tự", "addButton": "Thêm Unit", "empty": "Chưa có Unit nào.", "deleteButton": "Xóa", "loadFailed": "Không thể tải danh sách Unit.", "validationError": "Vui lòng nhập tên Unit và thứ tự là một số nguyên.", "createFailed": "Không thể tạo Unit.", "saveFailed": "Không thể lưu Unit.", "deleteFailed": "Không thể xóa Unit." }, "periods": { "heading": "Học kỳ", "timezoneNote": "Ngày tháng được tính theo giờ Việt Nam.", "nameLabel": "Tên", "namePlaceholder": "VD: Học kỳ 1 - 2026", "startDateLabel": "Ngày bắt đầu", "endDateLabel": "Ngày kết thúc", "addButton": "Thêm học kỳ", "empty": "Chưa có học kỳ nào.", "deleteButton": "Xóa", "loadFailed": "Không thể tải danh sách học kỳ.", "validationError": "Vui lòng nhập tên, ngày bắt đầu và ngày kết thúc.", "createFailed": "Không thể tạo học kỳ.", "saveFailed": "Không thể lưu học kỳ.", "deleteFailed": "Không thể xóa học kỳ." } },
   "teacherNav": {"classes":"Lớp học","library":"Thư viện"},
   "teacherHome": {"heading":"Lớp học","description":"Chọn một lớp để giao bài, xem điểm và quản lý lớp đó.","createButton":"+ Tạo lớp","nameLabel":"Tên lớp","namePlaceholder":"VD: Lớp 6A","createSubmit":"Tạo lớp","creating":"Đang tạo...","cancel":"Hủy","empty":"Chưa có lớp nào — tạo lớp đầu tiên","emptyHint":"Tạo lớp xong, bạn chọn học kỳ cho lớp rồi giao bài cho học sinh.","noSemester":"Chưa chọn học kỳ","studentCount_one":"{{count}} học sinh","studentCount_other":"{{count}} học sinh","loadFailed":"Không thể tải danh sách lớp.","validationError":"Vui lòng nhập tên lớp.","createFailed":"Không thể tạo lớp."},
-  "classWorkspace": {"backToClasses":"← Tất cả lớp","loadFailed":"Không thể tải lớp này. Hãy thử tải lại trang.","notFoundHeading":"Không tìm thấy lớp","notFoundMessage":"Lớp này không tồn tại, hoặc không phải lớp của bạn.","notFoundBack":"Về danh sách lớp","studentCount_one":"{{count}} học sinh","studentCount_other":"{{count}} học sinh","classSwitcherLabel":"Chuyển sang lớp khác","semesterLabel":"Học kỳ","semesterPlaceholder":"-- Chọn học kỳ --","semesterLoading":"Đang tải học kỳ...","switchingPeriod":"Đang chuyển...","noPeriods":"Chưa có học kỳ nào.","noPeriodsLink":"Tạo học kỳ trong Chương trình học","loadPeriodsFailed":"Không thể tải danh sách học kỳ.","switchPeriodFailed":"Không thể chuyển học kỳ.","confirmSwitchPeriod":"Chuyển lớp này sang \"{{periodName}}\"? Học sinh sẽ ngay lập tức chỉ thấy bài của học kỳ đó thay vì học kỳ hiện tại. Bài của học kỳ cũ vẫn được giữ nguyên.","confirmSetPeriod":"Chọn \"{{periodName}}\" làm học kỳ của lớp này? Học sinh sẽ chỉ thấy bài được giao trong học kỳ đó.","noSemesterBanner":"Lớp chưa có học kỳ — chọn học kỳ để bắt đầu giao bài","tabsAriaLabel":"Các mục của lớp","tabs":{"overview":"Tổng quan","assignments":"Bài tập","students":"Học sinh","grades":"Điểm số","stats":"Thống kê","settings":"Cài đặt"},"overview":{"studentsLabel":"Học sinh","noStudentsHint":"Chưa có học sinh — học sinh tự chọn lớp khi đăng ký tài khoản.","viewStudents":"Xem danh sách học sinh","semesterLabel":"Học kỳ hiện tại","noSemester":"Chưa chọn học kỳ","semesterHint":"Đổi học kỳ ở góc trên bên phải.","noSemesterHint":"Chọn học kỳ ở góc trên bên phải để bắt đầu giao bài.","nextStepsHeading":"Bước tiếp theo","assignTitle":"Giao bài mới","assignDescription":"Chọn bài kiểm tra, thẻ từ vựng hoặc ngữ pháp từ Thư viện để giao cho lớp.","gradesTitle":"Xem điểm","gradesDescription":"Xem điểm các bài của từng học sinh trong lớp."},"placeholder":{"badge":"Đang hoàn thiện","legacyHeading":"Trong lúc chờ, bạn vẫn dùng được các trang này (đã chọn sẵn lớp):","assignmentsNote":"Mục Bài tập đang được hoàn thiện — sau này bạn sẽ giao và theo dõi mọi bài của lớp ngay tại đây.","studentsNote":"Mục Học sinh đang được hoàn thiện — sau này danh sách học sinh của lớp sẽ hiện ở đây. Việc chuyển hoặc xóa học sinh do Quản trị viên thực hiện.","gradesNote":"Mục Điểm số đang được hoàn thiện — sau này bảng điểm cả lớp sẽ hiện ở đây.","statsNote":"Mục Thống kê đang được hoàn thiện — sau này các báo cáo của lớp sẽ hiện ở đây."},"legacy":{"myContent":"Nội dung của tôi","myContentDescription":"Chọn bài kiểm tra, thẻ từ vựng, ngữ pháp để giao cho lớp này.","unitTests":"Kiểm tra Unit","unitTestsDescription":"Xem các bài Kiểm tra Unit của lớp này.","vocabularyChecks":"Kiểm tra từ vựng","vocabularyChecksDescription":"Tạo và xem các bài Kiểm tra từ vựng.","reports":"Báo cáo","reportsDescription":"Báo cáo bài kiểm tra, từ vựng, ngữ pháp và bài nói của lớp này.","vocabLeaderboard":"Bảng xếp hạng từ vựng","vocabLeaderboardDescription":"Xếp hạng từ vựng của học sinh trong lớp này."},"settings":{"renameHeading":"Tên lớp","nameLabel":"Tên lớp","saveButton":"Lưu tên","saving":"Đang lưu...","saved":"Đã lưu.","nameRequired":"Vui lòng nhập tên lớp.","renameFailed":"Không thể lưu tên lớp.","semesterHeading":"Học kỳ","semesterDescription":"Học kỳ hiện tại của lớp. Khi đổi học kỳ, học sinh chỉ thấy bài của học kỳ mới; bài của học kỳ cũ vẫn được giữ và hiện lại nếu bạn đổi về.","deleteHeading":"Xóa lớp","deleteDescription":"Chỉ xóa được lớp khi không còn học sinh nào trong lớp. Xóa rồi thì không lấy lại được.","hasStudentsNote_one":"Lớp còn {{count}} học sinh nên chưa thể xóa.","hasStudentsNote_other":"Lớp còn {{count}} học sinh nên chưa thể xóa.","deleteButton":"Xóa lớp này","deleting":"Đang xóa...","confirmDelete":"Xóa lớp \"{{name}}\"? Việc này không thể hoàn tác.","deleteBlocked":"Không xóa được vì lớp vẫn còn học sinh. Hãy nhờ Quản trị viên chuyển hoặc xóa các học sinh đó trước.","deleteFailed":"Không thể xóa lớp."}},
+  "classWorkspace": {"backToClasses":"← Tất cả lớp","loadFailed":"Không thể tải lớp này. Hãy thử tải lại trang.","notFoundHeading":"Không tìm thấy lớp","notFoundMessage":"Lớp này không tồn tại, hoặc không phải lớp của bạn.","notFoundBack":"Về danh sách lớp","studentCount_one":"{{count}} học sinh","studentCount_other":"{{count}} học sinh","classSwitcherLabel":"Chuyển sang lớp khác","semesterLabel":"Học kỳ","semesterPlaceholder":"-- Chọn học kỳ --","semesterLoading":"Đang tải học kỳ...","switchingPeriod":"Đang chuyển...","noPeriods":"Chưa có học kỳ nào.","noPeriodsLink":"Tạo học kỳ trong Chương trình học","loadPeriodsFailed":"Không thể tải danh sách học kỳ.","switchPeriodFailed":"Không thể chuyển học kỳ.","confirmSwitchPeriod":"Chuyển lớp này sang \"{{periodName}}\"? Học sinh sẽ ngay lập tức chỉ thấy bài của học kỳ đó thay vì học kỳ hiện tại. Bài của học kỳ cũ vẫn được giữ nguyên.","confirmSetPeriod":"Chọn \"{{periodName}}\" làm học kỳ của lớp này? Học sinh sẽ chỉ thấy bài được giao trong học kỳ đó.","noSemesterBanner":"Lớp chưa có học kỳ — chọn học kỳ để bắt đầu giao bài","tabsAriaLabel":"Các mục của lớp","tabs":{"overview":"Tổng quan","assignments":"Bài tập","students":"Học sinh","grades":"Điểm số","stats":"Thống kê","settings":"Cài đặt"},"overview":{"studentsLabel":"Học sinh","noStudentsHint":"Chưa có học sinh — học sinh tự chọn lớp khi đăng ký tài khoản.","viewStudents":"Xem danh sách học sinh","semesterLabel":"Học kỳ hiện tại","noSemester":"Chưa chọn học kỳ","semesterHint":"Đổi học kỳ ở góc trên bên phải.","noSemesterHint":"Chọn học kỳ ở góc trên bên phải để bắt đầu giao bài.","nextStepsHeading":"Bước tiếp theo","assignTitle":"Giao bài mới","assignDescription":"Chọn bài kiểm tra, thẻ từ vựng hoặc ngữ pháp từ Thư viện để giao cho lớp.","gradesTitle":"Xem điểm số","gradesDescription":"Xem điểm các bài của từng học sinh trong lớp."},"settings":{"renameHeading":"Tên lớp","nameLabel":"Tên lớp","saveButton":"Lưu tên","saving":"Đang lưu...","saved":"Đã lưu.","nameRequired":"Vui lòng nhập tên lớp.","renameFailed":"Không thể lưu tên lớp.","semesterHeading":"Học kỳ","semesterDescription":"Học kỳ hiện tại của lớp. Khi đổi học kỳ, học sinh chỉ thấy bài của học kỳ mới; bài của học kỳ cũ vẫn được giữ và hiện lại nếu bạn đổi về.","deleteHeading":"Xóa lớp","deleteDescription":"Chỉ xóa được lớp khi không còn học sinh nào trong lớp. Xóa rồi thì không lấy lại được.","hasStudentsNote_one":"Lớp còn {{count}} học sinh nên chưa thể xóa.","hasStudentsNote_other":"Lớp còn {{count}} học sinh nên chưa thể xóa.","deleteButton":"Xóa lớp này","deleting":"Đang xóa...","confirmDelete":"Xóa lớp \"{{name}}\"? Việc này không thể hoàn tác.","deleteBlocked":"Không xóa được vì lớp vẫn còn học sinh. Hãy nhờ Quản trị viên chuyển hoặc xóa các học sinh đó trước.","deleteFailed":"Không thể xóa lớp."}},
   "teacherLibrary": {"heading":"Thư viện","intro":"Thư viện = nơi soạn nội dung dùng chung; giao cho lớp ở trong từng lớp.","open":"Mở →","tests":{"title":"Bài kiểm tra","description":"Soạn và sửa các bài kiểm tra, tạo mã QR cho học sinh vào làm.","count_one":"{{count}} bài kiểm tra","count_other":"{{count}} bài kiểm tra"},"flashcards":{"title":"Thẻ từ vựng","description":"Soạn các bộ thẻ từ vựng để học sinh học và luyện tập.","count_one":"{{count}} bộ thẻ","count_other":"{{count}} bộ thẻ"},"grammar":{"title":"Ngữ pháp","description":"Soạn phần lý thuyết và bài tập cho từng chủ đề ngữ pháp.","count_one":"{{count}} chủ đề","count_other":"{{count}} chủ đề"},"curriculum":{"title":"Chương trình học","description":"Quản lý các Unit và học kỳ dùng để sắp xếp nội dung.","count_one":"{{count}} Unit","count_other":"{{count}} Unit"}},
-  "classStudents": {"heading":"Học sinh","count_one":"{{count}} học sinh","count_other":"{{count}} học sinh","searchLabel":"Tìm học sinh","searchPlaceholder":"Gõ tên hoặc email","columns":{"name":"Họ tên","email":"Email","submitted":"Số bài đã nộp","average":"Điểm trung bình"},"empty":"Lớp chưa có học sinh","emptyHint":"Học sinh tự chọn lớp khi đăng ký tài khoản.","noMatch":"Không có học sinh nào khớp với \"{{query}}\".","adminHint":"Muốn chuyển lớp hoặc xóa học sinh? Hãy nhờ Quản trị viên thực hiện.","scoreNote":"Số bài đã nộp và điểm trung bình chỉ tính các bài đã giao trong học kỳ hiện tại; mỗi bài lấy điểm cao nhất của học sinh.","noSemesterNote":"Lớp chưa chọn học kỳ nên chưa có điểm để hiển thị.","viewGrades":"Xem bảng điểm","loadFailed":"Không thể tải danh sách học sinh."},
-  "classGrades": {"heading":"Bảng điểm","semesterLabel":"Học kỳ: {{name}}","exportButton":"Xuất Excel","exportFailed":"Không thể xuất file Excel.","gridAriaLabel":"Bảng điểm của lớp","studentColumn":"Học sinh","averageColumn":"Trung bình","averageRow":"Trung bình","unpublishedBadge":"Chưa công bố điểm","notSubmittedTitle":"Chưa nộp bài","headerTitle":"Xem kết quả của bài này","cellTitle":"{{correct}}/{{total}} câu đúng — bấm để xem bài làm","footnoteBest":"Hiển thị điểm cao nhất của mỗi học sinh.","footnoteNotSubmitted":"\"—\" nghĩa là học sinh chưa nộp bài.","footnoteUnpublished":"Điểm mờ là bài chưa công bố điểm — học sinh chưa nhìn thấy điểm của bài đó.","noSemester":"Lớp chưa chọn học kỳ nên chưa có bảng điểm. Hãy chọn học kỳ ở góc trên bên phải.","noStudents":"Lớp chưa có học sinh nên chưa có bảng điểm.","noTests":"Lớp chưa được giao bài kiểm tra nào trong học kỳ này.","noTestsLink":"Đi tới Bài tập để giao bài","loadFailed":"Không thể tải bảng điểm.","export":{"sheetName":"Bảng điểm","fileName":"Bảng điểm - {{className}}","unpublishedSuffix":"chưa công bố điểm"}},
+  "classStudents": {"heading":"Học sinh","count_one":"{{count}} học sinh","count_other":"{{count}} học sinh","searchLabel":"Tìm học sinh","searchPlaceholder":"Gõ tên hoặc email","columns":{"name":"Họ tên","email":"Email","submitted":"Số bài đã nộp","average":"Điểm trung bình"},"empty":"Lớp chưa có học sinh","emptyHint":"Học sinh tự chọn lớp khi đăng ký tài khoản.","noMatch":"Không có học sinh nào khớp với \"{{query}}\".","adminHint":"Muốn chuyển lớp hoặc xóa học sinh? Hãy nhờ Quản trị viên thực hiện.","scoreNote":"Số bài đã nộp và điểm trung bình chỉ tính các bài đã giao trong học kỳ hiện tại; mỗi bài lấy điểm cao nhất của học sinh.","noSemesterNote":"Lớp chưa chọn học kỳ nên chưa có điểm để hiển thị.","viewGrades":"Xem điểm số","loadFailed":"Không thể tải danh sách học sinh."},
+  "classGrades": {"heading":"Điểm số","semesterLabel":"Học kỳ: {{name}}","exportButton":"Xuất Excel","exportFailed":"Không thể xuất tệp Excel.","gridAriaLabel":"Bảng điểm của lớp","studentColumn":"Học sinh","averageColumn":"Trung bình","averageRow":"Trung bình","unpublishedBadge":"Chưa công bố điểm","notSubmittedTitle":"Chưa nộp bài","headerTitle":"Xem kết quả của bài này","cellTitle":"{{correct}}/{{total}} câu đúng — bấm để xem bài làm","footnoteBest":"Hiển thị điểm cao nhất của mỗi học sinh.","footnoteNotSubmitted":"\"—\" nghĩa là học sinh chưa nộp bài.","footnoteUnpublished":"Điểm mờ là bài chưa công bố điểm — học sinh chưa nhìn thấy điểm của bài đó.","noSemester":"Lớp chưa chọn học kỳ nên chưa có bảng điểm. Hãy chọn học kỳ ở góc trên bên phải.","noStudents":"Lớp chưa có học sinh nên chưa có bảng điểm.","noTests":"Lớp chưa được giao bài kiểm tra nào trong học kỳ này.","noTestsLink":"Đi tới Bài tập để giao bài","loadFailed":"Không thể tải bảng điểm.","export":{"sheetName":"Bảng điểm","fileName":"Bảng điểm - {{className}}","unpublishedSuffix":"chưa công bố điểm"}},
   "classStats": {"description":"Xem báo cáo của lớp theo từng nội dung: bài kiểm tra, từ vựng, ngữ pháp, bài nói.","leaderboardTab":"Xếp hạng từ vựng"},
-  "teacherClasses": { "heading": "Lớp của tôi", "description": "Các lớp bạn phụ trách — học sinh sẽ chọn một trong các lớp này khi đăng ký, và sẽ thuộc lớp đó vĩnh viễn. Không thể xóa một lớp khi vẫn còn học sinh trong lớp; hãy chuyển hoặc xóa học sinh đó trước.", "nameLabel": "Tên lớp", "namePlaceholder": "VD: Lớp 6A", "addButton": "Thêm lớp", "empty": "Bạn chưa tạo lớp nào.", "deleteButton": "Xóa", "studentCount_one": "{{count}} học sinh", "studentCount_other": "{{count}} học sinh", "loadFailed": "Không thể tải danh sách lớp.", "validationError": "Vui lòng nhập tên lớp.", "createFailed": "Không thể tạo lớp.", "saveFailed": "Không thể lưu lớp.", "deleteFailed": "Không thể xóa lớp." },
-  "teacherClassWorkspace": { "backToClasses": "← Chọn lớp khác", "heading": "Đang thao tác: Lớp {{className}}", "headingWithPeriod": "Đang thao tác: Lớp {{className}} — Học kỳ {{periodName}}", "description": "Truy cập nhanh các trang quản lý, đã tự động lọc theo lớp này.", "notFoundHeading": "Không tìm thấy lớp", "notFoundMessage": "Lớp này không tồn tại, hoặc không thuộc quyền quản lý của bạn.", "myContent": "Nội dung của tôi", "myContentDescription": "Gán bài kiểm tra, bộ thẻ từ vựng và chủ đề ngữ pháp của bạn vào các lớp.", "reports": "Báo cáo", "reportsDescription": "Báo cáo Bài kiểm tra, Kiểm tra Unit, Từ vựng, Ngữ pháp và Nói cho lớp này.", "vocabLeaderboard": "Bảng xếp hạng từ vựng", "vocabLeaderboardDescription": "Bảng xếp hạng từ vựng toàn thời gian của lớp này.", "unitTests": "Kiểm tra Unit", "unitTestsDescription": "Quản lý các bài kiểm tra được gắn nhãn Kiểm tra Unit.", "vocabularyChecks": "Kiểm tra từ vựng", "vocabularyChecksDescription": "Tạo và xem các bài Kiểm tra từ vựng đã giao.", "switchPeriodHeading": "Chuyển học kỳ", "switchPeriodDescription": "Chọn một học kỳ khác để đặt làm học kỳ hiện tại của lớp này. Học sinh sẽ ngay lập tức chỉ thấy nội dung được gán cho học kỳ đó — dữ liệu của học kỳ cũ vẫn được giữ nguyên và sẽ hiện lại nếu bạn chuyển về.", "switchPeriodSelectLabel": "Học kỳ mới", "switchPeriodCurrentSuffix": " (hiện tại)", "switchPeriodButton": "Chuyển học kỳ", "switchingPeriod": "Đang chuyển...", "confirmSwitchPeriod": "Chuyển lớp này sang \"{{periodName}}\"? Học sinh sẽ ngay lập tức chỉ thấy nội dung được gán cho học kỳ đó thay vì học kỳ hiện tại.", "switchPeriodFailed": "Không thể chuyển học kỳ.", "loadPeriodsFailed": "Không thể tải danh sách học kỳ.", "noPeriods": "Chưa có học kỳ nào. Hãy tạo học kỳ trong phần Quản lý chương trình học trước." },
-  "teacherContent": { "heading": "Nội dung của tôi", "description": "Mọi bài kiểm tra, bộ thẻ từ vựng và chủ đề ngữ pháp bạn đã tạo, theo học kỳ hiện tại của một lớp. Bật/tắt để gán hoặc bỏ gán từng mục vào lớp này — không cần mở trình soạn thảo đầy đủ.", "loadFailed": "Không thể tải nội dung của bạn.", "saveFailed": "Không thể cập nhật việc gán lớp.", "saving": "Đang lưu...", "testsHeading": "Bài kiểm tra", "testsEmpty": "Bạn chưa tạo bài kiểm tra nào.", "flashcardSetsHeading": "Bộ thẻ từ vựng", "flashcardSetsEmpty": "Bạn chưa tạo bộ thẻ từ vựng nào.", "grammarTopicsHeading": "Chủ đề ngữ pháp", "grammarTopicsEmpty": "Bạn chưa tạo chủ đề ngữ pháp nào.", "scheduleButton": "Lịch trình", "scheduleButtonAriaLabel": "Cài đặt lịch trình cho {{title}}", "schedulePanelHeading": "Lịch trình cho lớp {{className}}", "closeSchedulePanel": "Đóng", "scheduleLoadFailed": "Không thể tải lịch trình cho lớp này.", "periodLabel": "Học kỳ: {{periodName}}", "assigned": "Đã gán", "notAssigned": "Chưa gán", "toggleAriaLabel": "Bật/tắt gán vào lớp này cho {{title}}", "noContextHeading": "Hãy chọn một lớp trước", "noContextMessage": "\"Nội dung của tôi\" giờ chỉ hoạt động cho một lớp (và học kỳ hiện tại của lớp đó) tại một thời điểm. Hãy mở trang làm việc của một lớp và dùng liên kết \"Nội dung của tôi\" ở đó để vào đây với đúng ngữ cảnh.", "noContextLink": "Đi tới danh sách lớp →", "classNotFound": "Lớp này không tồn tại, hoặc không thuộc quyền quản lý của bạn.", "noPeriodMessage": "Lớp này chưa chọn học kỳ hiện tại. Hãy mở trang làm việc của lớp và dùng \"Chuyển học kỳ\" để chọn một học kỳ trước.", "noPeriodLink": "Đi tới trang làm việc của lớp này →" },
+  "teacherContent": { "schedulePanelHeading": "Lịch trình cho lớp {{className}}", "closeSchedulePanel": "Đóng", "scheduleLoadFailed": "Không thể tải lịch trình cho lớp này." },
   "classAssignments": {"heading":"Bài tập — {{semester}}","headingPlain":"Bài tập","assignNew":"Giao bài mới","createVocabCheck":"Tạo kiểm tra từ vựng","loadFailed":"Không thể tải danh sách bài tập của lớp.","filtersLabel":"Lọc theo loại bài","filters":{"all":"Tất cả","test":"Bài kiểm tra","flashcardSet":"Thẻ từ vựng","grammarTopic":"Ngữ pháp"},"types":{"generic":"Bài kiểm tra","unitTest":"Kiểm tra Unit","vocabularyCheck":"Kiểm tra từ vựng","listeningTest":"Bài nghe","mockTest":"Thi thử","flashcardSet":"Thẻ từ vựng","grammarTopic":"Ngữ pháp"},"status":{"unlimited":"Không giới hạn thời gian","upcoming":"Hẹn giờ mở: {{time}}","closesAt":"Đóng lúc {{time}}","open":"Đang mở — đóng lúc {{time}}","openNoClose":"Đang mở","closed":"Đã đóng"},"scores":{"published":"Điểm: đã công bố","unpublished":"Điểm: chưa công bố"},"submitted":"{{submitted}}/{{total}} học sinh đã nộp","questionCount_one":"{{count}} câu hỏi","questionCount_other":"{{count}} câu hỏi","cardCount_one":"{{count}} thẻ","cardCount_other":"{{count}} thẻ","exerciseCount_one":"{{count}} bài tập","exerciseCount_other":"{{count}} bài tập","warnings":{"noVariants":"Bài này chưa có mã đề nên học sinh chưa làm được. Bấm Sửa nội dung để tạo mã đề.","notPublished":"Bài Kiểm tra Unit này chưa xuất bản nên học sinh chưa thấy. Bấm Sửa nội dung để xuất bản."},"actions":{"results":"Kết quả","resultsAria":"Xem kết quả: {{title}}","schedule":"Lịch & công bố điểm","scheduleAria":"Lịch & công bố điểm: {{title}}","edit":"Sửa nội dung","editAria":"Sửa nội dung: {{title}}","unitLeaderboard":"Xếp hạng Unit","unitLeaderboardAria":"Xem xếp hạng Unit: {{title}}","remove":"Gỡ khỏi lớp","removing":"Đang gỡ...","removeAria":"Gỡ khỏi lớp: {{title}}"},"confirmRemove":"Gỡ \"{{title}}\" khỏi lớp {{className}}? Học sinh trong lớp sẽ không còn thấy bài này. Điểm và các lượt làm bài đã có vẫn được giữ.","removed":"Đã gỡ \"{{title}}\" khỏi lớp.","removeFailed":"Không gỡ được \"{{title}}\": {{reason}}","assignedNotice_one":"Đã giao {{count}} bài cho lớp.","assignedNotice_other":"Đã giao {{count}} bài cho lớp.","empty":"Lớp chưa được giao bài nào — bấm Giao bài mới.","emptyFiltered":"Chưa có bài nào thuộc nhóm này.","noSemester":{"heading":"Lớp chưa có học kỳ","message":"Hãy chọn học kỳ ở ô Học kỳ phía trên, rồi quay lại đây để giao bài."},"backToAssignments":"← Về danh sách bài tập","back":"← Quay lại"},
   "assignDialog": {"title":"Giao bài mới cho lớp {{className}}","description":"Chọn các bài trong Thư viện để giao cho lớp. Bài đã giao rồi sẽ không hiện ở đây.","tabsAriaLabel":"Loại bài","tabs":{"test":"Bài kiểm tra","flashcardSet":"Thẻ từ vựng","grammarTopic":"Ngữ pháp"},"searchPlaceholder":"Tìm theo tên...","selectAllVisible_one":"Chọn tất cả ({{count}})","selectAllVisible_other":"Chọn tất cả ({{count}})","emptyTab":"Không còn bài nào loại này để giao.","noSearchResults":"Không tìm thấy bài nào khớp.","noQuestionsYet":"chưa có câu hỏi","nothingSelected":"Chưa chọn bài nào","selectedCount_one":"Đã chọn {{count}} bài","selectedCount_other":"Đã chọn {{count}} bài","cancel":"Hủy","close":"Đóng","confirm_one":"Giao {{count}} bài cho lớp","confirm_other":"Giao {{count}} bài cho lớp","scheduleToggle":"Đặt lịch (không bắt buộc)","scheduleSet":"Đã đặt lịch","scheduleHint_one":"Áp dụng cho {{count}} bài kiểm tra đã chọn. Để trống nếu không muốn giới hạn thời gian.","scheduleHint_other":"Áp dụng cho {{count}} bài kiểm tra đã chọn. Để trống nếu không muốn giới hạn thời gian.","openAtLabel":"Mở lúc","closeAtLabel":"Đóng lúc","autoPublishLabel":"Tự động công bố điểm khi đóng bài","autoPublishNeedsClose":"Hãy đặt giờ đóng bài để dùng tùy chọn này.","closeBeforeOpen":"Giờ đóng phải sau giờ mở.","loadFailed":"Không thể tải Thư viện của bạn.","retryLoad":"Thử lại","emptyLibraryHeading":"Thư viện chưa có gì để giao","emptyLibraryMessage":"Hãy soạn bài kiểm tra, thẻ từ vựng hoặc ngữ pháp trong Thư viện, rồi quay lại đây để giao cho lớp.","allAssignedHeading":"Đã giao hết rồi","allAssignedMessage":"Mọi nội dung trong Thư viện đều đã được giao cho lớp này. Cần thêm bài thì soạn mới trong Thư viện.","goToLibrary":"Đến Thư viện","progressRunning":"Đang giao bài — vui lòng chờ, đừng đóng cửa sổ này...","progressPartial":"Có {{failed}} bài chưa giao được. Bạn có thể thử lại những bài bị lỗi.","progressDone":"Đã giao xong.","itemStatus":{"pending":"Đang chờ","working":"Đang giao...","done":"Đã giao","failed":"Lỗi"},"scheduleStepFailed":"Không đặt được lịch nên bài này chưa được giao: {{reason}}","assignStepFailed":"Không giao được bài này: {{reason}}","unknownError":"Đã có lỗi xảy ra.","retryFailed":"Thử lại các bài lỗi"},
   "teacherReports": { "heading": "Báo cáo", "description": "Điểm trung bình, thời gian làm bài trung bình và số lượt làm bài trên các bài kiểm tra của bạn, chỉ tính các lượt đã nộp bài. Chọn mức phân nhóm bên dưới; có thể thu hẹp thêm theo một bài kiểm tra và/hoặc một Unit.", "groupByOptions": { "test": "Bài kiểm tra", "unit": "Unit", "week": "Tuần (theo ISO, Thứ Hai–Chủ Nhật)", "month": "Tháng", "quarter": "Quý", "semester": "Học kỳ", "year": "Năm" }, "testTypeOptions": { "generic": "Thông thường", "unitTest": "Kiểm tra Unit", "vocabularyCheck": "Kiểm tra từ vựng", "listeningTest": "Nghe", "mockTest": "Thi thử" }, "groupByLabel": "Nhóm theo", "testFilterLabel": "Bài kiểm tra (lọc tùy chọn)", "allTests": "Tất cả bài kiểm tra", "unitFilterLabel": "Unit (lọc tùy chọn)", "allUnits": "Tất cả Unit", "testTypeFilterLabel": "Loại bài kiểm tra (lọc tùy chọn)", "allTestTypes": "Tất cả loại bài kiểm tra", "viewDetailedReport": "Xem báo cáo chi tiết", "loadFailed": "Không thể tải báo cáo.", "loadingReport": "Đang tải báo cáo...", "attemptsColumn": "Số lượt làm bài", "averageScoreColumn": "Điểm trung bình", "averageTimeTakenColumn": "Thời gian làm bài trung bình", "noData": "Chưa có dữ liệu cho lựa chọn này." },
   "teacherReportsHub": { "heading": "Báo cáo", "description": "Nơi tổng hợp báo cáo của mọi học phần. Chọn một học phần, sau đó chọn mức phân nhóm theo thời gian — mọi số liệu bên dưới đều được tính bằng cùng một hệ thống báo cáo dùng chung trong toàn bộ ứng dụng.", "navAriaLabel": "Học phần báo cáo", "tabs": { "test": "Bài kiểm tra", "unitTest": "Kiểm tra Unit", "vocabulary": "Từ vựng", "grammar": "Ngữ pháp", "speaking": "Nói" }, "unitTest": { "heading": "Báo cáo Kiểm tra Unit", "description": "Điểm trung bình, thời gian làm bài trung bình và số lượt làm bài chỉ tính trên các bài Kiểm tra Unit của bạn, chỉ tính các lượt đã nộp bài. Chọn mức phân nhóm bên dưới; có thể thu hẹp thêm theo một bài kiểm tra và/hoặc một Unit." }, "vocabulary": { "leaderboardPrompt": "Bạn muốn xem bảng xếp hạng toàn thời gian thay vì theo từng giai đoạn?", "leaderboardLink": "Xem bảng xếp hạng từ vựng toàn thời gian" } },
   "teacherSpeakingReports": { "heading": "Báo cáo Nói", "description": "Điểm Nói trung bình có hiệu lực (điểm giáo viên chỉnh sửa nếu có, nếu không thì lấy điểm AI/chấm thử) và số câu trả lời đã được chấm, trên các câu hỏi Nói của bạn. Chọn mức phân nhóm bên dưới; có thể thu hẹp thêm theo một bài kiểm tra và/hoặc một Unit.", "groupByOptions": { "test": "Bài kiểm tra", "unit": "Unit", "week": "Tuần (theo ISO, Thứ Hai–Chủ Nhật)", "month": "Tháng", "quarter": "Quý", "semester": "Học kỳ", "year": "Năm" }, "groupByLabel": "Nhóm theo", "testFilterLabel": "Bài kiểm tra (lọc tùy chọn)", "allTests": "Tất cả bài kiểm tra", "unitFilterLabel": "Unit (lọc tùy chọn)", "allUnits": "Tất cả Unit", "viewDetailedReport": "Xem báo cáo chi tiết", "loadFailed": "Không thể tải báo cáo.", "loadingReport": "Đang tải báo cáo...", "gradedAnswersColumn": "Số câu đã chấm", "averageScoreColumn": "Điểm Nói trung bình", "noData": "Chưa có câu trả lời Nói nào được chấm cho lựa chọn này." },
-  "teacherUnitTests": {
-    "backToDashboard": "← Quay lại trang tổng quan",
-    "heading": "Kiểm tra Unit",
-    "description": {
-      "taggedBefore": "Mọi bài kiểm tra được gắn nhãn",
-      "taggedAfter": ", được nhóm theo Unit trong chương trình học. Hãy gắn nhãn này (và xuất bản) từ trang chỉnh sửa của chính bài kiểm tra đó — vào",
-      "myTestsLink": "Bài kiểm tra của tôi",
-      "toOpenOne": "để mở một bài."
-    },
-    "loadFailed": "Không thể tải danh sách Kiểm tra Unit.",
-    "empty": "Chưa có Kiểm tra Unit nào — hãy mở một bài kiểm tra và đặt loại của nó thành \"Kiểm tra Unit\".",
-    "emptyForClass": "Lớp này chưa được giao bài Kiểm tra Unit nào.",
-    "untaggedGroup": "Chưa gắn nhãn",
-    "viewLeaderboard": "Xem bảng xếp hạng →",
-    "published": "Đã xuất bản",
-    "notPublished": "Chưa xuất bản"
-  },
-  "studentUnitTests": {
-    "backToDashboard": "← Quay lại trang tổng quan",
-    "heading": "Kiểm tra Unit",
-    "description": "Các Kiểm tra Unit mà giáo viên của bạn đã xuất bản, được nhóm theo unit trong chương trình học.",
-    "loadFailed": "Không thể tải danh sách Kiểm tra Unit.",
-    "startFailed": "Không thể bắt đầu Kiểm tra Unit này.",
-    "empty": "Hiện chưa có Kiểm tra Unit nào.",
-    "untaggedGroup": "Chưa gắn nhãn",
-    "viewLeaderboard": "Xem bảng xếp hạng →",
-    "scorePercent": "Điểm: {{percent}}%",
-    "inProgress": "Đang làm bài",
-    "viewResult": "Xem kết quả →",
-    "starting": "Đang bắt đầu...",
-    "resume": "Tiếp tục →",
-    "takeTest": "Làm bài →"
-  },
   "unitLeaderboard": {
-    "backToUnitTests": "← Quay lại Kiểm tra Unit",
     "heading": "Bảng xếp hạng Kiểm tra Unit",
     "headingWithUnit": "{{unitName}} — Bảng xếp hạng Kiểm tra Unit",
-    "description": "Xếp hạng điểm số của (các) Kiểm tra Unit trong unit này, dựa trên hệ thống báo cáo dùng chung (T-019).",
+    "description": "Xếp hạng điểm số của (các) Kiểm tra Unit trong unit này.",
     "loadFailed": "Không thể tải bảng xếp hạng.",
     "classAverageLabel": "Điểm trung bình của lớp:",
     "attemptsSuffix_one": "trên tổng số {{count}} lượt làm bài đã hoàn thành.",
@@ -345,10 +259,10 @@
     "attemptsHeader": "Số lượt làm bài",
     "averageScoreHeader": "Điểm trung bình",
     "noStudents": "Chưa có học sinh nào.",
-    "youSuffix": "(bạn)"
+    "youSuffix": "(bạn)",
+    "backToAssignments": "← Quay lại Bài tập"
   },
   "teacherVocabularyChecks": {
-    "backToDashboard": "← Quay lại trang tổng quan",
     "heading": "Kiểm tra từ vựng",
     "description": "Tạo một bài Kiểm tra từ vựng cho một học sinh hoặc nhóm học sinh cụ thể. Chọn một Unit, số câu hỏi và thời gian làm bài — câu hỏi sẽ được lấy ngẫu nhiên từ toàn bộ từ vựng của unit đó, bất kể học sinh mục tiêu đã học những từ đó hay chưa.",
     "loadStudentsFailed": "Không thể tải danh sách học sinh.",
@@ -377,23 +291,8 @@
     "generatedHeading": "Các Kiểm tra từ vựng đã tạo",
     "noneGenerated": "Chưa tạo bài nào — hãy dùng biểu mẫu phía trên.",
     "detailLine_one": "{{minutes}} phút · {{count}} câu hỏi · giao cho {{students}} · tạo lúc {{date}}",
-    "detailLine_other": "{{minutes}} phút · {{count}} câu hỏi · giao cho {{students}} · tạo lúc {{date}}"
-  },
-  "studentVocabularyChecks": {
-    "backToDashboard": "← Quay lại trang tổng quan",
-    "heading": "Kiểm tra từ vựng",
-    "description": "Một bài kiểm tra do giáo viên tạo từ từ vựng của một unit — số câu hỏi và thời gian làm bài do giáo viên đặt cho từng bài, và có thể bao gồm cả những từ bạn chưa học. Hệ thống sẽ tự động nộp bài khi hết giờ.",
-    "loadFailed": "Không thể tải danh sách Kiểm tra từ vựng.",
-    "startFailed": "Không thể bắt đầu Kiểm tra từ vựng này.",
-    "empty": "Bạn chưa được giao Kiểm tra từ vựng nào.",
-    "detail_one": "{{minutes}} phút · {{count}} câu hỏi",
-    "detail_other": "{{minutes}} phút · {{count}} câu hỏi",
-    "scoreSuffix": " · Điểm: {{percent}}%",
-    "inProgressSuffix": " · Đang làm bài",
-    "viewResult": "Xem kết quả →",
-    "starting": "Đang bắt đầu...",
-    "resume": "Tiếp tục →",
-    "start": "Bắt đầu →"
+    "detailLine_other": "{{minutes}} phút · {{count}} câu hỏi · giao cho {{students}} · tạo lúc {{date}}",
+    "backToClasses": "← Về danh sách lớp"
   },
   "attemptResult": {
     "loadFailed": "Không thể tải kết quả này.",
@@ -421,13 +320,12 @@
     "yourAnswerSuffix": " (câu trả lời của bạn)",
     "correctAnswerSuffix": " (đáp án đúng)",
     "noAnswerSelected": "(chưa chọn đáp án)",
-    "backToDashboard": "← Về trang tổng quan"
+    "backToDashboard": "← Về Bài cần làm"
   },
   "teacherAttemptDetail": {
     "loadFailed": "Không thể tải lượt làm bài này.",
     "scoreRangeError": "Điểm phải là một số từ 0 đến {{max}}.",
     "saveGradeFailed": "Không thể lưu điểm này.",
-    "backToAttempts": "← Về danh sách lượt làm bài",
     "correctOutOf": "Đúng {{correct}}/{{total}} câu",
     "timeTaken": "Thời gian làm bài: {{time}}",
     "stillInProgress": "Đang làm bài — chưa nộp",
@@ -450,9 +348,9 @@
     "saveGrade": "Lưu điểm",
     "commentLine": "Nhận xét: {{comment}}",
     "noRecordingSubmitted": "(chưa nộp bản ghi âm)",
-    "draftTranscriptLabel": "Bản nháp phiên âm (Web Speech API)",
+    "draftTranscriptLabel": "Bản nháp phiên âm (do trình duyệt tự nhận dạng)",
     "noTranscript": "(không có bản phiên âm)",
-    "mockAiGradingLabel": "Chấm điểm AI thử nghiệm (T-051)",
+    "mockAiGradingLabel": "Chấm điểm AI thử nghiệm",
     "overrideScoreOutOf": "Điểm ghi đè (trên {{scale}})",
     "overrideFeedbackOptional": "Nhận xét ghi đè (không bắt buộc)",
     "overrideFeedbackPlaceholder": "Nhận xét dành cho học sinh (để trống để giữ nguyên nhận xét của AI ở trên)",
@@ -500,7 +398,7 @@
     "sessionCodeLabel": "Mã phiên",
     "sessionClosedNotice": "Phiên này đã đóng. Bảng dưới đây phản ánh trạng thái cuối cùng — sẽ không có cập nhật trực tiếp nào thêm.",
     "listeningPlaybackControlHeading": "Điều khiển phát âm thanh Nghe",
-    "listeningPlaybackDescription": "Học sinh trong phiên trực tiếp này không có nút Phát riêng (T-041) — nhấn Phát bên dưới để phát âm thanh của một phần cho tất cả học sinh đang kết nối cùng lúc.",
+    "listeningPlaybackDescription": "Học sinh trong phiên trực tiếp này không có nút Phát riêng — nhấn Phát bên dưới để phát âm thanh của một phần cho tất cả học sinh đang kết nối cùng lúc.",
     "playForStudents": "▶ Phát cho học sinh",
     "noStudentsConnected": "Chưa có học sinh nào kết nối. Danh sách này sẽ cập nhật trực tiếp khi học sinh tham gia và làm bài — không cần tải lại trang.",
     "columns": {
@@ -523,16 +421,6 @@
     "joining": "Đang tham gia...",
     "tryAgain": "Thử lại"
   },
-  "studentPracticeTests": {
-    "loadTestsFailed": "Không thể tải danh sách bài kiểm tra.",
-    "startPracticeFailed": "Không thể bắt đầu tự luyện tập.",
-    "backToDashboard": "← Về trang tổng quan",
-    "heading": "Luyện tập bài kiểm tra tại nhà",
-    "description": "Tự làm bất kỳ bài kiểm tra nào ngoài giờ học trực tiếp trên lớp. Với bài kiểm tra Nghe, bạn tự điều khiển nút Phát ở đây (trong giới hạn mà giáo viên đã đặt) — cùng bài kiểm tra đó khi làm trực tiếp trên lớp sẽ do giáo viên điều khiển.",
-    "noTests": "Chưa có bài kiểm tra nào.",
-    "starting": "Đang bắt đầu...",
-    "practice": "Luyện tập →"
-  },
   "teacherGrammar": {
     "heading": "Chủ đề Ngữ pháp của tôi",
     "subtitle": "Soạn nội dung lý thuyết và bài tập luyện tập cho học sinh.",
@@ -549,7 +437,6 @@
     "openEditor": "Mở trình chỉnh sửa →"
   },
   "teacherGrammarTopicEditor": {
-    "backToTopics": "← Quay lại danh sách chủ đề Ngữ pháp",
     "loadFailed": "Không thể tải chủ đề Ngữ pháp.",
     "saveTitleTheoryFailed": "Không thể lưu chủ đề.",
     "saveUnitFailed": "Không thể lưu nhãn Unit.",
@@ -824,7 +711,6 @@
     "openEditor": "Mở trình chỉnh sửa →"
   },
   "teacherFlashcardSetEditor": {
-    "backToSets": "← Quay lại bộ thẻ từ vựng của tôi",
     "loadError": "Không thể tải bộ thẻ từ vựng.",
     "saveNameError": "Không thể lưu tên bộ thẻ.",
     "saveUnitError": "Không thể lưu Unit gắn kèm.",
@@ -838,7 +724,7 @@
     "addingCard": "Đang thêm...",
     "addCardButton": "+ Thêm thẻ",
     "submissionsHeading": "Bài \"đặt câu với từ vựng\" của học sinh",
-    "submissionsSubtitle": "Chỉ xem — những bài này không được AI chấm hay tự động chấm điểm (theo PROJECT_PLAN, Assumption A3), mà chỉ được lưu lại để bạn xem học sinh đã viết gì.",
+    "submissionsSubtitle": "Chỉ xem — những bài này không được AI chấm hay tự động chấm điểm, mà chỉ được lưu lại để bạn xem học sinh đã viết gì.",
     "noSubmissions": "Chưa có bài nộp nào.",
     "submissionWordPrefix": "{{name}} — từ:",
     "usedWord": "đã dùng từ này",
@@ -865,8 +751,8 @@
     "downloadTemplate": "Tải mẫu (.xlsx)",
     "fileInputLabel": "Chọn tệp Excel (.xlsx, .xls)",
     "parseError": {
-      "unreadable": "Không thể đọc tệp này như một workbook Excel.",
-      "noSheet": "Workbook không có sheet nào.",
+      "unreadable": "Không thể đọc tệp này như một tệp Excel.",
+      "noSheet": "Tệp Excel không có trang tính nào.",
       "noHeaderRow": "Dòng đầu tiên phải là dòng tiêu đề chứa tên cột.",
       "missingColumns": "Thiếu (các) cột bắt buộc: term, meaning.",
       "noDataRows": "Không tìm thấy dòng dữ liệu nào bên dưới dòng tiêu đề.",
@@ -1015,8 +901,6 @@
   },
   "teacherVocabRanking": {
     "heading": "Báo cáo xếp hạng từ vựng",
-    "descriptionBeforeCode": "Xếp hạng CHỈ tính trong khoảng thời gian đã chọn (không phải toàn thời gian), dựa trên hoạt động luyện tập trong khoảng đó. Công thức tính điểm và lý do \"xếp hạng theo kỳ khác với bảng xếp hạng toàn thời gian\" được ghi chú trong ",
-    "descriptionAfterCode": ".",
     "periodLabel": "Khoảng thời gian",
     "monthWord": "Tháng",
     "yearWord": "Năm",
@@ -1026,16 +910,16 @@
       "september": "Tháng 9", "october": "Tháng 10", "november": "Tháng 11", "december": "Tháng 12"
     },
     "loadError": "Không thể tải bảng xếp hạng.",
-    "periodWindow": "Khoảng thời gian (Asia/Ho_Chi_Minh): {{start}} – {{end}} (không bao gồm mốc kết thúc)",
+    "periodWindow": "Khoảng thời gian (giờ Việt Nam): {{start}} – {{end}} (không bao gồm mốc kết thúc)",
     "colRank": "Hạng",
     "colStudent": "Học sinh",
-    "colAttemptsInPeriod": "Số lần làm trong kỳ",
+    "colAttemptsInPeriod": "Số lần làm trong khoảng này",
     "colAccuracy": "Độ chính xác",
     "colScore": "Điểm",
-    "emptyState": "Không có hoạt động từ vựng nào trong khoảng thời gian này."
+    "emptyState": "Không có hoạt động từ vựng nào trong khoảng thời gian này.",
+    "description": "Xếp hạng CHỈ tính trong khoảng thời gian đã chọn (không phải toàn thời gian), dựa trên hoạt động luyện tập trong khoảng đó."
   },
   "teacherTestEditor": {
-    "backToTests": "← Quay lại bài kiểm tra của tôi",
     "loadFailed": "Không thể tải bài kiểm tra.",
     "defaultQuestions": {
       "trueFalsePrompt": "Câu hỏi đúng/sai mới",
@@ -1060,10 +944,10 @@
       "timeLimitLabel": "Thời gian làm bài (phút, không bắt buộc)",
       "timeLimitPlaceholder": "Không giới hạn",
       "timeLimitInvalid": "Thời gian làm bài phải là số phút nguyên, hoặc để trống nếu không giới hạn.",
-      "unitLabel": "Unit (không bắt buộc, T-018)",
+      "unitLabel": "Unit (không bắt buộc)",
       "noUnit": "Không thuộc Unit nào",
-      "testTypeLabel": "Loại bài kiểm tra (T-036)",
-      "publishedLabel": "Đã xuất bản (hiển thị cho học sinh trong mục \"Kiểm tra Unit\")",
+      "testTypeLabel": "Loại bài kiểm tra",
+      "publishedLabel": "Đã xuất bản (học sinh chỉ thấy Kiểm tra Unit khi đã xuất bản)",
       "viewUnitLeaderboard": "Xem bảng xếp hạng của Unit này →"
     },
     "errors": {
@@ -1091,10 +975,10 @@
       "moveDown": "Di chuyển phần xuống",
       "delete": "Xóa phần",
       "contentSummary": "Đoạn văn đọc hiểu / Âm thanh nghe (không bắt buộc)",
-      "passageTextLabel": "Nội dung đoạn văn (T-039)",
+      "passageTextLabel": "Nội dung đoạn văn",
       "passageTextPlaceholder": "Dán đoạn văn đọc hiểu vào đây — sẽ hiển thị cho học sinh phía trên các câu hỏi của phần này.",
       "passageImageUrlLabel": "URL hình ảnh đoạn văn (không bắt buộc)",
-      "audioUrlLabel": "URL âm thanh (T-040/T-041, quy ước tạm thời giống âm thanh thẻ từ vựng)",
+      "audioUrlLabel": "URL âm thanh",
       "urlPlaceholder": "https://...",
       "orUploadFile": "hoặc tải lên từ máy",
       "uploadTooLarge": "Tệp quá lớn — vui lòng chọn tệp dưới {{limitMb}} MB.",
@@ -1200,17 +1084,20 @@
     "promptLabel": "Nội dung câu hỏi",
     "acceptedAnswersLabel": "Đáp án được chấp nhận (phân cách bằng dấu phẩy)",
     "acceptedAnswersPlaceholder": "VD: Paris, paris",
-    "essayMaxScoreLabel": "Điểm tối đa (giáo viên chấm thủ công trên thang điểm này, T-042)",
+    "essayMaxScoreLabel": "Điểm tối đa (giáo viên chấm thủ công trên thang điểm này)",
     "essayHint": "Học sinh nộp bài dạng văn bản tự do; loại câu hỏi này không có lựa chọn hay đáp án được chấm tự động.",
-    "speakingResponseTimeLabel": "Thời gian trả lời cho phép (giây, T-052)",
+    "speakingResponseTimeLabel": "Thời gian trả lời cho phép (giây)",
     "speakingPromptAudioLabel": "URL âm thanh đề bài (không bắt buộc)",
     "speakingPromptAudioPlaceholder": "https://... (để trống nếu chỉ dùng đề bài dạng văn bản)",
-    "speakingHint": "Học sinh ghi âm câu trả lời trực tiếp trên trình duyệt trong thời gian cho phép, và câu trả lời được chấm điểm tự động (chấm bằng AI giả lập, T-051) — bạn có thể xem lại và điều chỉnh điểm sau đó từ trang chi tiết lượt làm bài.",
+    "speakingHint": "Học sinh ghi âm câu trả lời trực tiếp trên trình duyệt trong thời gian cho phép, và câu trả lời được chấm điểm tự động (chấm bằng AI giả lập) — bạn có thể xem lại và điều chỉnh điểm sau đó từ trang chi tiết lượt làm bài.",
     "choicesLabel": "Các lựa chọn (chọn đáp án đúng)",
     "markCorrectAriaLabel": "Đánh dấu lựa chọn {{number}} là đáp án đúng",
     "removeChoiceAriaLabel": "Xóa lựa chọn {{number}}",
     "removeButton": "Xóa",
     "addChoiceButton": "+ Thêm lựa chọn",
     "types": { "multipleChoice": "Trắc nghiệm", "trueFalse": "Đúng / Sai", "fillBlank": "Điền vào chỗ trống", "essay": "Tự luận (Viết)", "speaking": "Nói" }
+  },
+  "libraryBreadcrumb": {
+    "ariaLabel": "Đường dẫn"
   }
 }

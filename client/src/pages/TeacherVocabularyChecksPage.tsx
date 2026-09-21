@@ -27,7 +27,7 @@ import { classAssignmentsPath } from '../lib/classAssignments';
  * selected unit) rather than a new endpoint — that data is already fetched by other
  * teacher pages and is small enough to just reuse here.
  *
- * T-097: reached with `?classId=` (from `TeacherClassWorkspacePage`'s hub), the target-
+ * T-097: reached with `?classId=` (from the class workspace, before T-103 embedded it), the target-
  * student list DEFAULTS to that class's own roster, filtered client-side using each
  * student's own `classId` (`TeacherStudentSummaryDTO`'s new field, from the SAME
  * `GET /api/teacher/students` call already made here — no new endpoint). The full
@@ -185,8 +185,8 @@ function TeacherVocabularyChecksPage() {
             {t('classAssignments.backToAssignments')}
           </Link>
         ) : (
-          <Link to="/teacher/dashboard" className="text-sm text-primary-600 hover:underline">
-            {t('teacherVocabularyChecks.backToDashboard')}
+          <Link to="/teacher/classes" className="text-sm text-primary-600 hover:underline">
+            {t('teacherVocabularyChecks.backToClasses')}
           </Link>
         )}
         <Heading className="mt-2 text-2xl font-bold text-primary-700">

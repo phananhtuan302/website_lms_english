@@ -67,9 +67,7 @@ function TeacherVocabRankingPage() {
       <div>
         <h1 className="text-2xl font-bold text-primary-700">{t('teacherVocabRanking.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">
-          {t('teacherVocabRanking.descriptionBeforeCode')}
-          <code>server/src/lib/vocabLeaderboard.ts</code>
-          {t('teacherVocabRanking.descriptionAfterCode')}
+          {t('teacherVocabRanking.description')}
         </p>
         {data && !isEmbedded && (
           <p className="mt-1 text-sm text-primary-600">

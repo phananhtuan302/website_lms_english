@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { AcademicPeriodDTO, UnitDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** Renders a UTC-instant ISO string (see `AcademicPeriodDTO`'s doc comment — it
  * represents local midnight in Asia/Ho_Chi_Minh) back as the plain `YYYY-MM-DD` calendar
@@ -156,7 +157,8 @@ function TeacherCurriculumPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-bold text-primary-700">{t('teacherCurriculum.heading')}</h1>
+        <LibraryBreadcrumb section="curriculum" />
+        <h1 className="mt-2 text-2xl font-bold text-primary-700">{t('teacherCurriculum.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('teacherCurriculum.description')}</p>
       </div>
 

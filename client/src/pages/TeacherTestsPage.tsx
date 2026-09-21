@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TEST_TYPE_LABELS, type TestSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** `null` average (zero completed attempts yet, T-017) renders as nothing rather than
  * "0:00" — see `TestSummaryDTO.averageTimeTakenSeconds`'s doc comment for why an
@@ -83,7 +84,8 @@ function TeacherTestsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">{t('teacherTests.heading')}</h1>
+      <LibraryBreadcrumb section="tests" />
+      <h1 className="mt-2 text-2xl font-bold text-primary-700">{t('teacherTests.heading')}</h1>
       <p className="mt-1 text-sm text-base-black/60">{t('teacherTests.subtitle')}</p>
 
       <form onSubmit={handleCreate} className="mt-6 flex flex-wrap items-end gap-3">

@@ -24,9 +24,7 @@ function isNavItemActive(item: NavItem, pathname: string): boolean {
  * as a `href="#"` placeholder — "stays non-functional until the tasks that build those
  * pages land" — and was never revisited once T-008/T-019/T-022/etc. actually landed, so
  * every page's real feature was reachable only via each dashboard's own links, never from
- * the persistent top nav a user actually tries first). Mirrors the link set already on
- * `TeacherDashboardPage`/`StudentDashboardPage` so the same feature has the same label in
- * both places.
+ * the persistent top nav a user actually tries first).
  *
  * Labels are i18n keys (T-067), not raw strings — resolved via `t()` at render time so
  * the site-wide language setting (never a per-user switcher, see PROJECT_PLAN Guiding

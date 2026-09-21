@@ -5,6 +5,7 @@ import {
   generateVariants,
   newStudentContext,
   newTeacherContext,
+  startTestFromHome,
   uniqueTitle,
 } from './utils';
 
@@ -37,10 +38,8 @@ test('student records a Speaking answer and it is graded by the mock AI provider
     // this freshly-authored test to the e2e student's own class ("Class 6A").
     await assignContentToClass(teacherContext, title, 'Class 6A');
 
-    await studentPage.goto('/student/practice');
-    const row = studentPage.getByRole('listitem').filter({ hasText: title });
-    await row.getByRole('button', { name: 'Practice →' }).click();
-    await studentPage.waitForURL(/\/student\/attempts\/[a-zA-Z0-9-]+$/, { timeout: 15_000 });
+    // The old self-practice picker is gone (T-105/T-106): start from the "Bài cần làm" home.
+    await startTestFromHome(studentPage, title);
 
     await expect(studentPage.getByText('New speaking question')).toBeVisible();
     await expect(studentPage.getByText(/Time left to respond/)).toBeVisible();

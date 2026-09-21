@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { GrammarTopicDetailDTO, UnitDTO, UpdateGrammarExerciseRequest } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import GrammarExerciseEditor from '../components/GrammarExerciseEditor';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** Default new-exercise shape — a sensible, editable placeholder, same convention as
  * `TeacherFlashcardSetEditorPage.tsx`'s `defaultCardBody`. Takes `t` since it's a
@@ -117,9 +118,7 @@ function TeacherGrammarTopicEditorPage() {
   if (!topic) {
     return (
       <div>
-        <Link to="/teacher/grammar-topics" className="text-sm text-primary-600 hover:underline">
-          {t('teacherGrammarTopicEditor.backToTopics')}
-        </Link>
+        <LibraryBreadcrumb section="grammar" linkSection />
         {error ? (
           <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -134,9 +133,7 @@ function TeacherGrammarTopicEditorPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Link to="/teacher/grammar-topics" className="text-sm text-primary-600 hover:underline">
-          {t('teacherGrammarTopicEditor.backToTopics')}
-        </Link>
+        <LibraryBreadcrumb section="grammar" linkSection />
         <input
           type="text"
           value={title}

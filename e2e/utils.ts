@@ -105,45 +105,133 @@ export async function joinSessionAsStudent(page: Page, joinUrl: string): Promise
 }
 
 /**
- * T-076 (Phase 12): student-facing visibility (self-practice list, QR join, flashcard
- * sets, Grammar topics) is now scoped to the acting student's own `Class` — content with
- * zero class assignments is invisible/unjoinable to every student. `createTestWithQuestion`
- * above deliberately does NOT auto-assign a class (that would break
- * `07-content-class-assignment.spec.ts`'s own explicit "starts unassigned" premise), so
- * every OTHER spec that has the shared e2e student (registered into "Class 6A" per
- * `global-setup.ts`) actually join/self-practice a freshly-authored test needs this one
- * extra step: assign that content to "Class 6A" via the consolidated "My Content" page
- * (T-075) — the exact same UI flow `07-content-class-assignment.spec.ts` already
- * exercises directly, reused here as a fixture-setup helper instead of a duplicated
- * implementation.
+ * Phase 13 class-workspace helpers. Every locator below is the English (`en.json`) text of
+ * the real component — the same premise as the rest of this suite (see the other helpers'
+ * English button names).
+ */
+
+/** Creates a class from the class-card home ("+ New class" → name → "Create class") and waits
+ * for its card to appear. A brand-new class has no semester yet — see `ensureClassSemester`. */
+export async function createClass(page: Page, name: string): Promise<void> {
+  await page.goto('/teacher/classes');
+  await page.getByRole('button', { name: '+ New class' }).first().click();
+  await page.getByLabel('Class name').fill(name);
+  await page.getByRole('button', { name: 'Create class' }).click();
+  await expect(classCardLink(page, name)).toBeVisible();
+}
+
+/** The class-card link whose heading is exactly `className`. */
+function classCardLink(page: Page, className: string) {
+  return page.getByRole('link').filter({ has: page.getByRole('heading', { name: className, exact: true }) });
+}
+
+/** From the class-card home, opens `className` and switches to one of its tabs
+ * (`Overview` · `Assignments` · `Students` · `Grades` · `Statistics` · `Settings`). */
+export async function openClassTab(page: Page, className: string, tabName: string): Promise<void> {
+  await page.goto('/teacher/classes');
+  await classCardLink(page, className).click();
+  await page.getByRole('navigation', { name: 'Class sections' }).getByRole('link', { name: tabName }).click();
+}
+
+/** A class needs a current semester before work can be assigned (T-099). If the workspace
+ * still shows the "-- Choose a semester --" placeholder, picks the first real semester and
+ * accepts the confirm dialog; a class that already has one is left untouched. */
+export async function ensureClassSemester(page: Page): Promise<void> {
+  const semesterSelect = page.getByLabel('Semester').first();
+  // Disabled while the semester list is still loading.
+  await expect(semesterSelect).toBeEnabled();
+  if ((await semesterSelect.inputValue()) !== '') return;
+  page.once('dialog', (dialog) => dialog.accept());
+  await semesterSelect.selectOption({ index: 1 });
+  await expect(page.getByText(/This class has no semester yet/)).toHaveCount(0);
+}
+
+export type AssignableKind = 'test' | 'flashcardSet' | 'grammarTopic';
+
+const ASSIGN_DIALOG_TAB: Record<AssignableKind, string> = {
+  test: 'Tests',
+  flashcardSet: 'Flashcard sets',
+  grammarTopic: 'Grammar',
+};
+
+/**
+ * T-076 (Phase 12) made student-facing visibility (self-practice list, QR join, flashcard
+ * sets, Grammar topics) depend on the acting student's own `Class`: content with zero class
+ * assignments is invisible/unjoinable to every student. `createTestWithQuestion` above
+ * deliberately does NOT auto-assign a class (that would break
+ * `07-content-class-assignment.spec.ts`'s own "starts unassigned" premise), so every OTHER
+ * spec that has the shared e2e student (registered into "Class 6A" per `global-setup.ts`)
+ * actually join/practice a freshly-authored item needs this one extra step.
+ *
+ * T-106 (Phase 13): the old "My Content" page and its per-class chips are gone. The flow is
+ * now class workspace → Assignments tab → "Assign new work" dialog → tick the item → confirm
+ * — the exact UI flow `07-content-class-assignment.spec.ts` exercises directly, reused here
+ * as a fixture-setup helper.
  *
  * Runs on a FRESH page in the teacher's own context (never the caller's already-open
  * `teacherPage`), so it never disturbs a spec's existing navigation state on that page
  * (e.g. a still-open test editor a later step needs to return to, such as
  * `04-listening-live-playback.spec.ts`'s "Live monitor" button).
  *
- * Idempotent (checks `aria-pressed` before clicking) so re-running the suite against a
- * DB where a SEED item (e.g. `02-flashcard-and-exercise.spec.ts`'s reused flashcard set)
- * was already assigned in a previous run never accidentally toggles it back off.
+ * Idempotent: the dialog only lists items NOT yet assigned to the class this semester, so an
+ * item that is already assigned (e.g. `02-flashcard-and-exercise.spec.ts`'s reused seed set on
+ * a second run) simply isn't offered — the helper closes the dialog and just checks the item
+ * is listed on the Assignments tab.
  */
 export async function assignContentToClass(
   teacherContext: BrowserContext,
   itemTitle: string,
   className: string,
+  kind: AssignableKind = 'test',
 ): Promise<void> {
   const page = await teacherContext.newPage();
   try {
-    await page.goto('/teacher/content');
-    const row = page.getByRole('listitem').filter({ hasText: itemTitle });
-    await expect(row).toBeVisible();
+    await openClassTab(page, className, 'Assignments');
+    await ensureClassSemester(page);
 
-    const chip = row.getByRole('button', { name: className });
-    const alreadyAssigned = (await chip.getAttribute('aria-pressed')) === 'true';
-    if (!alreadyAssigned) {
-      await chip.click();
-      await expect(chip).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Assign new work' }).click();
+    const dialog = page.getByRole('dialog');
+    // The Library loads after the dialog opens: wait for the type tabs (something to assign)
+    // or for one of the "nothing left to assign" states (which carry a "Go to Library" link).
+    await dialog.getByRole('tablist').or(dialog.getByRole('link', { name: 'Go to Library' })).first().waitFor();
+
+    if ((await dialog.getByRole('tablist').count()) > 0) {
+      await dialog.getByRole('tab', { name: ASSIGN_DIALOG_TAB[kind] }).click();
+      await dialog.getByLabel('Search by name...').fill(itemTitle);
+      const checkbox = dialog.getByRole('checkbox', { name: itemTitle });
+      await checkbox
+        .or(dialog.getByText('No items match your search.'))
+        .or(dialog.getByText('Nothing of this type left to assign.'))
+        .first()
+        .waitFor();
+      if ((await checkbox.count()) > 0) {
+        await checkbox.check();
+        await dialog.getByRole('button', { name: /^Assign [0-9]+ items? to class$/ }).click();
+        // A fully successful run closes the dialog by itself.
+        await expect(dialog).toBeHidden();
+      } else {
+        await dialog.getByRole('button', { name: 'Cancel' }).click();
+      }
+    } else {
+      await dialog.getByRole('button', { name: 'Close', exact: true }).first().click();
     }
+
+    await expect(page.getByRole('listitem').filter({ hasText: itemTitle })).toBeVisible();
   } finally {
     await page.close();
   }
+}
+
+/**
+ * Student side of Phase 13 (T-105/T-106): the old self-practice pickers (`/student/practice`,
+ * `/student/unit-tests`) are gone — every assigned test, Unit Test and Vocabulary Check is a
+ * row on the "Bài cần làm" home (`/student/dashboard`). Finds the row for `title`, clicks its
+ * "Start" button and waits for the take-test runtime.
+ */
+export async function startTestFromHome(page: Page, title: string): Promise<void> {
+  await page.goto('/student/dashboard');
+  const row = page.getByRole('listitem').filter({ hasText: title });
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Start' }).click();
+  await page.waitForURL(/\/student\/attempts\/[a-zA-Z0-9-]+$/, { timeout: 15_000 });
 }

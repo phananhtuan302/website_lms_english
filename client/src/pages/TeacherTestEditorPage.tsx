@@ -17,6 +17,7 @@ import type {
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import QuestionEditor from '../components/QuestionEditor';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** Every value `Test.testType` supports (T-036/T-038, Assumption A4) — the authoring
  * dropdown below resolves each value's label via `t('teacherTestEditor.testTypes.*')`
@@ -449,9 +450,7 @@ function TeacherTestEditorPage() {
   if (!test) {
     return (
       <div>
-        <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
-          {t('teacherTestEditor.backToTests')}
-        </Link>
+        <LibraryBreadcrumb section="tests" linkSection />
         {error ? (
           <p
             role="alert"
@@ -469,9 +468,7 @@ function TeacherTestEditorPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Link to="/teacher/tests" className="text-sm text-primary-600 hover:underline">
-          {t('teacherTestEditor.backToTests')}
-        </Link>
+        <LibraryBreadcrumb section="tests" linkSection />
         <input
           type="text"
           value={title}

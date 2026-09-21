@@ -29,7 +29,7 @@ test('student studies a flashcard set and completes a fill-in-the-blank exercise
   baseURL,
 }) => {
   const teacherContext = await newTeacherContext(browser, baseURL!);
-  await assignContentToClass(teacherContext, SEED_FLASHCARD_SET_TITLE, 'Class 6A');
+  await assignContentToClass(teacherContext, SEED_FLASHCARD_SET_TITLE, 'Class 6A', 'flashcardSet');
   await teacherContext.close();
 
   const context = await newStudentContext(browser, baseURL!);

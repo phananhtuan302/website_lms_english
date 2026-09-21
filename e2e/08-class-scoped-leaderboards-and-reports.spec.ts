@@ -1,8 +1,11 @@
 import { test, expect } from '@playwright/test';
 import {
+  assignContentToClass,
+  createClass,
   createTestWithQuestion,
   generateVariants,
   newTeacherContext,
+  startTestFromHome,
   uniqueTitle,
 } from './utils';
 
@@ -43,11 +46,8 @@ test('same Test assigned to two classes produces separate, correctly class-scope
 
   try {
     // --- 1. Teacher creates two fresh, empty classes -----------------------------------
-    await teacherPage.goto('/teacher/classes');
     for (const name of [classAName, classBName]) {
-      await teacherPage.getByLabel('Class name').fill(name);
-      await teacherPage.getByRole('button', { name: 'Add class' }).click();
-      await teacherPage.locator(`input[value="${name}"]`).waitFor();
+      await createClass(teacherPage, name);
     }
 
     // --- 2. Teacher authors a test, tags it as a published Unit Test -------------------
@@ -62,11 +62,11 @@ test('same Test assigned to two classes produces separate, correctly class-scope
 
     await Promise.all([
       teacherPage.waitForResponse(patchUrl),
-      teacherPage.getByLabel('Unit (optional, T-018)').selectOption({ label: 'Unit 1 — Getting Started' }),
+      teacherPage.getByLabel('Unit (optional)').selectOption({ label: 'Unit 1 — Getting Started' }),
     ]);
     await Promise.all([
       teacherPage.waitForResponse(patchUrl),
-      teacherPage.getByLabel('Test type (T-036)').selectOption('unitTest'),
+      teacherPage.getByLabel('Test type', { exact: true }).selectOption('unitTest'),
     ]);
     await Promise.all([
       teacherPage.waitForResponse(patchUrl),
@@ -81,14 +81,11 @@ test('same Test assigned to two classes produces separate, correctly class-scope
     const unitHref = await leaderboardLink.getAttribute('href');
     expect(unitHref).toMatch(/\/units\/.+\/leaderboard/);
 
-    // --- 3. Teacher assigns the SAME test to BOTH new classes from My Content ----------
-    await teacherPage.goto('/teacher/content');
-    const contentRow = teacherPage.getByRole('listitem').filter({ hasText: title });
-    await expect(contentRow).toBeVisible();
-    await contentRow.getByRole('button', { name: classAName }).click();
-    await expect(contentRow.getByRole('button', { name: classAName })).toHaveAttribute('aria-pressed', 'true');
-    await contentRow.getByRole('button', { name: classBName }).click();
-    await expect(contentRow.getByRole('button', { name: classBName })).toHaveAttribute('aria-pressed', 'true');
+    // --- 3. Teacher assigns the SAME test to BOTH new classes (class workspace →
+    // Assignments tab → "Assign new work"; the helper also picks a semester for each fresh
+    // class first, since a class needs one before work can be assigned) ---------------
+    await assignContentToClass(teacherContext, title, classAName);
+    await assignContentToClass(teacherContext, title, classBName);
 
     // --- 4. Look up the two new classes' ids (public, unauthenticated endpoint) so the
     // registration page's class picker can be driven reliably by VALUE rather than by its
@@ -130,11 +127,11 @@ test('same Test assigned to two classes produces separate, correctly class-scope
 
     // --- 6. Each student takes the SAME Unit Test, deliberately scoring differently ----
     async function takeUnitTest(page: import('@playwright/test').Page, correctAnswer: boolean) {
-      await page.goto('/student/unit-tests');
-      await expect(page.getByText('Unit 1 — Getting Started')).toBeVisible();
-      const row = page.getByRole('listitem').filter({ hasText: title });
-      await row.getByRole('button', { name: 'Take test →' }).click();
-      await page.waitForURL(/\/student\/attempts\/[a-zA-Z0-9-]+$/, { timeout: 15_000 });
+      await page.goto('/student/dashboard');
+      await expect(
+        page.getByRole('listitem').filter({ hasText: title }).getByText('Unit 1 — Getting Started'),
+      ).toBeVisible();
+      await startTestFromHome(page, title);
       // Selecting a choice fires a FIRE-AND-FORGET autosave PUT
       // (`TakeTestPage.tsx`'s `handleSelectChoice` → `studentApi.saveAnswer`, never
       // awaited by the click handler) — `/submit` grades whatever is already persisted in

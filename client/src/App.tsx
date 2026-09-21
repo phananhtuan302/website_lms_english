@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
+import { LegacyClassRedirect, TestReportRoute, VocabLeaderboardRoute } from './components/LegacyRedirects';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { AttemptLockProvider } from './context/AttemptLockContext';
@@ -42,22 +43,17 @@ import ClassStudentsTab from './pages/classWorkspace/ClassStudentsTab';
 import ClassUnknownTabRedirect from './pages/classWorkspace/ClassUnknownTabRedirect';
 import ClassWorkspaceLayout from './pages/classWorkspace/ClassWorkspaceLayout';
 import TeacherLibraryPage from './pages/TeacherLibraryPage';
-import TeacherContentPage from './pages/TeacherContentPage';
 import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
 import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
 import TeacherFlashcardSetProgressPage from './pages/TeacherFlashcardSetProgressPage';
 import TeacherGrammarPage from './pages/TeacherGrammarPage';
-import TeacherGrammarReportsPage from './pages/TeacherGrammarReportsPage';
 import TeacherGrammarTopicEditorPage from './pages/TeacherGrammarTopicEditorPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
-import TeacherReportsHubPage from './pages/TeacherReportsHubPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestAttemptsReportPage from './pages/TeacherTestAttemptsReportPage';
 import TeacherTestsPage from './pages/TeacherTestsPage';
 import TeacherTestEditorPage from './pages/TeacherTestEditorPage';
-import TeacherUnitTestsPage from './pages/TeacherUnitTestsPage';
-import TeacherVocabRankingPage from './pages/TeacherVocabRankingPage';
 import TeacherVocabularyChecksPage from './pages/TeacherVocabularyChecksPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import UnitLeaderboardPage from './pages/UnitLeaderboardPage';
@@ -72,9 +68,9 @@ import VocabLeaderboardPage from './pages/VocabLeaderboardPage';
  * same in-progress-attempt lock state and its route-level force-redirect. It needs
  * `useLocation`/`useNavigate`, so it must render inside `BrowserRouter` too.
  *
- * `/teacher/dashboard` and `/student/dashboard` are placeholder pages proving the
- * route guard works end to end — later tasks (T-008, T-011+) replace their contents,
- * not their route/guard wiring.
+ * Teachers land on `/teacher/classes` (class-card home; `/teacher/dashboard` and the other
+ * pre-Phase-13 teacher URLs only redirect there — T-106); students land on
+ * `/student/dashboard` ("Bài cần làm").
  */
 function App() {
   return (
@@ -100,16 +96,40 @@ function App() {
                 {/* T-102: the old dashboard is retired — teachers land on the class-card
                   home now; this stays only so old bookmarks/links don't break. */}
                 <Route path="/teacher/dashboard" element={<Navigate to="/teacher/classes" replace />} />
+                {/* T-106: the scattered pre-Phase-13 pages are gone — each old URL below now
+                  redirects into the class workspace (see LegacyRedirects.tsx): to the class named
+                  by `?classId=` when there is one, otherwise to the class-card home. */}
+                <Route path="/teacher/content" element={<LegacyClassRedirect to="assignments" />} />
+                <Route path="/teacher/unit-tests" element={<LegacyClassRedirect to="assignments" />} />
+                <Route
+                  path="/teacher/vocabulary-checks"
+                  element={<LegacyClassRedirect to="vocabularyChecks" />}
+                />
+                <Route path="/teacher/reports" element={<LegacyClassRedirect to="stats" />} />
+                <Route
+                  path="/teacher/vocab-ranking"
+                  element={<LegacyClassRedirect to="vocabularyStats" />}
+                />
+                <Route
+                  path="/teacher/grammar-reports"
+                  element={<LegacyClassRedirect to="grammarStats" />}
+                />
                 {/* "Thư viện" landing (T-102): four cards leading into the authoring pages. */}
                 <Route path="/teacher/library" element={<TeacherLibraryPage />} />
                 <Route path="/teacher/tests" element={<TeacherTestsPage />} />
                 <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
                 {/* Per-test attempt report (T-087): ranked list of every submitted
                   attempt of one test, across all sessions AND self-practice. Drills
-                  into the existing `/teacher/attempts/:attemptId` route below. */}
+                  into the existing `/teacher/attempts/:attemptId` route below. T-106: with
+                  `?classId=` it redirects to the class-embedded results page; without it this
+                  standalone page (with its own class picker) still works. */}
                 <Route
                   path="/teacher/tests/:testId/report"
-                  element={<TeacherTestAttemptsReportPage />}
+                  element={
+                    <TestReportRoute>
+                      <TeacherTestAttemptsReportPage />
+                    </TestReportRoute>
+                  }
                 />
                 <Route path="/teacher/curriculum" element={<TeacherCurriculumPage />} />
                 {/* Class-card home (T-074 → rewritten in T-102): one card per class, plus
@@ -139,10 +159,6 @@ function App() {
                   <Route path="settings" element={<ClassSettingsTab />} />
                   <Route path="*" element={<ClassUnknownTabRedirect />} />
                 </Route>
-                {/* Consolidated "My Content" management page (T-075, Phase 12): assign any
-                  of the teacher's own Tests/FlashcardSets/GrammarTopics to any of their
-                  classes without opening that item's full editor. */}
-                <Route path="/teacher/content" element={<TeacherContentPage />} />
                 <Route path="/teacher/flashcard-sets" element={<TeacherFlashcardsPage />} />
                 <Route
                   path="/teacher/flashcard-sets/:setId"
@@ -162,30 +178,12 @@ function App() {
                   element={<TeacherLiveSessionPage />}
                 />
                 <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
-                {/* Unified reporting area (T-057): module switcher (Test/Unit Test/
-                  Vocabulary/Grammar/Speaking) over the same reporting engines each
-                  module already used standalone. */}
-                <Route path="/teacher/reports" element={<TeacherReportsHubPage />} />
-                {/* Vocabulary monthly (T-032) / yearly (T-033) ranking report. */}
-                <Route path="/teacher/vocab-ranking" element={<TeacherVocabRankingPage />} />
                 {/* Grammar topic authoring: theory content (T-047) + practice exercises
                   (T-048). */}
                 <Route path="/teacher/grammar-topics" element={<TeacherGrammarPage />} />
                 <Route
                   path="/teacher/grammar-topics/:topicId"
                   element={<TeacherGrammarTopicEditorPage />}
-                />
-                {/* Grammar reports (T-050), reusing T-019's engine additively. */}
-                <Route path="/teacher/grammar-reports" element={<TeacherGrammarReportsPage />} />
-                {/* Unit Test management (T-036): grouped-by-Unit listing of this
-                  teacher's own `testType: unitTest` tests. Tagging/publishing a test as
-                  a Unit Test happens in the regular test editor above. */}
-                <Route path="/teacher/unit-tests" element={<TeacherUnitTestsPage />} />
-                {/* Vocabulary Check generation (T-038): pick target student(s), generate,
-                  and see previously-generated checks. */}
-                <Route
-                  path="/teacher/vocabulary-checks"
-                  element={<TeacherVocabularyChecksPage />}
                 />
               </Route>
 
@@ -285,7 +283,16 @@ function App() {
                 route block with both roles allowed, rather than duplicated under
                 /teacher and /student. */}
               <Route element={<ProtectedRoute allowedRoles={['teacher', 'student']} />}>
-                <Route path="/vocab-leaderboard" element={<VocabLeaderboardPage />} />
+                {/* T-106: the teacher's view redirects into the class workspace's Thống kê
+                  tab; students keep this page. */}
+                <Route
+                  path="/vocab-leaderboard"
+                  element={
+                    <VocabLeaderboardRoute>
+                      <VocabLeaderboardPage />
+                    </VocabLeaderboardRoute>
+                  }
+                />
                 {/* Unit Test report & leaderboard (T-037) — visible to both roles, same
                   "own route block with both roles allowed" pattern as the vocabulary
                   leaderboard above. */}

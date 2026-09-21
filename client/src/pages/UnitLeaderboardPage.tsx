@@ -6,6 +6,9 @@ import { apiRequest, ApiError } from '../lib/apiClient';
 import { useAuth } from '../context/useAuth';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
+import { classAssignmentsPath } from '../lib/classAssignments';
+import { CLASSES_HOME_PATH } from '../lib/classWorkspace';
+import { dashboardPathForRole } from '../lib/roles';
 
 /**
  * Unit Test report & leaderboard (T-037) — visible to BOTH roles (see `App.tsx`'s route
@@ -48,13 +51,19 @@ function UnitLeaderboardPage() {
       });
   }, [unitId, t, isTeacherView, classId]);
 
-  const backPath = user?.role === 'teacher' ? '/teacher/unit-tests' : '/student/unit-tests';
+  // T-106: the old Unit Tests pages are gone — a Unit test is just a row of the class's Bài tập
+  // tab (teacher, back to the class being viewed) or of the student's "Bài cần làm" home.
+  const backPath = isTeacherView
+    ? classId
+      ? classAssignmentsPath(classId)
+      : CLASSES_HOME_PATH
+    : dashboardPathForRole(user?.role ?? 'student');
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <Link to={backPath} className="text-sm text-primary-600 hover:underline">
-          {t('unitLeaderboard.backToUnitTests')}
+          {t('unitLeaderboard.backToAssignments')}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-primary-700">
           {data

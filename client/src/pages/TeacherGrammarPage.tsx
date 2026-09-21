@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { GrammarTopicSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /**
  * Teacher's "my Grammar topics" list (T-046/T-047). Same shape as
@@ -51,7 +52,8 @@ function TeacherGrammarPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">{t('teacherGrammar.heading')}</h1>
+      <LibraryBreadcrumb section="grammar" />
+      <h1 className="mt-2 text-2xl font-bold text-primary-700">{t('teacherGrammar.heading')}</h1>
       <p className="mt-1 text-sm text-base-black/60">{t('teacherGrammar.subtitle')}</p>
 
       <form onSubmit={handleCreate} className="mt-6 flex flex-wrap items-end gap-3">

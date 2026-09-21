@@ -11,6 +11,7 @@ import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import FlashcardCardEditor from '../components/FlashcardCardEditor';
 import FlashcardExcelImportPanel from '../components/FlashcardExcelImportPanel';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** Default new-card shape — a sensible, editable placeholder, same convention as
  * `TeacherTestEditorPage.tsx`'s `defaultQuestionBody`. */
@@ -116,9 +117,7 @@ function TeacherFlashcardSetEditorPage() {
   if (!set) {
     return (
       <div>
-        <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
-          {t('teacherFlashcardSetEditor.backToSets')}
-        </Link>
+        <LibraryBreadcrumb section="flashcards" linkSection />
         {error ? (
           <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -134,9 +133,7 @@ function TeacherFlashcardSetEditorPage() {
     <div className="flex flex-col gap-8">
       <div>
         <div className="flex items-center justify-between">
-          <Link to="/teacher/flashcard-sets" className="text-sm text-primary-600 hover:underline">
-            {t('teacherFlashcardSetEditor.backToSets')}
-          </Link>
+          <LibraryBreadcrumb section="flashcards" linkSection />
           <Link to={`/teacher/flashcard-sets/${setId}/progress`} className="text-sm font-medium text-primary-600 hover:underline">
             {t('teacherFlashcardSetEditor.viewProgress')}
           </Link>

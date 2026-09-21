@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { FlashcardSetSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /**
  * Teacher's "my flashcard sets" list (T-022). Same shape as `TeacherTestsPage.tsx`:
@@ -48,7 +49,8 @@ function TeacherFlashcardsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">{t('teacherFlashcards.heading')}</h1>
+      <LibraryBreadcrumb section="flashcards" />
+      <h1 className="mt-2 text-2xl font-bold text-primary-700">{t('teacherFlashcards.heading')}</h1>
       <p className="mt-1 text-sm text-base-black/60">{t('teacherFlashcards.subtitle')}</p>
 
       <form onSubmit={handleCreate} className="mt-6 flex flex-wrap items-end gap-3">

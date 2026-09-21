@@ -1,18 +1,26 @@
 import { test, expect } from '@playwright/test';
-import { createTestWithQuestion, newTeacherContext, uniqueTitle } from './utils';
+import {
+  assignContentToClass,
+  createTestWithQuestion,
+  newTeacherContext,
+  openClassTab,
+  uniqueTitle,
+} from './utils';
 
 /**
- * T-075 primary flow (Phase 12): a teacher assigns one already-authored test to TWO of
- * their classes from the consolidated "My Content" page, in a few clicks, WITHOUT
- * re-authoring it or opening its full editor — the customer's explicit "content is
- * authored once, then assigned to N classes from one page" requirement.
+ * T-075 primary flow (Phase 12), rewritten for the Phase 13 class workspace (T-106/T-101): a
+ * teacher gives ONE already-authored test to TWO of their classes without re-authoring it or
+ * opening its full editor — the customer's explicit "content is authored once in the Library,
+ * then assigned to N classes" requirement. The old "My Content" page and its per-class chips
+ * are gone; assigning is now: class workspace → Assignments tab → "Assign new work" dialog →
+ * tick the item → confirm (driven by `assignContentToClass` in `utils.ts`).
  *
  * Relies on the seeded teacher account already owning at least 2 classes ("Class 6A",
- * "Class 6B" — `prisma/seed.ts`'s `seedClasses`). Creates a brand-new test first (via the
- * normal authoring flow) so it starts with ZERO class assignments, then assigns it via
- * `/teacher/content` alone.
+ * "Class 6B" — `prisma/seed.ts`'s `seedClasses`), each with a current semester. Creates a
+ * brand-new test first (via the normal authoring flow) so it starts with ZERO class
+ * assignments.
  */
-test('teacher assigns an existing test to two classes from the My Content page, then unassigns one', async ({
+test('teacher assigns an existing test to two classes from the class Assignments tab, then removes it from one', async ({
   browser,
   baseURL,
 }) => {
@@ -29,50 +37,38 @@ test('teacher assigns an existing test to two classes from the My Content page, 
       questionKind: 'multipleChoice',
     });
 
-    // Jump to the consolidated "My Content" page (T-075) — no need to reopen this test's
-    // editor at all from here on.
-    await teacherPage.goto('/teacher/content');
-    await expect(teacherPage.getByRole('heading', { name: 'My Content' })).toBeVisible();
+    // Not yet assigned to either class: the "Assign new work" dialog lists it as available,
+    // so the class's own Assignments list must NOT contain it.
+    for (const className of ['Class 6A', 'Class 6B']) {
+      await openClassTab(teacherPage, className, 'Assignments');
+      await expect(teacherPage.getByRole('heading', { name: /^Assignments/ })).toBeVisible();
+      // The list loads after the heading renders — wait it out so the count check below is real.
+      await expect(teacherPage.getByText('Loading...')).toHaveCount(0);
+      await expect(teacherPage.getByRole('listitem').filter({ hasText: title })).toHaveCount(0);
+    }
 
-    const row = teacherPage.getByRole('listitem').filter({ hasText: title });
-    await expect(row).toBeVisible();
+    // Assign to BOTH classes through the dialog — no need to reopen the test's editor.
+    await assignContentToClass(teacherContext, title, 'Class 6A');
+    await assignContentToClass(teacherContext, title, 'Class 6B');
 
-    const class6AChip = row.getByRole('button', { name: 'Class 6A' });
-    const class6BChip = row.getByRole('button', { name: 'Class 6B' });
+    // Reload each class's Assignments tab to confirm the assignment persisted server-side,
+    // not just optimistic local state.
+    for (const className of ['Class 6A', 'Class 6B']) {
+      await openClassTab(teacherPage, className, 'Assignments');
+      await expect(teacherPage.getByRole('listitem').filter({ hasText: title })).toBeVisible();
+    }
 
-    // Not yet assigned to either class.
-    await expect(class6AChip).toHaveAttribute('aria-pressed', 'false');
-    await expect(class6BChip).toHaveAttribute('aria-pressed', 'false');
+    // Remove it from Class 6A only ("Remove from class" asks a `window.confirm` first).
+    await openClassTab(teacherPage, 'Class 6A', 'Assignments');
+    const row6A = teacherPage.getByRole('listitem').filter({ hasText: title });
+    await expect(row6A).toBeVisible();
+    teacherPage.once('dialog', (dialog) => dialog.accept());
+    await row6A.getByRole('button', { name: 'Remove from class' }).click();
+    await expect(teacherPage.getByRole('listitem').filter({ hasText: title })).toHaveCount(0);
 
-    // Assign to BOTH classes, a click each — no separate "save" step/page reload.
-    await class6AChip.click();
-    await expect(class6AChip).toHaveAttribute('aria-pressed', 'true');
-    await class6BChip.click();
-    await expect(class6BChip).toHaveAttribute('aria-pressed', 'true');
-
-    // Reload the page to confirm the assignment actually persisted server-side, not just
-    // optimistic local state.
-    await teacherPage.reload();
-    const rowAfterReload = teacherPage.getByRole('listitem').filter({ hasText: title });
-    await expect(rowAfterReload.getByRole('button', { name: 'Class 6A' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    await expect(rowAfterReload.getByRole('button', { name: 'Class 6B' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-
-    // Unassign one of the two — toggling off works the same way, immediately.
-    await rowAfterReload.getByRole('button', { name: 'Class 6A' }).click();
-    await expect(rowAfterReload.getByRole('button', { name: 'Class 6A' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    await expect(rowAfterReload.getByRole('button', { name: 'Class 6B' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    // Still assigned to Class 6B.
+    await openClassTab(teacherPage, 'Class 6B', 'Assignments');
+    await expect(teacherPage.getByRole('listitem').filter({ hasText: title })).toBeVisible();
   } finally {
     await teacherContext.close();
   }

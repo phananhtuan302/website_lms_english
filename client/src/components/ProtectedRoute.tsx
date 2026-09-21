@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
  *
  * ```tsx
  * <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
- *   <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+ *   <Route path="/teacher/library" element={<TeacherLibraryPage />} />
  * </Route>
  * ```
  *

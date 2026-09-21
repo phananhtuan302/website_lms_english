@@ -39,9 +39,9 @@ test('teacher controls synchronized Listening playback during a live session', a
     // script's flashcard audio fields).
     await teacherPage.getByText('Reading passage / Listening audio (optional)').click();
     await teacherPage
-      .getByLabel(/Audio URL \(T-040\/T-041/)
+      .getByLabel('Audio URL', { exact: true })
       .fill('https://example.com/placeholder-assets/audio/e2e-listening.mp3');
-    await teacherPage.getByLabel(/Audio URL \(T-040\/T-041/).blur();
+    await teacherPage.getByLabel('Audio URL', { exact: true }).blur();
     await expect(teacherPage.getByText('Listening audio')).toBeVisible();
 
     await generateVariants(teacherPage);

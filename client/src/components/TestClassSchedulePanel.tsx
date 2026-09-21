@@ -35,11 +35,10 @@ function toIsoOrNull(value: string): string | null {
 }
 
 /**
- * T-098: compact inline schedule panel opened from "My Content"'s (`TeacherContentPage`)
- * Tests section, on an ASSIGNED class chip's new settings button — a SECOND entry point
- * to the exact same `TestClassSchedule` row `TeacherTestAttemptsReportPage.tsx` (T-093)
- * already edits, reached without leaving My Content or opening the full test editor (this
- * page's own subtitle already promises that). Shows the same fields, in the same order,
+ * T-098: compact inline schedule panel (originally on "My Content"; since T-103 opened from
+ * the class Bài tập tab's "Lịch & công bố điểm" button) — a SECOND entry point to the exact
+ * same `TestClassSchedule` row `TeacherTestAttemptsReportPage.tsx` (T-093) already edits,
+ * reached without leaving the class workspace or opening the full test editor. Shows the same fields, in the same order,
  * as that page's schedule section: open time, close time, the "auto-publish on close"
  * checkbox, and the manual publish/unpublish toggle (T-092) — all scoped to this exact
  * (testId, classId) pair.
