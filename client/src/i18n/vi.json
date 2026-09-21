@@ -46,7 +46,7 @@
       },
       "vocabGrammar": {
         "title": "Từ vựng & Ngữ pháp",
-        "description": "Thẻ từ vựng, sáu dạng bài luyện tập, các trò chơi phong cách arcade, và học phần Ngữ pháp đầy đủ với lý thuyết, luyện tập và báo cáo."
+        "description": "Thẻ từ vựng, sáu dạng bài luyện tập, các trò chơi phong cách arcade, và học phần Ngữ pháp đầy đủ với lý thuyết và luyện tập."
       },
       "speaking": {
         "title": "Luyện Nói, có chấm điểm",
@@ -54,7 +54,7 @@
       },
       "progress": {
         "title": "Tiến độ cho mọi người",
-        "description": "Giám sát trực tiếp trong lớp học dành cho giáo viên, cùng báo cáo, xếp hạng và bảng thành tích cho mọi học phần."
+        "description": "Giám sát trực tiếp trong lớp học dành cho giáo viên, cùng xếp hạng và bảng thành tích cho mọi học phần."
       }
     }
   },

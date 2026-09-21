@@ -5,6 +5,7 @@ import { TEST_TYPE_LABELS, type TestSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
+import { REPORTS_ENABLED } from '../lib/featureFlags';
 
 /** `null` average (zero completed attempts yet, T-017) renders as nothing rather than
  * "0:00" — see `TestSummaryDTO.averageTimeTakenSeconds`'s doc comment for why an
@@ -165,12 +166,14 @@ function TeacherTestsPage() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1">
               {/* T-087: ranked per-student report, all sessions + self-practice. */}
-              <Link
-                to={`/teacher/tests/${test.id}/report`}
-                className="py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
-              >
-                {t('teacherTests.viewReport')}
-              </Link>
+              {REPORTS_ENABLED && (
+                <Link
+                  to={`/teacher/tests/${test.id}/report`}
+                  className="py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
+                >
+                  {t('teacherTests.viewReport')}
+                </Link>
+              )}
               <Link
                 to={`/teacher/tests/${test.id}`}
                 className="py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"

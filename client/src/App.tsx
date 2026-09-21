@@ -42,6 +42,7 @@ import ClassGradesTab from './pages/classWorkspace/ClassGradesTab';
 import ClassOverviewTab from './pages/classWorkspace/ClassOverviewTab';
 import ClassSettingsTab from './pages/classWorkspace/ClassSettingsTab';
 import ClassStatsTab from './pages/classWorkspace/ClassStatsTab';
+import { REPORTS_ENABLED } from './lib/featureFlags';
 import ClassStudentsTab from './pages/classWorkspace/ClassStudentsTab';
 import ClassUnknownTabRedirect from './pages/classWorkspace/ClassUnknownTabRedirect';
 import ClassWorkspaceLayout from './pages/classWorkspace/ClassWorkspaceLayout';
@@ -158,8 +159,10 @@ function App() {
                   <Route path="grades" element={<ClassGradesTab />} />
                   {/* T-104: `stats/:module` = the Thống kê sub-tab (test / unit-test /
                     vocabulary / grammar / speaking / leaderboard) — see TeacherReportsHubPage. */}
-                  <Route path="stats" element={<ClassStatsTab />} />
-                  <Route path="stats/:module" element={<ClassStatsTab />} />
+                  {/* Hidden while `REPORTS_ENABLED` is off (lib/featureFlags.ts): the URLs then fall
+                    through to the catch-all below, i.e. the class overview. */}
+                  {REPORTS_ENABLED && <Route path="stats" element={<ClassStatsTab />} />}
+                  {REPORTS_ENABLED && <Route path="stats/:module" element={<ClassStatsTab />} />}
                   <Route path="settings" element={<ClassSettingsTab />} />
                   <Route path="*" element={<ClassUnknownTabRedirect />} />
                 </Route>

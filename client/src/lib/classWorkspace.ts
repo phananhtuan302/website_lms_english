@@ -5,6 +5,8 @@
  * the layout file only exports components (react-refresh lint rule).
  */
 
+import { REPORTS_ENABLED } from './featureFlags';
+
 export const CLASSES_HOME_PATH = '/teacher/classes';
 
 export interface ClassTab {
@@ -32,7 +34,8 @@ export const CLASS_TABS: ClassTab[] = [
   },
   { segment: 'students', labelKey: 'classWorkspace.tabs.students' },
   { segment: 'grades', labelKey: 'classWorkspace.tabs.grades' },
-  { segment: 'stats', labelKey: 'classWorkspace.tabs.stats' },
+  // Hidden while `REPORTS_ENABLED` is off (see lib/featureFlags.ts).
+  ...(REPORTS_ENABLED ? [{ segment: 'stats', labelKey: 'classWorkspace.tabs.stats' }] : []),
   { segment: 'settings', labelKey: 'classWorkspace.tabs.settings' },
 ];
 

@@ -46,7 +46,7 @@
       },
       "vocabGrammar": {
         "title": "Vocabulary & Grammar",
-        "description": "Flashcards, six exercise types, arcade-style games, and a full Grammar module with theory, practice, and reports."
+        "description": "Flashcards, six exercise types, arcade-style games, and a full Grammar module with theory and practice."
       },
       "speaking": {
         "title": "Speaking, graded",
@@ -54,7 +54,7 @@
       },
       "progress": {
         "title": "Progress for everyone",
-        "description": "Live in-class monitoring for teachers, and reports, rankings, and leaderboards for every module."
+        "description": "Live in-class monitoring for teachers, and rankings and leaderboards for every module."
       }
     }
   },
