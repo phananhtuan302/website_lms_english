@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-21 — Leader/Dev — Phase 14 complete: T-109 (student bell + Lịch), T-112 (375px pass), T-113 (simulated cold-start test + fixes)
+
+- Task IDs touched: T-109, T-112, T-113 (plus the round-1/round-2 UX fix commits)
+- What changed: student notification bell (derived, no schema), "Hạn nộp bài" calendar page and a "Sắp đóng" tag; a Tailwind-only mobile pass over 48 screens (only 2 overflowed); then a simulated first-time teacher and a first-time 11-year-old student (AI role-players driving a real browser through a tiny click-by-text daemon, forbidden from reading code/API) followed by two rounds of fixes — see the T-113 block in BACKLOG for the full list. One real bug surfaced: a child's result review was numbered in the authored order instead of the order shown in the test (fixed, display only).
+- Why / decisions made: (1) The cold-start test is SIMULATED; it found real friction (lost passwords, no semester on new classes, jargon, homework below the fold) but does not replace real users — recommend a short trial with one real teacher and a few students. (2) Test worlds used a `T113` prefix and were removed by a dry-run-then-real cleanup script with abort guards; afterwards the Leader compared the whole DB with the pre-phase JSON backup row by row: 433 rows, 0 differences. (3) Tooling lessons: Git Bash rewrites `/path` arguments into `C:/Program Files/Git/path` (the click daemon's client undoes that); subagents' Write tool refuses to save report files, so reports come back as messages; the dev client on :5111 died once mid-run and had to be restarted (`npx vite --port 5111 --strictPort`); runtime constants added to `shared` need `npm run build -w shared` and a Vite `--force` restart. (4) Not built, recommended: cross-class "Hôm nay cần để ý", teacher edit of student name/email, accounts for students without an email, cleaning up the mixed AcademicPeriod names.
+- Status after this entry: Phase 14 (T-107–T-113) Done.
+
 ## 2026-09-21 — Leader/Dev — Phase 14 wave A: T-107 overview, T-108 announcements, T-110 student grades, T-111 roster import
 
 - Task IDs touched: T-107, T-108, T-110, T-111 (one combined commit: the four agents shared one working tree and several shared files — `App.tsx`, `Header.tsx`, both i18n files, `shared/src/index.ts`, `server/src/index.ts`, the API helper files — so per-task commits would not have been self-consistent)
