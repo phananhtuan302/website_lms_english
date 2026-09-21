@@ -13,6 +13,7 @@ import StudentAnnouncementsCard from '../components/StudentAnnouncementsCard';
 import { closingSoonRemaining } from '../lib/closingSoon';
 import { formatDeadlineLine, formatDeadlineWhen } from '../lib/humanDeadline';
 import { withClassPrefix } from '../lib/classLabel';
+import { formatScore10 } from '../lib/scoreFormat';
 
 /**
  * Student home = "Bài cần làm" (T-105, Phase 13): ONE to-do list of everything the student
@@ -57,11 +58,6 @@ function formatTime(iso: string, language: string): string {
   }).format(new Date(iso));
 }
 
-/** Scores are stored as floats; show at most one decimal so "66.7" not "66.66666666". */
-function formatPercent(percent: number): string {
-  return String(Math.round(percent * 10) / 10);
-}
-
 interface RowProps {
   item: StudentAssignmentDTO & { kind: TodoKind };
   startingId: string | null;
@@ -96,7 +92,9 @@ function AssignmentRow({ item, startingId, onStart }: RowProps) {
     case 'submitted':
       meta =
         attempt?.scoresPublished && attempt.scorePercent != null
-          ? t('studentHome.meta.score', { percent: formatPercent(attempt.scorePercent) })
+          ? t(attempt.provisional ? 'scoring.student.rowScoreProvisional' : 'studentHome.meta.score', {
+              score: formatScore10(attempt.scorePercent),
+            })
           : t('studentHome.meta.awaitingPublish');
       break;
     case 'closed':

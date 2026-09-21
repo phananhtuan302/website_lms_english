@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { AttemptSummaryDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { formatScore10WithUnit } from '../lib/scoreFormat';
 
 /** `null` (never submitted — see `AttemptSummaryDTO.timeTakenSeconds`'s doc comment,
  * T-017) renders as an em dash rather than "0:00", so an abandoned attempt reads as
@@ -112,7 +113,7 @@ function TeacherSessionAttemptsPage() {
                   </td>
                   <td className="px-4 py-3">
                     {attempt.scorePercent !== null
-                      ? `${attempt.scorePercent}% (${attempt.correctCount}/${attempt.totalCount})`
+                      ? `${formatScore10WithUnit(attempt.scorePercent)}${attempt.provisional ? ` * (${t('scoring.provisional.short')})` : ''} (${attempt.correctCount}/${attempt.totalCount})`
                       : '—'}
                   </td>
                   <td className="px-4 py-3 text-base-black/70">

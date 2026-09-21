@@ -1,9 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>English Test Platform</title>
+    <script>
+      // "Chữ to": apply the saved text size before the first paint (see src/lib/textSize.ts).
+      try {
+        var textSize = window.localStorage.getItem('textSize');
+        var textSizePercent = textSize === 'large' ? '112.5%' : textSize === 'xlarge' ? '125%' : '';
+        if (textSizePercent) {
+          document.documentElement.style.fontSize = textSizePercent;
+          document.documentElement.setAttribute('data-text-size', textSize);
+        }
+      } catch (e) {
+        /* storage unavailable: keep the normal size */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

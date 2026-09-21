@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import type { TestAttemptReportResponseDTO } from '@platform/shared';
+import type { TestAttemptReportResponseDTO, TestGradingStatusDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { useTeacherClasses } from '../hooks/useTeacherClasses';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 import { classAssignmentsPath } from '../lib/classAssignments';
+import { formatScore10WithUnit } from '../lib/scoreFormat';
+import ScoreReleaseDialog from '../components/ScoreReleaseDialog';
 
 /**
  * Per-test attempt report (T-087), reached from `TeacherTestsPage`'s new "Report"
@@ -74,6 +76,11 @@ function TeacherTestAttemptsReportPage() {
   // publish/unpublish toggle doesn't wipe the already-loaded report off the page.
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  // Phase 15: releasing scores asks first (dialog); hiding stays immediate but confirms it worked.
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const [publishNotice, setPublishNotice] = useState<string | null>(null);
+  // Which attempts are still "tạm tính" (an essay waiting for a grade); best-effort, never blocks the table.
+  const [grading, setGrading] = useState<TestGradingStatusDTO | null>(null);
 
   // T-093: the open/close/auto-publish schedule form, kept as separate editable state
   // (rather than reading straight off `data.schedule`) so the teacher can type into the
@@ -103,19 +110,31 @@ function TeacherTestAttemptsReportPage() {
         setData(null);
         setError(err instanceof ApiError ? err.message : t('teacherTestReport.loadFailed'));
       });
+    teacherApi
+      .getTestGradingStatus(testId, classId)
+      .then(setGrading)
+      .catch(() => setGrading(null));
   }, [testId, t, classId]);
 
   /** T-092: toggles the per-(test, class) manual score-release flag for the class
    * currently being viewed. Reflects the new state directly from the response
-   * (`setData`) rather than re-fetching the whole report — one round-trip either way. */
+   * (`setData`) rather than re-fetching the whole report — one round-trip either way.
+   * Phase 15: letting students SEE their scores opens the confirmation dialog first; hiding them
+   * stays immediate and says so. */
   function handleTogglePublish() {
     if (!testId || !data) return;
-    setPublishing(true);
     setPublishError(null);
+    setPublishNotice(null);
+    if (!data.schedule.scoresPublishedManually) {
+      setReleaseOpen(true);
+      return;
+    }
+    setPublishing(true);
     teacherApi
-      .updateTestClassSchedule(testId, { classId: data.classId, published: !data.schedule.scoresPublishedManually })
+      .updateTestClassSchedule(testId, { classId: data.classId, published: false })
       .then((res) => {
         setData((prev) => (prev ? { ...prev, schedule: res } : prev));
+        setPublishNotice(t('scoring.release.hidden'));
       })
       .catch((err) => {
         setPublishError(err instanceof ApiError ? err.message : t('teacherTestReport.publishFailed'));
@@ -218,6 +237,11 @@ function TeacherTestAttemptsReportPage() {
               : t('teacherTestReport.publishButton')}
           </button>
           {publishError && <p className="text-sm text-red-700">{publishError}</p>}
+          {publishNotice && (
+            <p role="status" aria-live="polite" className="text-sm font-semibold text-green-700">
+              {publishNotice}
+            </p>
+          )}
         </section>
       )}
 
@@ -301,7 +325,17 @@ function TeacherTestAttemptsReportPage() {
                   <td className="px-4 py-3 text-base-black/80">
                     {entry.correctCount}/{entry.totalCount}
                   </td>
-                  <td className="px-4 py-3 font-semibold text-primary-700">{entry.scorePercent}%</td>
+                  <td className="px-4 py-3 font-semibold text-primary-700">
+                    {formatScore10WithUnit(entry.scorePercent)}
+                    {grading?.provisionalAttempts[entry.attemptId] && (
+                      <span
+                        className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900"
+                        title={t('scoring.provisional.chip', { count: grading.provisionalAttempts[entry.attemptId].ungradedCount })}
+                      >
+                        * {t('scoring.provisional.short')}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-base-black/60">
                     {new Date(entry.submittedAt).toLocaleString()}
                   </td>
@@ -310,6 +344,22 @@ function TeacherTestAttemptsReportPage() {
             </tbody>
           </table>
         </section>
+      )}
+      {data && grading && Object.keys(grading.provisionalAttempts).length > 0 && (
+        <p className="text-sm text-base-black/60">{t('scoring.gradebook.legend')}</p>
+      )}
+
+      {releaseOpen && data && testId && (
+        <ScoreReleaseDialog
+          testId={testId}
+          classId={data.classId}
+          onClose={() => setReleaseOpen(false)}
+          onReleased={(res) => {
+            setData((prev) => (prev ? { ...prev, schedule: res } : prev));
+            setReleaseOpen(false);
+            setPublishNotice(t('scoring.release.published'));
+          }}
+        />
       )}
     </div>
   );

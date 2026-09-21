@@ -39,11 +39,14 @@ import type {
   GenerateVariantsRequest,
   GenerateVocabularyCheckRequest,
   GradeEssayAnswerRequest,
+  GradeEssayAnswerResponse,
+  NextUngradedAttemptDTO,
   GrammarReportGroupBy,
   GrammarReportResponseDTO,
   GrammarTopicDetailDTO,
   GrammarTopicSummaryDTO,
   ReorderQuestionsRequest,
+  RegenerateVariantsResponse,
   ReorderSectionsRequest,
   ReportGroupBy,
   ReportResponseDTO,
@@ -55,6 +58,7 @@ import type {
   TeacherVocabProgressDTO,
   TeacherVocabularyCheckSummaryDTO,
   TestAttemptReportResponseDTO,
+  TestGradingStatusDTO,
   TestClassScheduleDTO,
   TestDetailDTO,
   TestSessionDTO,
@@ -144,6 +148,8 @@ export const teacherApi = {
       body: JSON.stringify(body),
     }),
   listVariants: (testId: string) => apiRequest<TestVariantDTO[]>(`${base}/${testId}/variants`),
+  regenerateVariants: (testId: string) =>
+    apiRequest<RegenerateVariantsResponse>(`${base}/${testId}/variants/regenerate`, { method: 'POST' }),
 
   startSession: (testId: string) =>
     apiRequest<CreateSessionResponse>(`${base}/${testId}/sessions`, { method: 'POST' }),
@@ -177,10 +183,16 @@ export const teacherApi = {
 
   // --- Manual essay grading (T-042) --------------------------------------------------
   gradeEssayAnswer: (attemptId: string, questionId: string, body: GradeEssayAnswerRequest) =>
-    apiRequest<{ questionId: string; manualScore: number; manualComment: string | null }>(
+    apiRequest<GradeEssayAnswerResponse>(
       `/api/teacher/attempts/${attemptId}/answers/${questionId}/grade`,
       { method: 'PATCH', body: JSON.stringify(body) },
     ),
+
+  // --- Phase 15: next ungraded attempt + grading status behind "let students see scores" ----
+  getNextUngradedAttempt: (attemptId: string) =>
+    apiRequest<NextUngradedAttemptDTO>(`/api/teacher/attempts/${attemptId}/next-ungraded`),
+  getTestGradingStatus: (testId: string, classId: string) =>
+    apiRequest<TestGradingStatusDTO>(`${base}/${testId}/grading-status?classId=${encodeURIComponent(classId)}`),
 
   // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
   listUnits: () => apiRequest<UnitDTO[]>(`${teacherBase}/units`),

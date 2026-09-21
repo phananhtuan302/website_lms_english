@@ -38,6 +38,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedClass } from '../lib/ownedClass';
 import { isScorePublished } from '../lib/testClassSchedule';
+import { loadProvisionalInfo } from '../lib/attemptScore';
 
 export const teacherClassGradebookRouter = Router();
 
@@ -69,6 +70,10 @@ interface ClassGrades {
  * one test (a live session plus self-practice, or repeated sessions), and a gradebook needs
  * one number per cell; "best" is the Canvas/Moodle default ("highest grade") and never
  * punishes a student for practising. The UI footnote says the same.
+ *
+ * Phase 15: a cell's `scorePercent` already includes graded essay/speaking points (it is the stored
+ * `Attempt.scorePercent`, kept up to date by `lib/attemptScore.ts`); `provisional` marks a cell whose
+ * attempt still has an essay waiting for a grade.
  *
  * Averages are means over NON-null cells only: a student's average covers the tests they
  * submitted, a test's average covers the students who submitted it (so "hasn't submitted"
@@ -155,6 +160,9 @@ async function loadClassGrades(classId: string, periodId: string | null): Promis
     }
   }
 
+  // Phase 15: a score is "tạm tính" while an essay of the shown attempt is still ungraded.
+  const provisionalInfo = await loadProvisionalInfo([...best.values()].map((attempt) => attempt.id));
+
   const cells: ClassGradebookDTO['cells'] = {};
   const studentAverages: ClassGradebookDTO['studentAverages'] = {};
   const columnScores = new Map<string, number[]>(testIds.map((id) => [id, []]));
@@ -175,6 +183,8 @@ async function loadClassGrades(classId: string, periodId: string | null): Promis
         correctCount: attempt.correctCount ?? 0,
         totalCount: attempt.totalCount ?? 0,
         submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : '',
+        provisional: provisionalInfo.get(attempt.id)?.provisional ?? false,
+        ungradedCount: provisionalInfo.get(attempt.id)?.ungradedCount ?? 0,
       };
       rowScores.push(scorePercent);
       columnScores.get(test.id)!.push(scorePercent);

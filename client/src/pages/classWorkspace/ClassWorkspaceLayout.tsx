@@ -152,13 +152,17 @@ function ClassWorkspaceLayout() {
                 </select>
               </label>
             )}
-            <ClassSemesterSelect
-              key={cls.id}
-              cls={cls}
-              periods={periods}
-              periodsError={periodsError}
-              onChanged={setClass}
-            />
+            <div className="flex max-w-full flex-col gap-1">
+              <ClassSemesterSelect
+                key={cls.id}
+                cls={cls}
+                periods={periods}
+                periodsError={periodsError}
+                onChanged={setClass}
+              />
+              {/* Phase 15: says what the semester choice means for students. */}
+              <p className="max-w-xs text-xs text-base-black/60">{t('classWorkspace.semesterHelper')}</p>
+            </div>
           </div>
         </div>
       </header>

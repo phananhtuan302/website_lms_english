@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import { CLASSES_HOME_PATH, classTabPath } from '../lib/classWorkspace';
+import { formatPoints, formatScore10 } from '../lib/scoreFormat';
 
 /** Local draft state for one essay/speaking question's manual-grading form (T-042
  * essay, T-055 speaking override) — kept separate from `result` so an in-progress edit
@@ -13,6 +15,23 @@ interface GradeDraft {
   scoreText: string;
   comment: string;
 }
+
+/** A typed score: a Vietnamese teacher writes "4,5" as often as "4.5", so both are accepted.
+ * Returns `null` for anything that is not a plain number. */
+function parseScoreInput(text: string): number | null {
+  const normalized = text.trim().replace(',', '.');
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  return Number(normalized);
+}
+
+const SCORE_INPUT_CLASS =
+  'w-28 rounded-md border border-primary-200 px-3 py-2 text-base text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:py-1.5 sm:text-sm';
+const COMMENT_INPUT_CLASS =
+  'w-full rounded-md border border-primary-200 px-3 py-2 text-base text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:text-sm';
+const SAVE_BUTTON_CLASS =
+  'rounded-md border border-primary-300 bg-base-white px-4 py-3 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2';
+const SAVE_NEXT_BUTTON_CLASS =
+  'rounded-md bg-primary-500 px-4 py-3 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2';
 
 /**
  * Teacher's per-attempt detail (T-014), reachable at `/teacher/attempts/:attemptId`
@@ -28,6 +47,12 @@ interface GradeDraft {
  */
 function TeacherAttemptDetailPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
+  // Keyed by the attempt: "Lưu và chấm bài kế tiếp" moves to another attempt of the SAME test, whose
+  // questions have the same ids, so every draft / message of the previous student must be dropped.
+  return <AttemptDetail key={attemptId} attemptId={attemptId} />;
+}
+
+function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -36,6 +61,14 @@ function TeacherAttemptDetailPage() {
   const [drafts, setDrafts] = useState<Record<string, GradeDraft>>({});
   const [gradingErrors, setGradingErrors] = useState<Record<string, string>>({});
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
+  // Green "Đã lưu điểm của …" line per question; a page reached from "Lưu và chấm bài kế tiếp"
+  // carries the previous student's line in the navigation state.
+  const [savedMessages, setSavedMessages] = useState<Record<string, string>>({});
+  const [arrivalNotice] = useState<string | null>(
+    () => (location.state as { savedNotice?: string } | null)?.savedNotice ?? null,
+  );
+  // Set when the last ungraded essay of the class was just saved: where "Về trang lớp" leads.
+  const [allDone, setAllDone] = useState<{ classId: string | null; savedLine: string } | null>(null);
 
   const loadResult = useCallback(() => {
     if (!attemptId) return;
@@ -48,7 +81,7 @@ function TeacherAttemptDetailPage() {
           for (const q of data.questions) {
             if (q.type === 'essay' && !next[q.questionId]) {
               next[q.questionId] = {
-                scoreText: q.manualScore != null ? String(q.manualScore) : '',
+                scoreText: q.manualScore != null ? formatPoints(q.manualScore) : '',
                 comment: q.manualComment ?? '',
               };
             }
@@ -62,9 +95,9 @@ function TeacherAttemptDetailPage() {
               next[q.questionId] = {
                 scoreText:
                   q.manualScore != null
-                    ? String(q.manualScore)
+                    ? formatPoints(q.manualScore)
                     : q.speakingAiScore != null
-                      ? String(q.speakingAiScore)
+                      ? formatPoints(q.speakingAiScore)
                       : '',
                 comment: q.manualComment ?? '',
               };
@@ -79,25 +112,76 @@ function TeacherAttemptDetailPage() {
 
   useEffect(loadResult, [loadResult]);
 
-  async function handleSaveGrade(questionId: string, maxScore: number | null) {
-    if (!attemptId) return;
+  async function handleSaveGrade(questionId: string, maxScore: number | null, goNext = false) {
+    if (!attemptId || !result) return;
+    const max = maxScore ?? 0;
     const draft = drafts[questionId];
-    const score = Number(draft?.scoreText);
-    if (!draft || draft.scoreText.trim() === '' || Number.isNaN(score) || score < 0 || (maxScore != null && score > maxScore)) {
-      setGradingErrors((prev) => ({
-        ...prev,
-        [questionId]: t('teacherAttemptDetail.scoreRangeError', { max: maxScore ?? '?' }),
-      }));
+    const scoreText = draft?.scoreText ?? '';
+    const score = parseScoreInput(scoreText);
+    let problem: string | null = null;
+    if (scoreText.trim() === '') problem = t('scoring.grade.scoreEmpty', { max: formatPoints(max) });
+    else if (score === null) problem = t('scoring.grade.scoreInvalid');
+    else if (score > max) problem = t('scoring.grade.scoreRange', { max: formatPoints(max) });
+    if (problem !== null || score === null) {
+      setGradingErrors((prev) => ({ ...prev, [questionId]: problem ?? '' }));
+      setSavedMessages((prev) => ({ ...prev, [questionId]: '' }));
       return;
     }
     setSavingQuestionId(questionId);
     setGradingErrors((prev) => ({ ...prev, [questionId]: '' }));
+    setSavedMessages((prev) => ({ ...prev, [questionId]: '' }));
     try {
-      await teacherApi.gradeEssayAnswer(attemptId, questionId, {
+      const saved = await teacherApi.gradeEssayAnswer(attemptId, questionId, {
         score,
         comment: draft.comment.trim() === '' ? null : draft.comment,
       });
-      loadResult();
+      // The header total (and the "tạm tính" chip) follow the saved grade at once — no reload.
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              scorePercent: saved.scorePercent,
+              provisional: saved.provisional,
+              ungradedCount: saved.ungradedCount,
+              questions: prev.questions.map((q) =>
+                q.questionId === questionId
+                  ? { ...q, manualScore: saved.manualScore, manualComment: saved.manualComment }
+                  : q,
+              ),
+            }
+          : prev,
+      );
+      const savedLine = t('scoring.grade.saved', {
+        name: result.studentName,
+        score: formatPoints(saved.manualScore),
+        max: formatPoints(max),
+      });
+
+      if (!goNext) {
+        setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
+        return;
+      }
+      if (saved.ungradedCount > 0) {
+        // Another essay of THIS attempt is still waiting — finish it before moving on.
+        setSavedMessages((prev) => ({
+          ...prev,
+          [questionId]: `${savedLine} ${t('scoring.grade.moreInThisAttempt', { count: saved.ungradedCount })}`,
+        }));
+        return;
+      }
+      try {
+        const next = await teacherApi.getNextUngradedAttempt(attemptId);
+        if (next.nextAttemptId) {
+          // `replace`: the back button still returns to the list, not through every student graded.
+          navigate(`/teacher/attempts/${next.nextAttemptId}`, { replace: true, state: { savedNotice: savedLine } });
+        } else {
+          setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
+          setAllDone({ classId: next.classId, savedLine });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch {
+        setSavedMessages((prev) => ({ ...prev, [questionId]: `${savedLine} ${t('scoring.grade.nextFailed')}` }));
+      }
     } catch (err) {
       setGradingErrors((prev) => ({
         ...prev,
@@ -137,12 +221,41 @@ function TeacherAttemptDetailPage() {
         {t('classAssignments.back')}
       </button>
 
+      {arrivalNotice && !allDone && (
+        <p role="status" aria-live="polite" className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
+          {arrivalNotice}
+        </p>
+      )}
+      {allDone && (
+        <div role="status" aria-live="polite" className="rounded-xl border border-green-300 bg-green-50 p-6 text-center">
+          <p className="text-lg font-bold text-green-800">{t('scoring.grade.allDoneTitle')}</p>
+          <p className="mt-1 text-sm text-green-900/80">{t('scoring.grade.allDoneHint')}</p>
+          <p className="mt-2 text-sm font-medium text-green-900">{allDone.savedLine}</p>
+          <Link
+            to={allDone.classId ? classTabPath(allDone.classId) : CLASSES_HOME_PATH}
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md bg-primary-500 px-5 py-3 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          >
+            {t('scoring.grade.backToClass')}
+          </Link>
+        </div>
+      )}
+
       <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
         <h1 className="text-xl font-bold text-primary-700">{result.testTitle}</h1>
         <p className="mt-1 text-sm text-base-black/70">{result.studentName}</p>
         {result.status === 'submitted' ? (
           <>
-            <p className="mt-2 text-4xl font-bold text-primary-700">{result.scorePercent}%</p>
+            <p className="mt-2 text-4xl font-bold text-primary-700" data-testid="attempt-score">
+              {t('scoring.detail.headline', { score: formatScore10(result.scorePercent) })}
+            </p>
+            {/* Live region: the chip vanishes the moment the last essay is graded. */}
+            <div aria-live="polite">
+              {result.provisional && (
+                <p className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
+                  {t('scoring.provisional.chip', { count: result.ungradedCount })}
+                </p>
+              )}
+            </div>
             <p className="mt-1 text-sm text-base-black/70">
               {t('teacherAttemptDetail.correctOutOf', { correct: result.correctCount, total: result.totalCount })}
             </p>
@@ -201,7 +314,7 @@ function TeacherAttemptDetailPage() {
               </p>
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
-                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : t('teacherAttemptDetail.notGradedYet')}
+                  {q.manualScore != null ? `${formatPoints(q.manualScore)} / ${formatPoints(q.essayMaxScore ?? 0)}` : t('teacherAttemptDetail.notGradedYet')}
                 </span>
               ) : q.type === 'speaking' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
@@ -229,13 +342,13 @@ function TeacherAttemptDetailPage() {
                 <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-base-white p-3">
                   {q.textAnswer?.trim() ? q.textAnswer : <em>{t('teacherAttemptDetail.noAnswerSubmitted')}</em>}
                 </div>
-                <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
-                  <label className="flex flex-col gap-1 text-xs font-medium text-base-black">
-                    {t('teacherAttemptDetail.scoreOutOf', { max: q.essayMaxScore })}
+                <div className="flex flex-col gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                    {t('teacherAttemptDetail.scoreOutOf', { max: formatPoints(q.essayMaxScore ?? 0) })}
                     <input
-                      type="number"
-                      min={0}
-                      max={q.essayMaxScore ?? undefined}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
                       value={drafts[q.questionId]?.scoreText ?? ''}
                       onChange={(event) =>
                         setDrafts((prev) => ({
@@ -243,13 +356,13 @@ function TeacherAttemptDetailPage() {
                           [q.questionId]: { ...prev[q.questionId], scoreText: event.target.value, comment: prev[q.questionId]?.comment ?? '' },
                         }))
                       }
-                      className="w-24 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                      className={SCORE_INPUT_CLASS}
                     />
                   </label>
-                  <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-base-black">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
                     {t('teacherAttemptDetail.commentOptional')}
-                    <input
-                      type="text"
+                    <textarea
+                      rows={3}
                       value={drafts[q.questionId]?.comment ?? ''}
                       onChange={(event) =>
                         setDrafts((prev) => ({
@@ -258,21 +371,40 @@ function TeacherAttemptDetailPage() {
                         }))
                       }
                       placeholder={t('teacherAttemptDetail.feedbackPlaceholder')}
-                      className="min-w-[12rem] rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                      className={COMMENT_INPUT_CLASS}
                     />
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveGrade(q.questionId, q.essayMaxScore)}
-                    disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
-                    className="rounded-md bg-primary-500 px-4 py-3 text-xs font-semibold sm:py-1.5 text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveGrade(q.questionId, q.essayMaxScore, true)}
+                      disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
+                      className={SAVE_NEXT_BUTTON_CLASS}
+                    >
+                      {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('scoring.grade.saveAndNext')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveGrade(q.questionId, q.essayMaxScore)}
+                      disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
+                      className={SAVE_BUTTON_CLASS}
+                    >
+                      {t('teacherAttemptDetail.saveGrade')}
+                    </button>
+                  </div>
+                  {gradingErrors[q.questionId] && (
+                    <p role="alert" className="text-sm font-medium text-red-700">
+                      {gradingErrors[q.questionId]}
+                    </p>
+                  )}
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className={savedMessages[q.questionId] ? 'rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800' : 'sr-only'}
                   >
-                    {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveGrade')}
-                  </button>
+                    {savedMessages[q.questionId] ?? ''}
+                  </p>
                 </div>
-                {gradingErrors[q.questionId] && (
-                  <p className="text-xs text-red-600">{gradingErrors[q.questionId]}</p>
-                )}
                 {q.manualComment && (
                   <p className="text-xs italic text-base-black/60">
                     {t('teacherAttemptDetail.commentLine', { comment: q.manualComment })}
@@ -303,13 +435,13 @@ function TeacherAttemptDetailPage() {
                   </div>
                 )}
                 {q.speakingAudioData ? (
-                  <div className="flex flex-wrap items-end gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
-                    <label className="flex flex-col gap-1 text-xs font-medium text-base-black">
+                  <div className="flex flex-col gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
+                    <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
                       {t('teacherAttemptDetail.overrideScoreOutOf', { scale: SPEAKING_SCORE_SCALE })}
                       <input
-                        type="number"
-                        min={0}
-                        max={SPEAKING_SCORE_SCALE}
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
                         value={drafts[q.questionId]?.scoreText ?? ''}
                         onChange={(event) =>
                           setDrafts((prev) => ({
@@ -317,13 +449,13 @@ function TeacherAttemptDetailPage() {
                             [q.questionId]: { ...prev[q.questionId], scoreText: event.target.value, comment: prev[q.questionId]?.comment ?? '' },
                           }))
                         }
-                        className="w-24 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                        className={SCORE_INPUT_CLASS}
                       />
                     </label>
-                    <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-base-black">
+                    <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
                       {t('teacherAttemptDetail.overrideFeedbackOptional')}
-                      <input
-                        type="text"
+                      <textarea
+                        rows={3}
                         value={drafts[q.questionId]?.comment ?? ''}
                         onChange={(event) =>
                           setDrafts((prev) => ({
@@ -332,25 +464,36 @@ function TeacherAttemptDetailPage() {
                           }))
                         }
                         placeholder={t('teacherAttemptDetail.overrideFeedbackPlaceholder')}
-                        className="min-w-[12rem] rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                        className={COMMENT_INPUT_CLASS}
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => handleSaveGrade(q.questionId, SPEAKING_SCORE_SCALE)}
-                      disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
-                      className="rounded-md bg-primary-500 px-4 py-3 text-xs font-semibold sm:py-1.5 text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveGrade(q.questionId, SPEAKING_SCORE_SCALE)}
+                        disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
+                        className={SAVE_NEXT_BUTTON_CLASS}
+                      >
+                        {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveOverride')}
+                      </button>
+                    </div>
+                    {gradingErrors[q.questionId] && (
+                      <p role="alert" className="text-sm font-medium text-red-700">
+                        {gradingErrors[q.questionId]}
+                      </p>
+                    )}
+                    <p
+                      role="status"
+                      aria-live="polite"
+                      className={savedMessages[q.questionId] ? 'rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800' : 'sr-only'}
                     >
-                      {savingQuestionId === q.questionId ? t('teacherAttemptDetail.saving') : t('teacherAttemptDetail.saveOverride')}
-                    </button>
+                      {savedMessages[q.questionId] ?? ''}
+                    </p>
                   </div>
                 ) : (
                   <p className="text-xs text-base-black/50">
                     {t('teacherAttemptDetail.nothingToOverrideYet')}
                   </p>
-                )}
-                {gradingErrors[q.questionId] && (
-                  <p className="text-xs text-red-600">{gradingErrors[q.questionId]}</p>
                 )}
                 {q.manualComment && (
                   <p className="text-xs italic text-base-black/60">

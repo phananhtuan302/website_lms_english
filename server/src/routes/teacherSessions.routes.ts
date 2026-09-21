@@ -20,6 +20,7 @@ import type {
   AttemptSummaryDTO,
   CreateSessionResponse,
   GradeEssayAnswerRequest,
+  GradeEssayAnswerResponse,
   TestSessionDTO,
 } from '@platform/shared';
 import { SPEAKING_SCORE_SCALE } from '@platform/shared';
@@ -32,6 +33,7 @@ import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
 import { loadEnv } from '../config/env';
 import { fetchNestedTest } from '../lib/testQueries';
 import { buildResultQuestions } from '../lib/attemptView';
+import { loadProvisionalInfo, recomputeAttemptScore } from '../lib/attemptScore';
 import { markSessionClosed } from '../realtime/sessionRealtime';
 
 export const teacherSessionsRouter = Router();
@@ -232,6 +234,8 @@ teacherSessionsRouter.get(
       orderBy: { startedAt: 'asc' },
     });
 
+    const provisionalInfo = await loadProvisionalInfo(attempts.filter((a) => a.status === 'submitted').map((a) => a.id));
+
     const summaries: AttemptSummaryDTO[] = attempts.map((a) => ({
       attemptId: a.id,
       sessionId: a.sessionId,
@@ -244,6 +248,7 @@ teacherSessionsRouter.get(
       correctCount: a.correctCount,
       totalCount: a.totalCount,
       scorePercent: a.scorePercent,
+      provisional: provisionalInfo.get(a.id)?.provisional ?? false,
       startedAt: a.startedAt.toISOString(),
       submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
       timeTakenSeconds: a.timeTakenSeconds,
@@ -274,10 +279,12 @@ teacherSessionsRouter.get(
       return;
     }
 
-    const [test, answers] = await Promise.all([
+    const [test, answers, provisionalInfo] = await Promise.all([
       fetchNestedTest(attempt.testId),
       prisma.answer.findMany({ where: { attemptId: attempt.id } }),
+      loadProvisionalInfo([attempt.id]),
     ]);
+    const provisional = provisionalInfo.get(attempt.id) ?? { provisional: false, ungradedCount: 0 };
     const answerMap = new Map(
       answers.map((a) => [
         a.questionId,
@@ -307,6 +314,8 @@ teacherSessionsRouter.get(
       correctCount: attempt.correctCount,
       totalCount: attempt.totalCount,
       scorePercent: attempt.scorePercent,
+      provisional: provisional.provisional,
+      ungradedCount: provisional.ungradedCount,
       timeTakenSeconds: attempt.timeTakenSeconds,
       tabSwitchCount: attempt.tabSwitchCount,
       tabSwitchLog: attempt.tabSwitchLog,
@@ -323,7 +332,9 @@ teacherSessionsRouter.get(
  * grading (T-042) AND Speaking override (T-055) — both reuse the exact same
  * `manualScore`/`manualComment` columns and the same "teacher value wins once present"
  * display rule (see `AttemptResultQuestionDTO`'s doc comment in `@platform/shared`), so
- * one endpoint serves both question types. Ownership is checked the same way as the
+ * one endpoint serves both question types. Phase 15: after saving, the attempt's total
+ * (`Attempt.scorePercent`) is re-scored — see `lib/attemptScore.ts` — and returned in the
+ * response. Ownership is checked the same way as the
  * attempt-detail GET above (via the attempt's test, 404 if not this teacher's). Only
  * valid for an `essay`/`speaking` question that has actually been submitted (an
  * in-progress attempt has nothing final to grade yet, and an ungraded Speaking answer —
@@ -394,6 +405,17 @@ teacherSessionsRouter.patch(
       update: { manualScore: body.score, manualComment: body.comment ?? null },
     });
 
-    res.status(200).json({ questionId: question.id, manualScore: body.score, manualComment: body.comment ?? null });
+    // Phase 15: the grade now counts towards the attempt's total — re-score it (same helper the
+    // submit route uses) so the gradebook, the student's grades and every average follow.
+    const rescored = await recomputeAttemptScore(attempt.id);
+    const response: GradeEssayAnswerResponse = {
+      questionId: question.id,
+      manualScore: body.score,
+      manualComment: body.comment ?? null,
+      scorePercent: rescored?.scorePercent ?? attempt.scorePercent ?? 0,
+      provisional: rescored?.provisional ?? false,
+      ungradedCount: rescored?.ungradedCount ?? 0,
+    };
+    res.status(200).json(response);
   }),
 );

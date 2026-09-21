@@ -5,6 +5,7 @@ import type { StudentGradeStatus, StudentGradeTestDTO, StudentGradesResponseDTO 
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import { withClassPrefix } from '../lib/classLabel';
+import { formatScore10 } from '../lib/scoreFormat';
 
 /**
  * Student "Điểm của tôi" (T-110, Phase 14) at `/student/grades`, behind
@@ -33,11 +34,6 @@ function formatTime(iso: string, language: string): string {
     month: '2-digit',
     year: 'numeric',
   }).format(new Date(iso));
-}
-
-/** Scores are stored as floats; show at most one decimal so "66.7" not "66.66666666". */
-function formatPercent(percent: number): string {
-  return String(Math.round(percent * 10) / 10);
 }
 
 function scoreClass(percent: number): string {
@@ -86,7 +82,15 @@ function TestRow({ test }: { test: StudentGradeTestDTO }) {
       <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
         {test.status === 'graded' && (
           <div className="text-right">
-            <p className={`text-xl font-bold ${scoreClass(test.scorePercent)}`}>{formatPercent(test.scorePercent)}%</p>
+            <p className={`text-xl font-bold ${scoreClass(test.scorePercent)}`}>
+              {formatScore10(test.scorePercent)}
+              <span className="text-sm font-semibold text-base-black/60">/10</span>
+            </p>
+            {test.provisional && (
+              <p className="mt-0.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+                {t('scoring.provisional.studentChip')}
+              </p>
+            )}
             <p className="text-xs text-base-black/50">
               {t('studentGrades.correctOf', { correct: test.correctCount, total: test.totalCount })}
             </p>
@@ -247,8 +251,14 @@ function StudentGradesPage() {
                   {data.averageScorePercent !== null ? (
                     <>
                       <p className={`mt-1 text-3xl font-bold ${scoreClass(data.averageScorePercent)}`}>
-                        {formatPercent(data.averageScorePercent)}%
+                        {formatScore10(data.averageScorePercent)}
+                        <span className="text-lg font-semibold text-base-black/60">/10</span>
                       </p>
+                      {data.tests.some((test) => test.status === 'graded' && test.provisional) && (
+                        <p className="mt-0.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+                          {t('scoring.provisional.studentChip')}
+                        </p>
+                      )}
                       <p className="mt-0.5 text-xs text-base-black/50">
                         {t('studentGrades.average.basis', { count: gradedCount })}
                       </p>

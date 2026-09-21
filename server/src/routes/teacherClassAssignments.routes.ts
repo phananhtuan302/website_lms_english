@@ -36,6 +36,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { isAdminOrOwner } from '../lib/authz';
 import { isScorePublished } from '../lib/testClassSchedule';
+import { ensureTestVariants } from '../lib/testVariants';
 
 export const teacherClassAssignmentsRouter = Router();
 
@@ -127,6 +128,15 @@ teacherClassAssignmentsRouter.get(
         },
       }),
     ]);
+
+    // Variants are automatic (see `lib/testVariants.ts`): a test given to this class before that
+    // (assigned with no variant yet) gets its default pair the first time the teacher looks at it,
+    // so `variantCount === 0` below only ever means "this test has no questions".
+    for (const { test } of testRows) {
+      if (test._count.variants === 0 && test.sections.some((section) => section._count.questions > 0)) {
+        test._count.variants = await ensureTestVariants(test.id);
+      }
+    }
 
     const testIds = testRows.map((row) => row.test.id);
     const [schedules, submitted] =

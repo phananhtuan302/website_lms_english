@@ -8,6 +8,7 @@ import type {
   ClassAssignmentsResponseDTO,
   TeacherContentType,
 } from '@platform/shared';
+import ScoreReleaseDialog from '../../components/ScoreReleaseDialog';
 import TestClassSchedulePanel from '../../components/TestClassSchedulePanel';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { ApiError } from '../../lib/apiClient';
@@ -81,6 +82,9 @@ function ClassAssignmentsTab() {
   // Read once, on arrival: the `assign` flag asks for the dialog, the effect below then removes it.
   const [dialogOpen, setDialogOpen] = useState(() => searchParams.get('assign') === '1' && Boolean(periodId));
   const [removingKey, setRemovingKey] = useState<string | null>(null);
+  // Phase 15: "Cho học sinh xem điểm" asks first (dialog); "Ẩn điểm" is immediate.
+  const [releaseFor, setReleaseFor] = useState<ClassAssignmentTestDTO | null>(null);
+  const [hidingTestId, setHidingTestId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
   const refresh = useCallback(() => {
@@ -148,6 +152,21 @@ function ClassAssignmentsTab() {
       });
     } finally {
       setRemovingKey(null);
+    }
+  }
+
+  async function handleHideScores(item: ClassAssignmentTestDTO) {
+    if (hidingTestId) return;
+    setHidingTestId(item.id);
+    setNotice(null);
+    try {
+      await teacherApi.updateTestClassSchedule(item.id, { classId: cls.id, published: false });
+      setNotice({ kind: 'ok', text: t('scoring.release.hiddenNamed', { title: item.title }) });
+      await refresh();
+    } catch (err) {
+      setNotice({ kind: 'error', text: err instanceof ApiError ? err.message : t('teacherTestReport.publishFailed') });
+    } finally {
+      setHidingTestId(null);
     }
   }
 
@@ -273,6 +292,31 @@ function ClassAssignmentsTab() {
               >
                 {t('classAssignments.actions.results')}
               </Link>
+              {testItem.schedule?.scoresPublishedManually ? (
+                <button
+                  type="button"
+                  onClick={() => void handleHideScores(testItem)}
+                  disabled={hidingTestId !== null}
+                  aria-label={t('scoring.release.rowHideAria', { title: row.title })}
+                  className={actionClass}
+                >
+                  {t('scoring.release.rowHide')}
+                </button>
+              ) : (
+                !testItem.schedule?.scoresPublished && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotice(null);
+                      setReleaseFor(testItem);
+                    }}
+                    aria-label={t('scoring.release.rowShowAria', { title: row.title })}
+                    className="rounded-md bg-primary-500 px-3 py-3 sm:py-1.5 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {t('scoring.release.rowShow')}
+                  </button>
+                )
+              )}
               <button
                 type="button"
                 aria-expanded={scheduleOpenFor === testItem.id}
@@ -424,6 +468,19 @@ function ClassAssignmentsTab() {
       )}
 
       {dialogOpen && periodId && <AssignDialog classId={cls.id} className={classLabel} onClose={handleDialogClose} />}
+
+      {releaseFor && (
+        <ScoreReleaseDialog
+          testId={releaseFor.id}
+          classId={cls.id}
+          onClose={() => setReleaseFor(null)}
+          onReleased={() => {
+            setNotice({ kind: 'ok', text: t('scoring.release.publishedNamed', { title: releaseFor.title }) });
+            setReleaseFor(null);
+            void refresh();
+          }}
+        />
+      )}
     </section>
   );
 }

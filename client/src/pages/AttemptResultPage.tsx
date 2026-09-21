@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SPEAKING_SCORE_SCALE, type AttemptResultResponseDTO } from '@platform/shared';
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
+import { formatPoints, formatScore10 } from '../lib/scoreFormat';
 
 /** T-113: the big solid "← Về Bài cần làm" button a child sees right after finishing a test. */
 const BACK_HOME_BUTTON_CLASS =
@@ -83,7 +84,19 @@ function AttemptResultPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
         <h1 className="text-xl font-bold text-primary-700">{result.testTitle}</h1>
-        <p className="mt-2 text-4xl font-bold text-primary-700">{result.scorePercent}%</p>
+        <p className="mt-2 text-4xl font-bold text-primary-700">
+          {t('scoring.student.headline', { score: formatScore10(result.scorePercent) })}
+        </p>
+        {result.provisional && (
+          <div className="mt-2">
+            <p className="inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
+              {t('scoring.provisional.studentChip')}
+            </p>
+            <p className="mt-1 text-sm text-amber-900">
+              {t('scoring.provisional.studentNote', { count: result.ungradedCount })}
+            </p>
+          </div>
+        )}
         <p className="mt-1 text-sm text-base-black/70">
           {t('attemptResult.correctOutOf', { correct: result.correctCount, total: result.totalCount })}
         </p>
@@ -121,7 +134,7 @@ function AttemptResultPage() {
               </p>
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
-                  {q.manualScore != null ? `${q.manualScore} / ${q.essayMaxScore}` : t('attemptResult.awaitingGrading')}
+                  {q.manualScore != null ? `${formatPoints(q.manualScore)} / ${formatPoints(q.essayMaxScore ?? 0)}` : t('attemptResult.awaitingGrading')}
                 </span>
               ) : q.type === 'speaking' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">

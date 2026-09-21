@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type {
   CreateSessionResponse,
   QuestionType,
-  SectionDTO,
   TestDetailDTO,
   TestSessionDTO,
   TestType,
@@ -13,11 +12,18 @@ import type {
   UnitDTO,
   UpdateQuestionRequest,
   UpdateSectionRequest,
+  UpdateTestRequest,
 } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
-import { ApiError } from '../lib/apiClient';
-import QuestionEditor from '../components/QuestionEditor';
+import { EditorSaveContext, useEditorSaveStore, useSerialSaver } from '../lib/editorSave';
+import { friendlyEditorError, rawErrorText } from '../lib/editorErrors';
+import { HoldSave } from '../lib/serialSaver';
+import { sendKeepalive } from '../lib/keepaliveRequest';
+import TestSectionEditor from '../components/TestSectionEditor';
 import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
+import SaveStatusBar from '../components/SaveStatusBar';
+import TestPreviewModal from '../components/TestPreviewModal';
+import AssignTestToClassesDialog from '../components/AssignTestToClassesDialog';
 
 /** Every value `Test.testType` supports (T-036/T-038, Assumption A4) — the authoring
  * dropdown below resolves each value's label via `t('teacherTestEditor.testTypes.*')`
@@ -31,7 +37,8 @@ const TEST_TYPE_VALUES: TestType[] = [
 ];
 
 /** Default shape for a brand-new question of a given type — a sensible, editable
- * starting point rather than an empty/invalid one, so it saves successfully right away.
+ * starting point rather than an empty/invalid one, so it saves successfully right away. A new
+ * multiple-choice question starts with four answers (A–D) and A marked correct.
  * Takes `t` (T-068) since this seed prompt/choice text is visible to the teacher until
  * they edit it, and this function lives outside the component (no hook access there). */
 function defaultQuestionBody(
@@ -79,307 +86,256 @@ function defaultQuestionBody(
   return {
     type,
     prompt: t('teacherTestEditor.defaultQuestions.multipleChoicePrompt'),
-    choices: [
-      { text: t('teacherTestEditor.defaultQuestions.optionA'), isCorrect: true },
-      { text: t('teacherTestEditor.defaultQuestions.optionB'), isCorrect: false },
-    ],
+    choices: ['A', 'B', 'C', 'D'].map((letter, index) => ({
+      text: t('teacherTestEditor.defaultQuestions.option', { letter }),
+      isCorrect: index === 0,
+    })),
   };
 }
 
+/** The title block of the editor: everything `PATCH /tests/:id` saves. */
+interface MetaDraft {
+  title: string;
+  timeLimitText: string;
+  unitId: string | null;
+  testType: TestType;
+  published: boolean;
+}
+
+const NUMBER_DEBOUNCE_MS = 300;
+
+const selectClass =
+  'rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200';
+
 /**
- * Full test-authoring editor (T-008): edit the test title, manage sections and
- * questions of all three objective types (add/edit/delete/reorder), plus the
- * variant-generation panel (T-009) and QR-join session panel (T-010) for this
- * specific test.
+ * Full test-authoring editor (T-008): edit the test title, manage question groups ("nhóm câu")
+ * and questions of every type (add / edit / delete / reorder), preview the test as a student, give
+ * it to classes, see its automatic variants (T-009) and start a QR-join session (T-010).
+ *
+ * There is no Save button: every edit is saved by itself (see `serialSaver.ts` /
+ * `editorSave.ts`) and the sticky line at the top always says whether the work is safe.
  */
 function TeacherTestEditorPage() {
   const { testId } = useParams<{ testId: string }>();
+  const store = useEditorSaveStore();
+  const { hasUnsaved, flushAllOnUnload } = store;
+
+  // Closing / reloading the tab: send whatever is still waiting (keepalive) and, only while
+  // something is unsaved, let the browser ask before leaving.
+  useEffect(() => {
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsaved()) return;
+      flushAllOnUnload();
+      event.preventDefault();
+      event.returnValue = '';
+    }
+    function onPageHide() {
+      flushAllOnUnload();
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [hasUnsaved, flushAllOnUnload]);
+
+  if (!testId) return null;
+  return (
+    <EditorSaveContext.Provider value={store.tracker}>
+      <TestEditorBody key={testId} testId={testId} status={store.status} />
+    </EditorSaveContext.Provider>
+  );
+}
+
+function TestEditorBody({
+  testId,
+  status,
+}: {
+  testId: string;
+  status: ReturnType<typeof useEditorSaveStore>['status'];
+}) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const tracker = useContext(EditorSaveContext);
   const [test, setTest] = useState<TestDetailDTO | null>(null);
-  const [title, setTitle] = useState('');
-  const [timeLimitText, setTimeLimitText] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [meta, setMeta] = useState<MetaDraft | null>(null);
+  const metaRef = useRef<MetaDraft | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [newSectionTitle, setNewSectionTitle] = useState('');
-  // T-090: inline errors for the section image/audio file pickers below, keyed by
-  // `${sectionId}:${field}` so each field shows its own message independently.
-  const [sectionUploadErrors, setSectionUploadErrors] = useState<Record<string, string>>({});
 
   const [units, setUnits] = useState<UnitDTO[]>([]);
 
   const [variants, setVariants] = useState<TestVariantDTO[]>([]);
-  const [variantError, setVariantError] = useState<string | null>(null);
-  const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
+  const [variantNote, setVariantNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [isRegeneratingVariants, setIsRegeneratingVariants] = useState(false);
 
   const [sessions, setSessions] = useState<TestSessionDTO[]>([]);
   const [currentSession, setCurrentSession] = useState<CreateSessionResponse | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isStartingSession, setIsStartingSession] = useState(false);
 
-  const refreshTest = useCallback(() => {
-    if (!testId) return;
-    teacherApi
-      .getTest(testId)
-      .then((data) => {
-        setTest(data);
-        setTitle(data.title);
-        setTimeLimitText(data.timeLimitMinutes != null ? String(data.timeLimitMinutes) : '');
-      })
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : t('teacherTestEditor.loadFailed')),
-      );
-  }, [testId, t]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
 
-  useEffect(refreshTest, [refreshTest]);
+  // Adding / deleting / reordering happen one after another, in click order, so two quick clicks
+  // can never make an older response overwrite a newer one.
+  const structureQueue = useRef<Promise<void>>(Promise.resolve());
 
-  useEffect(() => {
-    if (!testId) return;
+  const refreshVariants = useCallback(() => {
     teacherApi
       .listVariants(testId)
       .then(setVariants)
       .catch(() => undefined);
+  }, [testId]);
+
+  useEffect(() => {
+    teacherApi
+      .getTest(testId)
+      .then((data) => {
+        setTest(data);
+        const initial: MetaDraft = {
+          title: data.title,
+          timeLimitText: data.timeLimitMinutes != null ? String(data.timeLimitMinutes) : '',
+          unitId: data.unitId,
+          testType: data.testType,
+          published: data.published,
+        };
+        metaRef.current = initial;
+        setMeta(initial);
+      })
+      .catch((err) => {
+        console.warn('[editor] could not load the test:', rawErrorText(err));
+        setLoadFailed(true);
+      });
+    refreshVariants();
     teacherApi
       .listSessions(testId)
       .then(setSessions)
       .catch(() => undefined);
-  }, [testId]);
-
-  // Units (T-018) — needed for the "tag this test to a Unit" dropdown below.
-  useEffect(() => {
+    // Units (T-018) — needed for the "tag this test to a Unit" dropdown below.
     teacherApi
       .listUnits()
       .then(setUnits)
       .catch(() => undefined);
-  }, []);
+  }, [testId, refreshVariants]);
 
-  if (!testId) return null;
-
-  async function handleSaveTitle() {
-    if (!test || title.trim() === '' || title === test.title) return;
-    try {
-      const updated = await teacherApi.updateTest(testId!, { title: title.trim() });
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveTitleFailed'));
+  function buildMetaBody(value: MetaDraft): { body: UpdateTestRequest; hold: string | null } {
+    if (value.title.trim() === '') throw new HoldSave(t('teacherTestEditor.hold.title'));
+    const body: UpdateTestRequest = {
+      title: value.title.trim(),
+      unitId: value.unitId,
+      testType: value.testType,
+      published: value.published,
+    };
+    let hold: string | null = null;
+    const trimmed = value.timeLimitText.trim();
+    if (trimmed === '') {
+      body.timeLimitMinutes = null;
+    } else {
+      const minutes = Number(trimmed);
+      if (/^\d+$/.test(trimmed) && minutes >= 1 && minutes <= 480) body.timeLimitMinutes = minutes;
+      else hold = t('teacherTestEditor.settings.timeLimitInvalid');
     }
+    return { body, hold };
   }
 
-  async function handleSaveTimeLimit() {
-    if (!test) return;
-    const trimmed = timeLimitText.trim();
-    const timeLimitMinutes = trimmed === '' ? null : Number(trimmed);
-    if (timeLimitMinutes === test.timeLimitMinutes) return;
-    if (
-      timeLimitMinutes !== null &&
-      (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes < 1)
-    ) {
-      setError(t('teacherTestEditor.settings.timeLimitInvalid'));
-      setTimeLimitText(test.timeLimitMinutes != null ? String(test.timeLimitMinutes) : '');
-      return;
-    }
-    try {
-      const updated = await teacherApi.updateTest(testId!, { title: test.title, timeLimitMinutes });
-      setTest(updated);
-      setTimeLimitText(updated.timeLimitMinutes != null ? String(updated.timeLimitMinutes) : '');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveTimeLimitFailed'));
-    }
+  const metaSaver = useSerialSaver<MetaDraft>(
+    'meta',
+    async (value) => {
+      const { body, hold } = buildMetaBody(value);
+      await teacherApi.updateTest(testId, body);
+      // The rest of the block is saved; only the half-typed time limit waits.
+      if (hold) throw new HoldSave(hold);
+    },
+    {
+      saveOnUnload: (value) => {
+        try {
+          sendKeepalive('PATCH', `/api/teacher/tests/${testId}`, buildMetaBody(value).body);
+        } catch {
+          // Not ready to save (held) — nothing to send.
+        }
+      },
+    },
+  );
+
+  function updateMeta(patch: Partial<MetaDraft>, options: { immediate?: boolean; delayMs?: number } = {}) {
+    if (!metaRef.current) return;
+    const next = { ...metaRef.current, ...patch };
+    metaRef.current = next;
+    setMeta(next);
+    metaSaver.schedule(next, options);
   }
 
-  /** T-018: optionally tag this test with a curriculum Unit. `unitId: null` clears the
-   * tag (the dropdown's empty "No unit" option). */
-  async function handleSaveUnit(unitId: string | null) {
-    if (!test) return;
-    try {
-      const updated = await teacherApi.updateTest(testId!, { title: test.title, unitId });
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveUnitFailed'));
+  /** Runs one add / delete / reorder request in order, updating the page with its answer. */
+  function runStructural(action: () => Promise<TestDetailDTO>) {
+    async function perform() {
+      tracker.report('structure', { state: 'saving' });
+      try {
+        setTest(await action());
+        setActionError(null);
+        tracker.report('structure', { state: 'idle', justSaved: true });
+      } catch (err) {
+        const message = friendlyEditorError(err, t);
+        setActionError(message);
+        tracker.report(
+          'structure',
+          { state: 'failed', message, detail: rawErrorText(err) },
+          () => {
+            structureQueue.current = structureQueue.current.then(perform);
+          },
+        );
+      }
     }
-  }
-
-  /** T-036: tag this test's `testType` (e.g. `unitTest`) — this is the actual "a teacher
-   * can tag a test as testType: unitTest" authoring action, using the same test editor
-   * as every other test per Guiding Principle 6. */
-  async function handleSaveTestType(testType: TestType) {
-    if (!test) return;
-    try {
-      const updated = await teacherApi.updateTest(testId!, { title: test.title, testType });
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveTestTypeFailed'));
-    }
-  }
-
-  /** T-036: flips whether a Unit Test is visible to students yet (`Test.published`'s
-   * documented "available to students" semantics — see schema.prisma). */
-  async function handleSavePublished(published: boolean) {
-    if (!test) return;
-    try {
-      const updated = await teacherApi.updateTest(testId!, { title: test.title, published });
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.savePublishedFailed'));
-    }
+    structureQueue.current = structureQueue.current.then(perform);
   }
 
   async function handleAddSection(event: React.FormEvent) {
     event.preventDefault();
     const sectionTitle = newSectionTitle.trim();
     if (!sectionTitle) return;
-    try {
-      const updated = await teacherApi.createSection(testId!, { title: sectionTitle });
-      setTest(updated);
-      setNewSectionTitle('');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.addSectionFailed'));
-    }
+    setNewSectionTitle('');
+    runStructural(() => teacherApi.createSection(testId, { title: sectionTitle }));
   }
 
-  async function handleSectionTitleBlur(sectionId: string, value: string, previous: string) {
-    if (value.trim() === '' || value === previous) return;
-    try {
-      const updated = await teacherApi.updateSection(testId!, sectionId, { title: value.trim() });
-      setTest(updated);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveSectionTitleFailed'),
-      );
-    }
+  function handleDeleteSection(sectionId: string) {
+    runStructural(() => teacherApi.deleteSection(testId, sectionId));
   }
 
-  /** Saves one or more of a section's Reading (T-039) / Listening (T-040/T-041) content
-   * fields — `title` is always resent alongside since `UpdateSectionRequest` requires it
-   * (same "send full current state for fields not being patched" convention as
-   * `handleSaveUnit`/question editing elsewhere on this page). */
-  async function handleUpdateSectionContent(
-    section: SectionDTO,
-    patch: Partial<Omit<UpdateSectionRequest, 'title'>>,
-  ) {
-    try {
-      const updated = await teacherApi.updateSection(testId!, section.id, {
-        title: section.title,
-        ...patch,
-      });
-      setTest(updated);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.saveSectionContentFailed'),
-      );
-    }
-  }
-
-  // T-090: this project has never used real file/object storage — following the same
-  // precedent as Speaking's `Answer.speakingAudioData` (see `TakeTestPage.tsx`'s
-  // `blobToDataUrl`), a file picked here is read client-side via `FileReader` into a
-  // base64 `data:` URL string and written straight into the SAME `passageImageUrl`/
-  // `audioUrl` text field the URL input above already uses — no schema change, no
-  // upload endpoint. 5 MB keeps the resulting string (base64 inflates raw bytes by
-  // ~33%) from bloating the section-update payload and the `Section` row, while still
-  // comfortably fitting a passage image or a short audio clip.
-  const MAX_SECTION_UPLOAD_BYTES = 5 * 1024 * 1024;
-  const MAX_SECTION_UPLOAD_MB = 5;
-
-  function handleSectionFileUpload(
-    section: SectionDTO,
-    field: 'passageImageUrl' | 'audioUrl',
-    file: File | null,
-  ) {
-    if (!file) return;
-    const errorKey = `${section.id}:${field}`;
-    if (file.size > MAX_SECTION_UPLOAD_BYTES) {
-      setSectionUploadErrors((prev) => ({
-        ...prev,
-        [errorKey]: t('teacherTestEditor.sections.uploadTooLarge', { limitMb: MAX_SECTION_UPLOAD_MB }),
-      }));
-      return;
-    }
-    setSectionUploadErrors((prev) => {
-      if (!(errorKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[errorKey];
-      return next;
-    });
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== 'string') return;
-      void handleUpdateSectionContent(
-        section,
-        field === 'passageImageUrl' ? { passageImageUrl: dataUrl } : { audioUrl: dataUrl },
-      );
-    };
-    reader.onerror = () => {
-      setSectionUploadErrors((prev) => ({
-        ...prev,
-        [errorKey]: t('teacherTestEditor.sections.uploadReadFailed'),
-      }));
-    };
-    reader.readAsDataURL(file);
-  }
-
-  async function handleDeleteSection(sectionId: string) {
-    try {
-      const updated = await teacherApi.deleteSection(testId!, sectionId);
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.deleteSectionFailed'));
-    }
-  }
-
-  async function handleMoveSection(sectionId: string, direction: 'up' | 'down') {
+  function handleMoveSection(sectionId: string, direction: 'up' | 'down') {
     if (!test) return;
     const ids = test.sections.map((s) => s.id);
     const index = ids.indexOf(sectionId);
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= ids.length) return;
     [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
-    try {
-      const updated = await teacherApi.reorderSections(testId!, { orderedSectionIds: ids });
-      setTest(updated);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.reorderSectionsFailed'),
-      );
-    }
+    runStructural(() => teacherApi.reorderSections(testId, { orderedSectionIds: ids }));
   }
 
-  async function handleAddQuestion(sectionId: string, type: QuestionType) {
-    try {
-      const updated = await teacherApi.createQuestion(
-        testId!,
-        sectionId,
-        defaultQuestionBody(type, t),
-      );
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.addQuestionFailed'));
-    }
+  function handleAddQuestion(sectionId: string, type: QuestionType) {
+    runStructural(() => teacherApi.createQuestion(testId, sectionId, defaultQuestionBody(type, t)));
   }
 
-  async function handleSaveQuestion(
-    sectionId: string,
-    questionId: string,
-    body: UpdateQuestionRequest,
-  ) {
-    const updated = await teacherApi.updateQuestion(testId!, sectionId, questionId, body);
-    setTest(updated);
+  async function handleSaveSection(sectionId: string, body: UpdateSectionRequest) {
+    await teacherApi.updateSection(testId, sectionId, body);
   }
 
-  async function handleDeleteQuestion(sectionId: string, questionId: string) {
-    try {
-      const updated = await teacherApi.deleteQuestion(testId!, sectionId, questionId);
-      setTest(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTestEditor.errors.deleteQuestionFailed'));
-    }
+  async function handleSaveQuestion(sectionId: string, questionId: string, body: UpdateQuestionRequest) {
+    // The answer is not applied to the page: the question keeps its own draft, and replacing
+    // the whole test with a slightly older response could make a newer edit flicker back.
+    await teacherApi.updateQuestion(testId, sectionId, questionId, body);
   }
 
-  async function handleMoveQuestion(
-    sectionId: string,
-    questionId: string,
-    direction: 'up' | 'down',
-  ) {
+  function handleSaveQuestionOnUnload(sectionId: string, questionId: string, body: UpdateQuestionRequest) {
+    sendKeepalive('PATCH', `/api/teacher/tests/${testId}/sections/${sectionId}/questions/${questionId}`, body);
+  }
+
+  function handleDeleteQuestion(sectionId: string, questionId: string) {
+    runStructural(() => teacherApi.deleteQuestion(testId, sectionId, questionId));
+  }
+
+  function handleMoveQuestion(sectionId: string, questionId: string, direction: 'up' | 'down') {
     const section = test?.sections.find((s) => s.id === sectionId);
     if (!section) return;
     const ids = section.questions.map((q) => q.id);
@@ -387,31 +343,28 @@ function TeacherTestEditorPage() {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= ids.length) return;
     [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
-    try {
-      const updated = await teacherApi.reorderQuestions(testId!, sectionId, {
-        orderedQuestionIds: ids,
-      });
-      setTest(updated);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.reorderQuestionsFailed'),
-      );
-    }
+    runStructural(() => teacherApi.reorderQuestions(testId, sectionId, { orderedQuestionIds: ids }));
   }
 
-  async function handleGenerateVariants() {
-    setIsGeneratingVariants(true);
-    setVariantError(null);
+  async function handleRegenerateVariants() {
+    if (
+      variants.some((variant) => (variant.attemptCount ?? 0) > 0) &&
+      !window.confirm(t('teacherTestEditor.variants.confirmRegenerate'))
+    ) {
+      return;
+    }
+    setIsRegeneratingVariants(true);
+    setVariantNote(null);
     try {
-      await teacherApi.generateVariants(testId!, { count: 2 });
-      const all = await teacherApi.listVariants(testId!);
-      setVariants(all);
+      await tracker.flushAll();
+      const result = await teacherApi.regenerateVariants(testId);
+      setVariants(result.variants);
+      setVariantNote({ tone: 'ok', text: t('teacherTestEditor.variants.regenerated') });
     } catch (err) {
-      setVariantError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.generateVariantsFailed'),
-      );
+      console.warn('[editor] regenerate variants failed:', rawErrorText(err));
+      setVariantNote({ tone: 'error', text: friendlyEditorError(err, t) });
     } finally {
-      setIsGeneratingVariants(false);
+      setIsRegeneratingVariants(false);
     }
   }
 
@@ -419,14 +372,15 @@ function TeacherTestEditorPage() {
     setIsStartingSession(true);
     setSessionError(null);
     try {
-      const session = await teacherApi.startSession(testId!);
+      await tracker.flushAll();
+      const session = await teacherApi.startSession(testId);
       setCurrentSession(session);
-      const all = await teacherApi.listSessions(testId!);
+      const all = await teacherApi.listSessions(testId);
       setSessions(all);
+      refreshVariants();
     } catch (err) {
-      setSessionError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.startSessionFailed'),
-      );
+      console.warn('[editor] start session failed:', rawErrorText(err));
+      setSessionError(friendlyEditorError(err, t));
     } finally {
       setIsStartingSession(false);
     }
@@ -435,28 +389,37 @@ function TeacherTestEditorPage() {
   async function handleCloseSession(sessionId: string) {
     try {
       await teacherApi.closeSession(sessionId);
-      const all = await teacherApi.listSessions(testId!);
+      const all = await teacherApi.listSessions(testId);
       setSessions(all);
       if (currentSession?.id === sessionId) {
         setCurrentSession({ ...currentSession, status: 'closed' });
       }
     } catch (err) {
-      setSessionError(
-        err instanceof ApiError ? err.message : t('teacherTestEditor.errors.closeSessionFailed'),
-      );
+      console.warn('[editor] close session failed:', rawErrorText(err));
+      setSessionError(friendlyEditorError(err, t));
     }
   }
 
-  if (!test) {
+  async function openPreview() {
+    await tracker.flushAll();
+    setShowPreview(true);
+  }
+
+  async function openAssign() {
+    await tracker.flushAll();
+    setShowAssign(true);
+  }
+
+  if (!test || !meta) {
     return (
       <div>
         <LibraryBreadcrumb section="tests" linkSection />
-        {error ? (
+        {loadFailed ? (
           <p
             role="alert"
             className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
           >
-            {error}
+            {t('teacherTestEditor.loadFailed')}
           </p>
         ) : (
           <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
@@ -465,16 +428,21 @@ function TeacherTestEditorPage() {
     );
   }
 
+  const questionCount = test.sections.reduce((sum, section) => sum + section.questions.length, 0);
+
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <LibraryBreadcrumb section="tests" linkSection />
+    <div className="flex flex-col">
+      <LibraryBreadcrumb section="tests" linkSection />
+      <SaveStatusBar status={status} />
+
+      <div className="mt-4">
         <input
           type="text"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onBlur={handleSaveTitle}
-          className="mt-2 w-full rounded-md border border-primary-200 px-3 py-2 text-2xl font-bold text-primary-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          value={meta.title}
+          onChange={(event) => updateMeta({ title: event.target.value })}
+          onBlur={() => void metaSaver.flush()}
+          aria-label={t('teacherTestEditor.titleAriaLabel')}
+          className="w-full rounded-md border border-primary-200 px-3 py-2 text-2xl font-bold text-primary-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
         />
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
@@ -482,9 +450,9 @@ function TeacherTestEditorPage() {
             <input
               type="number"
               min={1}
-              value={timeLimitText}
-              onChange={(event) => setTimeLimitText(event.target.value)}
-              onBlur={handleSaveTimeLimit}
+              value={meta.timeLimitText}
+              onChange={(event) => updateMeta({ timeLimitText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })}
+              onBlur={() => void metaSaver.flush()}
               placeholder={t('teacherTestEditor.settings.timeLimitPlaceholder')}
               className="w-32 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
@@ -492,11 +460,11 @@ function TeacherTestEditorPage() {
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
             {t('teacherTestEditor.settings.unitLabel')}
             <select
-              value={test.unitId ?? ''}
+              value={meta.unitId ?? ''}
               onChange={(event) =>
-                handleSaveUnit(event.target.value === '' ? null : event.target.value)
+                updateMeta({ unitId: event.target.value === '' ? null : event.target.value }, { immediate: true })
               }
-              className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              className={selectClass}
             >
               <option value="">{t('teacherTestEditor.settings.noUnit')}</option>
               {units.map((unit) => (
@@ -509,9 +477,9 @@ function TeacherTestEditorPage() {
           <label className="flex items-center gap-2 text-sm font-medium text-base-black">
             {t('teacherTestEditor.settings.testTypeLabel')}
             <select
-              value={test.testType}
-              onChange={(event) => handleSaveTestType(event.target.value as TestType)}
-              className="rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              value={meta.testType}
+              onChange={(event) => updateMeta({ testType: event.target.value as TestType }, { immediate: true })}
+              className={selectClass}
             >
               {TEST_TYPE_VALUES.map((value) => (
                 <option key={value} value={value}>
@@ -520,222 +488,89 @@ function TeacherTestEditorPage() {
               ))}
             </select>
           </label>
-          {test.testType === 'unitTest' && (
+          {meta.testType === 'unitTest' && (
             <label className="flex items-center gap-2 text-sm font-medium text-base-black">
               <input
                 type="checkbox"
-                checked={test.published}
-                onChange={(event) => handleSavePublished(event.target.checked)}
+                checked={meta.published}
+                onChange={(event) => updateMeta({ published: event.target.checked }, { immediate: true })}
                 className="h-4 w-4 rounded border-primary-300 text-primary-600 focus:ring-primary-200"
               />
               {t('teacherTestEditor.settings.publishedLabel')}
             </label>
           )}
-          {test.testType === 'unitTest' && test.unitId && (
+          {meta.testType === 'unitTest' && meta.unitId && (
             <Link
-              to={`/units/${test.unitId}/leaderboard`}
+              to={`/units/${meta.unitId}/leaderboard`}
               className="text-sm font-medium text-primary-600 hover:underline"
             >
               {t('teacherTestEditor.settings.viewUnitLeaderboard')}
             </Link>
           )}
         </div>
-        {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+        {actionError && (
+          <p role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {actionError}
+          </p>
+        )}
       </div>
 
-      <section className="flex flex-col gap-4">
+      <section
+        aria-labelledby="next-step-heading"
+        className="mt-6 flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4 sm:flex-row sm:flex-wrap sm:items-center"
+      >
+        <h2 id="next-step-heading" className="text-base font-bold text-primary-700">
+          {t('teacherTestEditor.nextStep.heading')}
+        </h2>
+        <span className="text-sm text-base-black/80">{t('teacherTestEditor.nextStep.question')}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span aria-hidden="true" className="hidden text-primary-700 sm:inline">
+            →
+          </span>
+          <button
+            type="button"
+            onClick={() => void openPreview()}
+            className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+          >
+            {t('teacherTestEditor.nextStep.preview')}
+          </button>
+          <span aria-hidden="true" className="text-primary-700">
+            →
+          </span>
+          <button
+            type="button"
+            onClick={() => void openAssign()}
+            className="rounded-md bg-primary-500 px-4 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          >
+            {t('teacherTestEditor.nextStep.assign')}
+          </button>
+        </div>
+      </section>
+
+      <section className="mt-8 flex flex-col gap-4">
         <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sections.heading')}</h2>
         {test.sections.length === 0 && (
           <p className="text-sm text-base-black/60">{t('teacherTestEditor.sections.empty')}</p>
         )}
         {test.sections.map((section, sectionIndex) => (
-          <div key={section.id} className="rounded-xl border border-primary-200 bg-primary-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <input
-                type="text"
-                defaultValue={section.title}
-                onBlur={(event) =>
-                  handleSectionTitleBlur(section.id, event.target.value, section.title)
-                }
-                className="min-w-0 flex-1 rounded-md border border-primary-200 bg-base-white px-3 py-1.5 text-base font-semibold text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-              />
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleMoveSection(section.id, 'up')}
-                  disabled={sectionIndex === 0}
-                  aria-label={t('teacherTestEditor.sections.moveUp')}
-                  className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMoveSection(section.id, 'down')}
-                  disabled={sectionIndex === test.sections.length - 1}
-                  aria-label={t('teacherTestEditor.sections.moveDown')}
-                  className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteSection(section.id)}
-                  className="ml-2 whitespace-nowrap rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                >
-                  {t('teacherTestEditor.sections.delete')}
-                </button>
-              </div>
-            </div>
-
-            <details className="mt-3 rounded-lg border border-primary-100 bg-base-white p-3">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-primary-600">
-                {t('teacherTestEditor.sections.contentSummary')}
-              </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-base-black sm:col-span-2">
-                  {t('teacherTestEditor.sections.passageTextLabel')}
-                  <textarea
-                    defaultValue={section.passageText ?? ''}
-                    onBlur={(event) =>
-                      handleUpdateSectionContent(section, { passageText: event.target.value || null })
-                    }
-                    rows={3}
-                    placeholder={t('teacherTestEditor.sections.passageTextPlaceholder')}
-                    className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                  {t('teacherTestEditor.sections.passageImageUrlLabel')}
-                  <input
-                    type="text"
-                    defaultValue={section.passageImageUrl ?? ''}
-                    onBlur={(event) =>
-                      handleUpdateSectionContent(section, { passageImageUrl: event.target.value || null })
-                    }
-                    placeholder={t('teacherTestEditor.sections.urlPlaceholder')}
-                    className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                  />
-                  <span className="text-xs font-normal text-base-black/50">
-                    {t('teacherTestEditor.sections.orUploadFile')}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => {
-                      handleSectionFileUpload(section, 'passageImageUrl', event.target.files?.[0] ?? null);
-                      event.target.value = '';
-                    }}
-                    className="text-xs text-base-black/70 file:mr-2 file:rounded-md file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-700 hover:file:bg-primary-200"
-                  />
-                  {sectionUploadErrors[`${section.id}:passageImageUrl`] && (
-                    <span className="text-xs font-normal text-red-600">
-                      {sectionUploadErrors[`${section.id}:passageImageUrl`]}
-                    </span>
-                  )}
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                  {t('teacherTestEditor.sections.audioUrlLabel')}
-                  <input
-                    type="text"
-                    defaultValue={section.audioUrl ?? ''}
-                    onBlur={(event) =>
-                      handleUpdateSectionContent(section, { audioUrl: event.target.value || null })
-                    }
-                    placeholder={t('teacherTestEditor.sections.urlPlaceholder')}
-                    className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                  />
-                  <span className="text-xs font-normal text-base-black/50">
-                    {t('teacherTestEditor.sections.orUploadFile')}
-                  </span>
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={(event) => {
-                      handleSectionFileUpload(section, 'audioUrl', event.target.files?.[0] ?? null);
-                      event.target.value = '';
-                    }}
-                    className="text-xs text-base-black/70 file:mr-2 file:rounded-md file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-700 hover:file:bg-primary-200"
-                  />
-                  {sectionUploadErrors[`${section.id}:audioUrl`] && (
-                    <span className="text-xs font-normal text-red-600">
-                      {sectionUploadErrors[`${section.id}:audioUrl`]}
-                    </span>
-                  )}
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                  {t('teacherTestEditor.sections.maxPlaysLabel')}
-                  <input
-                    type="number"
-                    min={1}
-                    defaultValue={section.maxPlayCount ?? ''}
-                    onBlur={(event) =>
-                      handleUpdateSectionContent(section, {
-                        maxPlayCount: event.target.value.trim() === '' ? null : Number(event.target.value),
-                      })
-                    }
-                    placeholder={t('teacherTestEditor.sections.maxPlaysPlaceholder')}
-                    className="w-40 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                  />
-                </label>
-              </div>
-            </details>
-
-            <div className="mt-4 flex flex-col gap-3">
-              {section.questions.map((question, questionIndex) => (
-                <QuestionEditor
-                  key={question.id}
-                  question={question}
-                  index={questionIndex}
-                  count={section.questions.length}
-                  onSave={(body) => handleSaveQuestion(section.id, question.id, body)}
-                  onDelete={() => handleDeleteQuestion(section.id, question.id)}
-                  onMove={(direction) => handleMoveQuestion(section.id, question.id, direction)}
-                />
-              ))}
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => handleAddQuestion(section.id, 'multipleChoice')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
-              >
-                {t('teacherTestEditor.sections.addMultipleChoice')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddQuestion(section.id, 'trueFalse')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
-              >
-                {t('teacherTestEditor.sections.addTrueFalse')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddQuestion(section.id, 'fillBlank')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
-              >
-                {t('teacherTestEditor.sections.addFillBlank')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddQuestion(section.id, 'essay')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
-              >
-                {t('teacherTestEditor.sections.addEssay')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddQuestion(section.id, 'speaking')}
-                className="rounded-md border border-primary-300 bg-base-white px-3 py-3 text-xs font-medium text-primary-700 hover:bg-primary-100 sm:py-1.5"
-              >
-                {t('teacherTestEditor.sections.addSpeaking')}
-              </button>
-            </div>
-          </div>
+          <TestSectionEditor
+            key={section.id}
+            testId={testId}
+            section={section}
+            index={sectionIndex}
+            count={test.sections.length}
+            onMove={(direction) => handleMoveSection(section.id, direction)}
+            onDelete={() => handleDeleteSection(section.id)}
+            onAddQuestion={(type) => handleAddQuestion(section.id, type)}
+            onSaveSection={handleSaveSection}
+            onSaveQuestion={(questionId, body) => handleSaveQuestion(section.id, questionId, body)}
+            onSaveQuestionOnUnload={(questionId, body) => handleSaveQuestionOnUnload(section.id, questionId, body)}
+            onDeleteQuestion={(questionId) => handleDeleteQuestion(section.id, questionId)}
+            onMoveQuestion={(questionId, direction) => handleMoveQuestion(section.id, questionId, direction)}
+          />
         ))}
 
-        <form onSubmit={handleAddSection} className="flex items-end gap-3">
+        <form onSubmit={handleAddSection} className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('teacherTestEditor.sections.newSectionTitleLabel')}
             <input
@@ -743,7 +578,7 @@ function TeacherTestEditorPage() {
               value={newSectionTitle}
               onChange={(event) => setNewSectionTitle(event.target.value)}
               placeholder={t('teacherTestEditor.sections.newSectionTitlePlaceholder')}
-              className="w-64 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              className="w-64 max-w-full rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           </label>
           <button
@@ -756,42 +591,45 @@ function TeacherTestEditorPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-primary-200 p-4">
+      <section className="mt-8 rounded-xl border border-primary-200 p-4">
         <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.variants.heading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">
-          {t('teacherTestEditor.variants.description')}
-        </p>
-        <button
-          type="button"
-          onClick={handleGenerateVariants}
-          disabled={isGeneratingVariants}
-          className="mt-3 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isGeneratingVariants
-            ? t('teacherTestEditor.variants.generating')
-            : t('teacherTestEditor.variants.generate')}
-        </button>
-        {variantError && <p className="mt-2 text-sm text-red-700">{variantError}</p>}
-        <ul className="mt-4 flex flex-wrap gap-2">
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherTestEditor.variants.description')}</p>
+        <ul className="mt-3 flex flex-wrap gap-2">
           {variants.map((variant) => (
             <li
               key={variant.id}
-              className="rounded-full bg-primary-100 px-4 py-1.5 text-sm font-semibold text-primary-700"
+              className="rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-700"
             >
               {t('teacherTestEditor.variants.code', { code: variant.code })}
             </li>
           ))}
-          {variants.length === 0 && (
-            <p className="text-sm text-base-black/60">{t('teacherTestEditor.variants.empty')}</p>
-          )}
         </ul>
+        {variants.length === 0 && (
+          <p className="mt-3 text-sm text-base-black/60">{t('teacherTestEditor.variants.empty')}</p>
+        )}
+        <button
+          type="button"
+          onClick={() => void handleRegenerateVariants()}
+          disabled={isRegeneratingVariants || questionCount === 0}
+          className="mt-3 rounded-md border border-primary-300 bg-base-white px-3 py-2.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 sm:py-1.5"
+        >
+          {isRegeneratingVariants
+            ? t('teacherTestEditor.variants.regenerating')
+            : t('teacherTestEditor.variants.regenerate')}
+        </button>
+        {variantNote && (
+          <p
+            role={variantNote.tone === 'error' ? 'alert' : 'status'}
+            className={`mt-2 text-sm ${variantNote.tone === 'error' ? 'text-red-700' : 'text-green-800'}`}
+          >
+            {variantNote.text}
+          </p>
+        )}
       </section>
 
-      <section className="rounded-xl border border-primary-200 p-4">
+      <section className="mt-8 rounded-xl border border-primary-200 p-4">
         <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sessions.heading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">
-          {t('teacherTestEditor.sessions.description')}
-        </p>
+        <p className="mt-1 text-sm text-base-black/60">{t('teacherTestEditor.sessions.description')}</p>
         <button
           type="button"
           onClick={handleStartSession}
@@ -882,6 +720,19 @@ function TeacherTestEditorPage() {
           )}
         </ul>
       </section>
+
+      {showPreview && <TestPreviewModal testId={testId} onClose={() => setShowPreview(false)} />}
+      {showAssign && (
+        <AssignTestToClassesDialog
+          testId={testId}
+          testTitle={meta.title}
+          questionCount={questionCount}
+          onClose={() => {
+            setShowAssign(false);
+            refreshVariants();
+          }}
+        />
+      )}
     </div>
   );
 }

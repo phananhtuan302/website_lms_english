@@ -12,6 +12,7 @@ import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminTestsPage from './pages/AdminTestsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AttemptResultPage from './pages/AttemptResultPage';
+import HelpPage from './pages/HelpPage';
 import HomePage from './pages/HomePage';
 import JoinPage from './pages/JoinPage';
 import LoginPage from './pages/LoginPage';
@@ -87,6 +88,8 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
+              {/* Phase 15: "Trợ giúp" — a public guide (teacher or student version by role). */}
+              <Route path="/help" element={<HelpPage />} />
               {/* Public join-gate (T-011) — deliberately outside ProtectedRoute; it
                 handles the logged-out case itself (see JoinPage's doc comment). */}
               <Route path="/join/:token" element={<JoinPage />} />

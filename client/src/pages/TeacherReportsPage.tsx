@@ -8,6 +8,7 @@ import { useTeacherClasses } from '../hooks/useTeacherClasses';
 import { useClassScope } from '../hooks/useClassScope';
 import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFilterControl';
 import { classTabPath } from '../lib/classWorkspace';
+import { formatScore10WithUnit } from '../lib/scoreFormat';
 
 const GROUP_BY_OPTIONS: Array<{ value: ReportGroupBy; labelKey: string }> = [
   { value: 'test', labelKey: 'teacherReports.groupByOptions.test' },
@@ -266,7 +267,7 @@ function TeacherReportsPage({ fixedTestType, heading, description }: TeacherRepo
                   <td className="px-4 py-3 font-medium text-base-black">{bucket.label}</td>
                   <td className="px-4 py-3 text-base-black/80">{bucket.attemptCount}</td>
                   <td className="px-4 py-3 text-base-black/80">
-                    {bucket.averageScorePercent === null ? '—' : `${bucket.averageScorePercent}%`}
+                    {formatScore10WithUnit(bucket.averageScorePercent)}
                   </td>
                   <td className="px-4 py-3 text-base-black/80">
                     {bucket.averageTimeTakenSeconds === null

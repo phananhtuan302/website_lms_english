@@ -44,6 +44,7 @@ import { generateVariantLayout, nextVariantCodes, type VariantLayout } from '../
 import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
 import { isClassScopeFailure, requireClassPeriod, resolveTeacherClassId } from '../lib/reportClassScope';
 import { findTestClassSchedule, toTestClassScheduleDTO } from '../lib/testClassSchedule';
+import { ensureTestVariants, reconcileVariants, regenerateVariants } from '../lib/testVariants';
 
 export const teacherTestsRouter = Router();
 
@@ -174,6 +175,7 @@ function toVariantDTO(variant: {
   code: string;
   createdAt: Date;
   layout: unknown;
+  _count?: { attempts: number };
 }): TestVariantDTO {
   return {
     id: variant.id,
@@ -181,6 +183,7 @@ function toVariantDTO(variant: {
     code: variant.code,
     createdAt: variant.createdAt.toISOString(),
     layout: variant.layout as VariantLayout,
+    ...(variant._count ? { attemptCount: variant._count.attempts } : {}),
   };
 }
 
@@ -454,6 +457,8 @@ teacherTestsRouter.patch(
         ...(body.published !== undefined ? { published: body.published } : {}),
       },
     });
+    // Publishing makes the test takeable: make sure it has its automatic variants.
+    if (body.published === true) await ensureTestVariants(test.id);
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
   }),
@@ -735,6 +740,7 @@ teacherTestsRouter.post(
         maxPlayCount: body.maxPlayCount ?? null,
       },
     });
+    await reconcileVariants(test.id);
 
     const nested = await fetchNestedTest(test.id);
     res.status(201).json(toTestDetailDTO(nested));
@@ -795,6 +801,7 @@ teacherTestsRouter.delete(
     }
 
     await prisma.section.delete({ where: { id: section.id } });
+    await reconcileVariants(test.id);
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
   }),
@@ -832,6 +839,8 @@ teacherTestsRouter.put(
         prisma.section.update({ where: { id }, data: { order: index + 1 } }),
       ),
     );
+    // Variants list sections in the authored order, so a reorder must reach them too.
+    await reconcileVariants(test.id);
 
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
@@ -898,12 +907,40 @@ teacherTestsRouter.post(
               },
       },
     });
+    await reconcileVariants(test.id);
 
     const nested = await fetchNestedTest(test.id);
     res.status(201).json(toTestDetailDTO(nested));
   }),
 );
 
+/** A client-generated id for a NEW choice (the editor gives every choice one the moment it is
+ * created, so a save that is retried or overlaps another can never create it twice). */
+const CLIENT_CHOICE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Drops a second occurrence of the same choice id (defensive: a choice can only exist once). */
+function dedupeChoicesById(choices: unknown): unknown {
+  if (!Array.isArray(choices)) return choices;
+  const seen = new Set<string>();
+  return choices.filter((choice) => {
+    const id = choice && typeof choice === 'object' ? (choice as ChoiceInput).id : undefined;
+    if (typeof id !== 'string' || id === '') return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+/**
+ * Saves ONE question's full current state. The whole thing is one transaction that first locks
+ * the question row (`FOR UPDATE`), so two saves of the same question can never interleave — the
+ * second waits, then sees the first's result. Choices are then replaced BY ID: a choice whose id
+ * is already on this question is updated, one whose id is missing from the request is deleted,
+ * and one with an unknown id is created WITH that id (the editor generates ids itself), so
+ * repeating a request is harmless and a choice can never be created twice. (Before this, the
+ * existing ids were read outside the transaction and two overlapping saves that both carried a
+ * brand-new choice each inserted it — the "choices appear twice" bug.)
+ */
 teacherTestsRouter.patch(
   '/tests/:testId/sections/:sectionId/questions/:questionId',
   asyncHandler(async (req, res) => {
@@ -916,16 +953,16 @@ teacherTestsRouter.patch(
       return;
     }
 
-    const question = await prisma.question.findUnique({
-      where: { id: req.params.questionId },
-      include: { choices: true },
-    });
-    if (!question || question.sectionId !== section.id) {
+    const found = await prisma.question.findUnique({ where: { id: req.params.questionId } });
+    if (!found || found.sectionId !== section.id) {
       res.status(404).json({ error: 'Question not found.' });
       return;
     }
 
     const body = req.body as Partial<UpdateQuestionRequest>;
+    if (body && typeof body === 'object' && 'choices' in body) {
+      body.choices = dedupeChoicesById(body.choices) as ChoiceInput[];
+    }
     const validationError = validateQuestionBody(body);
     if (validationError) {
       res.status(400).json({ error: validationError });
@@ -934,7 +971,16 @@ teacherTestsRouter.patch(
 
     const newType = body.type as QuestionType;
 
-    await prisma.$transaction(async (tx) => {
+    const outcome = await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM questions WHERE id = ${found.id} FOR UPDATE`;
+      if (locked.length === 0) return { gone: true, structureChanged: false };
+
+      const question = await tx.question.findUniqueOrThrow({
+        where: { id: found.id },
+        include: { choices: true },
+      });
+      let structureChanged = question.type !== newType;
+
       await tx.question.update({
         where: { id: question.id },
         data: {
@@ -952,16 +998,33 @@ teacherTestsRouter.patch(
       if (newType === 'fillBlank' || newType === 'essay' || newType === 'speaking') {
         // No choices apply to fillBlank/essay/speaking at all — drop any that existed
         // from a previous type (e.g. the teacher switched this question's type).
+        if (question.choices.length > 0) structureChanged = true;
         await tx.choice.deleteMany({ where: { questionId: question.id } });
-        return;
+        return { gone: false, structureChanged };
       }
 
       const incoming = (body.choices ?? []) as ChoiceInput[];
       const existingIds = new Set(question.choices.map((c) => c.id));
-      const incomingIds = new Set(incoming.filter((c) => c.id).map((c) => c.id as string));
 
-      const toDelete = [...existingIds].filter((id) => !incomingIds.has(id));
+      // A supplied id that is not on this question is only kept for a NEW choice when no other
+      // row anywhere already uses it (never steal or clash with another question's choice).
+      const unknownIds = incoming
+        .map((c) => c.id)
+        .filter((id): id is string => typeof id === 'string' && !existingIds.has(id));
+      const takenElsewhere = new Set(
+        unknownIds.length === 0
+          ? []
+          : (await tx.choice.findMany({ where: { id: { in: unknownIds } }, select: { id: true } })).map(
+              (c) => c.id,
+            ),
+      );
+
+      const keepIds = new Set(
+        incoming.filter((c) => c.id && existingIds.has(c.id)).map((c) => c.id as string),
+      );
+      const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
       if (toDelete.length > 0) {
+        structureChanged = true;
         await tx.choice.deleteMany({ where: { id: { in: toDelete } } });
       }
 
@@ -972,8 +1035,16 @@ teacherTestsRouter.patch(
             data: { text: choice.text.trim(), isCorrect: choice.isCorrect, order: index + 1 },
           });
         } else {
+          structureChanged = true;
+          const usableId =
+            typeof choice.id === 'string' &&
+            CLIENT_CHOICE_ID_RE.test(choice.id) &&
+            !takenElsewhere.has(choice.id)
+              ? choice.id
+              : undefined;
           await tx.choice.create({
             data: {
+              ...(usableId ? { id: usableId } : {}),
               questionId: question.id,
               text: choice.text.trim(),
               isCorrect: choice.isCorrect,
@@ -982,7 +1053,15 @@ teacherTestsRouter.patch(
           });
         }
       }
+      return { gone: false, structureChanged };
     });
+
+    if (outcome.gone) {
+      res.status(404).json({ error: 'Question not found.' });
+      return;
+    }
+    // Adding / removing a choice or changing the type changes what a variant's layout must list.
+    if (outcome.structureChanged) await reconcileVariants(test.id);
 
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
@@ -1008,6 +1087,7 @@ teacherTestsRouter.delete(
     }
 
     await prisma.question.delete({ where: { id: question.id } });
+    await reconcileVariants(test.id);
     const nested = await fetchNestedTest(test.id);
     res.status(200).json(toTestDetailDTO(nested));
   }),
@@ -1094,6 +1174,32 @@ teacherTestsRouter.post(
   }),
 );
 
+/**
+ * POST /api/teacher/tests/:testId/variants/regenerate — the editor's "Tạo lại các phiên bản":
+ * a fresh shuffle for every variant nobody has started, the rest untouched (see
+ * `regenerateVariants`), creating the default pair when the test has fewer. Never deletes.
+ */
+teacherTestsRouter.post(
+  '/tests/:testId/variants/regenerate',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const nested = await fetchNestedTest(test.id);
+    if (!nested.sections.some((s) => s.questions.length > 0)) {
+      res.status(400).json({ error: 'Cannot generate variants for a test with no questions yet.' });
+      return;
+    }
+    const result = await regenerateVariants(test.id);
+    const variants = await prisma.testVariant.findMany({
+      where: { testId: test.id },
+      orderBy: { createdAt: 'asc' },
+      include: { _count: { select: { attempts: true } } },
+    });
+    res.status(200).json({ ...result, variants: variants.map(toVariantDTO) });
+  }),
+);
+
 teacherTestsRouter.get(
   '/tests/:testId/variants',
   asyncHandler(async (req, res) => {
@@ -1103,6 +1209,7 @@ teacherTestsRouter.get(
     const variants = await prisma.testVariant.findMany({
       where: { testId: test.id },
       orderBy: { createdAt: 'asc' },
+      include: { _count: { select: { attempts: true } } },
     });
 
     res.status(200).json(variants.map(toVariantDTO));
@@ -1170,6 +1277,10 @@ teacherTestsRouter.put(
             }),
       ),
     );
+
+    // Giving the test to a class makes it takeable: it needs its automatic variants (a no-op
+    // when it already has them, apart from re-syncing stale ones with the current content).
+    if (requested.size > 0) await ensureTestVariants(test.id);
 
     const assigned =
       ownerClassPeriods.length === 0

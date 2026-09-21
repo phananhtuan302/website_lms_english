@@ -5,6 +5,7 @@ import type { ClassOverviewDTO } from '@platform/shared';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classAssignmentsPath, classTestResultsPath, formatDateTime } from '../../lib/classAssignments';
 import { classTabPath } from '../../lib/classWorkspace';
+import { formatScore10WithUnit } from '../../lib/scoreFormat';
 import { teacherApi } from '../../lib/teacherApi';
 
 const statCardClass = 'flex flex-col gap-1 rounded-2xl border border-primary-200 p-4 sm:p-5';
@@ -374,7 +375,7 @@ function ClassOverviewTab() {
                       </div>
                       {item.scorePercent !== null ? (
                         <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold text-primary-800">
-                          {item.scorePercent}%
+                          {formatScore10WithUnit(item.scorePercent)}
                         </span>
                       ) : (
                         <span className="shrink-0 rounded-full bg-base-black/5 px-3 py-1 text-xs font-semibold text-base-black/60">

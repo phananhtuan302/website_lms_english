@@ -8,6 +8,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
+import { ensureTestVariants } from './testVariants';
 
 /**
  * Auto-assigns a `TestVariant` and creates the student's `Attempt` for this session, or
@@ -28,6 +29,12 @@ export async function findOrCreateAttempt(session: { id: string; testId: string 
   });
   if (existing) return existing;
 
+  // Variants are automatic: a test that reached a student without any (assigned long ago, or
+  // never given a variant) gets its default pair now, and stale ones are re-synced with the
+  // current content. 'no-variants' therefore only remains for a test with no questions at all.
+  if ((await ensureTestVariants(session.testId)) === 0) {
+    return 'no-variants' as const;
+  }
   const variants = await prisma.testVariant.findMany({
     where: { testId: session.testId },
     orderBy: { createdAt: 'asc' },

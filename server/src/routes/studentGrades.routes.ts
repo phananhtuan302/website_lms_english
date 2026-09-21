@@ -36,6 +36,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { isScorePublished } from '../lib/testClassSchedule';
+import { loadProvisionalInfo } from '../lib/attemptScore';
 import { summarizeCardStatuses } from '../lib/vocabProgress';
 
 export const studentGradesRouter = Router();
@@ -204,6 +205,18 @@ studentGradesRouter.get(
     // offer its link when that is the semester being shown (otherwise it would say "pending").
     const resultLinkable = periodId === currentPeriodId;
 
+    // Phase 15: which of the RELEASED best attempts still wait for an essay grade ("tạm tính").
+    // Looked up only for released tests, so nothing about an unpublished test is derived at all.
+    const releasedBestIds: string[] = [];
+    for (const test of tests) {
+      const submitted = submittedByTest.get(test.id) ?? [];
+      if (submitted.length > 0 && isScorePublished(scheduleByTest.get(test.id) ?? null)) {
+        const best = pickBest(submitted);
+        if (best) releasedBestIds.push(best.id);
+      }
+    }
+    const provisionalInfo = await loadProvisionalInfo(releasedBestIds);
+
     const rows: StudentGradeTestDTO[] = [];
     const bestScores: number[] = [];
     for (const test of tests) {
@@ -233,6 +246,7 @@ studentGradesRouter.get(
             totalCount: best.totalCount ?? 0,
             submittedAt: best.submittedAt ? best.submittedAt.toISOString() : '',
             attemptId: resultLinkable ? best.id : null,
+            provisional: provisionalInfo.get(best.id)?.provisional ?? false,
           };
           rows.push(graded);
           bestScores.push(best.scorePercent!);

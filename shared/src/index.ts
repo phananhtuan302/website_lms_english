@@ -268,9 +268,11 @@ export interface ReorderSectionsRequest {
   orderedSectionIds: string[];
 }
 
-/** Body shared by create/update question. A choice without `id` is a new choice; a
- * choice with `id` updates that existing row; any existing choice id NOT present in
- * the array is deleted. `order` is implied by array position, not sent explicitly. */
+/** Body shared by create/update question. A choice with an `id` already on the question
+ * updates that row; any existing choice id NOT present in the array is deleted. A choice
+ * without `id` — or with an id the question does not have yet (the editor generates a UUID for
+ * every new choice, so a retried/overlapping save cannot create it twice) — is a new choice.
+ * `order` is implied by array position, not sent explicitly. */
 export interface ChoiceInput {
   id?: string;
   text: string;
@@ -317,6 +319,9 @@ export interface TestVariantDTO {
     sections: Array<{ sectionId: string; questionIds: string[] }>;
     choiceOrder: Record<string, string[]>;
   };
+  /** How many student attempts already use this variant. Only set by
+   * `GET /api/teacher/tests/:testId/variants` (the editor uses it to warn before regenerating). */
+  attemptCount?: number;
 }
 
 export interface GenerateVariantsRequest {
@@ -491,9 +496,9 @@ export interface AttemptResultQuestionDTO {
    * (`PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`); meaningless
    * for any non-`essay` question (use `speakingAiScore` for a `speaking` question's
    * point scale instead — see `SPEAKING_SCORE_SCALE`). `manualScore`/`manualComment`
-   * below are ALSO reused by `speaking` (T-055) — see their own doc comment. Shown
-   * ALONGSIDE (not merged into) `AttemptResultDTO.scorePercent`, which only ever
-   * reflects auto-gradable questions — see that field's doc comment. */
+   * below are ALSO reused by `speaking` (T-055) — see their own doc comment. Since
+   * Phase 15 a graded essay/speaking score is part of `AttemptResultDTO.scorePercent`
+   * (worth `essayMaxScore` / `SPEAKING_SCORE_SCALE` points — `server/src/lib/attemptScore.ts`). */
   essayMaxScore: number | null;
   /** Teacher-set override (T-042 essay, T-055 speaking) — wins once present over the
    * respective auto/AI value for both display and reporting purposes. */
@@ -541,7 +546,15 @@ export interface AttemptResultDTO {
    * doc comment and `attempts.routes.ts`'s submit handler). */
   correctCount: number | null;
   totalCount: number | null;
+  /** Phase 15: the TOTAL score in percent — auto-graded questions plus the points of graded
+   * essay/speaking questions (`server/src/lib/attemptScore.ts`). Read it on thang điểm 10 via
+   * `percent / 10`. */
   scorePercent: number | null;
+  /** Phase 15: `true` while at least one essay is still ungraded — `scorePercent` is then a
+   * provisional ("tạm tính") number over the scored questions only. `ungradedCount` = how many
+   * essays are still waiting for the teacher. Both are `false`/`0` for a final score. */
+  provisional: boolean;
+  ungradedCount: number;
   /** Total time taken in whole seconds (T-017), `null` until submitted. */
   timeTakenSeconds: number | null;
   /** Global tab-switch / exit detection (T-044) — see `Attempt.tabSwitchCount`/`tabSwitchLog`
@@ -668,6 +681,9 @@ export interface AttemptSummaryDTO {
   correctCount: number | null;
   totalCount: number | null;
   scorePercent: number | null;
+  /** Phase 15: the score is provisional (an essay is still ungraded). Absent on rows where the
+   * score is withheld from a student. */
+  provisional?: boolean;
   startedAt: string;
   submittedAt: string | null;
   /** Total time taken in whole seconds (T-017), `null` for an attempt still `inProgress`
@@ -2117,6 +2133,9 @@ export interface StudentAssignmentAttemptDTO {
   status: AttemptStatus;
   scorePercent: number | null;
   scoresPublished: boolean;
+  /** Phase 15: only ever `true` together with a released score — an essay of this attempt is
+   * still ungraded, so the released score is provisional. Absent otherwise. */
+  provisional?: boolean;
 }
 
 export interface StudentAssignmentDTO {
@@ -2253,6 +2272,10 @@ export interface ClassGradebookCellDTO {
   correctCount: number;
   totalCount: number;
   submittedAt: string;
+  /** Phase 15: an essay of this attempt is still ungraded, so `scorePercent` is provisional
+   * ("tạm tính"). `ungradedCount` = how many essays are still waiting for the teacher. */
+  provisional: boolean;
+  ungradedCount: number;
 }
 
 /** `GET /api/teacher/classes/:classId/gradebook`. `cells[studentId][testId]` exists for every
@@ -2321,6 +2344,9 @@ export interface StudentGradeGradedTestDTO extends StudentGradeTestBaseDTO {
   totalCount: number;
   submittedAt: string;
   attemptId: string | null;
+  /** Phase 15: the teacher has not finished grading the written answers of the best attempt, so
+   * the released score is provisional ("tạm tính"). */
+  provisional: boolean;
 }
 
 export type StudentGradeTestDTO = StudentGradePendingTestDTO | StudentGradeGradedTestDTO;
@@ -2624,4 +2650,65 @@ export interface ClassStudentResetPasswordResponseDTO {
   name: string;
   email: string;
   generatedPassword: string;
+}
+
+// --- Phase 15 (scoring & grading): total score incl. essays, grading flow, score release -----
+
+/** Response of `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`: the saved grade
+ * plus the attempt's freshly re-scored total (`server/src/lib/attemptScore.ts`), so the grading
+ * screen can update its header without a second request. `ungradedCount` = essays of THIS attempt
+ * still waiting for a grade; `provisional` is `ungradedCount > 0`. */
+export interface GradeEssayAnswerResponse {
+  questionId: string;
+  manualScore: number;
+  manualComment: string | null;
+  scorePercent: number;
+  provisional: boolean;
+  ungradedCount: number;
+}
+
+/** `GET /api/teacher/attempts/:attemptId/next-ungraded` — where "Lưu và chấm bài kế tiếp" goes:
+ * the next submitted attempt of the SAME test by a student of the SAME class that still holds an
+ * ungraded essay (submission order, the ones after this attempt first, then wrapping round to the
+ * earliest). `nextAttemptId` is `null` when nothing else is waiting; `remainingCount` counts those
+ * other attempts. `classId` is the student's class (the "back to class" target), `null` when the
+ * student has no class. */
+export interface NextUngradedAttemptDTO {
+  classId: string | null;
+  nextAttemptId: string | null;
+  remainingCount: number;
+}
+
+/** Per-attempt grading state of a provisional attempt. */
+export interface AttemptProvisionalDTO {
+  provisional: true;
+  ungradedCount: number;
+}
+
+/** `GET /api/teacher/tests/:testId/grading-status?classId=` — what the "Cho học sinh xem điểm"
+ * confirmation and the class results table need: how many students of the class handed the test in,
+ * how many of them still have an ungraded essay (their score is provisional), and which submitted
+ * attempts are provisional (`provisionalAttempts` has an entry ONLY for those; a missing attempt id
+ * means its score is final). Scope = submitted attempts on this test by students currently in the
+ * class — exactly the rows of the class results page. */
+export interface TestGradingStatusDTO {
+  testId: string;
+  classId: string;
+  submittedStudentCount: number;
+  ungradedStudentCount: number;
+  provisionalAttempts: Record<string, AttemptProvisionalDTO>;
+}
+
+// --- Phase 15: test editor autosave / automatic variants (T-115E) -------------------
+
+/** Response of `POST /api/teacher/tests/:testId/variants/regenerate` — the editor's "Tạo lại
+ * các phiên bản". A variant students have already started is never changed or deleted. */
+export interface RegenerateVariantsResponse {
+  /** Variants that got a fresh shuffle (nobody had started them). */
+  regenerated: number;
+  /** Variants left as they were because students already have attempts on them. */
+  kept: number;
+  /** Variants created because the test had fewer than two. */
+  created: number;
+  variants: TestVariantDTO[];
 }

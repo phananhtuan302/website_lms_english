@@ -19,9 +19,10 @@
  *   "was it rejected because too early or too late" classification on top of it.
  * - `isScorePublished` — the SAME "effectively published" rule `GET /api/attempts` uses, so a
  *   score is only ever revealed when that route would also reveal it.
- * - a test with no `TestVariant` at all is left out: `findOrCreateAttempt` answers 400 "no
+ * - a test with no questions at all is left out: `findOrCreateAttempt` answers 400 "no
  *   variants yet" for it, so it is not something a student can start (unless they already
- *   have an attempt, which necessarily has a variant).
+ *   have an attempt, which necessarily has a variant). A test WITH questions but no variant
+ *   yet is startable — variants are created automatically at that moment.
  *
  * An existing attempt takes priority over the schedule window, exactly like the start
  * endpoints: continuing/finishing an already-started attempt is never cut off by `closeAt`
@@ -38,6 +39,7 @@ import type {
 import { prisma } from './prisma';
 import { getStudentClassAndPeriod } from './classScoping';
 import { checkAttemptWindow, isScorePublished } from './testClassSchedule';
+import { loadProvisionalInfo } from './attemptScore';
 
 /** Status precedence for the final display order (matches the dashboard's section order). */
 const STATUS_ORDER: StudentAssignmentStatus[] = ['inProgress', 'open', 'upcoming', 'submitted', 'closed'];
@@ -125,6 +127,7 @@ export async function buildStudentAssignments(studentId: string): Promise<Studen
     unitId: true,
     unit: { select: { name: true } },
     _count: { select: { variants: true } },
+    sections: { select: { _count: { select: { questions: true } } } },
   } as const;
 
   // --- Candidate tests: same visibility rules as the existing student lists -----------
@@ -171,6 +174,16 @@ export async function buildStudentAssignments(studentId: string): Promise<Studen
   }
   const scheduleByTestId = new Map(schedules.map((s) => [s.testId, s]));
 
+  // Phase 15: "tạm tính" is derived only for the attempts whose score this student may see.
+  const provisionalInfo = await loadProvisionalInfo(
+    tests.flatMap((test) => {
+      const attempt = pickAttempt(attemptsByTestId.get(test.id));
+      return attempt && attempt.status === 'submitted' && isScorePublished(scheduleByTestId.get(test.id) ?? null)
+        ? [attempt.id]
+        : [];
+    }),
+  );
+
   const now = new Date();
   const rows: SortableRow[] = [];
 
@@ -181,9 +194,10 @@ export async function buildStudentAssignments(studentId: string): Promise<Studen
     let status: StudentAssignmentStatus;
     if (attempt) {
       status = attempt.status === 'submitted' ? 'submitted' : 'inProgress';
-    } else if (test._count.variants === 0) {
-      // `POST /:testId/practice` would answer 400 "no variants yet" — not startable, so
-      // not a to-do (the teacher hasn't finished preparing it).
+    } else if (test._count.variants === 0 && test.sections.every((section) => section._count.questions === 0)) {
+      // A test with no questions at all cannot be taken — not a to-do (the teacher hasn't
+      // finished preparing it). Variants themselves are automatic: a test with questions but no
+      // variant yet gets its variants the moment a student starts it (`findOrCreateAttempt`).
       continue;
     } else if (checkAttemptWindow(schedule, now) === null) {
       status = 'open';
@@ -205,6 +219,7 @@ export async function buildStudentAssignments(studentId: string): Promise<Studen
         status: attempt.status,
         scorePercent: scoresPublished ? attempt.scorePercent : null,
         scoresPublished,
+        ...(provisionalInfo.get(attempt.id)?.provisional ? { provisional: true } : {}),
       };
     }
 

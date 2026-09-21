@@ -2,7 +2,6 @@ import { useEffect, useId, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CLASS_ANNOUNCEMENT_MAX_LENGTH, type ClassAnnouncementDTO } from '@platform/shared';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
-import { ApiError } from '../../lib/apiClient';
 import { formatAnnouncementTime } from '../../lib/announcementTime';
 import { teacherApi } from '../../lib/teacherApi';
 
@@ -46,8 +45,9 @@ function AnnouncementItem({ item, classId, onChanged, onDeleted }: ItemProps) {
     setError(null);
     try {
       await action();
-    } catch (err) {
-      setError(err instanceof ApiError && err.status < 500 ? err.message : t(failedKey));
+    } catch {
+      // Always the Vietnamese message: the server's own error text is English.
+      setError(t(failedKey));
     } finally {
       setBusy(false);
     }
@@ -233,8 +233,8 @@ function ClassAnnouncementsTab() {
       setItems((current) => sortAnnouncements([created, ...(current ?? [])]));
       setText('');
       setPinOnPost(false);
-    } catch (err) {
-      setPostError(err instanceof ApiError && err.status < 500 ? err.message : t('classAnnouncements.postFailed'));
+    } catch {
+      setPostError(t('classAnnouncements.postFailed'));
     } finally {
       setPosting(false);
     }

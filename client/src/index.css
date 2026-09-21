@@ -1,3 +1,90 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Readability (Phase 15). The interface is used by teachers who read on small laptops and often
+ * enlarge the page, so the faint greys are lifted site-wide here instead of in ~100 files.
+ * Plain rules placed AFTER the Tailwind utilities so they win over the originals (same
+ * specificity, later in the file); hover/focus/aria variants still override them as before.
+ *
+ *  - The muted greys `text-base-black/35 … /60` were 2.0–5.7:1 on white; all become 0.66 black
+ *    (#575757, 7:1 on white, ≥ 6:1 on the pink primary-50/100 backgrounds). This also covers the
+ *    faded "unpublished score" text in the gradebook (`text-base-black/35`).
+ *  - `text-primary-600` (#da5236) was only 4.0:1 on white / 3.7:1 on primary-50; it now uses the
+ *    primary-700 shade (5.6:1) — same hue, just a little deeper.
+ *  - Tailwind's default placeholder colour (gray-400, 2.5:1) becomes a readable grey.
+ *  - The smallest helper text (`text-xs`, used for hints, badges and table headers) is 13px
+ *    instead of 12px. No element combines `text-xs` with a responsive font-size class, so this
+ *    plain override cannot beat a `sm:`/`md:` size.
+ */
+.text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.15rem;
+}
+
+.text-base-black\/35,
+.text-base-black\/40,
+.text-base-black\/50,
+.text-base-black\/60 {
+  color: rgb(0 0 0 / 0.66);
+}
+
+.text-primary-600 {
+  color: theme('colors.primary.700');
+}
+
+/* Text-size safety net: a form field (or the label around it) never grows wider than the space it
+ * sits in. Fields with a fixed Tailwind width such as `w-72` (18rem) would otherwise push the page
+ * sideways on a phone once the text is enlarged ("Chữ rất to" makes 18rem = 360px). */
+input,
+select,
+textarea,
+label {
+  max-width: 100%;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(0 0 0 / 0.58);
+}
+
+/*
+ * Printing (used by the "Trợ giúp" page, which teachers print): plain black on white, no page
+ * chrome, nothing split across pages. `.print-hidden` marks screen-only controls.
+ */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+
+  .help-page {
+    max-width: none !important;
+    color: #000;
+  }
+
+  .help-page * {
+    box-shadow: none !important;
+  }
+
+  .help-page a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .help-page .help-step-card {
+    break-inside: avoid;
+    border-color: #999;
+    background: #fff !important;
+  }
+
+  .help-page h2,
+  .help-page h3 {
+    break-after: avoid;
+  }
+}

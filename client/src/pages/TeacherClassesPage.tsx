@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AcademicPeriodDTO, ClassAttentionDTO, ClassDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
-import { ApiError } from '../lib/apiClient';
 import { classTabPath } from '../lib/classWorkspace';
 
 /** Header-band colors cycled across the cards so a grid of classes is easy to tell apart
@@ -164,8 +163,9 @@ function TeacherClassesPage() {
       });
       setClasses((prev) => [...(prev ?? []), created]);
       closeCreateForm();
-    } catch (err) {
-      setCreateError(err instanceof ApiError ? err.message : t('teacherHome.createFailed'));
+    } catch {
+      // Always the Vietnamese message: the server's own error text is English.
+      setCreateError(t('teacherHome.createFailed'));
     } finally {
       setSaving(false);
     }
@@ -282,6 +282,10 @@ function TeacherClassesPage() {
           >
             {t('teacherHome.createButton')}
           </button>
+          {/* Phase 15: a first-time teacher lands here with nothing yet — point at the guide. */}
+          <Link to="/help" className="py-2 text-base font-medium text-primary-700 underline hover:text-primary-800">
+            {t('help.viewGuide')}
+          </Link>
         </div>
       )}
 

@@ -7,14 +7,10 @@ import type {
   TeacherContentType,
   TestSummaryDTO,
 } from '@platform/shared';
+import DeadlineChips from '../../components/DeadlineChips';
 import Modal from '../../components/Modal';
-import { ApiError } from '../../lib/apiClient';
-import {
-  TEST_TYPE_LABEL_KEYS,
-  dateToDatetimeLocal,
-  datetimeLocalToIso,
-  setClassAssignment,
-} from '../../lib/classAssignments';
+import { TEST_TYPE_LABEL_KEYS, datetimeLocalToIso, setClassAssignment } from '../../lib/classAssignments';
+import { friendlyEditorError, rawErrorText } from '../../lib/editorErrors';
 import { teacherApi } from '../../lib/teacherApi';
 
 interface AssignDialogProps {
@@ -43,15 +39,9 @@ type ItemStatus = 'pending' | 'working' | 'done' | 'failed';
 interface ItemResult {
   status: ItemStatus;
   message?: string;
+  /** The server's original text, for a tooltip only. */
+  detail?: string;
 }
-
-/** "Đóng sau …" quick picks of the deadline section, in milliseconds after now. */
-const HOUR_MS = 60 * 60 * 1000;
-const QUICK_CLOSE_CHIPS: Array<{ labelKey: string; afterMs: number }> = [
-  { labelKey: 'assignDialog.quickClose.day1', afterMs: 24 * HOUR_MS },
-  { labelKey: 'assignDialog.quickClose.day2', afterMs: 48 * HOUR_MS },
-  { labelKey: 'assignDialog.quickClose.week1', afterMs: 7 * 24 * HOUR_MS },
-];
 
 const TABS: Array<{ type: TeacherContentType; labelKey: string }> = [
   { type: 'test', labelKey: 'assignDialog.tabs.test' },
@@ -114,7 +104,8 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setLoadError(err instanceof ApiError ? err.message : t('assignDialog.loadFailed'));
+        console.warn('[assign] could not load the library:', rawErrorText(err));
+        setLoadError(t('assignDialog.loadFailed'));
       });
     return () => {
       cancelled = true;
@@ -163,13 +154,6 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
   const scheduleOrderError =
     openAtIso !== null && closeAtIso !== null && new Date(closeAtIso) <= new Date(openAtIso);
   const scheduleApplies = selectedTests.length > 0 && hasSchedule;
-
-  /** Fills "Đóng lúc" `afterMs` from now, and "Mở lúc" with now when it is still empty. */
-  function applyQuickClose(afterMs: number) {
-    const now = new Date();
-    if (openAt === '') setOpenAt(dateToDatetimeLocal(now));
-    setCloseAt(dateToDatetimeLocal(new Date(now.getTime() + afterMs)));
-  }
 
   function toggleItem(key: string) {
     setSelected((prev) => {
@@ -224,7 +208,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
         setResults((prev) => ({ ...prev, [item.key]: { status: 'done' } }));
       } catch (err) {
         failed += 1;
-        const reason = err instanceof ApiError ? err.message : t('assignDialog.unknownError');
+        const reason = friendlyEditorError(err, t);
         setResults((prev) => ({
           ...prev,
           [item.key]: {
@@ -232,6 +216,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
             message: t(step === 'schedule' ? 'assignDialog.scheduleStepFailed' : 'assignDialog.assignStepFailed', {
               reason,
             }),
+            detail: rawErrorText(err),
           },
         }));
       }
@@ -404,7 +389,7 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
                       </span>
                     </div>
                     {result.message && (
-                      <p role="alert" className="text-xs text-red-700">
+                      <p role="alert" title={result.detail} className="text-xs text-red-700">
                         {result.message}
                       </p>
                     )}
@@ -532,19 +517,14 @@ function AssignDialog({ classId, className, onClose }: AssignDialogProps) {
                   <p className="text-xs text-base-black/60">
                     {t('assignDialog.scheduleHint', { count: selectedTests.length })}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-base-black/80">{t('assignDialog.quickClose.label')}</span>
-                    {QUICK_CLOSE_CHIPS.map((chip) => (
-                      <button
-                        key={chip.labelKey}
-                        type="button"
-                        onClick={() => applyQuickClose(chip.afterMs)}
-                        className="min-h-[2.5rem] rounded-full border border-primary-300 px-3 py-1.5 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
-                      >
-                        {t(chip.labelKey)}
-                      </button>
-                    ))}
-                  </div>
+                  <DeadlineChips
+                    openAt={openAt}
+                    closeAt={closeAt}
+                    onChange={(next) => {
+                      setOpenAt(next.openAt);
+                      setCloseAt(next.closeAt);
+                    }}
+                  />
                   <div className="flex flex-wrap items-end gap-4">
                     <label className="flex flex-col gap-1 text-sm text-base-black/80">
                       {t('assignDialog.openAtLabel')}

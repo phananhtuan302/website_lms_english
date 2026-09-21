@@ -1,57 +1,123 @@
 /**
- * Client-side Excel (SheetJS `xlsx`) export of the class gradebook (T-104): the "Xuất Excel"
- * button on the "Điểm số" tab. Like the T-085 flashcard import (`flashcardExcelImport.ts`)
- * everything happens in the browser from data the tab already loaded — no server round trip,
- * no new endpoint.
+ * Client-side Excel (SheetJS `xlsx`) export of the class gradebook (T-104, reworked in Phase 15 for
+ * the office-ready sheet a teacher hands in): the "Tải bảng điểm (Excel)" button on the "Điểm số"
+ * tab. Like the T-085 flashcard import (`flashcardExcelImport.ts`) everything happens in the browser
+ * from data the tab already loaded — no server round trip, no new endpoint.
  *
- * Layout mirrors the on-screen grid exactly: one row per student, one column per test (header =
- * the test title, with a "not published" note when its scores are still hidden from students),
- * a trailing "Average" column, and a trailing "Average" row. A score is written as a plain
- * NUMBER (percent, e.g. `85.7`) so the teacher can sort/compute on it in Excel; a student who
- * has not submitted a test gets an EMPTY cell (the grid shows "—" for the same state).
+ * Layout (top to bottom):
+ *   BẢNG ĐIỂM / Lớp: … / Học kỳ: … / Ngày xuất: dd/mm/yyyy / (blank row)
+ *   STT | Họ và tên | <one column per test> | Điểm trung bình [| Ghi chú]
+ *   (blank) | Trạng thái điểm | "Đã cho xem" / "Chưa cho xem" per test        <- was a header suffix
+ *   1 | <student> | 8.5 | "Chưa nộp" | … | 8.5
+ *   …
+ *   (blank) | Trung bình cả lớp | <column averages>
+ *
+ * Every score is a real NUMBER on the thang điểm 10 with one decimal (cell format `0.0`, so Excel in
+ * Vietnamese shows "8,5"), never a percent or text, so it can be summed/sorted. A student who has not
+ * submitted a test gets the TEXT "Chưa nộp" (a blank looked like a forgotten mark). A provisional score
+ * (an essay still ungraded) stays a number and is flagged in the extra "Ghi chú" column, which is only
+ * added when at least one cell is provisional.
  */
 
 import * as XLSX from 'xlsx';
 import type { ClassGradebookDTO } from '@platform/shared';
+import { percentToScore10 } from './scoreFormat';
 
 export interface GradebookExportLabels {
   sheetName: string;
+  /** "BẢNG ĐIỂM" */
+  title: string;
+  /** Already formatted, e.g. "Lớp: 9A". */
+  classLine: string;
+  /** e.g. "Học kỳ: Học kì 1". */
+  semesterLine: string;
+  /** e.g. "Ngày xuất: 21/09/2026". */
+  exportDateLine: string;
+  sttHeader: string;
   studentHeader: string;
   averageHeader: string;
-  /** Appended to a test's header when its scores are not published yet, e.g. "chưa công bố điểm". */
-  unpublishedSuffix: string;
+  noteHeader: string;
+  /** "Chưa nộp" — text in the cell of a test the student has not handed in. */
+  notSubmitted: string;
+  /** "Tạm tính (còn bài viết chưa chấm)" — the titles of the tests concerned are appended after ": ". */
+  provisionalNote: string;
+  /** "Trạng thái điểm" — the label of the row under the header. */
+  statusRowLabel: string;
+  released: string;
+  notReleased: string;
+  /** "Trung bình cả lớp" */
+  classAverageLabel: string;
 }
 
 /** A spreadsheet row: text for labels, number for scores/averages, `null` for an empty cell. */
 export type GradebookSheetRow = Array<string | number | null>;
 
-/** The sheet as an array-of-arrays (header row, one row per student, average row). Pure —
- * exported so the row/column mapping can be checked without a browser download. */
-export function buildGradebookRows(
-  gradebook: ClassGradebookDTO,
-  labels: GradebookExportLabels,
-): GradebookSheetRow[] {
+/** Cell format of every score: one decimal. */
+const SCORE_FORMAT = '0.0';
+
+/** The sheet as an array-of-arrays. Pure — exported so the row/column mapping can be checked without
+ * a browser download. Score cells are numbers on the thang điểm 10. */
+export function buildGradebookRows(gradebook: ClassGradebookDTO, labels: GradebookExportLabels): GradebookSheetRow[] {
+  const cellFor = (studentId: string, testId: string) => gradebook.cells[studentId]?.[testId] ?? null;
+  const provisionalTitlesOf = (studentId: string) =>
+    gradebook.tests.filter((test) => cellFor(studentId, test.id)?.provisional).map((test) => test.title);
+  const hasNoteColumn = gradebook.students.some((student) => provisionalTitlesOf(student.id).length > 0);
+
   const header: GradebookSheetRow = [
+    labels.sttHeader,
     labels.studentHeader,
-    ...gradebook.tests.map((test) =>
-      test.scoresPublished ? test.title : `${test.title} (${labels.unpublishedSuffix})`,
-    ),
+    ...gradebook.tests.map((test) => test.title),
     labels.averageHeader,
+    ...(hasNoteColumn ? [labels.noteHeader] : []),
   ];
 
-  const studentRows = gradebook.students.map((student): GradebookSheetRow => [
-    student.name,
-    ...gradebook.tests.map((test) => gradebook.cells[student.id]?.[test.id]?.scorePercent ?? null),
-    gradebook.studentAverages[student.id] ?? null,
-  ]);
+  const statusRow: GradebookSheetRow = [
+    null,
+    labels.statusRowLabel,
+    ...gradebook.tests.map((test) => (test.scoresPublished ? labels.released : labels.notReleased)),
+    null,
+    ...(hasNoteColumn ? [null] : []),
+  ];
+
+  const studentRows = gradebook.students.map((student, index): GradebookSheetRow => {
+    const average = gradebook.studentAverages[student.id] ?? null;
+    const provisionalTitles = provisionalTitlesOf(student.id);
+    return [
+      index + 1,
+      student.name,
+      ...gradebook.tests.map((test) => {
+        const cell = cellFor(student.id, test.id);
+        return cell ? percentToScore10(cell.scorePercent) : labels.notSubmitted;
+      }),
+      average === null ? labels.notSubmitted : percentToScore10(average),
+      ...(hasNoteColumn
+        ? [provisionalTitles.length > 0 ? `${labels.provisionalNote}: ${provisionalTitles.join(', ')}` : null]
+        : []),
+    ];
+  });
 
   const averageRow: GradebookSheetRow = [
-    labels.averageHeader,
-    ...gradebook.tests.map((test) => gradebook.testAverages[test.id] ?? null),
     null,
+    labels.classAverageLabel,
+    ...gradebook.tests.map((test) => {
+      const average = gradebook.testAverages[test.id] ?? null;
+      return average === null ? '—' : percentToScore10(average);
+    }),
+    null,
+    ...(hasNoteColumn ? [null] : []),
   ];
 
-  return [header, ...studentRows, averageRow];
+  return [
+    [labels.title],
+    [labels.classLine],
+    [labels.semesterLine],
+    [labels.exportDateLine],
+    [],
+    header,
+    statusRow,
+    ...studentRows,
+    averageRow,
+  ];
 }
 
 /** Characters Windows/macOS do not allow in a file name, plus control characters. */
@@ -60,20 +126,45 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'gradebook';
 }
 
-/** Builds the workbook and triggers the browser download. `fileBaseName` is the name without
- * extension (it should contain the class name). */
-export function downloadGradebookXlsx(
-  gradebook: ClassGradebookDTO,
-  labels: GradebookExportLabels,
-  fileBaseName: string,
-): void {
+/** The workbook (one sheet) for a gradebook. Pure apart from SheetJS itself; used by
+ * `downloadGradebookXlsx` and by anything that wants the file content without a browser download. */
+export function buildGradebookWorkbook(gradebook: ClassGradebookDTO, labels: GradebookExportLabels): XLSX.WorkBook {
   const rows = buildGradebookRows(gradebook, labels);
   const sheet = XLSX.utils.aoa_to_sheet(rows);
-  sheet['!cols'] = rows[0].map((_, index) => ({ wch: index === 0 ? 28 : 16 }));
+
+  // One decimal on every numeric score cell.
+  for (const [address, cell] of Object.entries(sheet)) {
+    if (address.startsWith('!')) continue;
+    const typed = cell as XLSX.CellObject;
+    if (typed.t === 'n') typed.z = SCORE_FORMAT;
+  }
+
+  // Column widths: STT narrow, names wide, test columns as wide as their title (within limits).
+  const headerRow = rows[5];
+  sheet['!cols'] = headerRow.map((value, index) => {
+    if (index === 0) return { wch: 6 };
+    if (index === 1) return { wch: 28 };
+    const text = String(value ?? '');
+    if (index === headerRow.length - 1 && text === labels.noteHeader) return { wch: 46 };
+    return { wch: Math.min(Math.max(text.length + 2, 14), 32) };
+  });
 
   const workbook = XLSX.utils.book_new();
   // Sheet names are capped at 31 characters and cannot contain : \ / ? * [ ].
   const sheetName = labels.sheetName.replace(/[:\\/?*[\]]/g, '_').slice(0, 31) || 'Gradebook';
   XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
-  XLSX.writeFile(workbook, `${sanitizeFileName(fileBaseName)}.xlsx`);
+  return workbook;
+}
+
+/** Builds the workbook and triggers the browser download. `fileBaseName` is the name without
+ * extension (it should contain the class name). Returns the file name that was offered
+ * (with the ".xlsx" extension) so the page can tell the teacher what to look for. */
+export function downloadGradebookXlsx(
+  gradebook: ClassGradebookDTO,
+  labels: GradebookExportLabels,
+  fileBaseName: string,
+): string {
+  const fileName = `${sanitizeFileName(fileBaseName)}.xlsx`;
+  XLSX.writeFile(buildGradebookWorkbook(gradebook, labels), fileName);
+  return fileName;
 }

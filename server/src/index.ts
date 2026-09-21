@@ -42,6 +42,7 @@ import {
   teacherClassAnnouncementsRouter,
 } from './routes/classAnnouncements.routes';
 import { studentNotificationsRouter } from './routes/studentNotifications.routes';
+import { teacherScoringRouter } from './routes/teacherScoring.routes';
 import { attachSessionRealtime } from './realtime/sessionRealtime';
 
 // Validates required env vars (DATABASE_URL, JWT_SECRET) and exits with a clear
@@ -226,6 +227,10 @@ app.use('/api/student', studentAnnouncementsRouter);
 // Student reminders (T-109, Phase 14): the notification bell (`/api/student/notifications`) and
 // the "Lịch" agenda (`/api/student/calendar`) — both derived on request, nothing stored.
 app.use('/api/student', studentNotificationsRouter);
+
+// Scoring & grading helpers (Phase 15): "next ungraded attempt" for the grading screen and the
+// per-test grading status behind the "let students see scores" confirmation. Read-only.
+app.use('/api/teacher', teacherScoringRouter);
 
 // Catch-all for any API path that doesn't match a route above. Registered after every
 // route but before the error middleware. Not strictly required by T-061 (that task is

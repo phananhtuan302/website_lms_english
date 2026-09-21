@@ -5,6 +5,7 @@ import { useAuth } from '../context/useAuth';
 import { useAttemptLock } from '../context/useAttemptLock';
 import { dashboardPathForRole } from '../lib/roles';
 import NotificationBell from './NotificationBell';
+import TextSizeButton from './TextSizeButton';
 
 interface NavItem {
   labelKey: string;
@@ -14,6 +15,9 @@ interface NavItem {
    * `startsWith(to)` when omitted, which is what every other nav array here relies on. */
   activePrefixes?: string[];
 }
+
+/** Route of the "Trợ giúp" page (Phase 15) — linked from the header for every role. */
+const HELP_PATH = '/help';
 
 function isNavItemActive(item: NavItem, pathname: string): boolean {
   if (!item.activePrefixes) return pathname.startsWith(item.to);
@@ -119,14 +123,15 @@ function Header() {
   const adminNavItems = isLocked ? [] : user?.role === 'admin' ? ADMIN_NAV_ITEMS : [];
 
   return (
-    <header className="border-b border-primary-200 bg-base-white">
+    <header className="border-b border-primary-200 bg-base-white print-hidden">
       <div
-        className={`mx-auto flex flex-wrap items-center justify-between gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-6 ${
+        className={`mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-6 ${
           // T-109: the student header also holds the reminders bell, so it gets a little more room.
-          user?.role === 'student' ? 'max-w-6xl' : 'max-w-5xl'
+          // Admins get the same width: their nav is the longest of all.
+          user?.role === 'student' || user?.role === 'admin' ? 'max-w-6xl' : 'max-w-5xl'
         }`}
       >
-        <Link to="/" className="shrink-0 text-lg font-bold text-primary-600">
+        <Link to="/" className="shrink-0 text-base font-bold text-primary-600 xl:text-lg">
           {APP_NAME}
         </Link>
 
@@ -137,7 +142,7 @@ function Header() {
                 <Link
                   to={dashboardPath}
                   aria-current={location.pathname === dashboardPath ? 'page' : undefined}
-                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:px-2 sm:py-2 xl:px-3 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t('header.dashboard')}
                 </Link>
@@ -148,7 +153,7 @@ function Header() {
                 <Link
                   to={item.to}
                   aria-current={isNavItemActive(item, location.pathname) ? 'page' : undefined}
-                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:px-2 sm:py-2 xl:px-3 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t(item.labelKey)}
                 </Link>
@@ -159,12 +164,25 @@ function Header() {
                 <Link
                   to={item.to}
                   aria-current={location.pathname.startsWith(item.to) ? 'page' : undefined}
-                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:px-2 sm:py-2 xl:px-3 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
                 >
                   {t(item.labelKey)}
                 </Link>
               </li>
             ))}
+            {/* Phase 15: the help page is one click away for every role (and for visitors who are
+              not logged in yet). Hidden with the rest of the nav while an attempt is locked. */}
+            {!isLocked && (
+              <li>
+                <Link
+                  to={HELP_PATH}
+                  aria-current={location.pathname === HELP_PATH ? 'page' : undefined}
+                  className="inline-block rounded-md px-3 py-2.5 text-sm font-medium sm:inline sm:px-2 sm:py-2 xl:px-3 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700 aria-[current=page]:bg-primary-100 aria-[current=page]:text-primary-700"
+                >
+                  {t('header.help')}
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 
@@ -178,25 +196,37 @@ function Header() {
             {t('header.attemptLockNotice')}
           </p>
         ) : user ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-3 sm:flex-nowrap">
+          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap xl:gap-3">
             {/* T-109: reminders bell (student only). This branch is not rendered while an attempt is locked (T-091). */}
             {user.role === 'student' && <NotificationBell key={user.id} />}
-            <span className="text-sm text-base-black/70">
+            <span
+              className={`w-full max-w-full truncate text-sm text-base-black/70 sm:w-auto ${
+                user.role === 'teacher' ? '' : 'sm:max-w-[9rem] xl:max-w-none'
+              }`}
+            >
               {user.name}{' '}
-              <span className="text-xs font-medium uppercase text-primary-600">
+              {/* The role tag is dropped between 640 and 1280px for students/admins so their long nav
+                stays on one line; the teacher header has room for it. */}
+              <span
+                className={`text-xs font-medium uppercase text-primary-600 ${
+                  user.role === 'teacher' ? '' : 'sm:max-xl:hidden'
+                }`}
+              >
                 ({user.role === 'teacher' || user.role === 'student' ? t(`roles.${user.role}`) : user.role})
               </span>
             </span>
+            <TextSizeButton />
             <button
               type="button"
               onClick={logout}
-              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+              className="rounded-md bg-primary-500 px-4 py-2.5 sm:px-3 sm:py-2 xl:px-4 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
             >
               {t('header.logOut')}
             </button>
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
+            <TextSizeButton />
             <Link
               to="/register"
               className="rounded-md px-3 py-2.5 text-sm font-medium sm:py-2 text-base-black/70 transition-colors hover:bg-primary-50 hover:text-primary-700"

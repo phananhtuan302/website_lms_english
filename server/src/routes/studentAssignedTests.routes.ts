@@ -24,6 +24,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { buildStudentAssignments } from '../lib/studentAssignments';
+import { isScorePublished } from '../lib/testClassSchedule';
 
 export const studentAssignedTestsRouter = Router();
 
@@ -80,6 +81,18 @@ studentAssignedTestsRouter.get(
     });
 
     const myAttempts = await loadMyAttemptsByTestId(req.user!.sub, tests.map((t) => t.id));
+    // T-092 also applies here: a submitted attempt's score stays hidden until the teacher releases
+    // scores for the student's class + semester (the same `isScorePublished` rule as everywhere).
+    const schedules = await prisma.testClassSchedule.findMany({
+      where: { classId: scp.classId, periodId: scp.periodId, testId: { in: tests.map((t) => t.id) } },
+    });
+    const scheduleByTestId = new Map(schedules.map((schedule) => [schedule.testId, schedule]));
+    for (const test of tests) {
+      const attempt = myAttempts.get(test.id);
+      if (attempt && attempt.status === 'submitted' && !isScorePublished(scheduleByTestId.get(test.id) ?? null)) {
+        myAttempts.set(test.id, { ...attempt, scorePercent: null });
+      }
+    }
 
     const sorted = [...tests].sort(
       (a, b) => (a.unit?.order ?? Number.MAX_SAFE_INTEGER) - (b.unit?.order ?? Number.MAX_SAFE_INTEGER) ||

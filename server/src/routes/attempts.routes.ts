@@ -50,6 +50,7 @@ import {
   orderResultQuestionsLikeVariant,
 } from '../lib/attemptView';
 import { gradeAnswer } from '../lib/grading';
+import { buildManualItems, computeAttemptScore, loadProvisionalInfo } from '../lib/attemptScore';
 import { getAIGradingProvider } from '../grading';
 import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { findTestClassSchedule, isScorePublished } from '../lib/testClassSchedule';
@@ -122,6 +123,12 @@ attemptsRouter.get(
         : [];
     const scheduleByTestId = new Map(schedules.map((s) => [s.testId, s]));
 
+    // Phase 15: "tạm tính" is derived only for the rows whose score the student may see.
+    const releasedIds = attempts
+      .filter((a) => a.status === 'submitted' && isScorePublished(scheduleByTestId.get(a.testId) ?? null))
+      .map((a) => a.id);
+    const provisionalInfo = await loadProvisionalInfo(releasedIds);
+
     const summaries: AttemptSummaryDTO[] = attempts.map((a) => {
       const scoresPublished = a.status !== 'submitted' || isScorePublished(scheduleByTestId.get(a.testId) ?? null);
       return {
@@ -136,6 +143,7 @@ attemptsRouter.get(
         correctCount: scoresPublished ? a.correctCount : null,
         totalCount: scoresPublished ? a.totalCount : null,
         scorePercent: scoresPublished ? a.scorePercent : null,
+        ...(provisionalInfo.get(a.id)?.provisional ? { provisional: true } : {}),
         startedAt: a.startedAt.toISOString(),
         submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
         timeTakenSeconds: a.timeTakenSeconds,
@@ -266,16 +274,16 @@ attemptsRouter.put(
  *
  * `essay` (T-042) and `speaking` (T-052–T-056) questions are NEVER auto-graded here (no
  * equivalent grading logic exists, nor should it per T-039's "no new grading logic"
- * spirit) — documented choice: `correctCount`/`totalCount`/`scorePercent` only reflect
- * auto-gradable questions, so a test mixing objective + essay/speaking content isn't
- * penalized/skewed by answers that aren't part of that tally. Every essay/speaking
- * question still gets an `Answer` row here (same "every question gets exactly one row"
- * invariant as every other type), just with `isCorrect: null` forever — essay's later
- * manual grade (`manualScore`/`manualComment`, via `PATCH .../grade` in
- * `teacherSessions.routes.ts`) and Speaking's AI grade (already computed earlier, at
- * per-question submission time — see `POST /:attemptId/questions/:questionId/speaking-answer`
- * below, T-054) are what complete those, shown alongside (not merged into) this
- * auto-graded score on the result view. */
+ * spirit): `correctCount`/`totalCount` only count auto-gradable questions ("Đúng 3/5 câu").
+ * Every essay/speaking question still gets an `Answer` row here (same "every question gets
+ * exactly one row" invariant as every other type), just with `isCorrect: null` forever.
+ *
+ * Phase 15: `scorePercent` DOES now include the essay/speaking points — see
+ * `lib/attemptScore.ts` for the model. At submit time every essay is still ungraded, so the
+ * stored percent covers the auto-graded questions (+ any Speaking already AI-scored) and the
+ * attempt is "provisional"; each later manual grade (`PATCH .../grade` in
+ * `teacherSessions.routes.ts`) or Speaking override re-scores the attempt through the same
+ * helper and stores the new `scorePercent`. */
 attemptsRouter.post(
   '/:attemptId/submit',
   asyncHandler(async (req, res) => {
@@ -325,7 +333,13 @@ attemptsRouter.post(
         });
       }
 
-      const scorePercent = totalCount > 0 ? Number(((correctCount / totalCount) * 100).toFixed(1)) : 0;
+      // Phase 15: one shared scoring helper (auto-graded 1 point each + essay/speaking points).
+      // With no essay/speaking question this is exactly `correctCount / totalCount × 100`.
+      const scorePercent = computeAttemptScore({
+        correctCount,
+        totalCount,
+        manual: buildManualItems(questions, answerByQuestionId),
+      }).scorePercent;
 
       // T-017: total time taken, in whole seconds, computed ONCE here from the same
       // `submittedAt` instant being stored — never recomputed later from a fresh
@@ -407,12 +421,14 @@ attemptsRouter.get(
       return;
     }
 
-    const [test, student, answers, variant] = await Promise.all([
+    const [test, student, answers, variant, provisionalInfo] = await Promise.all([
       fetchNestedTest(attempt.testId),
       prisma.user.findUniqueOrThrow({ where: { id: attempt.studentId } }),
       prisma.answer.findMany({ where: { attemptId: attempt.id } }),
       prisma.testVariant.findUnique({ where: { id: attempt.variantId } }),
+      loadProvisionalInfo([attempt.id]),
     ]);
+    const provisional = provisionalInfo.get(attempt.id) ?? { provisional: false, ungradedCount: 0 };
     const answerMap = new Map(
       answers.map((a) => [
         a.questionId,
@@ -442,6 +458,8 @@ attemptsRouter.get(
       correctCount: attempt.correctCount,
       totalCount: attempt.totalCount,
       scorePercent: attempt.scorePercent,
+      provisional: provisional.provisional,
+      ungradedCount: provisional.ungradedCount,
       timeTakenSeconds: attempt.timeTakenSeconds,
       tabSwitchCount: attempt.tabSwitchCount,
       tabSwitchLog: attempt.tabSwitchLog,

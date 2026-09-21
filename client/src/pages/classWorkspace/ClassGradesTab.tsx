@@ -1,14 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ClassGradebookDTO } from '@platform/shared';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classTabPath } from '../../lib/classWorkspace';
-import { downloadGradebookXlsx } from '../../lib/gradebookExcelExport';
+import { downloadGradebookXlsx, type GradebookExportLabels } from '../../lib/gradebookExcelExport';
+import { formatScore10 } from '../../lib/scoreFormat';
 import { teacherApi } from '../../lib/teacherApi';
 
-function formatScore(value: number | null): string {
-  return value === null ? '—' : `${value}%`;
+/** How long the "Đã tải …" message stays under the export button. */
+const DOWNLOAD_MESSAGE_MS = 8000;
+
+/** Small "*" after a provisional score ("tạm tính"), readable by screen readers as well. */
+function ProvisionalMark({ label }: { label: string }) {
+  return (
+    // `relative`: the screen-reader-only text is absolutely positioned, and without a positioned
+    // parent inside the grid it would escape the scroll container and widen the whole page.
+    <span className="relative ml-0.5">
+      <span aria-hidden="true" className="font-bold text-amber-700">
+        *
+      </span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
 }
 
 /**
@@ -38,6 +52,9 @@ function ClassGradesTab() {
   const [loaded, setLoaded] = useState<{ key: string; gradebook: ClassGradebookDTO } | null>(null);
   const [failed, setFailed] = useState(false);
   const [exportFailed, setExportFailed] = useState(false);
+  // Confirms what the download did ("Đã tải …"): the browser gives no in-page sign of it.
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  const downloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +72,13 @@ function ClassGradesTab() {
       cancelled = true;
     };
   }, [cls.id, periodKey]);
+
+  useEffect(
+    () => () => {
+      if (downloadTimer.current) clearTimeout(downloadTimer.current);
+    },
+    [],
+  );
 
   const gradebook = loaded && loaded.key === periodKey ? loaded.gradebook : null;
 
@@ -74,19 +98,46 @@ function ClassGradesTab() {
     Object.values(row ?? {}).some((cell) => cell),
   );
 
+  // Phase 15: a cell is "tạm tính" while an essay of that attempt is ungraded; a row/column average
+  // inherits the mark from the cells it is made of.
+  const isProvisional = (studentId: string, testId: string) =>
+    gradebook.cells[studentId]?.[testId]?.provisional === true;
+  const hasProvisional = gradebook.students.some((student) =>
+    gradebook.tests.some((test) => isProvisional(student.id, test.id)),
+  );
+
   const handleExport = () => {
     setExportFailed(false);
+    setDownloadMessage(null);
+    if (downloadTimer.current) clearTimeout(downloadTimer.current);
+    const now = new Date();
+    const two = (n: number) => String(n).padStart(2, '0');
+    const labels: GradebookExportLabels = {
+      sheetName: t('classGrades.export.sheetName'),
+      title: t('scoring.excel.title'),
+      // "Lớp 9A" -> "9A": the sheet says "Lớp: 9A", not "Lớp: Lớp 9A".
+      classLine: t('scoring.excel.classLine', { className: cls.name.replace(/^lớp\s+/i, '').trim() || cls.name }),
+      semesterLine: t('scoring.excel.semesterLine', {
+        semester: cls.currentPeriodName ?? t('scoring.excel.noSemester'),
+      }),
+      exportDateLine: t('scoring.excel.exportDate', {
+        date: `${two(now.getDate())}/${two(now.getMonth() + 1)}/${now.getFullYear()}`,
+      }),
+      sttHeader: t('scoring.excel.stt'),
+      studentHeader: t('scoring.excel.student'),
+      averageHeader: t('scoring.excel.average'),
+      noteHeader: t('scoring.excel.note'),
+      notSubmitted: t('scoring.excel.notSubmitted'),
+      provisionalNote: t('scoring.excel.provisionalNote'),
+      statusRowLabel: t('scoring.excel.statusRow'),
+      released: t('scoring.excel.released'),
+      notReleased: t('scoring.excel.notReleased'),
+      classAverageLabel: t('scoring.excel.classAverage'),
+    };
     try {
-      downloadGradebookXlsx(
-        gradebook,
-        {
-          sheetName: t('classGrades.export.sheetName'),
-          studentHeader: t('classGrades.studentColumn'),
-          averageHeader: t('classGrades.averageColumn'),
-          unpublishedSuffix: t('classGrades.export.unpublishedSuffix'),
-        },
-        t('classGrades.export.fileName', { className: cls.name }),
-      );
+      const fileName = downloadGradebookXlsx(gradebook, labels, t('classGrades.export.fileName', { className: cls.name }));
+      setDownloadMessage(t('scoring.download.done', { fileName }));
+      downloadTimer.current = setTimeout(() => setDownloadMessage(null), DOWNLOAD_MESSAGE_MS);
     } catch {
       setExportFailed(true);
     }
@@ -122,6 +173,18 @@ function ClassGradesTab() {
           </button>
         )}
       </div>
+
+      <p
+        role="status"
+        aria-live="polite"
+        className={
+          downloadMessage
+            ? 'rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800'
+            : 'sr-only'
+        }
+      >
+        {downloadMessage ?? ''}
+      </p>
 
       {exportFailed && (
         <p role="alert" className="text-sm text-red-700">
@@ -223,15 +286,24 @@ function ClassGradesTab() {
                           {cell ? (
                             <Link
                               to={`/teacher/attempts/${cell.attemptId}`}
-                              title={t('classGrades.cellTitle', {
-                                correct: cell.correctCount,
-                                total: cell.totalCount,
-                              })}
+                              title={
+                                cell.provisional
+                                  ? t('scoring.gradebook.cellTitleProvisional', {
+                                      correct: cell.correctCount,
+                                      total: cell.totalCount,
+                                      count: cell.ungradedCount,
+                                    })
+                                  : t('classGrades.cellTitle', {
+                                      correct: cell.correctCount,
+                                      total: cell.totalCount,
+                                    })
+                              }
                               className={`inline-block rounded px-1.5 py-0.5 font-semibold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 ${
                                 muted ? 'text-base-black/35' : 'text-base-black'
                               }`}
                             >
-                              {formatScore(cell.scorePercent)}
+                              {formatScore10(cell.scorePercent)}
+                              {cell.provisional && <ProvisionalMark label={t('scoring.provisional.short')} />}
                             </Link>
                           ) : (
                             <span
@@ -245,7 +317,10 @@ function ClassGradesTab() {
                       );
                     })}
                     <td className="border-b border-primary-100 bg-primary-50/60 px-3 py-2.5 text-right font-semibold tabular-nums text-base-black group-hover:bg-primary-100">
-                      {formatScore(gradebook.studentAverages[student.id] ?? null)}
+                      {formatScore10(gradebook.studentAverages[student.id] ?? null)}
+                      {gradebook.tests.some((test) => isProvisional(student.id, test.id)) && (
+                        <ProvisionalMark label={t('scoring.provisional.short')} />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -263,7 +338,10 @@ function ClassGradesTab() {
                       key={test.id}
                       className="sticky bottom-0 z-20 border-r border-t border-primary-200 bg-primary-100 px-3 py-2.5 text-center font-semibold tabular-nums text-primary-800"
                     >
-                      {formatScore(gradebook.testAverages[test.id] ?? null)}
+                      {formatScore10(gradebook.testAverages[test.id] ?? null)}
+                      {gradebook.students.some((student) => isProvisional(student.id, test.id)) && (
+                        <ProvisionalMark label={t('scoring.provisional.short')} />
+                      )}
                     </td>
                   ))}
                   <td className="sticky bottom-0 z-20 border-t border-primary-200 bg-primary-100" />
@@ -275,6 +353,8 @@ function ClassGradesTab() {
           <ul className="flex flex-col gap-1 text-sm text-base-black/60">
             <li>{t('classGrades.footnoteBest')}</li>
             <li>{t('classGrades.footnoteNotSubmitted')}</li>
+            <li>{t('scoring.gradebook.scaleNote')}</li>
+            {hasProvisional && <li>{t('scoring.gradebook.legend')}</li>}
             {hasUnpublished && <li>{t('classGrades.footnoteUnpublished')}</li>}
           </ul>
         </>

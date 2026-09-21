@@ -9,6 +9,7 @@ import ClassFilterControl, { ClassFilterEmptyState } from '../components/ClassFi
 import { classAssignmentsPath } from '../lib/classAssignments';
 import { CLASSES_HOME_PATH } from '../lib/classWorkspace';
 import { dashboardPathForRole } from '../lib/roles';
+import { formatScore10WithUnit } from '../lib/scoreFormat';
 
 /**
  * Unit Test report & leaderboard (T-037) — visible to BOTH roles (see `App.tsx`'s route
@@ -93,7 +94,7 @@ function UnitLeaderboardPage() {
             <p className="text-sm text-base-black/70">
               {t('unitLeaderboard.classAverageLabel')}{' '}
               <span className="font-semibold text-primary-700">
-                {data.averageScorePercent === null ? '—' : `${data.averageScorePercent}%`}
+                {formatScore10WithUnit(data.averageScorePercent)}
               </span>{' '}
               {t('unitLeaderboard.attemptsSuffix', { count: data.attemptCount })}
             </p>
@@ -133,7 +134,7 @@ function UnitLeaderboardPage() {
                     </td>
                     <td className="px-4 py-3 text-base-black/80">{entry.attemptCount}</td>
                     <td className="px-4 py-3 font-semibold text-primary-700">
-                      {entry.averageScorePercent === null ? '—' : `${entry.averageScorePercent}%`}
+                      {formatScore10WithUnit(entry.averageScorePercent)}
                     </td>
                   </tr>
                 ))}

@@ -803,10 +803,9 @@ model Answer {
   /// meaningful when the underlying `Question.type` is `essay` (never set for any other
   /// type). `isCorrect` above is deliberately left `null` forever for an essay answer
   /// (there is no auto-graded pass/fail concept for free text) — `manualScore` out of the
-  /// question's `essayMaxScore` is the only score that exists for it, and is displayed
-  /// alongside (not merged into) `Attempt.correctCount`/`scorePercent`, which only ever
-  /// reflect auto-gradable questions. See `attempts.routes.ts`'s submit handler doc
-  /// comment for the full reasoning.
+  /// question's `essayMaxScore` is the only score that exists for it. Since Phase 15 it counts
+  /// towards `Attempt.scorePercent` (worth `essayMaxScore` points; `correctCount`/`totalCount`
+  /// still only count auto-gradable questions) — see `lib/attemptScore.ts` for the model.
   manualScore             Float?
   manualComment           String?
   /// Speaking (T-052–T-056). `speakingAudioData` is the student's recorded answer,

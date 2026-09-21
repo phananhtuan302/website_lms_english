@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TestClassScheduleDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
+import ScoreReleaseDialog from './ScoreReleaseDialog';
 
 interface TestClassSchedulePanelProps {
   testId: string;
@@ -63,6 +64,9 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
   const [scheduleSaved, setScheduleSaved] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  // Phase 15: releasing scores asks first (dialog); hiding stays immediate but says it worked.
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const [publishNotice, setPublishNotice] = useState<string | null>(null);
 
   useEffect(() => {
     // No synchronous `setSchedule(null)`/`setLoadError(null)` here — see
@@ -122,12 +126,19 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
 
   function handleTogglePublish() {
     if (!schedule) return;
-    setPublishing(true);
     setPublishError(null);
+    setPublishNotice(null);
+    // Letting students see their scores is confirmed first (Phase 15) — see `ScoreReleaseDialog`.
+    if (!schedule.scoresPublishedManually) {
+      setReleaseOpen(true);
+      return;
+    }
+    setPublishing(true);
     teacherApi
-      .updateTestClassSchedule(testId, { classId, published: !schedule.scoresPublishedManually })
+      .updateTestClassSchedule(testId, { classId, published: false })
       .then((res) => {
         setSchedule(res);
+        setPublishNotice(t('scoring.release.hidden'));
         onChanged?.();
       })
       .catch((err) => {
@@ -227,7 +238,26 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
             </button>
           </div>
           {publishError && <p className="text-xs text-red-700">{publishError}</p>}
+          {publishNotice && (
+            <p role="status" aria-live="polite" className="text-xs font-semibold text-green-700">
+              {publishNotice}
+            </p>
+          )}
         </>
+      )}
+
+      {releaseOpen && (
+        <ScoreReleaseDialog
+          testId={testId}
+          classId={classId}
+          onClose={() => setReleaseOpen(false)}
+          onReleased={(res) => {
+            setSchedule(res);
+            setReleaseOpen(false);
+            setPublishNotice(t('scoring.release.published'));
+            onChanged?.();
+          }}
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ClassRosterStudentDTO } from '@platform/shared';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classTabPath } from '../../lib/classWorkspace';
+import { formatScore10 } from '../../lib/scoreFormat';
 import { teacherApi } from '../../lib/teacherApi';
 import AddStudentsModal from './AddStudentsModal';
 import ResetStudentPasswordModal from './ResetStudentPasswordModal';
@@ -20,7 +21,7 @@ function normalizeForSearch(text: string): string {
 }
 
 function formatAverage(value: number | null): string {
-  return value === null ? '—' : `${value}%`;
+  return formatScore10(value);
 }
 
 /**
