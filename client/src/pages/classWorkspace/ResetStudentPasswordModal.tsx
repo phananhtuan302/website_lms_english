@@ -156,6 +156,7 @@ function ResetStudentPasswordModal({ classId, student, onClose }: ResetStudentPa
           <p className="text-sm text-base-black/70">
             {t('classResetPassword.loginHint', { email: student.email })}
           </p>
+          <p className="text-sm text-base-black/70">{t('classResetPassword.oldFileHint')}</p>
         </div>
       )}
     </Modal>

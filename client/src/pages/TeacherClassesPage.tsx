@@ -45,6 +45,16 @@ function AttentionBadges({ cls, attention }: { cls: ClassDTO; attention: ClassAt
   const { t } = useTranslation();
   if (!attention || !cls.currentPeriodId) return null;
   const badges: Array<{ key: string; text: string; className: string }> = [];
+  // Red only for work that is already overdue; students who merely have not handed in a test that
+  // is still open get a calm neutral badge (they are counted there only when nothing they owe is
+  // overdue, so nobody appears in both).
+  if (attention.overdueNotSubmittedStudentCount > 0) {
+    badges.push({
+      key: 'overdue',
+      text: t('teacherHome.attention.overdue', { count: attention.overdueNotSubmittedStudentCount }),
+      className: 'bg-red-100 text-red-800',
+    });
+  }
   if (attention.closingSoonCount > 0) {
     badges.push({
       key: 'closingSoon',
@@ -52,11 +62,12 @@ function AttentionBadges({ cls, attention }: { cls: ClassDTO; attention: ClassAt
       className: 'bg-amber-100 text-amber-900',
     });
   }
-  if (attention.notSubmittedStudentCount > 0) {
+  const stillOpenMissing = attention.notSubmittedStudentCount - attention.overdueNotSubmittedStudentCount;
+  if (stillOpenMissing > 0) {
     badges.push({
       key: 'notSubmitted',
-      text: t('teacherHome.attention.notSubmitted', { count: attention.notSubmittedStudentCount }),
-      className: 'bg-red-100 text-red-800',
+      text: t('teacherHome.attention.notSubmitted', { count: stillOpenMissing }),
+      className: 'bg-base-black/5 text-base-black/70',
     });
   }
   if (attention.needsGradingCount > 0) {
@@ -84,8 +95,8 @@ function AttentionBadges({ cls, attention }: { cls: ClassDTO; attention: ClassAt
  * Teacher home = the class-card grid (T-102, Phase 13; rewrites T-074/T-095's CRUD list).
  * One card per class — class name, semester badge (amber "Chưa chọn học kỳ" when the class
  * has none yet), what needs attention (small badges from `GET /api/teacher/classes-attention`:
- * tests closing soon, students who have not submitted, submissions to grade — only the
- * non-zero ones), student count — and the whole card is a link into that class's workspace
+ * students missing an overdue test (red), tests closing soon, students who have not yet
+ * submitted a still-open test (calm grey), submissions to grade — only the non-zero ones), student count — and the whole card is a link into that class's workspace
  * (`/teacher/classes/:classId`). Rename / change semester / delete now live in the class's
  * own Cài đặt tab, not here; the only management action on this page is creating a class
  * (name + semester, inline). The semester is preselected (`defaultPeriodId`) so a new class is

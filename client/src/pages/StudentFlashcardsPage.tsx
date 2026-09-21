@@ -66,7 +66,10 @@ function StudentFlashcardsPage() {
                   <span
                     className={`font-medium ${set.selfCheckScore < 0 ? 'text-red-600' : 'text-primary-700'}`}
                   >
-                    {t('studentFlashcards.selfCheckScore', { score: set.selfCheckScore })}
+                    {/* T-113: "0" means nothing to a child — say plainly that no self-check was done yet. */}
+                    {set.selfCheckScore === 0
+                      ? t('studentFlashcards.selfCheckNone')
+                      : t('studentFlashcards.selfCheckScore', { score: set.selfCheckScore })}
                   </span>
                 </p>
               </div>

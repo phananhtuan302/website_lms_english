@@ -179,8 +179,9 @@ function ClassOverviewTab() {
                 {t('classWorkspace.overview.nextStepsHeading')}
               </h2>
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* `?assign=1` makes the Bài tập tab open its "Giao bài mới" dialog straight away. */}
                 <Link
-                  to={classTabPath(cls.id, 'assignments')}
+                  to={`${classAssignmentsPath(cls.id)}?assign=1`}
                   className="flex flex-col gap-1 rounded-2xl bg-primary-500 p-5 text-base-white transition-colors hover:bg-primary-600"
                 >
                   <span className="text-lg font-bold">{t('classWorkspace.overview.assignTitle')}</span>

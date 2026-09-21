@@ -6,6 +6,7 @@ import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { CLASSES_HOME_PATH } from '../../lib/classWorkspace';
 import { teacherApi } from '../../lib/teacherApi';
 import { ApiError } from '../../lib/apiClient';
+import { withClassPrefix } from '../../lib/classLabel';
 
 /**
  * "Cài đặt" tab (T-102): the class's housekeeping, moved off the old class list — rename,
@@ -55,7 +56,7 @@ function ClassSettingsTab() {
   }
 
   async function handleDelete() {
-    if (!window.confirm(t('classWorkspace.settings.confirmDelete', { name: cls.name }))) return;
+    if (!window.confirm(t('classWorkspace.settings.confirmDelete', { name: withClassPrefix(cls.name) }))) return;
     setDeleting(true);
     setDeleteError(null);
     try {

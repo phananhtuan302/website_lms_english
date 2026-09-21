@@ -2604,6 +2604,9 @@ export interface ClassAttentionDTO {
   closingSoonCount: number;
   /** Distinct students who have not submitted at least one closing-soon or closed test. */
   notSubmittedStudentCount: number;
+  /** Distinct students who have not submitted at least one test that is already CLOSED — the
+   * subset of `notSubmittedStudentCount` that is overdue rather than merely still open. */
+  overdueNotSubmittedStudentCount: number;
   /** Submitted attempts waiting for a manual grade (= `ClassOverviewDTO.needsGrading.count`). */
   needsGradingCount: number;
 }

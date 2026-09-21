@@ -43,7 +43,12 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { fetchNestedTest } from '../lib/testQueries';
 import type { VariantLayout } from '../lib/variantShuffle';
-import { buildResultQuestions, buildRuntimeSections, flattenQuestionsInAuthoredOrder } from '../lib/attemptView';
+import {
+  buildResultQuestions,
+  buildRuntimeSections,
+  flattenQuestionsInAuthoredOrder,
+  orderResultQuestionsLikeVariant,
+} from '../lib/attemptView';
 import { gradeAnswer } from '../lib/grading';
 import { getAIGradingProvider } from '../grading';
 import { getStudentClassAndPeriod } from '../lib/classScoping';
@@ -366,7 +371,11 @@ attemptsRouter.post(
  * test is score-released for the calling student's own class. If NOT, returns the
  * narrower `AttemptResultPendingDTO` instead — checked (and returned) BEFORE fetching
  * the nested test/answers at all, so it's structurally impossible for this path to leak
- * `scorePercent`/`correctCount`/`totalCount`/per-question correctness. */
+ * `scorePercent`/`correctCount`/`totalCount`/per-question correctness.
+ *
+ * T-113: the per-question review is in the order (numbering, choice order) the student saw
+ * during the test — see `orderResultQuestionsLikeVariant` — while the teacher's attempt view
+ * keeps the authored order. */
 attemptsRouter.get(
   '/:attemptId/result',
   asyncHandler(async (req, res) => {
@@ -398,10 +407,11 @@ attemptsRouter.get(
       return;
     }
 
-    const [test, student, answers] = await Promise.all([
+    const [test, student, answers, variant] = await Promise.all([
       fetchNestedTest(attempt.testId),
       prisma.user.findUniqueOrThrow({ where: { id: attempt.studentId } }),
       prisma.answer.findMany({ where: { attemptId: attempt.id } }),
+      prisma.testVariant.findUnique({ where: { id: attempt.variantId } }),
     ]);
     const answerMap = new Map(
       answers.map((a) => [
@@ -435,7 +445,11 @@ attemptsRouter.get(
       timeTakenSeconds: attempt.timeTakenSeconds,
       tabSwitchCount: attempt.tabSwitchCount,
       tabSwitchLog: attempt.tabSwitchLog,
-      questions: buildResultQuestions(test, answerMap),
+      // T-113: the student's own review follows the order (and numbering) they saw while taking
+      // the test — their variant's — not the authored order the teacher's view uses.
+      questions: variant
+        ? orderResultQuestionsLikeVariant(buildResultQuestions(test, answerMap), variant.layout as unknown as VariantLayout)
+        : buildResultQuestions(test, answerMap),
       scoresPublished: true,
     };
     res.status(200).json(response);

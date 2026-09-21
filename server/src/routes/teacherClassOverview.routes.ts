@@ -262,8 +262,9 @@ teacherClassOverviewRouter.get(
 /**
  * `GET /api/teacher/classes-attention` — for each of the calling teacher's classes (the same set
  * as `GET /api/teacher/classes`), how many tests are closing soon, how many students have not
- * submitted a closing-soon or closed test, and how many submissions await grading. All three
- * are 0 for a class with no current semester or nothing assigned. The path deliberately is not
+ * submitted a closing-soon or closed test (and, of those, how many are missing a test that is
+ * already closed), and how many submissions await grading. All are 0 for a class with no
+ * current semester or nothing assigned. The path deliberately is not
  * under `/classes/:classId`, so it can never be mistaken for a class id.
  */
 teacherClassOverviewRouter.get(

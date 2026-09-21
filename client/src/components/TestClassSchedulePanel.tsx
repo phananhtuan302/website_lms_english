@@ -36,7 +36,7 @@ function toIsoOrNull(value: string): string | null {
 
 /**
  * T-098: compact inline schedule panel (originally on "My Content"; since T-103 opened from
- * the class Bài tập tab's "Lịch & công bố điểm" button) — a SECOND entry point to the exact
+ * the class Bài tập tab's "Hạn làm bài" button) — a SECOND entry point to the exact
  * same `TestClassSchedule` row `TeacherTestAttemptsReportPage.tsx` (T-093) already edits,
  * reached without leaving the class workspace or opening the full test editor. Shows the same fields, in the same order,
  * as that page's schedule section: open time, close time, the "auto-publish on close"
@@ -59,6 +59,8 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
   const [autoPublishInput, setAutoPublishInput] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  // Shown after "Lưu lịch" succeeded, until the teacher edits a field again.
+  const [scheduleSaved, setScheduleSaved] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
 
@@ -93,6 +95,7 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
   function handleSaveSchedule() {
     setSavingSchedule(true);
     setScheduleError(null);
+    setScheduleSaved(false);
     teacherApi
       .updateTestClassSchedule(testId, {
         classId,
@@ -102,12 +105,19 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
       })
       .then((res) => {
         setSchedule(res);
+        setScheduleSaved(true);
         onChanged?.();
       })
       .catch((err) => {
         setScheduleError(err instanceof ApiError ? err.message : t('teacherTestReport.scheduleSaveFailed'));
       })
       .finally(() => setSavingSchedule(false));
+  }
+
+  /** Any edit after a save makes "Đã lưu" untrue, so it goes away. */
+  function editField(update: () => void) {
+    setScheduleSaved(false);
+    update();
   }
 
   function handleTogglePublish() {
@@ -156,24 +166,26 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
               <input
                 type="datetime-local"
                 value={openAtInput}
-                onChange={(e) => setOpenAtInput(e.target.value)}
+                onChange={(e) => editField(() => setOpenAtInput(e.target.value))}
                 className="rounded-md border border-primary-200 px-2 py-1 text-xs"
               />
+              <span className="text-[11px] text-base-black/60">{t('teacherTestReport.openAtHint')}</span>
             </label>
             <label className="flex flex-col gap-1 text-xs text-base-black/80">
               {t('teacherTestReport.closeAtLabel')}
               <input
                 type="datetime-local"
                 value={closeAtInput}
-                onChange={(e) => setCloseAtInput(e.target.value)}
+                onChange={(e) => editField(() => setCloseAtInput(e.target.value))}
                 className="rounded-md border border-primary-200 px-2 py-1 text-xs"
               />
+              <span className="text-[11px] text-base-black/60">{t('teacherTestReport.closeAtHint')}</span>
             </label>
             <label className="flex items-center gap-2 text-xs text-base-black/80">
               <input
                 type="checkbox"
                 checked={autoPublishInput}
-                onChange={(e) => setAutoPublishInput(e.target.checked)}
+                onChange={(e) => editField(() => setAutoPublishInput(e.target.checked))}
               />
               {t('teacherTestReport.autoPublishLabel')}
             </label>
@@ -187,6 +199,11 @@ function TestClassSchedulePanel({ testId, classId, className, onClose, onChanged
             </button>
           </div>
           {scheduleError && <p className="text-xs text-red-700">{scheduleError}</p>}
+          {scheduleSaved && (
+            <p role="status" className="text-xs font-semibold text-green-700">
+              {t('teacherTestReport.scheduleSaved')}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <span

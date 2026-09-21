@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -34,15 +34,52 @@ function canSpeakEnglish(): boolean {
   return typeof window !== 'undefined' && Boolean(window.speechSynthesis) && typeof SpeechSynthesisUtterance !== 'undefined';
 }
 
-function speakEnglish(text: string): void {
+/** How long the "Đang đọc…" state may wait for the browser to actually start speaking before we
+ * tell the child the device cannot read it, and how long the "cannot read" note stays visible. */
+const SPEAK_START_TIMEOUT_MS = 2500;
+const SPEAK_FAILED_NOTE_MS = 4000;
+/** How long the "Đã thuộc ✓" / "Vẫn đang học ✓" confirmation stays next to the card. */
+const MARK_FEEDBACK_MS = 1200;
+
+interface SpeakHandlers {
+  onStart: () => void;
+  onEnd: () => void;
+  onFail: () => void;
+}
+
+/** Best effort: a browser that refuses to speak must never break the card. Reports what happened
+ * through the handlers so the button can show "Đang đọc…" or the "cannot read" note. */
+function speakEnglish(text: string, { onStart, onEnd, onFail }: SpeakHandlers): void {
   try {
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    // Once the browser has listed its voices and none is English there is nothing sensible to say
+    // it with (an empty list just means "not loaded yet" — then we simply try and see).
+    const voices = synth.getVoices();
+    if (voices.length > 0 && !voices.some((voice) => voice.lang.toLowerCase().startsWith('en'))) {
+      onFail();
+      return;
+    }
+    synth.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
-    window.speechSynthesis.speak(utterance);
+    utterance.onstart = onStart;
+    utterance.onend = onEnd;
+    utterance.onerror = (event) => {
+      // cancel() on a newer utterance ends the older one with these — not a failure.
+      if (event.error === 'canceled' || event.error === 'interrupted') return;
+      onFail();
+    };
+    synth.speak(utterance);
   } catch {
-    // Best effort: a browser that refuses to speak must never break the card.
+    onFail();
   }
+}
+
+/** Smooth scrolling unless the device asks for reduced motion. */
+function scrollBehavior(): ScrollBehavior {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ? 'auto'
+    : 'smooth';
 }
 
 function FlipIcon() {
@@ -82,6 +119,18 @@ function StudentFlashcardSetPage() {
   // T-089: "Xem thẻ đã thuộc" — a simple toggled inline list of already-loaded data
   // (client-side filter of `set.cards`), not a new endpoint or a rebuilt flip-card UI.
   const [showKnownCards, setShowKnownCards] = useState(false);
+  // T-113: a short "Đã thuộc ✓" / "Vẫn đang học ✓" note next to the card after marking.
+  const [markFeedback, setMarkFeedback] = useState<'known' | 'learning' | null>(null);
+  // T-113: true once the child has just marked the last card of the set (drives the "you finished" panel).
+  const [markedLastCard, setMarkedLastCard] = useState(false);
+  // T-113: "🔊 Nghe" state — reading aloud, or the device could not read it.
+  const [speakState, setSpeakState] = useState<'idle' | 'speaking' | 'failed'>('idle');
+  const markFeedbackTimer = useRef<number | undefined>(undefined);
+  const speakStartTimer = useRef<number | undefined>(undefined);
+  const speakFailedTimer = useRef<number | undefined>(undefined);
+  const speakToken = useRef(0);
+  const donePanelRef = useRef<HTMLDivElement>(null);
+  const practiceRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!setId) return;
@@ -90,6 +139,20 @@ function StudentFlashcardSetPage() {
       .then(setSet)
       .catch((err) => setError(err instanceof ApiError ? err.message : t('studentFlashcardSet.loadError')));
   }, [setId, t]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(markFeedbackTimer.current);
+      window.clearTimeout(speakStartTimer.current);
+      window.clearTimeout(speakFailedTimer.current);
+    },
+    [],
+  );
+
+  // When the child has just marked the very last card, bring the "you finished" panel into view.
+  useEffect(() => {
+    if (markedLastCard) donePanelRef.current?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  }, [markedLastCard]);
 
   if (!setId) return null;
 
@@ -140,12 +203,63 @@ function StudentFlashcardSetPage() {
       // Advance to the next card automatically so a study session flows without extra clicks.
       setIsFlipped(false);
       setIndex((i) => Math.min(set!.cards.length - 1, i + 1));
+      // T-113: say what was just saved, briefly (the card already moved on).
+      setMarkFeedback(status === 'known' ? 'known' : 'learning');
+      window.clearTimeout(markFeedbackTimer.current);
+      markFeedbackTimer.current = window.setTimeout(() => setMarkFeedback(null), MARK_FEEDBACK_MS);
+      if (index === set!.cards.length - 1) setMarkedLastCard(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('studentFlashcardSet.saveProgressError'));
     } finally {
       setIsSaving(false);
     }
   }
+
+  function listen() {
+    window.clearTimeout(speakStartTimer.current);
+    window.clearTimeout(speakFailedTimer.current);
+    // A newer press cancels the older utterance; its late "ended" must not reset the newer one.
+    const token = ++speakToken.current;
+    const isCurrent = () => token === speakToken.current;
+    let sawSpeech = false;
+    const fail = () => {
+      if (!isCurrent()) return;
+      window.clearTimeout(speakStartTimer.current);
+      setSpeakState('failed');
+      window.clearTimeout(speakFailedTimer.current);
+      speakFailedTimer.current = window.setTimeout(() => setSpeakState('idle'), SPEAK_FAILED_NOTE_MS);
+    };
+    // Some browsers accept the request and then stay silent (no voice, sound blocked), and some never
+    // report "finished": this check settles both, so "Đang đọc…" can never stay on forever.
+    const watch = () => {
+      if (!isCurrent()) return;
+      if (window.speechSynthesis.speaking) {
+        sawSpeech = true;
+        speakStartTimer.current = window.setTimeout(watch, 500);
+      } else if (sawSpeech) {
+        setSpeakState('idle');
+      } else {
+        fail();
+      }
+    };
+    setSpeakState('speaking');
+    speakStartTimer.current = window.setTimeout(watch, SPEAK_START_TIMEOUT_MS);
+    speakEnglish(card.term, {
+      onStart: () => {
+        sawSpeech = true;
+      },
+      onEnd: () => {
+        if (!isCurrent()) return;
+        window.clearTimeout(speakStartTimer.current);
+        setSpeakState('idle');
+      },
+      onFail: fail,
+    });
+  }
+
+  // T-113: every card marked ⇒ the whole set has been studied; also right after the last card is marked.
+  const allCardsMarked = set.cards.every((c) => c.progressStatus === 'known' || c.progressStatus === 'learning');
+  const showDonePanel = markedLastCard || allCardsMarked;
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
@@ -160,39 +274,58 @@ function StudentFlashcardSetPage() {
 
       <h1 className="text-xl font-bold text-primary-700">{set.name}</h1>
 
-      {/* T-113: the card looks like a card you can press (raised, bordered, with a visible hint). */}
-      <button
-        type="button"
-        onClick={() => setIsFlipped((f) => !f)}
-        aria-label={t('studentFlashcardSet.flipCardAriaLabel')}
-        className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-primary-300 bg-primary-50 p-6 text-center shadow-md transition hover:border-primary-400 hover:shadow-lg active:scale-[0.99] sm:p-8"
-      >
-        {!isFlipped ? (
-          <p className="break-words text-3xl font-bold text-base-black">{card.term}</p>
-        ) : (
-          <>
-            <p className="break-words text-lg font-semibold text-base-black">{card.meaning}</p>
-            {card.ipa && <p className="text-base-black/70">{card.ipa}</p>}
-            {card.synonyms.length > 0 && (
-              <p className="text-sm text-base-black/60">
-                {t('studentFlashcardSet.synonymsLabel', { list: card.synonyms.join(', ') })}
-              </p>
-            )}
-            {card.antonyms.length > 0 && (
-              <p className="text-sm text-base-black/60">
-                {t('studentFlashcardSet.antonymsLabel', { list: card.antonyms.join(', ') })}
-              </p>
-            )}
-            {card.imageUrl && (
-              <img src={card.imageUrl} alt={card.term} className="mt-2 max-h-32 rounded-md" />
-            )}
-          </>
-        )}
-        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-base-white px-4 py-1.5 text-sm font-semibold text-primary-700 shadow-sm">
-          <FlipIcon />
-          {isFlipped ? t('studentFlashcardSet.tapToFlipBack') : t('studentFlashcardSet.tapToReveal')}
-        </span>
-      </button>
+      <div className="relative">
+        {/* T-113: says what was just saved ("Đã thuộc ✓" / "Vẫn đang học ✓") for a moment while the
+            card moves on. The live region is always present so screen readers announce the change. */}
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center"
+        >
+          {markFeedback && (
+            <span
+              className={`rounded-full px-4 py-1.5 text-sm font-bold text-base-white shadow-md ${
+                markFeedback === 'known' ? 'bg-green-600' : 'bg-amber-700'
+              }`}
+            >
+              {markFeedback === 'known' ? t('studentFlashcardSet.markedKnown') : t('studentFlashcardSet.markedLearning')}
+            </span>
+          )}
+        </div>
+        {/* T-113: the card looks like a card you can press (raised, bordered, with a visible hint). */}
+        <button
+          type="button"
+          onClick={() => setIsFlipped((f) => !f)}
+          aria-label={t('studentFlashcardSet.flipCardAriaLabel')}
+          className="flex min-h-[240px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-primary-300 bg-primary-50 p-6 text-center shadow-md transition hover:border-primary-400 hover:shadow-lg active:scale-[0.99] sm:p-8"
+        >
+          {!isFlipped ? (
+            <p className="break-words text-3xl font-bold text-base-black">{card.term}</p>
+          ) : (
+            <>
+              <p className="break-words text-lg font-semibold text-base-black">{card.meaning}</p>
+              {card.ipa && <p className="text-base-black/70">{card.ipa}</p>}
+              {card.synonyms.length > 0 && (
+                <p className="text-sm text-base-black/60">
+                  {t('studentFlashcardSet.synonymsLabel', { list: card.synonyms.join(', ') })}
+                </p>
+              )}
+              {card.antonyms.length > 0 && (
+                <p className="text-sm text-base-black/60">
+                  {t('studentFlashcardSet.antonymsLabel', { list: card.antonyms.join(', ') })}
+                </p>
+              )}
+              {card.imageUrl && (
+                <img src={card.imageUrl} alt={card.term} className="mt-2 max-h-32 rounded-md" />
+              )}
+            </>
+          )}
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-base-white px-4 py-1.5 text-sm font-semibold text-primary-700 shadow-sm">
+            <FlipIcon />
+            {isFlipped ? t('studentFlashcardSet.tapToFlipBack') : t('studentFlashcardSet.tapToReveal')}
+          </span>
+        </button>
+      </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <span
@@ -203,12 +336,18 @@ function StudentFlashcardSetPage() {
         {canSpeakEnglish() && (
           <button
             type="button"
-            onClick={() => speakEnglish(card.term)}
+            onClick={listen}
             aria-label={t('studentFlashcardSet.listenAriaLabel')}
+            aria-busy={speakState === 'speaking'}
             className="inline-flex min-h-11 items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
           >
-            {t('studentFlashcardSet.listenButton')}
+            {speakState === 'speaking' ? t('studentFlashcardSet.listenSpeaking') : t('studentFlashcardSet.listenButton')}
           </button>
+        )}
+        {speakState === 'failed' && (
+          <p role="status" className="w-full rounded-md bg-amber-50 px-3 py-2 text-center text-sm text-amber-900">
+            {t('studentFlashcardSet.listenFailed')}
+          </p>
         )}
       </div>
 
@@ -259,7 +398,27 @@ function StudentFlashcardSetPage() {
         </div>
       </div>
 
-      <section className="rounded-xl border border-primary-200 p-4">
+      {/* T-113: the whole set has been studied — point at the practice section instead of leaving the child on the last card. */}
+      {showDonePanel && (
+        <div ref={donePanelRef} role="status" className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
+          <p className="text-lg font-bold text-green-900">
+            {t('studentFlashcardSet.allCardsDoneTitle', { count: set.cards.length })}
+          </p>
+          <p className="mt-1 text-sm text-green-900/80">{t('studentFlashcardSet.allCardsDoneHint')}</p>
+          <button
+            type="button"
+            onClick={() => {
+              practiceRef.current?.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+              practiceRef.current?.focus({ preventScroll: true });
+            }}
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary-500 px-4 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 sm:w-auto"
+          >
+            {t('studentFlashcardSet.goToPracticeButton')}
+          </button>
+        </div>
+      )}
+
+      <section ref={practiceRef} tabIndex={-1} className="rounded-xl border border-primary-200 p-4 focus:outline-none">
         <h2 className="text-lg font-bold text-base-black">{t('studentFlashcardSet.practiceExercisesHeading')}</h2>
         <p className="mt-1 text-sm text-base-black/60">{t('studentFlashcardSet.practiceExercisesSubtitle')}</p>
         <div className="mt-3 flex flex-wrap gap-2">

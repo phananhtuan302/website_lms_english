@@ -119,6 +119,9 @@ function AssignmentRow({ item, startingId, onStart }: RowProps) {
         type="button"
         onClick={() => onStart(item.id)}
         disabled={startingId !== null}
+        // Two rows both say "Làm bài": the accessible name adds which test it is (it starts with
+        // the visible label, so voice control still works).
+        aria-label={startingId === item.id ? undefined : t('studentHome.action.startAria', { title: item.title })}
         className={primaryButton}
       >
         {startingId === item.id ? t('studentHome.action.starting') : t('studentHome.action.start')}

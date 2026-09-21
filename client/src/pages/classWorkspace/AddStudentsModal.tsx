@@ -400,7 +400,10 @@ function AddStudentsModal({ classId, className, onClose, onChanged }: AddStudent
             </p>
           )}
           {allCreated.length > 0 && (
-            <p className="text-sm text-base-black/70">{t('classRoster.result.loginHint')}</p>
+            <>
+              <p className="text-sm text-base-black/70">{t('classRoster.result.loginHint')}</p>
+              <p className="text-sm text-base-black/70">{t('classRoster.result.downloadCoversAll')}</p>
+            </>
           )}
           <div className="overflow-x-auto rounded-xl border border-primary-200">
             <table className="min-w-full divide-y divide-primary-100 text-sm">

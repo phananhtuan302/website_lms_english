@@ -162,6 +162,13 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'file';
 }
 
+/** Local date and time as "2026-09-21-1530", so a second download never has the same name as the
+ * first one (a browser would otherwise save "(1)" copies, or an older file could be overwritten). */
+function fileTimestamp(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
 function downloadSheet(
   rows: string[][],
   sheetName: string,
@@ -209,7 +216,8 @@ export interface CredentialsLabels {
 }
 
 /** Downloads the created accounts with their passwords, so the teacher can hand them out.
- * `fileBaseName` is the name without the extension (it should contain the class name). */
+ * `fileBaseName` is the name without the extension (it should contain the class name); the local
+ * date and time are appended ("tai-khoan-Lớp 8C-2026-09-21-1530.xlsx"). */
 export function downloadCredentialsXlsx(
   accounts: CredentialRow[],
   labels: CredentialsLabels,
@@ -221,7 +229,7 @@ export function downloadCredentialsXlsx(
       ...accounts.map((account) => [account.name, account.email, account.password]),
     ],
     labels.sheetName,
-    fileBaseName,
+    `${sanitizeFileName(fileBaseName)}-${fileTimestamp()}`,
     [28, 34, 18],
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type {
   ClassAssignmentFlashcardSetDTO,
@@ -11,6 +11,7 @@ import type {
 import TestClassSchedulePanel from '../../components/TestClassSchedulePanel';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { ApiError } from '../../lib/apiClient';
+import { withClassPrefix } from '../../lib/classLabel';
 import {
   TEST_TYPE_LABEL_KEYS,
   classTestResultsPath,
@@ -62,18 +63,23 @@ const actionClass =
  * status straight from its class schedule; the row actions cover everything a teacher does
  * to an assignment: see results, edit the schedule / publish scores (inline, via the existing
  * `TestClassSchedulePanel`), edit the content in the Library, or take it away from the class.
- * New assignments come from the "Giao bài mới" dialog.
+ * New assignments come from the "Giao bài mới" dialog. The Tổng quan tab's "Giao bài mới"
+ * shortcut links here with `?assign=1`: the dialog then opens on arrival (only when the class has
+ * a semester) and the flag is dropped from the URL, so a reload or the Back button never reopens it.
  */
 function ClassAssignmentsTab() {
   const { cls } = useClassWorkspace();
   const { t, i18n } = useTranslation();
   const periodId = cls.currentPeriodId;
+  const classLabel = withClassPrefix(cls.name);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [data, setData] = useState<ClassAssignmentsResponseDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [scheduleOpenFor, setScheduleOpenFor] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Read once, on arrival: the `assign` flag asks for the dialog, the effect below then removes it.
+  const [dialogOpen, setDialogOpen] = useState(() => searchParams.get('assign') === '1' && Boolean(periodId));
   const [removingKey, setRemovingKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
@@ -97,6 +103,18 @@ function ClassAssignmentsTab() {
     void refresh();
   }, [periodId, refresh]);
 
+  useEffect(() => {
+    if (!searchParams.has('assign')) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('assign');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
   const current = data && data.periodId === periodId ? data : null;
   const rows = useMemo(() => (current ? buildRows(current) : []), [current]);
   const counts = useMemo(
@@ -112,7 +130,7 @@ function ClassAssignmentsTab() {
 
   async function handleRemove(row: Row) {
     if (removingKey) return;
-    if (!window.confirm(t('classAssignments.confirmRemove', { title: row.title, className: cls.name }))) return;
+    if (!window.confirm(t('classAssignments.confirmRemove', { title: row.title, className: classLabel }))) return;
     setRemovingKey(row.key);
     setNotice(null);
     try {
@@ -297,9 +315,13 @@ function ClassAssignmentsTab() {
           <TestClassSchedulePanel
             testId={testItem.id}
             classId={cls.id}
-            className={cls.name}
+            className={classLabel}
             onClose={() => setScheduleOpenFor(null)}
-            onChanged={() => void refresh()}
+            onChanged={() => {
+              // A banner such as "Đã giao 1 bài cho lớp." is stale once the teacher acts on a row.
+              setNotice(null);
+              void refresh();
+            }}
           />
         )}
       </li>
@@ -401,7 +423,7 @@ function ClassAssignmentsTab() {
         </>
       )}
 
-      {dialogOpen && periodId && <AssignDialog classId={cls.id} className={cls.name} onClose={handleDialogClose} />}
+      {dialogOpen && periodId && <AssignDialog classId={cls.id} className={classLabel} onClose={handleDialogClose} />}
     </section>
   );
 }

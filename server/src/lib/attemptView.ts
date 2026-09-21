@@ -11,6 +11,9 @@
  *    line up the same way for a teacher comparing attempts, and so this component is
  *    reusable for both the student's own result page and the teacher's per-attempt
  *    detail page (same shape, see `AttemptResultDTO` in `@platform/shared`).
+ *    The student's OWN result endpoint then passes it through
+ *    `orderResultQuestionsLikeVariant`, so the child reads the review with the same
+ *    numbering and choice order they saw on the take-test screen (T-113).
  *
  * Both take the same nested-test shape (sections -> questions -> choices, already
  * ordered by their authored `order`) that `teacherTests.routes.ts`'s `fetchNestedTest`
@@ -166,6 +169,48 @@ export function buildResultQuestions(
       speakingAiFeedback: answer?.speakingAiFeedback ?? null,
     };
   });
+}
+
+/** Re-orders a result review into the order THIS student saw during the test: their variant's
+ * question order (flat across sections, exactly how the take-test screen counts "Câu hỏi 4/5"),
+ * renumbering `order` 1..N, and each multiple-choice question's choices in the shuffled order they
+ * were shown. Display-only — nothing here touches grading or the answer key. Anything the layout does
+ * not mention is kept, after the listed ones in authored order, so a stale layout can never hide a
+ * question or a choice. Used by the STUDENT's own result endpoint only; the teacher's attempt view
+ * keeps the authored order (see this file's header). */
+export function orderResultQuestionsLikeVariant(
+  questions: AttemptResultQuestionDTO[],
+  layout: VariantLayout,
+): AttemptResultQuestionDTO[] {
+  const byId = new Map(questions.map((q) => [q.questionId, q]));
+  const ordered: AttemptResultQuestionDTO[] = [];
+  const placed = new Set<string>();
+  for (const section of layout.sections) {
+    for (const questionId of section.questionIds) {
+      const question = byId.get(questionId);
+      if (question && !placed.has(questionId)) {
+        placed.add(questionId);
+        ordered.push(question);
+      }
+    }
+  }
+  for (const question of questions) {
+    if (!placed.has(question.questionId)) ordered.push(question);
+  }
+
+  return ordered.map((question, index) => {
+    const choiceOrder = layout.choiceOrder[question.questionId];
+    const choices = choiceOrder
+      ? [...question.choices].sort((a, b) => rank(choiceOrder, a.id) - rank(choiceOrder, b.id))
+      : question.choices;
+    return { ...question, order: index + 1, choices };
+  });
+}
+
+/** Position of `id` in `list`, or a large number (so unlisted items sort last, stably). */
+function rank(list: string[], id: string): number {
+  const position = list.indexOf(id);
+  return position === -1 ? list.length : position;
 }
 
 /** Re-exported for callers that grade using this module's flattened question order

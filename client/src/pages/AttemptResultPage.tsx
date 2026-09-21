@@ -5,6 +5,10 @@ import { SPEAKING_SCORE_SCALE, type AttemptResultResponseDTO } from '@platform/s
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 
+/** T-113: the big solid "← Về Bài cần làm" button a child sees right after finishing a test. */
+const BACK_HOME_BUTTON_CLASS =
+  'inline-flex min-h-12 items-center justify-center rounded-md bg-primary-500 px-6 py-3 text-base font-semibold text-base-white transition-colors hover:bg-primary-600';
+
 /**
  * Student's own result view (T-014), reachable at `/student/attempts/:attemptId/result`
  * once an attempt has been submitted (T-013 grades it at submit time). The server's
@@ -68,10 +72,7 @@ function AttemptResultPage() {
             })}
           </p>
         </div>
-        <Link
-          to="/student/dashboard"
-          className="inline-flex min-h-11 items-center justify-center self-center rounded-md bg-primary-500 px-6 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
-        >
+        <Link to="/student/dashboard" className={`${BACK_HOME_BUTTON_CLASS} self-center`}>
           {t('attemptResult.backToDashboard')}
         </Link>
       </div>
@@ -95,6 +96,10 @@ function AttemptResultPage() {
               time: `${Math.floor(result.timeTakenSeconds / 60)}:${String(result.timeTakenSeconds % 60).padStart(2, '0')}`,
             })}
         </p>
+        {/* T-113: the obvious next step, right under the score (the plain link at the bottom stays). */}
+        <Link to="/student/dashboard" className={`${BACK_HOME_BUTTON_CLASS} mt-4 w-full sm:w-auto`}>
+          {t('attemptResult.backToDashboard')}
+        </Link>
       </div>
 
       <section className="flex flex-col gap-3">

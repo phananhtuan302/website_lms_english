@@ -105,7 +105,13 @@ export function awaitingGradingWhere(
 }
 
 function emptyAttention(classId: string): ClassAttentionDTO {
-  return { classId, closingSoonCount: 0, notSubmittedStudentCount: 0, needsGradingCount: 0 };
+  return {
+    classId,
+    closingSoonCount: 0,
+    notSubmittedStudentCount: 0,
+    overdueNotSubmittedStudentCount: 0,
+    needsGradingCount: 0,
+  };
 }
 
 /**
@@ -115,6 +121,8 @@ function emptyAttention(classId: string): ClassAttentionDTO {
  * query per class. Each count equals the matching figure of the class's own overview:
  * `closingSoonCount` = `closingSoon.length`, `needsGradingCount` = `needsGrading.count`,
  * `notSubmittedStudentCount` = the distinct students named in `notSubmitted` (uncapped).
+ * `overdueNotSubmittedStudentCount` is the subset of those missing a test that is already CLOSED
+ * (a student who only lacks a still-open, closing-soon test is not counted there).
  */
 export async function computeClassesAttention(
   classes: Array<{ id: string; currentPeriodId: string | null }>,
@@ -179,6 +187,7 @@ export async function computeClassesAttention(
     else studentsByClass.set(student.classId, [student.id]);
   }
   const watchedByClass = new Map<string, WatchedTest[]>();
+  const closedByClass = new Map<string, WatchedTest[]>();
   for (const cls of scoped) {
     const { closingSoon, closed } = classifyClassTests(
       testsByClass.get(cls.id) ?? [],
@@ -187,6 +196,7 @@ export async function computeClassesAttention(
     );
     result.get(cls.id)!.closingSoonCount = closingSoon.length;
     watchedByClass.set(cls.id, [...closingSoon, ...closed]);
+    closedByClass.set(cls.id, closed);
   }
 
   const watchedTestIds = [...new Set([...watchedByClass.values()].flat().map((test) => test.id))];
@@ -220,11 +230,15 @@ export async function computeClassesAttention(
   const submitted = new Set(submittedPairs.map((pair) => `${pair.testId}:${pair.studentId}`));
   for (const cls of scoped) {
     const watched = watchedByClass.get(cls.id) ?? [];
+    const closed = closedByClass.get(cls.id) ?? [];
     const missing = new Set<string>();
+    const missingClosed = new Set<string>();
     for (const studentId of studentsByClass.get(cls.id) ?? []) {
       if (watched.some((test) => !submitted.has(`${test.id}:${studentId}`))) missing.add(studentId);
+      if (closed.some((test) => !submitted.has(`${test.id}:${studentId}`))) missingClosed.add(studentId);
     }
     result.get(cls.id)!.notSubmittedStudentCount = missing.size;
+    result.get(cls.id)!.overdueNotSubmittedStudentCount = missingClosed.size;
   }
 
   return classes.map((cls) => result.get(cls.id)!);
