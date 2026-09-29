@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-29 — Leader — Phase 15 round 3: the 4 remaining small items from cô Thu's list
+
+- Task IDs touched: T-114, T-115, T-116 (small polish, no new task IDs — the Leader did this round directly, no Dev agents)
+- What changed: the 4 items the customer picked out of the round-2 leftovers list ("làm đi"): (1) new `GET /academic-periods/selectable` so a teacher's Học kỳ picker only offers periods they use or nobody has adopted yet, instead of every period any teacher ever created; (2) a fresh "+ Trắc nghiệm" question gets an amber "vẫn dùng nội dung mẫu" reminder (cleared on first edit) plus focus+select on its sample prompt, and "Giao bài này cho lớp…" warns if any question is still untouched; (3) the gradebook Excel gets an explicit "Thang điểm: 10" line; (4) the grading page gained "← Học sinh trước" / "Học sinh sau →" + a position counter via a new `GET /api/teacher/attempts/:attemptId/siblings`.
+- Why / decisions made: re-checked the "Excel has no column widths" finding before touching anything — read the raw OOXML of a freshly downloaded file and found the `<cols>` element with real widths WAS there; `XLSX.readFile(...).Sheets[...]['!cols']` in this `xlsx` version just doesn't surface it back to JS, which is what both the earlier Dev's check and the simulated teacher's read had actually hit. Left the working code alone, added only the missing scale label, and documented the read-vs-write asymmetry in the file so nobody "fixes" it again. The environment had gone cold since the last turn (both dev servers down, a week of session time passed per the date change) — restarted both before verifying anything.
+- Status after this entry: all 4 items done, verified end to end on throwaway fixtures (deleted, 0 remaining; the whole DB re-checked against the known real-data baseline: 44 users, 6 classes, 3 tests, 1A1 = 40 students — unchanged). One residual noted, not fixed without the customer's decision: "Semester 2 2026" (an apparently-unused dev/seed period) still appears in the picker because no class anywhere uses it yet — the filter intentionally keeps unadopted periods visible rather than guessing it's junk.
+
 ## 2026-09-22 — Leader/Dev — Phase 15: hide reports, fixes from the older-teacher review, second simulated round
 
 - Task IDs touched: T-114, T-115, T-116 (plus `REPORTS_ENABLED` flag, commit `0abc3e1`)
