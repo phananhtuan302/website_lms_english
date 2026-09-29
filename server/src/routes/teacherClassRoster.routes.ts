@@ -25,6 +25,16 @@
  * the teacher's answer to "a student lost their password". The student must belong to THAT class
  * (`role: 'student'`, `classId` = the class), otherwise the same 404 as a missing student; the
  * password is never logged and only its hash is stored. Nothing else about the student changes.
+ *
+ * `POST /api/teacher/classes/:classId/students/:studentId/transfer` (T-118C, Phase 17) moves ONE
+ * student from `:classId` to `{ toClassId }` — self-service (a teacher no longer needs an admin
+ * to move a student between their OWN classes, T-117's "Nhẹ" finding). Both `:classId` and
+ * `toClassId` are ownership-checked with `requireOwnedClass` exactly like every other route here
+ * (404 for another teacher's class or a missing one; `admin` bypasses); `toClassId === classId`
+ * is a 400; the student must currently be a `role: 'student'` of `:classId`, otherwise 404. On
+ * success only `User.classId` is written (one `update`, in place) — `Attempt`/`FlashcardProgress`/
+ * `GrammarExerciseAttempt` rows key off `studentId`, not `classId`, so the student's history
+ * carries over untouched with no further writes needed.
  */
 
 import { randomInt } from 'node:crypto';
@@ -37,6 +47,8 @@ import {
   type ClassRosterBulkResultDTO,
   type ClassRosterBulkSkipReason,
   type ClassStudentResetPasswordResponseDTO,
+  type ClassStudentTransferRequest,
+  type ClassStudentTransferResponseDTO,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { hashPassword } from '../lib/password';
@@ -259,6 +271,49 @@ teacherClassRosterRouter.post(
       generatedPassword,
     };
     res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json(body);
+  }),
+);
+
+teacherClassRosterRouter.post(
+  '/classes/:classId/students/:studentId/transfer',
+  asyncHandler(async (req, res) => {
+    const fromClass = await requireOwnedClass(req.params.classId, req.user!, res);
+    if (!fromClass) return;
+
+    const toClassId = (req.body as ClassStudentTransferRequest | undefined)?.toClassId;
+    if (typeof toClassId !== 'string' || toClassId.trim() === '') {
+      res.status(400).json({ error: '`toClassId` is required.' });
+      return;
+    }
+    if (toClassId === fromClass.id) {
+      res.status(400).json({ error: 'The student is already in this class.' });
+      return;
+    }
+
+    const toClass = await requireOwnedClass(toClassId, req.user!, res);
+    if (!toClass) return;
+
+    const student = await prisma.user.findFirst({
+      where: { id: req.params.studentId, classId: fromClass.id, role: 'student' },
+      select: { id: true, name: true, email: true },
+    });
+    if (!student) {
+      res.status(404).json({ error: 'Student not found.' });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: student.id },
+      data: { classId: toClass.id },
+    });
+
+    const body: ClassStudentTransferResponseDTO = {
+      studentId: student.id,
+      name: student.name,
+      email: student.email,
+      classId: toClass.id,
+    };
     res.status(200).json(body);
   }),
 );

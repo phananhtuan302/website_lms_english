@@ -476,6 +476,82 @@ teacherTestsRouter.delete(
 );
 
 /**
+ * POST /api/teacher/tests/:testId/duplicate (T-118, Phase 16's "Nhân bản" finding) — deep-copies
+ * everything that defines a test's CONTENT (the `Test` row itself, every `Section`, every
+ * `Question` with every field for its type, every `Choice`) into a brand-new `Test` owned by the
+ * SAME teacher as the original (not the calling admin, if an admin is the one duplicating another
+ * teacher's test — same "the content stays the original owner's" reasoning as every other route in
+ * this file that reads `test.teacherId` rather than `req.user!.sub`).
+ *
+ * Deliberately does NOT copy `TestVariant`, `TestSession`, `Attempt`, `Answer`, or any
+ * `TestClassPeriodAssignment`/`TestClassSchedule` — the copy is a fresh, unpublished draft assigned
+ * to no class, exactly like a brand-new test the teacher just created by hand. It gets zero
+ * variants; the existing `ensureTestVariants` mechanism (`lib/testVariants.ts`) already generates
+ * them automatically the first time the copy is published/assigned/started, so this route doesn't
+ * need (and deliberately doesn't attempt) to duplicate that logic.
+ *
+ * One Prisma transaction, using nested writes (`sections: { create: [...] }` with `questions`/
+ * `choices` nested inside) so the whole tree is created atomically rather than section-by-section.
+ * Response is the new test's full `TestDetailDTO` — the exact same shape/serializer
+ * (`toTestDetailDTO`/`fetchNestedTest`) `GET /tests/:testId` already returns, so the client can
+ * treat "duplicate" and "load an existing test" identically.
+ */
+teacherTestsRouter.post(
+  '/tests/:testId/duplicate',
+  asyncHandler(async (req, res) => {
+    const test = await requireOwnedTest(req.params.testId, req.user!, res);
+    if (!test) return;
+
+    const source = await fetchNestedTest(test.id);
+
+    const created = await prisma.$transaction(async (tx) => {
+      return tx.test.create({
+        data: {
+          title: `${source.title} (bản sao)`,
+          teacherId: source.teacherId,
+          timeLimitMinutes: source.timeLimitMinutes,
+          unitId: source.unitId,
+          testType: source.testType,
+          published: false,
+          sections: {
+            create: source.sections.map((section) => ({
+              title: section.title,
+              order: section.order,
+              passageText: section.passageText,
+              passageImageUrl: section.passageImageUrl,
+              audioUrl: section.audioUrl,
+              maxPlayCount: section.maxPlayCount,
+              questions: {
+                create: section.questions.map((question) => ({
+                  type: question.type,
+                  prompt: question.prompt,
+                  order: question.order,
+                  acceptedAnswers: question.acceptedAnswers,
+                  essayMaxScore: question.essayMaxScore,
+                  allowedResponseSeconds: question.allowedResponseSeconds,
+                  promptAudioUrl: question.promptAudioUrl,
+                  choices: {
+                    create: question.choices.map((choice) => ({
+                      text: choice.text,
+                      isCorrect: choice.isCorrect,
+                      order: choice.order,
+                    })),
+                  },
+                })),
+              },
+            })),
+          },
+        },
+        select: { id: true },
+      });
+    });
+
+    const nested = await fetchNestedTest(created.id);
+    res.status(201).json(toTestDetailDTO(nested));
+  }),
+);
+
+/**
  * GET /api/teacher/tests/:testId/attempts (T-087) — per-test attempt report: every
  * SUBMITTED attempt of this ONE test, across ALL of its sessions AND self-practice —
  * queried directly by `Attempt.testId`, unlike `GET /api/teacher/sessions/:sessionId/attempts`

@@ -15,12 +15,14 @@ import type {
   ClassAnnouncementDTO,
   ClassAssignmentsResponseDTO,
   ClassDTO,
+  ClassesGradesOverviewResponseDTO,
   ClassGradebookDTO,
   ClassOverviewDTO,
   ClassRosterBulkRequestDTO,
   ClassRosterBulkResponseDTO,
   ClassRosterStudentDTO,
   ClassStudentResetPasswordResponseDTO,
+  ClassStudentTransferResponseDTO,
   ClassesAttentionResponseDTO,
   ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
@@ -99,6 +101,10 @@ export const teacherApi = {
   updateTest: (testId: string, body: UpdateTestRequest) =>
     apiRequest<TestDetailDTO>(`${base}/${testId}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteTest: (testId: string) => apiRequest<void>(`${base}/${testId}`, { method: 'DELETE' }),
+  // Phase 16 "Nhân bản" (T-118): deep-copies a test's content into a new, unpublished,
+  // unassigned draft. Response shape is unchanged (`TestDetailDTO`, same as `getTest`).
+  duplicateTest: (testId: string) =>
+    apiRequest<TestDetailDTO>(`${base}/${testId}/duplicate`, { method: 'POST' }),
 
   createSection: (testId: string, body: CreateSectionRequest) =>
     apiRequest<TestDetailDTO>(`${base}/${testId}/sections`, {
@@ -244,6 +250,10 @@ export const teacherApi = {
     }),
   deleteFlashcardSet: (setId: string) =>
     apiRequest<void>(`${flashcardBase}/${setId}`, { method: 'DELETE' }),
+  // Phase 16 "Nhân bản" (T-118): deep-copies a set's cards into a new, unassigned draft.
+  // Response shape is unchanged (`FlashcardSetDetailDTO`, same as `getFlashcardSet`).
+  duplicateFlashcardSet: (setId: string) =>
+    apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/duplicate`, { method: 'POST' }),
 
   addFlashcardCard: (setId: string, body: CreateFlashcardCardRequest) =>
     apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards`, {
@@ -445,6 +455,10 @@ export const teacherApi = {
   getClassOverview: (classId: string) =>
     apiRequest<ClassOverviewDTO>(`${teacherBase}/classes/${encodeURIComponent(classId)}/overview`),
 
+  // --- Teacher-level score comparison across classes (Phase 17, T-118B) --------------
+  getClassesGradesOverview: () =>
+    apiRequest<ClassesGradesOverviewResponseDTO>(`${teacherBase}/classes-grades-overview`),
+
   // --- Add students to a class (T-111) ----------------------------------------------
   addClassStudents: (classId: string, body: ClassRosterBulkRequestDTO) =>
     apiRequest<ClassRosterBulkResponseDTO>(
@@ -456,6 +470,12 @@ export const teacherApi = {
     apiRequest<ClassStudentResetPasswordResponseDTO>(
       `${teacherBase}/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/reset-password`,
       { method: 'POST' },
+    ),
+  // Self-service move of one student between two of the teacher's own classes (T-118C).
+  transferClassStudent: (classId: string, studentId: string, toClassId: string) =>
+    apiRequest<ClassStudentTransferResponseDTO>(
+      `${teacherBase}/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/transfer`,
+      { method: 'POST', body: JSON.stringify({ toClassId }) },
     ),
 
   // --- Class-card badges on the teacher home page ---------------------------------------

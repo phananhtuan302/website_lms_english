@@ -67,6 +67,11 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
   const [arrivalNotice] = useState<string | null>(
     () => (location.state as { savedNotice?: string } | null)?.savedNotice ?? null,
   );
+  // Phase 17 (T-118B): set when "Lưu và chấm bài kế tiếp" moved the teacher into a DIFFERENT
+  // class than the one they were just grading — a small "Đã chuyển sang lớp …" notice.
+  const [crossedIntoClassName] = useState<string | null>(
+    () => (location.state as { crossedIntoClassName?: string } | null)?.crossedIntoClassName ?? null,
+  );
   // Set when the last ungraded essay of the class was just saved: where "Về trang lớp" leads.
   const [allDone, setAllDone] = useState<{ classId: string | null; savedLine: string } | null>(null);
   // "Học sinh {{position}}/{{total}}" + prev/next — every submitted attempt of this test/class,
@@ -182,7 +187,10 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
         const next = await teacherApi.getNextUngradedAttempt(attemptId);
         if (next.nextAttemptId) {
           // `replace`: the back button still returns to the list, not through every student graded.
-          navigate(`/teacher/attempts/${next.nextAttemptId}`, { replace: true, state: { savedNotice: savedLine } });
+          navigate(`/teacher/attempts/${next.nextAttemptId}`, {
+            replace: true,
+            state: { savedNotice: savedLine, crossedIntoClassName: next.crossedIntoClassName ?? null },
+          });
         } else {
           setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
           setAllDone({ classId: next.classId, savedLine });
@@ -235,10 +243,15 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
           {arrivalNotice}
         </p>
       )}
+      {crossedIntoClassName && !allDone && (
+        <p role="status" aria-live="polite" className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-800">
+          {t('scoring.grade.crossedIntoClass', { className: crossedIntoClassName })}
+        </p>
+      )}
       {allDone && (
         <div role="status" aria-live="polite" className="rounded-xl border border-green-300 bg-green-50 p-6 text-center">
-          <p className="text-lg font-bold text-green-800">{t('scoring.grade.allDoneTitle')}</p>
-          <p className="mt-1 text-sm text-green-900/80">{t('scoring.grade.allDoneHint')}</p>
+          <p className="text-lg font-bold text-green-800">{t('scoring.grade.allDoneAllClassesTitle')}</p>
+          <p className="mt-1 text-sm text-green-900/80">{t('scoring.grade.allDoneAllClassesHint')}</p>
           <p className="mt-2 text-sm font-medium text-green-900">{allDone.savedLine}</p>
           <Link
             to={allDone.classId ? classTabPath(allDone.classId) : CLASSES_HOME_PATH}

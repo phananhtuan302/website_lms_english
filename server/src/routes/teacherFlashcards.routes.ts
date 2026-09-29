@@ -208,6 +208,56 @@ teacherFlashcardsRouter.delete(
   }),
 );
 
+/**
+ * POST /api/teacher/flashcard-sets/:setId/duplicate (T-118, Phase 16's "Nhân bản" finding) —
+ * same shape/reasoning as `teacherTests.routes.ts`'s `POST /tests/:testId/duplicate`: deep-copies
+ * the `FlashcardSet` row (name gets " (bản sao)", `unitId` kept) and every `FlashcardCard` (in
+ * order), owned by the same teacher as the original set — never `req.user!.sub`, so an admin
+ * duplicating another teacher's set doesn't reassign it to themselves. Does NOT copy
+ * `FlashcardProgress`/`FlashcardExerciseAttempt` (student runtime state) or any
+ * `FlashcardSetClassPeriodAssignment` — the copy starts assigned to no class, same as a
+ * brand-new set. One Prisma transaction via a nested write (`cards: { create: [...] }`).
+ * Response reuses `fetchDetail`, the same serializer every other route in this file returns.
+ */
+teacherFlashcardsRouter.post(
+  '/flashcard-sets/:setId/duplicate',
+  asyncHandler(async (req, res) => {
+    const set = await requireOwnedFlashcardSet(req.params.setId, req.user!, res);
+    if (!set) return;
+
+    const source = await prisma.flashcardSet.findUniqueOrThrow({
+      where: { id: set.id },
+      include: { cards: { orderBy: { order: 'asc' } } },
+    });
+
+    const created = await prisma.$transaction(async (tx) => {
+      return tx.flashcardSet.create({
+        data: {
+          name: `${source.name} (bản sao)`,
+          teacherId: source.teacherId,
+          unitId: source.unitId,
+          cards: {
+            create: source.cards.map((card) => ({
+              term: card.term,
+              meaning: card.meaning,
+              ipa: card.ipa,
+              imageUrl: card.imageUrl,
+              audioUrl: card.audioUrl,
+              exampleSentence: card.exampleSentence,
+              synonyms: card.synonyms,
+              antonyms: card.antonyms,
+              order: card.order,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+    });
+
+    res.status(201).json(await fetchDetail(created.id));
+  }),
+);
+
 // --- Card CRUD -------------------------------------------------------------------------
 
 async function loadOwnedCard(setId: string, cardId: string) {

@@ -52,6 +52,7 @@ import TeacherCurriculumPage from './pages/TeacherCurriculumPage';
 import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
 import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
 import TeacherFlashcardSetProgressPage from './pages/TeacherFlashcardSetProgressPage';
+import TeacherGradesOverviewPage from './pages/TeacherGradesOverviewPage';
 import TeacherGrammarPage from './pages/TeacherGrammarPage';
 import TeacherGrammarTopicEditorPage from './pages/TeacherGrammarTopicEditorPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
@@ -188,6 +189,9 @@ function App() {
                   element={<TeacherLiveSessionPage />}
                 />
                 <Route path="/teacher/attempts/:attemptId" element={<TeacherAttemptDetailPage />} />
+                {/* Teacher-level score comparison across classes (Phase 17, T-118B), reached
+                  from the "Điểm số" tab's "Xem so sánh với các lớp khác →" link. */}
+                <Route path="/teacher/grades-overview" element={<TeacherGradesOverviewPage />} />
                 {/* Grammar topic authoring: theory content (T-047) + practice exercises
                   (T-048). */}
                 <Route path="/teacher/grammar-topics" element={<TeacherGrammarPage />} />

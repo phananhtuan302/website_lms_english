@@ -178,6 +178,7 @@ function TestEditorBody({
 
   const [showPreview, setShowPreview] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Adding / deleting / reordering happen one after another, in click order, so two quick clicks
   // can never make an older response overwrite a newer one.
@@ -434,6 +435,24 @@ function TestEditorBody({
     setShowPreview(true);
   }
 
+  // Phase 16 "Nhân bản" (T-118): lets a teacher deep in editing THIS test duplicate it as a fresh
+  // starting point (e.g. for a similar class) without going back to the list first. Flushes any
+  // pending autosave first so the copy reflects exactly what's on screen, same as `openPreview`/
+  // `openAssign` above, then jumps straight into the new copy's own editor.
+  async function handleDuplicateTest() {
+    setIsDuplicating(true);
+    setActionError(null);
+    try {
+      await tracker.flushAll();
+      const created = await teacherApi.duplicateTest(testId);
+      navigate(`/teacher/tests/${created.id}`);
+    } catch (err) {
+      console.warn('[editor] duplicate test failed:', rawErrorText(err));
+      setActionError(friendlyEditorError(err, t));
+      setIsDuplicating(false);
+    }
+  }
+
   async function openAssign() {
     await tracker.flushAll();
     const staleCount = freshQuestionIds.current.size;
@@ -576,6 +595,15 @@ function TestEditorBody({
             className="rounded-md bg-primary-500 px-4 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
           >
             {t('teacherTestEditor.nextStep.assign')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleDuplicateTest()}
+            disabled={isDuplicating}
+            aria-label={t('teacherTests.duplicateAriaLabel', { title: meta.title })}
+            className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDuplicating ? t('teacherTests.duplicating') : t('teacherTestEditor.nextStep.duplicate')}
           </button>
         </div>
       </section>

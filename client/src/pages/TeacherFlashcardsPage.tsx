@@ -18,6 +18,7 @@ function TeacherFlashcardsPage() {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   function loadSets() {
     teacherApi
@@ -30,6 +31,21 @@ function TeacherFlashcardsPage() {
   // Guiding Principle 3/Assumption A13), safe to omit from this dependency list.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadSets, []);
+
+  // Phase 16 "Nhân bản" (T-118): duplicates the set's cards into a new, unassigned draft, then
+  // jumps straight into that new set's editor — no confirmation needed, duplicating only ever
+  // creates something new.
+  async function handleDuplicate(setId: string) {
+    setDuplicatingId(setId);
+    setError(null);
+    try {
+      const created = await teacherApi.duplicateFlashcardSet(setId);
+      navigate(`/teacher/flashcard-sets/${created.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('teacherFlashcards.duplicateError'));
+      setDuplicatingId(null);
+    }
+  }
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -85,28 +101,44 @@ function TeacherFlashcardsPage() {
           <p className="text-sm text-base-black/60">{t('teacherFlashcards.emptyState')}</p>
         )}
         {sets?.map((set) => (
-          <li key={set.id}>
-            <Link
-              to={`/teacher/flashcard-sets/${set.id}`}
-              className="flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300"
-            >
-              <div>
-                <p className="font-semibold text-primary-700">{set.name}</p>
-                <p className="mt-1 text-xs text-base-black/60">
-                  {t('teacherFlashcards.cardCount', { count: set.cardCount })}
-                  {set.unitName && (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
-                        {set.unitName}
-                      </span>
-                    </>
-                  )}
-                </p>
-              </div>
-              <span className="text-sm font-medium text-primary-600">{t('teacherFlashcards.openEditor')}</span>
+          <li
+            key={set.id}
+            className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+          >
+            <Link to={`/teacher/flashcard-sets/${set.id}`} className="min-w-0 flex-1">
+              <p className="font-semibold text-primary-700">{set.name}</p>
+              <p className="mt-1 text-xs text-base-black/60">
+                {t('teacherFlashcards.cardCount', { count: set.cardCount })}
+                {set.unitName && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
+                      {set.unitName}
+                    </span>
+                  </>
+                )}
+              </p>
             </Link>
+            <div className="flex shrink-0 items-center gap-x-4">
+              <Link
+                to={`/teacher/flashcard-sets/${set.id}`}
+                className="text-sm font-medium text-primary-600 hover:underline"
+              >
+                {t('teacherFlashcards.openEditor')}
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleDuplicate(set.id)}
+                disabled={duplicatingId === set.id}
+                aria-label={t('teacherFlashcards.duplicateAriaLabel', { name: set.name })}
+                className="text-sm font-medium text-primary-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {duplicatingId === set.id
+                  ? t('teacherFlashcards.duplicating')
+                  : t('teacherFlashcards.duplicateButton')}
+              </button>
+            </div>
           </li>
         ))}
       </ul>

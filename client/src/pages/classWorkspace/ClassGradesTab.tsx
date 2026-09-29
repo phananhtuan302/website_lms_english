@@ -163,6 +163,10 @@ function ClassGradesTab() {
               {t('classGrades.semesterLabel', { name: cls.currentPeriodName })}
             </p>
           )}
+          {/* Phase 17 (T-118B): entry point into the teacher-level score-comparison screen. */}
+          <Link to="/teacher/grades-overview" className="mt-1 inline-block text-sm text-primary-600 hover:underline">
+            {t('classGrades.compareLink')}
+          </Link>
         </div>
         {hasGrid && (
           <button

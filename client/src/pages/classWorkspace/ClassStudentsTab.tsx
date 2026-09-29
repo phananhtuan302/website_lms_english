@@ -8,6 +8,7 @@ import { formatScore10 } from '../../lib/scoreFormat';
 import { teacherApi } from '../../lib/teacherApi';
 import AddStudentsModal from './AddStudentsModal';
 import ResetStudentPasswordModal from './ResetStudentPasswordModal';
+import TransferStudentModal from './TransferStudentModal';
 
 /** Lower-cases and strips Vietnamese diacritics so "nguyen" finds "Nguyễn" — teachers often
  * type search terms without accents. */
@@ -27,11 +28,13 @@ function formatAverage(value: number | null): string {
 /**
  * "Học sinh" tab (T-104): the class roster — name, email, how many of the class's current-
  * semester tests the student has submitted, and their average score — with a search box.
- * Moving/removing a student is an Admin action (a hint says so); adding students (T-111) is
- * the "Thêm học sinh" button — a dialog with a one-student form and an Excel roster import.
- * Each row also has "Đặt lại mật khẩu" (a student who lost their password): it sits under the
- * name, not in a column of its own, so it stays in view on a phone where the table scrolls
- * sideways inside its card.
+ * Removing a student outright is still an Admin action (a hint says so); adding students
+ * (T-111) is the "Thêm học sinh" button — a dialog with a one-student form and an Excel roster
+ * import. Moving a student to one of the teacher's OWN other classes is self-service (T-118C,
+ * Phase 17 — "Chuyển lớp", replacing the old "ask an admin" note for this one case).
+ * Each row also has "Đặt lại mật khẩu" (a student who lost their password) and now "Chuyển lớp":
+ * both sit under the name, not in a column of their own, so they stay in view on a phone where
+ * the table scrolls sideways inside its card.
  *
  * The numbers come from `GET /api/teacher/classes/:classId/students`, which computes them
  * from the same best-attempt grid as the gradebook, so this tab and "Điểm số" always agree.
@@ -52,8 +55,18 @@ function ClassStudentsTab() {
   const [query, setQuery] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [resetTarget, setResetTarget] = useState<ClassRosterStudentDTO | null>(null);
+  const [transferTarget, setTransferTarget] = useState<ClassRosterStudentDTO | null>(null);
+  // Brief "Đã chuyển ... sang lớp ..." confirmation shown after a transfer succeeds and the
+  // modal has closed (same transient-banner pattern as `AdminUsersPage`'s password-reset message).
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
   // Bumped after students are added so the roster below is fetched again.
   const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    if (!transferMessage) return;
+    const timer = setTimeout(() => setTransferMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [transferMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +89,13 @@ function ClassStudentsTab() {
     setReloadToken((n) => n + 1);
     // The header's "N học sinh" count comes from the class list — refresh it too.
     void reloadClasses().catch(() => undefined);
+  }
+
+  function handleStudentTransferred(name: string, destinationClassName: string) {
+    setTransferTarget(null);
+    setTransferMessage(t('classStudents.transfer.success', { name, className: destinationClassName }));
+    // The transferred student leaves this class's roster — same reload path as adding students.
+    handleStudentsAdded();
   }
 
   const roster = loaded && loaded.key === periodKey ? loaded.roster : null;
@@ -109,6 +129,11 @@ function ClassStudentsTab() {
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
+          {transferMessage && (
+            <p role="status" className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-800">
+              {transferMessage}
+            </p>
+          )}
           {roster.length > 0 && (
             <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
               {t('classStudents.searchLabel')}
@@ -167,14 +192,24 @@ function ClassStudentsTab() {
                 <tr key={student.id}>
                   <td className="whitespace-nowrap px-4 py-2 font-medium text-base-black sm:py-3">
                     {student.name}
-                    <button
-                      type="button"
-                      onClick={() => setResetTarget(student)}
-                      aria-label={t('classResetPassword.buttonAria', { name: student.name })}
-                      className="-ml-3 mt-0.5 flex min-h-[2.5rem] items-center rounded-md px-3 text-xs font-medium text-primary-600 hover:bg-primary-50 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 sm:min-h-0 sm:py-1"
-                    >
-                      {t('classResetPassword.button')}
-                    </button>
+                    <div className="-ml-3 flex flex-wrap items-center">
+                      <button
+                        type="button"
+                        onClick={() => setResetTarget(student)}
+                        aria-label={t('classResetPassword.buttonAria', { name: student.name })}
+                        className="mt-0.5 flex min-h-[2.5rem] items-center rounded-md px-3 text-xs font-medium text-primary-600 hover:bg-primary-50 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 sm:min-h-0 sm:py-1"
+                      >
+                        {t('classResetPassword.button')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTransferTarget(student)}
+                        aria-label={t('classStudents.transfer.buttonAria', { name: student.name })}
+                        className="mt-0.5 flex min-h-[2.5rem] items-center rounded-md px-3 text-xs font-medium text-primary-600 hover:bg-primary-50 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 sm:min-h-0 sm:py-1"
+                      >
+                        {t('classStudents.transfer.button')}
+                      </button>
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-base-black/70">{student.email}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-base-black/80">
@@ -214,6 +249,17 @@ function ClassStudentsTab() {
           classId={cls.id}
           student={resetTarget}
           onClose={() => setResetTarget(null)}
+        />
+      )}
+
+      {transferTarget && (
+        <TransferStudentModal
+          classId={cls.id}
+          student={transferTarget}
+          onClose={() => setTransferTarget(null)}
+          onTransferred={(destinationClassName) =>
+            handleStudentTransferred(transferTarget.name, destinationClassName)
+          }
         />
       )}
 

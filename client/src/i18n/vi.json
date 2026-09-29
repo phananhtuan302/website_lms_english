@@ -556,7 +556,7 @@
       "showLess": "Thu gọn"
     }
   },
-  "classStudents": {"heading":"Học sinh","count_one":"{{count}} học sinh","count_other":"{{count}} học sinh","searchLabel":"Tìm học sinh","searchPlaceholder":"Gõ tên hoặc email","columns":{"name":"Họ tên","email":"Email","submitted":"Số bài đã nộp","average":"Điểm trung bình"},"empty":"Lớp chưa có học sinh","emptyHint":"Bấm \"Thêm học sinh\" để tạo tài khoản cho học sinh, hoặc để học sinh tự chọn lớp khi đăng ký.","noMatch":"Không có học sinh nào khớp với \"{{query}}\".","adminHint":"Muốn chuyển lớp hoặc xóa học sinh? Hãy nhờ Quản trị viên thực hiện.","scoreNote":"Số bài đã nộp và điểm trung bình chỉ tính các bài đã giao trong học kỳ hiện tại; mỗi bài lấy điểm cao nhất của học sinh.","noSemesterNote":"Lớp chưa chọn học kỳ nên chưa có điểm để hiển thị.","viewGrades":"Xem điểm số","loadFailed":"Không thể tải danh sách học sinh."},
+  "classStudents": {"heading":"Học sinh","count_one":"{{count}} học sinh","count_other":"{{count}} học sinh","searchLabel":"Tìm học sinh","searchPlaceholder":"Gõ tên hoặc email","columns":{"name":"Họ tên","email":"Email","submitted":"Số bài đã nộp","average":"Điểm trung bình"},"empty":"Lớp chưa có học sinh","emptyHint":"Bấm \"Thêm học sinh\" để tạo tài khoản cho học sinh, hoặc để học sinh tự chọn lớp khi đăng ký.","noMatch":"Không có học sinh nào khớp với \"{{query}}\".","adminHint":"Muốn xóa học sinh? Hãy nhờ Quản trị viên thực hiện.","scoreNote":"Số bài đã nộp và điểm trung bình chỉ tính các bài đã giao trong học kỳ hiện tại; mỗi bài lấy điểm cao nhất của học sinh.","noSemesterNote":"Lớp chưa chọn học kỳ nên chưa có điểm để hiển thị.","viewGrades":"Xem điểm số","loadFailed":"Không thể tải danh sách học sinh.","transfer":{"button":"Chuyển lớp","buttonAria":"Chuyển lớp cho {{name}}","title":"Chuyển lớp cho {{name}}","destinationLabel":"Chuyển đến lớp","onlyOneClass":"Bạn chỉ đang dạy 1 lớp, chưa có lớp khác để chuyển sang.","confirmText":"{{name}} sẽ chuyển sang lớp {{className}} ngay lập tức và thấy bài tập của lớp mới thay vì lớp cũ. Điểm và bài đã làm trước đó của em vẫn được giữ nguyên.","cancel":"Hủy","confirm":"Chuyển lớp","working":"Đang chuyển…","success":"Đã chuyển {{name}} sang lớp {{className}}.","failed":"Không thể chuyển lớp lúc này. Hãy thử lại.","notFound":"Không tìm thấy học sinh hoặc lớp này. Hãy tải lại trang.","invalidDestination":"Vui lòng chọn một lớp để chuyển đến.","close":"Đóng"}},
   "classRoster": {
     "addButton": "Thêm học sinh",
     "modalTitle": "Thêm học sinh vào lớp",
@@ -656,11 +656,12 @@
     "oldFileHint": "Nếu bạn đã tải danh sách tài khoản trước đó, mật khẩu cũ của em này trong tệp đó không còn dùng được.",
     "done": "Xong"
   },
-  "classGrades": {"heading":"Điểm số","semesterLabel":"Học kỳ: {{name}}","exportButton":"Tải bảng điểm (Excel)","exportFailed":"Không thể xuất tệp Excel.","gridAriaLabel":"Bảng điểm của lớp","studentColumn":"Học sinh","averageColumn":"Trung bình","averageRow":"Trung bình","unpublishedBadge":"Học sinh chưa xem được điểm","notSubmittedTitle":"Chưa nộp bài","headerTitle":"Xem kết quả của bài này","cellTitle":"{{correct}}/{{total}} câu đúng — bấm để xem bài làm","footnoteBest":"Hiển thị điểm cao nhất của mỗi học sinh.","footnoteNotSubmitted":"\"—\" nghĩa là học sinh chưa nộp bài.","footnoteUnpublished":"Điểm mờ là bài mà học sinh chưa xem được điểm.","noSubmissions":"Chưa có học sinh nào nộp bài nên chưa có điểm.","noSemester":"Lớp chưa chọn học kỳ nên chưa có bảng điểm. Hãy chọn học kỳ ở góc trên bên phải.","noStudents":"Lớp chưa có học sinh nên chưa có bảng điểm.","noTests":"Lớp chưa được giao bài kiểm tra nào trong học kỳ này.","noTestsLink":"Đi tới Bài tập để giao bài","loadFailed":"Không thể tải bảng điểm.","export":{"sheetName":"Bảng điểm","fileName":"Bảng điểm - {{className}}","unpublishedSuffix":"học sinh chưa xem được điểm"}},
+  "classGrades": {"heading":"Điểm số","semesterLabel":"Học kỳ: {{name}}","exportButton":"Tải bảng điểm (Excel)","exportFailed":"Không thể xuất tệp Excel.","gridAriaLabel":"Bảng điểm của lớp","studentColumn":"Học sinh","averageColumn":"Trung bình","averageRow":"Trung bình","unpublishedBadge":"Học sinh chưa xem được điểm","notSubmittedTitle":"Chưa nộp bài","headerTitle":"Xem kết quả của bài này","cellTitle":"{{correct}}/{{total}} câu đúng — bấm để xem bài làm","footnoteBest":"Hiển thị điểm cao nhất của mỗi học sinh.","footnoteNotSubmitted":"\"—\" nghĩa là học sinh chưa nộp bài.","footnoteUnpublished":"Điểm mờ là bài mà học sinh chưa xem được điểm.","noSubmissions":"Chưa có học sinh nào nộp bài nên chưa có điểm.","noSemester":"Lớp chưa chọn học kỳ nên chưa có bảng điểm. Hãy chọn học kỳ ở góc trên bên phải.","noStudents":"Lớp chưa có học sinh nên chưa có bảng điểm.","noTests":"Lớp chưa được giao bài kiểm tra nào trong học kỳ này.","noTestsLink":"Đi tới Bài tập để giao bài","loadFailed":"Không thể tải bảng điểm.","export":{"sheetName":"Bảng điểm","fileName":"Bảng điểm - {{className}}","unpublishedSuffix":"học sinh chưa xem được điểm"},"compareLink":"Xem so sánh với các lớp khác →"},
+  "gradesOverview": {"back":"← Về trang lớp học","heading":"Tổng quan điểm số","description":"So sánh điểm trung bình giữa các lớp bạn đang dạy.","loadFailed":"Không thể tải tổng quan điểm số.","noClasses":"Bạn chưa có lớp nào.","classHeader":"Lớp","studentsHeader":"Sĩ số","semesterHeader":"Học kỳ","testsHeader":"Số bài kiểm tra","averageHeader":"Điểm trung bình","noSemester":"Chưa chọn học kỳ","noData":"Chưa có dữ liệu","highest":"Cao nhất","lowest":"Thấp nhất"},
   "scoring": {
     "provisional": {"chip_one":"Tạm tính — còn {{count}} bài viết chưa chấm","chip_other":"Tạm tính — còn {{count}} bài viết chưa chấm","short":"tạm tính","studentChip":"Điểm tạm tính","studentNote_one":"Giáo viên chưa chấm xong {{count}} bài viết của em, nên điểm này có thể còn thay đổi.","studentNote_other":"Giáo viên chưa chấm xong {{count}} bài viết của em, nên điểm này có thể còn thay đổi."},
     "detail": {"headline":"Điểm: {{score}}/10"},
-    "grade": {"saved":"Đã lưu điểm của {{name}}: {{score}}/{{max}}.","saveAndNext":"Lưu và chấm bài kế tiếp","scoreEmpty":"Hãy nhập điểm, từ 0 đến {{max}}.","scoreInvalid":"Điểm phải là một con số, ví dụ 4 hoặc 4,5.","scoreRange":"Điểm phải từ 0 đến {{max}}.","moreInThisAttempt_one":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","moreInThisAttempt_other":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","allDoneTitle":"Đã chấm xong tất cả bài viết của lớp 🎉","allDoneHint":"Không còn bài viết nào đang chờ chấm.","backToClass":"Về trang lớp","nextFailed":"Đã lưu điểm, nhưng chưa tìm được bài kế tiếp. Hãy bấm Quay lại để chọn bài khác.","prevStudent":"← Học sinh trước","nextStudent":"Học sinh sau →","studentPosition":"Học sinh {{position}}/{{total}}"},
+    "grade": {"saved":"Đã lưu điểm của {{name}}: {{score}}/{{max}}.","saveAndNext":"Lưu và chấm bài kế tiếp","scoreEmpty":"Hãy nhập điểm, từ 0 đến {{max}}.","scoreInvalid":"Điểm phải là một con số, ví dụ 4 hoặc 4,5.","scoreRange":"Điểm phải từ 0 đến {{max}}.","moreInThisAttempt_one":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","moreInThisAttempt_other":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","allDoneTitle":"Đã chấm xong tất cả bài viết của lớp 🎉","allDoneHint":"Không còn bài viết nào đang chờ chấm.","allDoneAllClassesTitle":"Đã chấm xong tất cả bài viết của MỌI lớp đã giao bài này 🎉","allDoneAllClassesHint":"Không còn bài viết nào đang chờ chấm, ở bất kỳ lớp nào.","crossedIntoClass":"Đã chuyển sang lớp {{className}} — vẫn còn bài viết chưa chấm ở đây.","backToClass":"Về trang lớp","nextFailed":"Đã lưu điểm, nhưng chưa tìm được bài kế tiếp. Hãy bấm Quay lại để chọn bài khác.","prevStudent":"← Học sinh trước","nextStudent":"Học sinh sau →","studentPosition":"Học sinh {{position}}/{{total}}"},
     "gradebook": {"scaleNote":"Điểm tính trên thang điểm 10.","legend":"* Điểm tạm tính: bài còn phần viết chưa chấm.","cellTitleProvisional":"{{correct}}/{{total}} câu đúng · tạm tính, còn {{count}} bài viết chưa chấm — bấm để xem bài làm"},
     "download": {"done":"Đã tải \"{{fileName}}\". Mở trong thư mục Tải xuống của trình duyệt."},
     "excel": {"title":"BẢNG ĐIỂM","classLine":"Lớp: {{className}}","semesterLine":"Học kỳ: {{semester}}","noSemester":"chưa chọn","exportDate":"Ngày xuất: {{date}}","scaleLine":"Thang điểm: 10","stt":"STT","student":"Họ và tên","average":"Điểm trung bình","notSubmitted":"Chưa nộp","note":"Ghi chú","provisionalNote":"Tạm tính (còn bài viết chưa chấm)","statusRow":"Trạng thái điểm","released":"Đã cho xem","notReleased":"Chưa cho xem","classAverage":"Trung bình cả lớp"},
@@ -1138,7 +1139,11 @@
     "emptyState": "Chưa có bộ thẻ từ vựng nào — hãy tạo bộ đầu tiên ở trên.",
     "cardCount_one": "{{count}} thẻ",
     "cardCount_other": "{{count}} thẻ",
-    "openEditor": "Mở trình chỉnh sửa →"
+    "openEditor": "Mở trình chỉnh sửa →",
+    "duplicateButton": "Nhân bản",
+    "duplicating": "Đang nhân bản...",
+    "duplicateAriaLabel": "Nhân bản bộ thẻ: {{name}}",
+    "duplicateError": "Không thể nhân bản bộ thẻ từ vựng."
   },
   "teacherFlashcardSetEditor": {
     "loadError": "Không thể tải bộ thẻ từ vựng.",
@@ -1463,7 +1468,8 @@
       "heading": "Bước tiếp theo",
       "question": "Soạn xong?",
       "preview": "Xem thử như học sinh",
-      "assign": "Giao bài này cho lớp…"
+      "assign": "Giao bài này cho lớp…",
+      "duplicate": "Nhân bản bài kiểm tra"
     },
     "freshQuestionsWarning_one": "Có {{count}} câu trắc nghiệm vẫn đang dùng nội dung mẫu (đáp án đúng có thể chưa đúng ý thầy/cô). Thầy/cô vẫn muốn giao bài này chứ?",
     "freshQuestionsWarning_other": "Có {{count}} câu trắc nghiệm vẫn đang dùng nội dung mẫu (đáp án đúng có thể chưa đúng ý thầy/cô). Thầy/cô vẫn muốn giao bài này chứ?"
@@ -1490,7 +1496,11 @@
     "viewReport": "Báo cáo",
     "deleteButton": "Xóa bài kiểm tra",
     "confirmDelete": "Xóa bài kiểm tra này? Thao tác này sẽ xóa vĩnh viễn toàn bộ nhóm câu/câu hỏi/phiên làm bài/lượt làm bài thuộc về nó; không thể hoàn tác.",
-    "deleteFailed": "Không thể xóa bài kiểm tra."
+    "deleteFailed": "Không thể xóa bài kiểm tra.",
+    "duplicateButton": "Nhân bản",
+    "duplicating": "Đang nhân bản...",
+    "duplicateAriaLabel": "Nhân bản bài kiểm tra: {{title}}",
+    "duplicateFailed": "Không thể nhân bản bài kiểm tra."
   },
   "teacherTestReport": {
     "backToTests": "← Quay lại bài kiểm tra của tôi",

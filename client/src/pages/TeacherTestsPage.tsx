@@ -31,6 +31,7 @@ function TeacherTestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   function loadTests() {
     teacherApi
@@ -65,6 +66,22 @@ function TeacherTestsPage() {
     } catch (err) {
       console.warn('[tests] delete failed:', err);
       setError(t('teacherTests.deleteFailed'));
+    }
+  }
+
+  // Phase 16 "Nhân bản" (T-118): duplicates the test's content into a new unpublished, unassigned
+  // draft, then jumps straight into that new test's editor so the teacher can start adjusting the
+  // copy right away — no confirmation needed since duplicating only ever creates something new.
+  async function handleDuplicate(testId: string) {
+    setDuplicatingId(testId);
+    setError(null);
+    try {
+      const created = await teacherApi.duplicateTest(testId);
+      navigate(`/teacher/tests/${created.id}`);
+    } catch (err) {
+      console.warn('[tests] duplicate failed:', err);
+      setError(t('teacherTests.duplicateFailed'));
+      setDuplicatingId(null);
     }
   }
 
@@ -182,6 +199,15 @@ function TeacherTestsPage() {
               >
                 {t('teacherTests.openEditor')}
               </Link>
+              <button
+                type="button"
+                onClick={() => handleDuplicate(test.id)}
+                disabled={duplicatingId === test.id}
+                aria-label={t('teacherTests.duplicateAriaLabel', { title: test.title })}
+                className="py-2.5 text-sm font-medium text-primary-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60 sm:py-0"
+              >
+                {duplicatingId === test.id ? t('teacherTests.duplicating') : t('teacherTests.duplicateButton')}
+              </button>
               {/* Kept well away from "open the editor" (a wide gap on wide screens, its own line on a
                   phone) and drawn as an outlined red button so it cannot be hit by mistake. */}
               <div className="w-full border-t border-primary-100 pt-3 sm:ml-8 sm:w-auto sm:border-0 sm:pt-0">

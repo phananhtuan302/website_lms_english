@@ -5,11 +5,60 @@ import type { AcademicPeriodDTO, ClassAttentionDTO, ClassDTO } from '@platform/s
 import { teacherApi } from '../lib/teacherApi';
 import { classTabPath } from '../lib/classWorkspace';
 
-/** Header-band colors cycled across the cards so a grid of classes is easy to tell apart
- * at a glance (Google Classroom style). All from the `primary` theme scale, dark enough
- * for the white class name on top; listed as literal strings so Tailwind's scanner sees
- * them. */
-const CARD_BANDS = ['bg-primary-500', 'bg-primary-600', 'bg-primary-700', 'bg-primary-800'];
+/** Header-band variants cycled across the cards so a grid of classes is easy to tell apart at a
+ * glance (Google Classroom style), including once a teacher has 6+ classes (T-117/T-118C, Phase
+ * 17 — the earlier 4-shade array repeated every 4 cards, e.g. classes 1 and 5 read the same).
+ * Every variant stays within the single `primary` brand hue — this app deliberately has no
+ * separate accent color (see the note at the top of `tailwind.config.js`) — by ALTERNATING solid
+ * dark shades (white class-name text) with light/mid pastel shades (dark `primary-900` text, the
+ * same style of pairing the semester badge and the "cần chấm" attention badge below already use
+ * for this hue), which reads as far more distinct card-to-card than shade alone. This uses ALL
+ * TEN steps of the `primary` scale (50–900) — a first draft that stopped at 8 and split evenly
+ * into "4 light + 4 dark" was screenshotted with a throwaway 8-class fixture and still showed
+ * two adjacent cards sharing the exact same dark shade, plus the untextured 50/100/200/300 light
+ * end reading as one indistinct pastel blob; pairing `primary-400`/`primary-500` with DARK
+ * (`primary-900`) text instead of white — measured ~4.6:1 / ~3.6:1, both meeting the WCAG
+ * "large text" 3:1 floor the Phase 15 readability pass (T-116, `docs/BACKLOG.md`) established
+ * site-wide, unlike white-on-400/500 which measures only ~2.4:1 / ~3.05:1 — fills that gap with
+ * two genuinely mid-tone bands and grows the palette to 10, both increasing the visual spread and
+ * lowering (not eliminating — see below) the chance of two hash-adjacent classes matching.
+ * Every combination keeps the class-name text (`text-xl font-bold`, WCAG "large text") at 3:1 or
+ * better; most are far higher (the darkest light-family pair, primary-500/primary-900 text, is
+ * the tightest at ~3.6:1). Listed as literal class strings so Tailwind's scanner sees them.
+ * Assignment is by a deterministic hash of the class's OWN id (`cardBandForClass`), not its
+ * position in the array — so a class keeps the same band across reloads and after classes are
+ * added/removed/reordered, instead of shifting like an index-based cycle would. Being a hash
+ * into a fixed small on-brand palette, this is a large practical improvement over the old
+ * strictly-periodic 4-cycle (which GUARANTEED an identical neighbour starting at the 5th class)
+ * but is not a mathematical guarantee against a rare coincidental repeat once a teacher has many
+ * classes — no fixed palette within one hue could promise that; the light/dark alternation
+ * itself remains the strongest, most reliable disambiguator between any two specific cards. */
+const CARD_BANDS: ReadonlyArray<{ bg: string; text: string }> = [
+  { bg: 'bg-primary-900', text: 'text-base-white' },
+  { bg: 'bg-primary-100', text: 'text-primary-900' },
+  { bg: 'bg-primary-700', text: 'text-base-white' },
+  { bg: 'bg-primary-300', text: 'text-primary-900' },
+  { bg: 'bg-primary-800', text: 'text-base-white' },
+  { bg: 'bg-primary-50', text: 'text-primary-900' },
+  { bg: 'bg-primary-600', text: 'text-base-white' },
+  { bg: 'bg-primary-500', text: 'text-primary-900' },
+  { bg: 'bg-primary-400', text: 'text-primary-900' },
+  { bg: 'bg-primary-200', text: 'text-primary-900' },
+];
+
+/** Small, fast, deterministic string hash (DJB2 variant) — the same class id always maps to the
+ * same `CARD_BANDS` entry, independent of load order or where the class sits in the list. */
+function hashClassId(value: string): number {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+function cardBandForClass(classId: string): { bg: string; text: string } {
+  return CARD_BANDS[hashClassId(classId) % CARD_BANDS.length];
+}
 
 /**
  * The semester a NEW class should start in, so it can be given work straight away: the one most
@@ -291,35 +340,38 @@ function TeacherClassesPage() {
 
       {classes && classes.length > 0 && (
         <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {classes.map((cls, index) => (
-            <li key={cls.id} className="flex">
-              <Link
-                to={classTabPath(cls.id)}
-                className="group flex w-full flex-col overflow-hidden rounded-2xl border border-primary-200 bg-base-white shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-primary-400 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-              >
-                <div className={`${CARD_BANDS[index % CARD_BANDS.length]} px-5 py-6`}>
-                  <h2 className="line-clamp-2 break-words text-xl font-bold text-base-white">
-                    {cls.name}
-                  </h2>
-                </div>
-                <div className="flex flex-1 flex-col gap-3 p-4">
-                  {cls.currentPeriodName ? (
-                    <span className="inline-flex self-start rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-800">
-                      {cls.currentPeriodName}
-                    </span>
-                  ) : (
-                    <span className="inline-flex self-start rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                      {t('teacherHome.noSemester')}
-                    </span>
-                  )}
-                  <AttentionBadges cls={cls} attention={attention?.get(cls.id) ?? null} />
-                  <p className="mt-auto text-sm text-base-black/60">
-                    {t('teacherHome.studentCount', { count: cls.studentCount })}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          ))}
+          {classes.map((cls) => {
+            const band = cardBandForClass(cls.id);
+            return (
+              <li key={cls.id} className="flex">
+                <Link
+                  to={classTabPath(cls.id)}
+                  className="group flex w-full flex-col overflow-hidden rounded-2xl border border-primary-200 bg-base-white shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-primary-400 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                >
+                  <div className={`${band.bg} px-5 py-6`}>
+                    <h2 className={`line-clamp-2 break-words text-xl font-bold ${band.text}`}>
+                      {cls.name}
+                    </h2>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 p-4">
+                    {cls.currentPeriodName ? (
+                      <span className="inline-flex self-start rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-800">
+                        {cls.currentPeriodName}
+                      </span>
+                    ) : (
+                      <span className="inline-flex self-start rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                        {t('teacherHome.noSemester')}
+                      </span>
+                    )}
+                    <AttentionBadges cls={cls} attention={attention?.get(cls.id) ?? null} />
+                    <p className="mt-auto text-sm text-base-black/60">
+                      {t('teacherHome.studentCount', { count: cls.studentCount })}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

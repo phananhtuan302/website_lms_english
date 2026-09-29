@@ -45,14 +45,15 @@ export const teacherClassGradebookRouter = Router();
 teacherClassGradebookRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
 /** Mean of `values` rounded to 1 decimal (the same rounding `lib/reporting.ts` uses for its
- * averages), or `null` when there is nothing to average. */
-function average(values: number[]): number | null {
+ * averages), or `null` when there is nothing to average. Exported (Phase 17, T-118B) so the
+ * teacher-level grades-overview route can reuse the exact same rounding without re-deriving it. */
+export function average(values: number[]): number | null {
   if (values.length === 0) return null;
   const sum = values.reduce((total, value) => total + value, 0);
   return Number((sum / values.length).toFixed(1));
 }
 
-interface ClassGrades {
+export interface ClassGrades {
   students: Array<{ id: string; name: string; email: string }>;
   tests: ClassGradebookDTO['tests'];
   cells: ClassGradebookDTO['cells'];
@@ -78,8 +79,13 @@ interface ClassGrades {
  * Averages are means over NON-null cells only: a student's average covers the tests they
  * submitted, a test's average covers the students who submitted it (so "hasn't submitted"
  * never drags a number down as if it were a 0). `null` when there is nothing to average.
+ *
+ * Exported (Phase 17, T-118B) so `teacherGradesOverview.routes.ts` can reuse this SAME
+ * computation for its per-class "average score" column instead of re-deriving a second
+ * scoring formula — see that route's own doc comment for exactly which of these numbers
+ * it uses.
  */
-async function loadClassGrades(classId: string, periodId: string | null): Promise<ClassGrades> {
+export async function loadClassGrades(classId: string, periodId: string | null): Promise<ClassGrades> {
   const students = await prisma.user.findMany({
     where: { classId, role: 'student' },
     select: { id: true, name: true, email: true },

@@ -2652,6 +2652,27 @@ export interface ClassStudentResetPasswordResponseDTO {
   generatedPassword: string;
 }
 
+// --- Self-service class transfer (T-118C, Phase 17) ---------------------------------------
+
+/** Request body of `POST /api/teacher/classes/:classId/students/:studentId/transfer` — moves
+ * ONE student from `:classId` to `toClassId`, both of which must be the calling teacher's own
+ * classes (admin bypasses ownership, same convention as every other route in this file). */
+export interface ClassStudentTransferRequest {
+  toClassId: string;
+}
+
+/** Response of the transfer endpoint — reuses the same "return the updated student's basic
+ * info" shape as `ClassStudentResetPasswordResponseDTO` (just `generatedPassword` swapped for
+ * the new `classId`) rather than inventing a different one. Only `User.classId` changes; every
+ * `Attempt`/`FlashcardProgress`/`GrammarExerciseAttempt` row still references the student by
+ * `studentId`, so their history carries over untouched and isn't part of this response. */
+export interface ClassStudentTransferResponseDTO {
+  studentId: string;
+  name: string;
+  email: string;
+  classId: string;
+}
+
 // --- Phase 15 (scoring & grading): total score incl. essays, grading flow, score release -----
 
 /** Response of `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`: the saved grade
@@ -2668,15 +2689,26 @@ export interface GradeEssayAnswerResponse {
 }
 
 /** `GET /api/teacher/attempts/:attemptId/next-ungraded` — where "Lưu và chấm bài kế tiếp" goes:
- * the next submitted attempt of the SAME test by a student of the SAME class that still holds an
- * ungraded essay (submission order, the ones after this attempt first, then wrapping round to the
- * earliest). `nextAttemptId` is `null` when nothing else is waiting; `remainingCount` counts those
- * other attempts. `classId` is the student's class (the "back to class" target), `null` when the
- * student has no class. */
+ * the next submitted attempt of the SAME test, still holding an ungraded essay, walking EVERY
+ * class the test's owning teacher currently has this test assigned to (Phase 17, T-118B — widened
+ * from the original same-class-only scope). Order: the SAME class as the attempt just graded first
+ * (submissions after this one, in submission order, then wrapping round to that class's own
+ * earliest ungraded one — byte-identical to the pre-Phase-17 behaviour), THEN every other eligible
+ * class in turn (ordered by class name, starting right after the current class and wrapping back
+ * round to it), each walked earliest-ungraded-first. `nextAttemptId` is `null` only when nothing is
+ * ungraded ANYWHERE in that whole cycle; `remainingCount` counts every other ungraded attempt in
+ * the cycle (current class + every other eligible class combined), not just the current class's.
+ * `classId` is the RETURNED attempt's own class (the "back to class" target) — this can now
+ * legitimately differ from the class of the attempt being graded; when `nextAttemptId` is `null`
+ * it falls back to the ORIGINAL attempt's own class. `crossedIntoClassId`/`crossedIntoClassName`
+ * are present ONLY when the next attempt moved the teacher into a class different from the one
+ * being graded, so the client can show a small "Đã chuyển sang lớp …" notice. */
 export interface NextUngradedAttemptDTO {
   classId: string | null;
   nextAttemptId: string | null;
   remainingCount: number;
+  crossedIntoClassId?: string;
+  crossedIntoClassName?: string;
 }
 
 /** Per-attempt grading state of a provisional attempt. */
@@ -2727,4 +2759,28 @@ export interface RegenerateVariantsResponse {
   /** Variants created because the test had fewer than two. */
   created: number;
   variants: TestVariantDTO[];
+}
+
+// --- Phase 17 (T-118B): teacher-level score comparison across classes ------------------
+
+/** One row of `GET /api/teacher/classes-grades-overview` (the "Tổng quan điểm số" screen) —
+ * see that route's own doc comment for exactly how `averageScorePercent` is computed (it
+ * reuses `loadClassGrades`'s own per-student averages, never a second scoring formula).
+ * `null` when the class has no current period, or has one but nothing to average yet (no
+ * assigned test has any submission). `assignedTestCount` = tests assigned to the class for
+ * its CURRENT period (0 when there is no current period). */
+export interface ClassGradesOverviewRowDTO {
+  classId: string;
+  name: string;
+  studentCount: number;
+  currentPeriodName: string | null;
+  averageScorePercent: number | null;
+  assignedTestCount: number;
+}
+
+/** Response of `GET /api/teacher/classes-grades-overview` — one row per class the calling
+ * teacher owns, in no particular server-side order (the page sorts them descending by
+ * average for display, marking the top/bottom row among the classes that have a score). */
+export interface ClassesGradesOverviewResponseDTO {
+  classes: ClassGradesOverviewRowDTO[];
 }
