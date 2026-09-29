@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { AcademicPeriodDTO, ClassAttentionDTO, ClassDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { classTabPath } from '../lib/classWorkspace';
+import { useAuth } from '../context/useAuth';
+import PageBanner from '../components/PageBanner';
 
 /** Header-band variants cycled across the cards so a grid of classes is easy to tell apart at a
  * glance (Google Classroom style), including once a teacher has 6+ classes (T-117/T-118C, Phase
@@ -152,6 +154,7 @@ function AttentionBadges({ cls, attention }: { cls: ClassDTO; attention: ClassAt
  */
 function TeacherClassesPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [classes, setClasses] = useState<ClassDTO[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -222,10 +225,15 @@ function TeacherClassesPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageBanner
+        size="compact"
+        title={t('teacherHome.greeting', { name: user?.name ?? '' })}
+        subtitle={t('teacherHome.description')}
+      />
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary-700">{t('teacherHome.heading')}</h1>
-          <p className="mt-1 text-sm text-base-black/60">{t('teacherHome.description')}</p>
         </div>
         {!creating && (
           <button

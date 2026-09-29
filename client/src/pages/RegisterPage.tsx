@@ -6,6 +6,7 @@ import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
 import { classesApi } from '../lib/classesApi';
 import { postLoginPath } from '../lib/roles';
+import AuthLayout from '../components/AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -91,7 +92,7 @@ function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm">
+    <AuthLayout>
       <h1 className="mb-6 text-2xl font-bold text-primary-700">{t('auth.register.heading')}</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
@@ -182,7 +183,7 @@ function RegisterPage() {
         </Link>
       </p>
       <p className="mt-2 text-xs text-base-black/50">{t('auth.register.teacherNote')}</p>
-    </div>
+    </AuthLayout>
   );
 }
 

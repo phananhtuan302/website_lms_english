@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
 import { postLoginPath } from '../lib/roles';
+import AuthLayout from '../components/AuthLayout';
 
 interface LocationState {
   from?: { pathname: string };
@@ -57,7 +58,7 @@ function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm">
+    <AuthLayout>
       <h1 className="mb-6 text-2xl font-bold text-primary-700">{t('auth.login.heading')}</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
@@ -118,7 +119,7 @@ function LoginPage() {
           {t('auth.login.createAccountLink')}
         </Link>
       </p>
-    </div>
+    </AuthLayout>
   );
 }
 

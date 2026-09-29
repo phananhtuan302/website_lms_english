@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { APP_NAME } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
 import { dashboardPathForRole } from '../lib/roles';
+import PageBanner from '../components/PageBanner';
 
 /** i18n keys (T-067) for the four highlight cards — resolved via `t()` at render time
  * instead of storing raw English strings, so the site-wide language setting is
@@ -25,11 +26,14 @@ function HomePage() {
   const dashboardPath = user ? dashboardPathForRole(user.role) : '/student/dashboard';
 
   return (
-    <div className="flex flex-col items-center gap-10 py-8 text-center">
-      <div className="flex flex-col items-center gap-4">
-        <h1 className="text-4xl font-bold text-primary-600 sm:text-5xl">{APP_NAME}</h1>
-        <p className="max-w-xl text-lg text-base-black/70">{t('home.subtitle')}</p>
+    <div className="flex flex-col items-center gap-10 py-4 text-center">
+      <PageBanner
+        className="w-full text-center"
+        title={<span className="block text-3xl sm:text-5xl">{APP_NAME}</span>}
+        subtitle={<span className="mx-auto block max-w-xl text-primary-50">{t('home.subtitle')}</span>}
+      />
 
+      <div className="flex flex-col items-center gap-4">
         {user ? (
           <Link
             to={dashboardPath}
