@@ -52,7 +52,7 @@ function ClassWorkspaceLayout() {
       .then(setClasses)
       .catch(() => setClassesFailed(true));
     teacherApi
-      .listAcademicPeriods()
+      .listSelectablePeriods()
       .then(setPeriods)
       .catch(() => {
         setPeriods([]);

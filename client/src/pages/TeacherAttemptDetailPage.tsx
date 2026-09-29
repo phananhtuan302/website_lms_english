@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SPEAKING_SCORE_SCALE, type AttemptResultDTO } from '@platform/shared';
+import { SPEAKING_SCORE_SCALE, type AttemptResultDTO, type AttemptSiblingsDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { CLASSES_HOME_PATH, classTabPath } from '../lib/classWorkspace';
@@ -69,6 +69,9 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
   );
   // Set when the last ungraded essay of the class was just saved: where "Về trang lớp" leads.
   const [allDone, setAllDone] = useState<{ classId: string | null; savedLine: string } | null>(null);
+  // "Học sinh {{position}}/{{total}}" + prev/next — every submitted attempt of this test/class,
+  // graded or not (T-114/T-115 round 2: "không có nút quay lại em trước khi đang chấm").
+  const [siblings, setSiblings] = useState<AttemptSiblingsDTO | null>(null);
 
   const loadResult = useCallback(() => {
     if (!attemptId) return;
@@ -111,6 +114,12 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
   }, [attemptId]);
 
   useEffect(loadResult, [loadResult]);
+
+  useEffect(() => {
+    if (!attemptId) return;
+    setSiblings(null);
+    teacherApi.getAttemptSiblings(attemptId).then(setSiblings).catch(() => setSiblings(null));
+  }, [attemptId]);
 
   async function handleSaveGrade(questionId: string, maxScore: number | null, goNext = false) {
     if (!attemptId || !result) return;
@@ -271,6 +280,36 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
           <p className="mt-2 text-lg font-semibold text-base-black/60">{t('teacherAttemptDetail.stillInProgress')}</p>
         )}
       </div>
+
+      {siblings && siblings.total > 1 && (
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <button
+            type="button"
+            disabled={!siblings.prevAttemptId}
+            onClick={() =>
+              siblings.prevAttemptId &&
+              navigate(`/teacher/attempts/${siblings.prevAttemptId}`, { replace: true })
+            }
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-3 font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
+          >
+            {t('scoring.grade.prevStudent')}
+          </button>
+          <span className="font-medium text-base-black/70">
+            {t('scoring.grade.studentPosition', { position: siblings.position, total: siblings.total })}
+          </span>
+          <button
+            type="button"
+            disabled={!siblings.nextAttemptId}
+            onClick={() =>
+              siblings.nextAttemptId &&
+              navigate(`/teacher/attempts/${siblings.nextAttemptId}`, { replace: true })
+            }
+            className="rounded-md border border-primary-300 bg-base-white px-3 py-3 font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40 sm:py-1.5"
+          >
+            {t('scoring.grade.nextStudent')}
+          </button>
+        </div>
+      )}
 
       {/* Global tab-switch / exit detection (T-044) — visible to the teacher after the
           fact, recorded once by the shared take-test runtime for every test type. */}

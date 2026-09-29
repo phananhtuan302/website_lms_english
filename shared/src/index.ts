@@ -2699,6 +2699,22 @@ export interface TestGradingStatusDTO {
   provisionalAttempts: Record<string, AttemptProvisionalDTO>;
 }
 
+/** `GET /api/teacher/attempts/:attemptId/siblings` — "Học sinh {{position}}/{{total}}" plus the
+ * "← Học sinh trước" / "Học sinh sau →" buttons on the attempt detail page (T-114/T-115 round 2:
+ * a teacher grading one after another had no way to go back to an earlier student, or to see how
+ * many were left). Unlike `NextUngradedAttemptDTO` this walks EVERY submitted attempt of the same
+ * test by a student of the same class, in submission order, not only the ungraded ones — a
+ * teacher browsing back and forth should be able to reach an already-graded attempt too.
+ * `position` is 1-based. A student with no class (or the only submission) gets
+ * `position: 1, total: 1, prevAttemptId: null, nextAttemptId: null`. */
+export interface AttemptSiblingsDTO {
+  classId: string | null;
+  position: number;
+  total: number;
+  prevAttemptId: string | null;
+  nextAttemptId: string | null;
+}
+
 // --- Phase 15: test editor autosave / automatic variants (T-115E) -------------------
 
 /** Response of `POST /api/teacher/tests/:testId/variants/regenerate` — the editor's "Tạo lại

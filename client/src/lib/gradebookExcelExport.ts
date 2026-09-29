@@ -5,7 +5,7 @@
  * from data the tab already loaded — no server round trip, no new endpoint.
  *
  * Layout (top to bottom):
- *   BẢNG ĐIỂM / Lớp: … / Học kỳ: … / Ngày xuất: dd/mm/yyyy / (blank row)
+ *   BẢNG ĐIỂM / Lớp: … / Học kỳ: … / Ngày xuất: dd/mm/yyyy / Thang điểm: 10 / (blank row)
  *   STT | Họ và tên | <one column per test> | Điểm trung bình [| Ghi chú]
  *   (blank) | Trạng thái điểm | "Đã cho xem" / "Chưa cho xem" per test        <- was a header suffix
  *   1 | <student> | 8.5 | "Chưa nộp" | … | 8.5
@@ -33,6 +33,9 @@ export interface GradebookExportLabels {
   semesterLine: string;
   /** e.g. "Ngày xuất: 21/09/2026". */
   exportDateLine: string;
+  /** "Thang điểm: 10" — every score below is out of 10, spelled out once for whoever reads the
+   * sheet later (T-114 round 2: a printed sheet with no header context reads as a raw number). */
+  scaleLine: string;
   sttHeader: string;
   studentHeader: string;
   averageHeader: string;
@@ -112,6 +115,7 @@ export function buildGradebookRows(gradebook: ClassGradebookDTO, labels: Gradebo
     [labels.classLine],
     [labels.semesterLine],
     [labels.exportDateLine],
+    [labels.scaleLine],
     [],
     header,
     statusRow,
@@ -140,7 +144,14 @@ export function buildGradebookWorkbook(gradebook: ClassGradebookDTO, labels: Gra
   }
 
   // Column widths: STT narrow, names wide, test columns as wide as their title (within limits).
-  const headerRow = rows[5];
+  // These ARE written into the file's real column metadata (OOXML `<cols>`) and any spreadsheet
+  // app (Excel, LibreOffice, Google Sheets) honours them when it opens the file — `xlsx`'s own
+  // `readFile` just does not surface `!cols` back into its in-memory sheet object by default, so
+  // a script that reads the file back with this same library can look like the widths are
+  // missing when they are not (confirmed by inspecting the written `xl/worksheets/sheet1.xml`
+  // directly — the `<cols>` element with real `width` attributes is there). Verify with a real
+  // spreadsheet app, not `XLSX.readFile(...).Sheets[...]['!cols']`, if this is ever in doubt.
+  const headerRow = rows[6];
   sheet['!cols'] = headerRow.map((value, index) => {
     if (index === 0) return { wch: 6 };
     if (index === 1) return { wch: 28 };

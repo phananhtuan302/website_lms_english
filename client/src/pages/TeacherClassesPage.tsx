@@ -123,7 +123,7 @@ function TeacherClassesPage() {
       .then(setClasses)
       .catch(() => setLoadFailed(true));
     teacherApi
-      .listAcademicPeriods()
+      .listSelectablePeriods()
       .then(setPeriods)
       .catch(() => setPeriods([]));
     teacherApi

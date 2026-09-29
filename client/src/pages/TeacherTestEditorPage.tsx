@@ -183,6 +183,19 @@ function TestEditorBody({
   // can never make an older response overwrite a newer one.
   const structureQueue = useRef<Promise<void>>(Promise.resolve());
 
+  // Ids of multiple-choice questions created by "+ Trắc nghiệm" in THIS editing session that the
+  // teacher has not touched since (its sample text and pre-marked "A" answer are still exactly
+  // what the button put there) — see `handleAddQuestion`. A plain ref, not state: it only needs
+  // reading once, at the moment "Giao bài này cho lớp…" is clicked, not on every keystroke.
+  const freshQuestionIds = useRef<Set<string>>(new Set());
+  const isQuestionFreshDefault = useCallback(
+    (questionId: string) => freshQuestionIds.current.has(questionId),
+    [],
+  );
+  const onQuestionFirstEdit = useCallback((questionId: string) => {
+    freshQuestionIds.current.delete(questionId);
+  }, []);
+
   const refreshVariants = useCallback(() => {
     teacherApi
       .listVariants(testId)
@@ -314,7 +327,22 @@ function TestEditorBody({
   }
 
   function handleAddQuestion(sectionId: string, type: QuestionType) {
-    runStructural(() => teacherApi.createQuestion(testId, sectionId, defaultQuestionBody(type, t)));
+    // Only "+ Trắc nghiệm" needs a reminder later (its default choices pre-mark A correct, and a
+    // teacher who never looks again could ship the wrong answer) — see `freshQuestionIds` below.
+    const beforeIds = new Set(
+      test?.sections.find((s) => s.id === sectionId)?.questions.map((q) => q.id) ?? [],
+    );
+    runStructural(async () => {
+      const updated = await teacherApi.createQuestion(testId, sectionId, defaultQuestionBody(type, t));
+      if (type === 'multipleChoice') {
+        const newId = updated.sections
+          .find((s) => s.id === sectionId)
+          ?.questions.map((q) => q.id)
+          .find((id) => !beforeIds.has(id));
+        if (newId) freshQuestionIds.current.add(newId);
+      }
+      return updated;
+    });
   }
 
   async function handleSaveSection(sectionId: string, body: UpdateSectionRequest) {
@@ -332,6 +360,7 @@ function TestEditorBody({
   }
 
   function handleDeleteQuestion(sectionId: string, questionId: string) {
+    freshQuestionIds.current.delete(questionId);
     runStructural(() => teacherApi.deleteQuestion(testId, sectionId, questionId));
   }
 
@@ -407,6 +436,10 @@ function TestEditorBody({
 
   async function openAssign() {
     await tracker.flushAll();
+    const staleCount = freshQuestionIds.current.size;
+    if (staleCount > 0 && !window.confirm(t('teacherTestEditor.freshQuestionsWarning', { count: staleCount }))) {
+      return;
+    }
     setShowAssign(true);
   }
 
@@ -567,6 +600,8 @@ function TestEditorBody({
             onSaveQuestionOnUnload={(questionId, body) => handleSaveQuestionOnUnload(section.id, questionId, body)}
             onDeleteQuestion={(questionId) => handleDeleteQuestion(section.id, questionId)}
             onMoveQuestion={(questionId, direction) => handleMoveQuestion(section.id, questionId, direction)}
+            isQuestionFreshDefault={isQuestionFreshDefault}
+            onQuestionFirstEdit={onQuestionFirstEdit}
           />
         ))}
 

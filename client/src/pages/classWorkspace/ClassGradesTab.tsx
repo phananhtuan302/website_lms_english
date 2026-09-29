@@ -123,6 +123,7 @@ function ClassGradesTab() {
       exportDateLine: t('scoring.excel.exportDate', {
         date: `${two(now.getDate())}/${two(now.getMonth() + 1)}/${now.getFullYear()}`,
       }),
+      scaleLine: t('scoring.excel.scaleLine'),
       sttHeader: t('scoring.excel.stt'),
       studentHeader: t('scoring.excel.student'),
       averageHeader: t('scoring.excel.average'),

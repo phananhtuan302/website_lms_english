@@ -660,10 +660,10 @@
   "scoring": {
     "provisional": {"chip_one":"Tạm tính — còn {{count}} bài viết chưa chấm","chip_other":"Tạm tính — còn {{count}} bài viết chưa chấm","short":"tạm tính","studentChip":"Điểm tạm tính","studentNote_one":"Giáo viên chưa chấm xong {{count}} bài viết của em, nên điểm này có thể còn thay đổi.","studentNote_other":"Giáo viên chưa chấm xong {{count}} bài viết của em, nên điểm này có thể còn thay đổi."},
     "detail": {"headline":"Điểm: {{score}}/10"},
-    "grade": {"saved":"Đã lưu điểm của {{name}}: {{score}}/{{max}}.","saveAndNext":"Lưu và chấm bài kế tiếp","scoreEmpty":"Hãy nhập điểm, từ 0 đến {{max}}.","scoreInvalid":"Điểm phải là một con số, ví dụ 4 hoặc 4,5.","scoreRange":"Điểm phải từ 0 đến {{max}}.","moreInThisAttempt_one":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","moreInThisAttempt_other":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","allDoneTitle":"Đã chấm xong tất cả bài viết của lớp 🎉","allDoneHint":"Không còn bài viết nào đang chờ chấm.","backToClass":"Về trang lớp","nextFailed":"Đã lưu điểm, nhưng chưa tìm được bài kế tiếp. Hãy bấm Quay lại để chọn bài khác."},
+    "grade": {"saved":"Đã lưu điểm của {{name}}: {{score}}/{{max}}.","saveAndNext":"Lưu và chấm bài kế tiếp","scoreEmpty":"Hãy nhập điểm, từ 0 đến {{max}}.","scoreInvalid":"Điểm phải là một con số, ví dụ 4 hoặc 4,5.","scoreRange":"Điểm phải từ 0 đến {{max}}.","moreInThisAttempt_one":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","moreInThisAttempt_other":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","allDoneTitle":"Đã chấm xong tất cả bài viết của lớp 🎉","allDoneHint":"Không còn bài viết nào đang chờ chấm.","backToClass":"Về trang lớp","nextFailed":"Đã lưu điểm, nhưng chưa tìm được bài kế tiếp. Hãy bấm Quay lại để chọn bài khác.","prevStudent":"← Học sinh trước","nextStudent":"Học sinh sau →","studentPosition":"Học sinh {{position}}/{{total}}"},
     "gradebook": {"scaleNote":"Điểm tính trên thang điểm 10.","legend":"* Điểm tạm tính: bài còn phần viết chưa chấm.","cellTitleProvisional":"{{correct}}/{{total}} câu đúng · tạm tính, còn {{count}} bài viết chưa chấm — bấm để xem bài làm"},
     "download": {"done":"Đã tải \"{{fileName}}\". Mở trong thư mục Tải xuống của trình duyệt."},
-    "excel": {"title":"BẢNG ĐIỂM","classLine":"Lớp: {{className}}","semesterLine":"Học kỳ: {{semester}}","noSemester":"chưa chọn","exportDate":"Ngày xuất: {{date}}","stt":"STT","student":"Họ và tên","average":"Điểm trung bình","notSubmitted":"Chưa nộp","note":"Ghi chú","provisionalNote":"Tạm tính (còn bài viết chưa chấm)","statusRow":"Trạng thái điểm","released":"Đã cho xem","notReleased":"Chưa cho xem","classAverage":"Trung bình cả lớp"},
+    "excel": {"title":"BẢNG ĐIỂM","classLine":"Lớp: {{className}}","semesterLine":"Học kỳ: {{semester}}","noSemester":"chưa chọn","exportDate":"Ngày xuất: {{date}}","scaleLine":"Thang điểm: 10","stt":"STT","student":"Họ và tên","average":"Điểm trung bình","notSubmitted":"Chưa nộp","note":"Ghi chú","provisionalNote":"Tạm tính (còn bài viết chưa chấm)","statusRow":"Trạng thái điểm","released":"Đã cho xem","notReleased":"Chưa cho xem","classAverage":"Trung bình cả lớp"},
     "release": {"title":"Cho học sinh xem điểm","question_one":"Cho {{count}} học sinh xem điểm bài này bây giờ?","question_other":"Cho {{count}} học sinh xem điểm bài này bây giờ?","questionNone":"Chưa có học sinh nào nộp bài này. Cho lớp xem điểm bài này bây giờ?","questionGeneric":"Cho lớp xem điểm bài này bây giờ?","ungradedWarning_one":"Còn {{count}} bài viết chưa chấm — điểm của các em đó chỉ là tạm tính.","ungradedWarning_other":"Còn {{count}} bài viết chưa chấm — điểm của các em đó chỉ là tạm tính.","confirm":"Cho xem điểm","working":"Đang cập nhật...","cancel":"Chưa, quay lại","close":"Đóng","checking":"Đang kiểm tra các bài đã nộp...","checkFailed":"Chưa kiểm tra được còn bao nhiêu bài viết chưa chấm.","published":"Đã cho học sinh xem điểm bài này.","hidden":"Đã ẩn điểm bài này. Học sinh không còn xem được điểm.","publishedNamed":"Đã cho học sinh xem điểm bài \"{{title}}\".","hiddenNamed":"Đã ẩn điểm bài \"{{title}}\". Học sinh không còn xem được điểm.","rowShow":"Cho học sinh xem điểm","rowHide":"Ẩn điểm","rowShowAria":"Cho học sinh xem điểm: {{title}}","rowHideAria":"Ẩn điểm: {{title}}"},
     "student": {"headline":"Điểm: {{score}}/10","rowScoreProvisional":"Điểm: {{score}}/10 (tạm tính)"}
   },
@@ -1464,7 +1464,9 @@
       "question": "Soạn xong?",
       "preview": "Xem thử như học sinh",
       "assign": "Giao bài này cho lớp…"
-    }
+    },
+    "freshQuestionsWarning_one": "Có {{count}} câu trắc nghiệm vẫn đang dùng nội dung mẫu (đáp án đúng có thể chưa đúng ý thầy/cô). Thầy/cô vẫn muốn giao bài này chứ?",
+    "freshQuestionsWarning_other": "Có {{count}} câu trắc nghiệm vẫn đang dùng nội dung mẫu (đáp án đúng có thể chưa đúng ý thầy/cô). Thầy/cô vẫn muốn giao bài này chứ?"
   },
   "teacherTests": {
     "heading": "Bài kiểm tra của tôi",
@@ -1548,6 +1550,7 @@
       "speaking": "Nói"
     },
     "pickCorrectHint": "Bấm vào ô tròn để chọn đáp án đúng",
+    "freshDefaultBanner": "Câu hỏi này vẫn dùng nội dung mẫu — hãy sửa câu hỏi và kiểm tra lại đáp án đúng trước khi giao bài.",
     "correctPill": "Đáp án đúng",
     "choiceTextAriaLabel": "Nội dung lựa chọn {{number}}",
     "emptyChoiceHint": "Còn lựa chọn chưa gõ chữ — hãy gõ chữ hoặc bấm Xóa. Lựa chọn trống sẽ không được lưu.",

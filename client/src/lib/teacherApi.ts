@@ -8,6 +8,7 @@
 import type {
   AcademicPeriodDTO,
   AttemptResultDTO,
+  AttemptSiblingsDTO,
   AttemptSummaryDTO,
   BulkCreateFlashcardCardsRequest,
   BulkCreateFlashcardCardsResponse,
@@ -193,6 +194,10 @@ export const teacherApi = {
     apiRequest<NextUngradedAttemptDTO>(`/api/teacher/attempts/${attemptId}/next-ungraded`),
   getTestGradingStatus: (testId: string, classId: string) =>
     apiRequest<TestGradingStatusDTO>(`${base}/${testId}/grading-status?classId=${encodeURIComponent(classId)}`),
+  /** "Học sinh {{position}}/{{total}}" + "← Học sinh trước" / "Học sinh sau →" on the attempt
+   * detail page — every submitted attempt of the same test/class, graded or not. */
+  getAttemptSiblings: (attemptId: string) =>
+    apiRequest<AttemptSiblingsDTO>(`/api/teacher/attempts/${attemptId}/siblings`),
 
   // --- Curriculum tagging: Unit & Academic Period (T-018) ---------------------------
   listUnits: () => apiRequest<UnitDTO[]>(`${teacherBase}/units`),
@@ -207,6 +212,12 @@ export const teacherApi = {
     apiRequest<void>(`${teacherBase}/units/${unitId}`, { method: 'DELETE' }),
 
   listAcademicPeriods: () => apiRequest<AcademicPeriodDTO[]>(`${teacherBase}/academic-periods`),
+  /** The class-picker version of the list above: only periods relevant to THIS teacher (their
+   * own classes' semester, plus any period nobody has adopted yet) — see the server route's doc
+   * comment. Used by "Tạo lớp"'s Học kỳ select and the class-header semester switcher; the
+   * curriculum management page keeps using the unfiltered `listAcademicPeriods` above. */
+  listSelectablePeriods: () =>
+    apiRequest<AcademicPeriodDTO[]>(`${teacherBase}/academic-periods/selectable`),
   createAcademicPeriod: (body: CreateAcademicPeriodRequest) =>
     apiRequest<AcademicPeriodDTO>(`${teacherBase}/academic-periods`, {
       method: 'POST',

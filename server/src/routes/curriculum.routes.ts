@@ -202,6 +202,45 @@ curriculumRouter.get(
   }),
 );
 
+/**
+ * `GET /academic-periods/selectable` — the SAME global list above, but for the two class
+ * pickers ("Tạo lớp"'s Học kỳ select and the class-header semester switcher), not for managing
+ * periods themselves (that page keeps calling the unfiltered route above).
+ *
+ * Real incident this fixes (Phase 15, cô Thu's usability review, round 2): `AcademicPeriod` is
+ * documented as GLOBAL (not owned per teacher, see this file's header comment) — so EVERY
+ * teacher's picker showed EVERY period ever created by ANY teacher, including two dev/e2e-seed
+ * periods ("Semester 1 2026", "Semester 2 2026") that only the seed accounts' throwaway
+ * "Default Class" rows use. A real teacher had no way to tell which of the 3 was hers.
+ *
+ * Kept intentionally simple, no schema change: a period is offered to a teacher when (a) at
+ * least one of THAT teacher's own classes already uses it, or (b) no class anywhere uses it yet
+ * (so a freshly created period stays available to everyone until some teacher adopts it — the
+ * first person to use "Học kỳ 2" for a class shouldn't be blocked from picking it). This hides a
+ * period in active use by a DIFFERENT teacher's classes without ever touching/renaming/deleting
+ * any period, class, or seed fixture. Admin manages everything, so admin is not filtered.
+ */
+curriculumRouter.get(
+  '/academic-periods/selectable',
+  asyncHandler(async (req, res) => {
+    const periods = await prisma.academicPeriod.findMany({ orderBy: { startDate: 'asc' } });
+    if (req.user!.role === 'admin') {
+      res.status(200).json(periods.map(toAcademicPeriodDTO));
+      return;
+    }
+    const classes = await prisma.class.findMany({
+      select: { teacherId: true, currentPeriodId: true },
+      where: { currentPeriodId: { not: null } },
+    });
+    const usedByCaller = new Set(
+      classes.filter((c) => c.teacherId === req.user!.sub).map((c) => c.currentPeriodId),
+    );
+    const usedByAnyone = new Set(classes.map((c) => c.currentPeriodId));
+    const visible = periods.filter((p) => usedByCaller.has(p.id) || !usedByAnyone.has(p.id));
+    res.status(200).json(visible.map(toAcademicPeriodDTO));
+  }),
+);
+
 curriculumRouter.patch(
   '/academic-periods/:periodId',
   asyncHandler(async (req, res) => {

@@ -669,10 +669,10 @@
   "scoring": {
     "provisional": {"chip_one":"Provisional — {{count}} written answer still to grade","chip_other":"Provisional — {{count}} written answers still to grade","short":"provisional","studentChip":"Provisional score","studentNote_one":"Your teacher has not finished grading {{count}} of your written answers, so this score may still change.","studentNote_other":"Your teacher has not finished grading {{count}} of your written answers, so this score may still change."},
     "detail": {"headline":"Score: {{score}}/10"},
-    "grade": {"saved":"Saved the score for {{name}}: {{score}}/{{max}}.","saveAndNext":"Save and grade the next one","scoreEmpty":"Please enter a score from 0 to {{max}}.","scoreInvalid":"The score must be a number, for example 4 or 4.5.","scoreRange":"The score must be between 0 and {{max}}.","moreInThisAttempt_one":"Saved. This attempt still has {{count}} written answer to grade.","moreInThisAttempt_other":"Saved. This attempt still has {{count}} written answers to grade.","allDoneTitle":"You have graded every written answer in the class 🎉","allDoneHint":"No written answers are waiting to be graded.","backToClass":"Back to the class","nextFailed":"The score was saved, but the next attempt could not be found. Go back to pick another one."},
+    "grade": {"saved":"Saved the score for {{name}}: {{score}}/{{max}}.","saveAndNext":"Save and grade the next one","scoreEmpty":"Please enter a score from 0 to {{max}}.","scoreInvalid":"The score must be a number, for example 4 or 4.5.","scoreRange":"The score must be between 0 and {{max}}.","moreInThisAttempt_one":"Saved. This attempt still has {{count}} written answer to grade.","moreInThisAttempt_other":"Saved. This attempt still has {{count}} written answers to grade.","allDoneTitle":"You have graded every written answer in the class 🎉","allDoneHint":"No written answers are waiting to be graded.","backToClass":"Back to the class","nextFailed":"The score was saved, but the next attempt could not be found. Go back to pick another one.","prevStudent":"← Previous student","nextStudent":"Next student →","studentPosition":"Student {{position}}/{{total}}"},
     "gradebook": {"scaleNote":"Scores are out of 10.","legend":"* Provisional score: the written part has not been graded yet.","cellTitleProvisional":"{{correct}}/{{total}} correct · provisional, {{count}} written answer(s) still to grade — click to view the attempt"},
     "download": {"done":"Downloaded \"{{fileName}}\". Open it from your browser's Downloads folder."},
-    "excel": {"title":"GRADEBOOK","classLine":"Class: {{className}}","semesterLine":"Semester: {{semester}}","noSemester":"not selected","exportDate":"Exported on: {{date}}","stt":"No.","student":"Full name","average":"Average score","notSubmitted":"Not submitted","note":"Note","provisionalNote":"Provisional (written answers not graded yet)","statusRow":"Score status","released":"Shown to students","notReleased":"Not shown yet","classAverage":"Class average"},
+    "excel": {"title":"GRADEBOOK","classLine":"Class: {{className}}","semesterLine":"Semester: {{semester}}","noSemester":"not selected","exportDate":"Exported on: {{date}}","scaleLine":"Scale: out of 10","stt":"No.","student":"Full name","average":"Average score","notSubmitted":"Not submitted","note":"Note","provisionalNote":"Provisional (written answers not graded yet)","statusRow":"Score status","released":"Shown to students","notReleased":"Not shown yet","classAverage":"Class average"},
     "release": {"title":"Let students see their scores","question_one":"Let {{count}} student see the scores for this test now?","question_other":"Let {{count}} students see the scores for this test now?","questionNone":"No student has handed this test in yet. Let the class see the scores for this test now?","questionGeneric":"Let the class see the scores for this test now?","ungradedWarning_one":"{{count}} written answer is still ungraded — that student's score is only provisional.","ungradedWarning_other":"{{count}} written answers are still ungraded — those students' scores are only provisional.","confirm":"Show scores","working":"Updating...","cancel":"Not yet, go back","close":"Close","checking":"Checking the submitted tests...","checkFailed":"Could not check how many written answers are still ungraded.","published":"Students can now see the scores for this test.","hidden":"Scores for this test are hidden. Students can no longer see them.","publishedNamed":"Students can now see the scores for \"{{title}}\".","hiddenNamed":"Scores for \"{{title}}\" are hidden. Students can no longer see them.","rowShow":"Let students see scores","rowHide":"Hide scores","rowShowAria":"Let students see scores: {{title}}","rowHideAria":"Hide scores: {{title}}"},
     "student": {"headline":"Score: {{score}}/10","rowScoreProvisional":"Score: {{score}}/10 (provisional)"}
   },
@@ -1473,7 +1473,9 @@
       "question": "Finished writing?",
       "preview": "Preview as a student",
       "assign": "Give this test to a class…"
-    }
+    },
+    "freshQuestionsWarning_one": "{{count}} multiple-choice question still uses the sample content (the correct answer may not be what you meant). Assign this test anyway?",
+    "freshQuestionsWarning_other": "{{count}} multiple-choice questions still use the sample content (the correct answer may not be what you meant). Assign this test anyway?"
   },
   "teacherTests": {
     "heading": "My tests",
@@ -1557,6 +1559,7 @@
       "speaking": "Speaking"
     },
     "pickCorrectHint": "Click the circle to choose the correct answer",
+    "freshDefaultBanner": "This question still uses the sample content — edit the question and double-check the correct answer before assigning it.",
     "correctPill": "Correct answer",
     "choiceTextAriaLabel": "Text of choice {{number}}",
     "emptyChoiceHint": "A choice is still empty — type something or click Remove. Empty choices are not saved.",

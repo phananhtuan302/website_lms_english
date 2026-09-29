@@ -16,6 +16,15 @@ interface QuestionEditorProps {
   onSaveOnUnload?: (body: UpdateQuestionRequest) => void;
   onDelete: () => void;
   onMove: (direction: 'up' | 'down') => void;
+  /** True only for the render right after "+ Trắc nghiệm" created THIS question in this same
+   * editing session (never true again after a reload) — drives the "còn nội dung mẫu" reminder
+   * and the initial focus below. Read once into local state; later parent re-renders don't reset
+   * it, which is exactly right (see `onFirstEdit`'s doc comment). */
+  isFreshDefault?: boolean;
+  /** Fired the first time this question is edited in any way while `isFreshDefault` was true — the
+   * one moment the "Giao bài này cho lớp…" gate (in `TeacherTestEditorPage`) needs to know this
+   * question no longer needs its reminder. Never fires more than once. */
+  onFirstEdit?: () => void;
 }
 
 interface ChoiceDraft {
@@ -124,6 +133,8 @@ function QuestionEditor({
   onSaveOnUnload,
   onDelete,
   onMove,
+  isFreshDefault = false,
+  onFirstEdit,
 }: QuestionEditorProps) {
   const { t } = useTranslation();
   const [draft, setDraftState] = useState<Draft>(() => initialDraft(question));
@@ -132,6 +143,20 @@ function QuestionEditor({
   const [undo, setUndo] = useState<{ choice: ChoiceDraft; index: number } | null>(null);
   const focusChoiceId = useRef<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  // Seeded once from the prop (see its doc comment); this component's own edits then own it.
+  const [isFresh, setIsFresh] = useState(isFreshDefault);
+
+  // A freshly created question: put the cursor in the prompt with its sample text selected, so
+  // the very first keystroke replaces it instead of the teacher having to select it by hand
+  // (T-114 round 2 — "gõ đè lên thì được", found only by manually selecting the text first).
+  useEffect(() => {
+    if (!isFreshDefault) return;
+    promptRef.current?.focus();
+    promptRef.current?.select();
+    // Intentionally once, at mount, for whichever question was fresh when it appeared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saver = useSerialSaver<Draft>(
     `question:${question.id}`,
@@ -150,6 +175,10 @@ function QuestionEditor({
   );
 
   function update(patch: Partial<Draft>, options: { immediate?: boolean; delayMs?: number } = {}) {
+    if (isFresh) {
+      setIsFresh(false);
+      onFirstEdit?.();
+    }
     const next = { ...draftRef.current, ...patch };
     draftRef.current = next;
     setDraftState(next);
@@ -301,9 +330,20 @@ function QuestionEditor({
         </div>
       </div>
 
+      {isFresh && type === 'multipleChoice' && (
+        <p
+          role="status"
+          data-testid="fresh-default-banner"
+          className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900"
+        >
+          {t('questionEditor.freshDefaultBanner')}
+        </p>
+      )}
+
       <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
         {t('questionEditor.promptLabel')}
         <textarea
+          ref={promptRef}
           value={draft.prompt}
           onChange={(event) => update({ prompt: event.target.value })}
           onBlur={flush}

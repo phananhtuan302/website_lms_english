@@ -37,6 +37,10 @@ interface TestSectionEditorProps {
   onSaveQuestionOnUnload: (questionId: string, body: UpdateQuestionRequest) => void;
   onDeleteQuestion: (questionId: string) => void;
   onMoveQuestion: (questionId: string, direction: 'up' | 'down') => void;
+  /** True for a question created by "+ Trắc nghiệm" earlier in this same editing session and not
+   * yet touched — see `QuestionEditor`'s matching prop. */
+  isQuestionFreshDefault: (questionId: string) => boolean;
+  onQuestionFirstEdit: (questionId: string) => void;
   /** Saves a section's full state. */
   onSaveSection: (sectionId: string, body: UpdateSectionRequest) => Promise<void>;
 }
@@ -68,6 +72,8 @@ function TestSectionEditor({
   onDeleteQuestion,
   onMoveQuestion,
   onSaveSection,
+  isQuestionFreshDefault,
+  onQuestionFirstEdit,
 }: TestSectionEditorProps) {
   const { t } = useTranslation();
   const [draft, setDraftState] = useState<SectionDraft>(() => ({
@@ -307,6 +313,8 @@ function TestSectionEditor({
             onSaveOnUnload={(body) => onSaveQuestionOnUnload(question.id, body)}
             onDelete={() => onDeleteQuestion(question.id)}
             onMove={(direction) => onMoveQuestion(question.id, direction)}
+            isFreshDefault={isQuestionFreshDefault(question.id)}
+            onFirstEdit={() => onQuestionFirstEdit(question.id)}
           />
         ))}
       </div>

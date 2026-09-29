@@ -1,7 +1,9 @@
 /**
- * Two small read endpoints behind the Phase 15 grading / score-release screens. Neither writes.
+ * Small read endpoints behind the Phase 15 grading / score-release screens. Neither writes.
  *
  * - `GET /api/teacher/attempts/:attemptId/next-ungraded` — where "Lưu và chấm bài kế tiếp" goes.
+ * - `GET /api/teacher/attempts/:attemptId/siblings` — "Học sinh {{position}}/{{total}}" plus
+ *   "← Học sinh trước" / "Học sinh sau →" on the attempt detail page.
  * - `GET /api/teacher/tests/:testId/grading-status?classId=` — how many students handed a test in
  *   and how many of them still wait for an essay grade; drives the confirmation before letting a
  *   class see its scores ("Còn X bài viết chưa chấm — điểm của các em đó chỉ là tạm tính") and the
@@ -12,7 +14,7 @@
  */
 
 import { Router } from 'express';
-import type { NextUngradedAttemptDTO, TestGradingStatusDTO } from '@platform/shared';
+import type { AttemptSiblingsDTO, NextUngradedAttemptDTO, TestGradingStatusDTO } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -64,6 +66,49 @@ teacherScoringRouter.get(
       classId,
       nextAttemptId: (afterThis ?? others[0])?.id ?? null,
       remainingCount: others.length,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+/**
+ * Every submitted attempt of the SAME test by a student of the SAME class (the student's class
+ * right now), in submission order — graded or not, unlike `/next-ungraded` above. Used for plain
+ * "previous / next student" browsing while grading, so a teacher can go back to check or fix an
+ * already-graded one too, not just walk the ungraded pile once.
+ */
+teacherScoringRouter.get(
+  '/attempts/:attemptId/siblings',
+  asyncHandler(async (req, res) => {
+    const attempt = await prisma.attempt.findUnique({
+      where: { id: req.params.attemptId },
+      include: {
+        test: { select: { teacherId: true } },
+        student: { select: { classId: true } },
+      },
+    });
+    if (!attempt || !isAdminOrOwner(req.user!, attempt.test.teacherId)) {
+      res.status(404).json({ error: 'Attempt not found.' });
+      return;
+    }
+
+    const classId = attempt.student.classId;
+    const siblings = classId
+      ? await prisma.attempt.findMany({
+          where: { testId: attempt.testId, status: 'submitted', student: { classId } },
+          orderBy: [{ submittedAt: 'asc' }, { id: 'asc' }],
+          select: { id: true },
+        })
+      : [{ id: attempt.id }];
+
+    const index = siblings.findIndex((sibling) => sibling.id === attempt.id);
+    const position = index === -1 ? 1 : index + 1;
+    const response: AttemptSiblingsDTO = {
+      classId,
+      position,
+      total: siblings.length,
+      prevAttemptId: index > 0 ? siblings[index - 1].id : null,
+      nextAttemptId: index !== -1 && index < siblings.length - 1 ? siblings[index + 1].id : null,
     };
     res.status(200).json(response);
   }),
