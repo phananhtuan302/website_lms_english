@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-29 — Leader/Dev — Phase 17: fixes for all 5 multi-class findings (T-118)
+
+- Task IDs touched: T-118A (duplicate), T-118B (cross-class grading + score overview), T-118C (class-card colours + student transfer)
+- What changed: the customer picked all 5 items off Phase 16's list and said "làm đi". Three Dev agents built them in parallel in one shared tree with no file overlaps: "Nhân bản" (deep-copy a test/flashcard-set into an unpublished draft), a cross-class grading queue + a new "Tổng quan điểm số" comparison screen, and class-card colour variety + self-service student transfer between a teacher's own classes.
+- Why / decisions made: (1) `/next-ungraded`'s cross-class order is by class NAME (not assignment history) — a teacher reads "6A1, 6A2, 7A1…" faster. (2) The overview screen deliberately reuses `loadClassGrades`'s existing average rather than a second formula — exported it instead of duplicating logic. (3) The colour fix is a deterministic hash of the class id over the SAME brand hue (this app's theme is "one brand hue, deliberately") — documented honestly in code as a probabilistic improvement, not a collision-proof guarantee. (4) The transfer endpoint only ever writes `User.classId`; attempts/progress key off `studentId` and need no migration. (5) Before trusting any of the three agents' reports, the Leader re-read the riskiest code directly (transfer's double ownership check, the duplicate's transaction + `published:false`, the cross-class walk's rotation logic, the colour hash) and ran an integrated 3-class smoke test exercising all four new UI surfaces together — a 0% score on the new overview page looked alarming at first but was the Leader's own quick fixture picking a shuffled-choice MCQ wrong, confirmed by cross-checking the exact same number already existed in that class's own gradebook.
+- Status after this entry: Phase 17 (T-118) Done. DB re-checked against the known real-data baseline after every fixture cleanup (agents' own + the Leader's smoke test): 44 users / 6 classes / 3 tests / 2 attempts / 1A1 = 40 students, 0 diffs throughout.
+
 ## 2026-09-29 — Leader — Phase 16: multi-class efficiency review (T-117), no fixes yet
 
 - Task IDs touched: T-117 (review only)
