@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-29 — Leader — Phase 16: multi-class efficiency review (T-117), no fixes yet
+
+- Task IDs touched: T-117 (review only)
+- What changed: a second, deliberately different simulated persona — "Thầy Hải" (28, tech-savvy, 6 classes at once) versus Phase 15's "Cô Thu" (58, low tech, 1 class) — reviewed the site for MULTI-CLASS speed rather than confusing wording. Fixture: 1 teacher, 6 classes, uneven assignment state (all/partial/none), essay grading spread across 3 classes; deleted afterward, DB re-checked against the known baseline, 0 diffs.
+- Why / decisions made: before trusting the two most consequential claims (bulk-assign locks already-assigned classes; no duplicate-test feature exists), the Leader re-checked both directly in source (`AssignTestToClassesDialog.tsx`'s `assignedIds`/`disabled` logic; a repo-wide grep for "duplicate"/"Nhân bản"/"Sao chép" near test/flashcard pages and routes) — both confirmed real, not hallucinated. Score for "tốc độ nhiều lớp": 7/10 — the class-card home, bulk multi-class assign and in-place class switcher already work well; grading and score-comparison are still "one class at a time" flows, and there is no way to duplicate a test to reuse across classes.
+- Status after this entry: findings logged in BACKLOG.md's new "Phase 16" section, ranked Nặng/Vừa/Nhẹ, none fixed yet — waiting on the customer to say which to build.
+
 ## 2026-09-29 — Leader — Phase 15 round 3: the 4 remaining small items from cô Thu's list
 
 - Task IDs touched: T-114, T-115, T-116 (small polish, no new task IDs — the Leader did this round directly, no Dev agents)
