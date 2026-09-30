@@ -111,7 +111,7 @@ function TakeTestPage() {
   // `attempts.routes.ts`).
   const speakingDeadlinesRef = useRef<Record<string, number>>({});
   const [speakingStatus, setSpeakingStatus] = useState<
-    Record<string, 'recording' | 'submitting' | 'submitted' | 'error'>
+    Record<string, 'recording' | 'submitting' | 'submitted' | 'error' | 'expired'>
   >({});
   const [speakingResults, setSpeakingResults] = useState<
     Record<string, { aiScore: number; aiFeedback: string }>
@@ -385,14 +385,23 @@ function TakeTestPage() {
 
   // Enforces the Speaking countdown at expiry (T-052): auto-stops an in-progress
   // recording (which submits whatever was captured so far via `MediaRecorder.onstop` ->
-  // `finishRecording`), or auto-advances past a question the student never started
-  // recording for. Only acts on whichever speaking question is CURRENTLY displayed —
-  // documented scope choice: if the student navigates away before starting to record
-  // and the deadline passes while they're viewing a different question, nothing fires
-  // until they return to it (at which point it immediately auto-advances again, since
-  // there's nothing to stop). Recording itself is never silently abandoned this way,
-  // because navigation is disabled while a recording is in progress (`isAnyRecording`
-  // below) — a student can't leave an active recording running unattended.
+  // `finishRecording`), or marks the question `expired` and auto-advances PAST it, once,
+  // if the student never started recording for it. Only acts on whichever speaking
+  // question is CURRENTLY displayed — documented scope choice: if the student navigates
+  // away before starting to record and the deadline passes while they're viewing a
+  // different question, nothing fires until they return to it. Recording itself is
+  // never silently abandoned this way, because navigation is disabled while a recording
+  // is in progress (`isAnyRecording` below) — a student can't leave an active recording
+  // running unattended.
+  //
+  // Setting `expired` (rather than leaving the status unset) is what makes this a
+  // ONE-TIME transition instead of an infinite loop: before this, an unset status looked
+  // identical whether the student had never visited the question or had already missed
+  // its window, so navigating back to an already-expired question re-ran this exact
+  // branch and immediately bounced them away again — every single time, with nothing on
+  // screen to explain why (2026-09 student review finding: looked exactly like the app
+  // being stuck/broken). The render below shows a plain "time's up" notice for `expired`
+  // instead of the recording button, so returning to look at it is now safe and clear.
   //
   // The actual `setCurrentIndex` call is deferred one tick (`setTimeout(..., 0)`)
   // rather than called directly in the effect body — this is genuinely reacting to an
@@ -407,8 +416,14 @@ function TakeTestPage() {
     const status = speakingStatus[q.id];
     if (status === 'recording') {
       stopRecording(q);
-    } else if (status !== 'submitting' && status !== 'submitted' && status !== 'error') {
+    } else if (
+      status !== 'submitting' &&
+      status !== 'submitted' &&
+      status !== 'error' &&
+      status !== 'expired'
+    ) {
       const timer = setTimeout(() => {
+        setSpeakingStatus((prev) => ({ ...prev, [q.id]: 'expired' }));
         setCurrentIndex((i) => Math.min(totalQuestions - 1, i + 1));
       }, 0);
       return () => clearTimeout(timer);
@@ -890,7 +905,12 @@ function TakeTestPage() {
 
               {(() => {
                 const currentDeadline = speakingDeadlinesRef.current[current.id];
-                if (speakingStatus[current.id] === 'submitted' || currentDeadline == null) return null;
+                if (
+                  speakingStatus[current.id] === 'submitted' ||
+                  speakingStatus[current.id] === 'expired' ||
+                  currentDeadline == null
+                )
+                  return null;
                 const remainingMsForSpeaking = currentDeadline - now;
                 return (
                   <div
@@ -915,6 +935,14 @@ function TakeTestPage() {
                       })}
                     </p>
                   )}
+                </div>
+              ) : speakingStatus[current.id] === 'expired' ? (
+                // The response window ran out before the student ever started recording
+                // (see the countdown-expiry effect above) — a plain, stable notice
+                // instead of the recording button, which would otherwise let them start a
+                // recording against an already-passed deadline.
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  {t('takeTest.speakingExpiredNotice')}
                 </div>
               ) : (
                 <div className="flex flex-col items-start gap-2">

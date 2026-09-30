@@ -476,6 +476,7 @@
     "fillBlankPlaceholder": "Type your answer",
     "speakingTimeLeft": "Time left to respond: {{time}}",
     "speakingSubmittedNotice": "Your Speaking answer has been recorded and submitted. It can't be re-recorded — you can revisit your final score and feedback from this test's result page once it's submitted.",
+    "speakingExpiredNotice": "Time's up for this Speaking question. You can no longer record an answer for it — please continue with the other questions.",
     "speakingImmediateGrade": "Immediate Mock AI grade: {{score}}/100 — {{feedback}}",
     "stopAndSubmitRecording": "Stop & submit recording",
     "startRecording": "Start recording",

@@ -476,6 +476,7 @@
     "fillBlankPlaceholder": "Nhập câu trả lời của em",
     "speakingTimeLeft": "Thời gian còn lại để trả lời: {{time}}",
     "speakingSubmittedNotice": "Câu trả lời Nói của em đã được ghi âm và nộp. Em không thể ghi âm lại — em có thể xem điểm số và nhận xét cuối cùng ở trang kết quả của bài kiểm tra này sau khi bài được nộp.",
+    "speakingExpiredNotice": "Đã hết thời gian trả lời câu hỏi Nói này. Em không thể ghi âm cho câu này nữa — hãy tiếp tục với các câu hỏi khác.",
     "speakingImmediateGrade": "Điểm chấm tức thì bởi AI (thử nghiệm): {{score}}/100 — {{feedback}}",
     "stopAndSubmitRecording": "Dừng & nộp bản ghi âm",
     "startRecording": "Bắt đầu ghi âm",
