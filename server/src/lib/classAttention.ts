@@ -10,7 +10,11 @@
  * - "open / closing soon / closed" is `checkAttemptWindow` on the test's `TestClassSchedule` row
  *   (`classifyClassTests`); "closing soon" = `closeAt` within `CLOSING_SOON_WINDOW_MS`;
  * - "awaiting grading" is a submitted attempt holding an `essay` answer with no `manualScore`
- *   (`awaitingGradingWhere`) — Speaking is AI-scored on submit, so it is never part of it;
+ *   AND no `essayAiScore` (`awaitingGradingWhere`) — 2026-09: essays are now AI-graded
+ *   automatically at submit time too, same as Speaking, so a routine AI-graded essay no longer
+ *   sits in this queue; only the rare case the AI grading call itself failed does. A teacher can
+ *   still open and override any AI-graded essay at any time — this queue is just "genuinely
+ *   nobody has scored this yet", not "no human has looked at it";
  * - "not submitted" = a student of the class with no submitted attempt on a closing-soon or
  *   closed test.
  *
@@ -100,7 +104,7 @@ export function awaitingGradingWhere(
     status: 'submitted',
     testId: { in: testIds },
     student: { classId: typeof classId === 'string' ? classId : { in: classId } },
-    answers: { some: { manualScore: null, question: { type: 'essay' } } },
+    answers: { some: { manualScore: null, essayAiScore: null, question: { type: 'essay' } } },
   };
 }
 

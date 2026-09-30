@@ -153,6 +153,12 @@ export function buildResultQuestions(
       essayIeltsCoherenceScore?: number | null;
       essayIeltsLexicalScore?: number | null;
       essayIeltsGrammarScore?: number | null;
+      essayAiScore?: number | null;
+      essayAiFeedback?: string | null;
+      essayAiTaskScore?: number | null;
+      essayAiCoherenceScore?: number | null;
+      essayAiLexicalScore?: number | null;
+      essayAiGrammarScore?: number | null;
       speakingAudioData?: string | null;
       speakingTranscript?: string | null;
       speakingAiScore?: number | null;
@@ -183,6 +189,12 @@ export function buildResultQuestions(
       essayIeltsCoherenceScore: answer?.essayIeltsCoherenceScore ?? null,
       essayIeltsLexicalScore: answer?.essayIeltsLexicalScore ?? null,
       essayIeltsGrammarScore: answer?.essayIeltsGrammarScore ?? null,
+      essayAiScore: answer?.essayAiScore ?? null,
+      essayAiFeedback: answer?.essayAiFeedback ?? null,
+      essayAiTaskScore: answer?.essayAiTaskScore ?? null,
+      essayAiCoherenceScore: answer?.essayAiCoherenceScore ?? null,
+      essayAiLexicalScore: answer?.essayAiLexicalScore ?? null,
+      essayAiGrammarScore: answer?.essayAiGrammarScore ?? null,
       allowedResponseSeconds: question.allowedResponseSeconds,
       preparationSeconds: question.preparationSeconds,
       promptAudioUrl: question.promptAudioUrl,

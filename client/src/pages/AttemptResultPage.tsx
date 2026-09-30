@@ -134,7 +134,13 @@ function AttemptResultPage() {
               </p>
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
-                  {q.manualScore != null ? `${formatPoints(q.manualScore)} / ${formatPoints(q.essayMaxScore ?? 0)}` : t('attemptResult.awaitingGrading')}
+                  {/* Teacher grade wins once present; otherwise the AI grade (2026-09) —
+                      same "teacher value wins" rule as Speaking's badge below. */}
+                  {q.manualScore != null
+                    ? `${formatPoints(q.manualScore)} / ${formatPoints(q.essayMaxScore ?? 0)}`
+                    : q.essayAiScore != null
+                      ? `${formatPoints(q.essayAiScore)} / ${formatPoints(q.essayMaxScore ?? 0)}`
+                      : t('attemptResult.awaitingGrading')}
                 </span>
               ) : q.type === 'speaking' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
@@ -168,20 +174,24 @@ function AttemptResultPage() {
                 <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-primary-50 p-3">
                   {q.textAnswer?.trim() ? q.textAnswer : <em>{t('attemptResult.noAnswerSubmitted')}</em>}
                 </div>
-                {q.essayUseIeltsCriteria && q.manualScore != null && (
+                {q.essayUseIeltsCriteria && (q.manualScore != null || q.essayAiScore != null) && (
                   <ul className="grid gap-1 rounded-md border border-primary-100 bg-primary-50 p-3 text-xs sm:grid-cols-2">
-                    <li>{t('attemptResult.ieltsTaskLabel', { score: formatPoints(q.essayIeltsTaskScore ?? 0) })}</li>
-                    <li>{t('attemptResult.ieltsCoherenceLabel', { score: formatPoints(q.essayIeltsCoherenceScore ?? 0) })}</li>
-                    <li>{t('attemptResult.ieltsLexicalLabel', { score: formatPoints(q.essayIeltsLexicalScore ?? 0) })}</li>
-                    <li>{t('attemptResult.ieltsGrammarLabel', { score: formatPoints(q.essayIeltsGrammarScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsTaskLabel', { score: formatPoints(q.essayIeltsTaskScore ?? q.essayAiTaskScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsCoherenceLabel', { score: formatPoints(q.essayIeltsCoherenceScore ?? q.essayAiCoherenceScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsLexicalLabel', { score: formatPoints(q.essayIeltsLexicalScore ?? q.essayAiLexicalScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsGrammarLabel', { score: formatPoints(q.essayIeltsGrammarScore ?? q.essayAiGrammarScore ?? 0) })}</li>
                   </ul>
                 )}
-                {q.manualComment && (
+                {/* Teacher comment wins once present; otherwise the AI's own feedback
+                    (2026-09) — same "teacher value wins" rule as Speaking's feedback below. */}
+                {(q.manualComment ?? q.essayAiFeedback) && (
                   <p className="text-xs italic text-base-black/60">
-                    {t('attemptResult.teacherCommentLine', { comment: q.manualComment })}
+                    {q.manualComment
+                      ? t('attemptResult.teacherCommentLine', { comment: q.manualComment })
+                      : t('attemptResult.feedbackLine', { feedback: q.essayAiFeedback })}
                   </p>
                 )}
-                {q.manualScore == null && (
+                {q.manualScore == null && q.essayAiScore == null && (
                   <p className="text-xs text-base-black/50">
                     {t('attemptResult.essayNotGradedYet')}
                   </p>

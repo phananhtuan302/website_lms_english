@@ -51,7 +51,8 @@ import {
 } from '../lib/attemptView';
 import { gradeAnswer } from '../lib/grading';
 import { buildManualItems, computeAttemptScore, loadProvisionalInfo } from '../lib/attemptScore';
-import { getAIGradingProvider } from '../grading';
+import { getAIGradingProvider, getEssayGradingProvider } from '../grading';
+import type { EssayGradingResult } from '../grading';
 import { getStudentClassAndPeriod } from '../lib/classScoping';
 import { findTestClassSchedule, isScorePublished } from '../lib/testClassSchedule';
 
@@ -308,6 +309,36 @@ attemptsRouter.post(
     let correctCount = 0;
     const totalCount = gradableQuestions.length;
 
+    // Essay AI grading (2026-09) — run BEFORE the transaction below, never inside it: a
+    // provider call is a network request (once a real one like Anthropic is
+    // configured), and a DB transaction should never sit open across one. Best-effort
+    // per question: a failure here (network hiccup, malformed provider response, ...)
+    // just leaves that essay's `essayAiScore` null — exactly the same "genuinely
+    // ungraded, needs a teacher" state an essay was always left in before this feature
+    // existed — it never blocks the student's submission.
+    const essayQuestions = questions.filter((q) => q.type === 'essay');
+    const essayAiResults = new Map<string, EssayGradingResult>();
+    if (essayQuestions.length > 0) {
+      const essayProvider = getEssayGradingProvider();
+      await Promise.all(
+        essayQuestions.map(async (question) => {
+          try {
+            const result = await essayProvider.grade({
+              essayText: answerByQuestionId.get(question.id)?.textAnswer ?? '',
+              prompt: question.prompt,
+              essayMaxScore: question.essayMaxScore ?? 0,
+              essayMinWords: question.essayMinWords,
+              essayTaskType: question.essayTaskType,
+              useIeltsCriteria: question.essayUseIeltsCriteria,
+            });
+            essayAiResults.set(question.id, result);
+          } catch (err) {
+            console.warn(`[attempts] essay AI grading failed for question ${question.id}:`, err);
+          }
+        }),
+      );
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       for (const question of questions) {
         const existing = answerByQuestionId.get(question.id);
@@ -320,6 +351,18 @@ attemptsRouter.post(
               });
         if (isCorrect) correctCount += 1;
 
+        const essayAi = question.type === 'essay' ? essayAiResults.get(question.id) : undefined;
+        const essayAiData = essayAi
+          ? {
+              essayAiScore: essayAi.score,
+              essayAiFeedback: essayAi.feedback,
+              essayAiTaskScore: essayAi.criteria?.taskScore ?? null,
+              essayAiCoherenceScore: essayAi.criteria?.coherenceScore ?? null,
+              essayAiLexicalScore: essayAi.criteria?.lexicalScore ?? null,
+              essayAiGrammarScore: essayAi.criteria?.grammarScore ?? null,
+            }
+          : {};
+
         await tx.answer.upsert({
           where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
           create: {
@@ -328,17 +371,35 @@ attemptsRouter.post(
             selectedChoiceId: existing?.selectedChoiceId ?? null,
             textAnswer: existing?.textAnswer ?? null,
             isCorrect,
+            ...essayAiData,
           },
-          update: { isCorrect },
+          update: { isCorrect, ...essayAiData },
         });
       }
 
       // Phase 15: one shared scoring helper (auto-graded 1 point each + essay/speaking points).
       // With no essay/speaking question this is exactly `correctCount / totalCount × 100`.
+      // The essay AI results computed above aren't in `answerByQuestionId` yet (they were just
+      // written above, in THIS transaction) — `scoringAnswerByQuestionId` overlays them so this
+      // attempt's very first `scorePercent` already reflects them, not a stale "still ungraded".
+      const scoringAnswerByQuestionId = new Map(
+        questions.map((q) => {
+          const existing = answerByQuestionId.get(q.id);
+          const aiResult = essayAiResults.get(q.id);
+          return [
+            q.id,
+            {
+              manualScore: existing?.manualScore ?? null,
+              speakingAiScore: existing?.speakingAiScore ?? null,
+              essayAiScore: aiResult ? aiResult.score : (existing?.essayAiScore ?? null),
+            },
+          ] as const;
+        }),
+      );
       const scorePercent = computeAttemptScore({
         correctCount,
         totalCount,
-        manual: buildManualItems(questions, answerByQuestionId),
+        manual: buildManualItems(questions, scoringAnswerByQuestionId),
       }).scorePercent;
 
       // T-017: total time taken, in whole seconds, computed ONCE here from the same
@@ -442,6 +503,12 @@ attemptsRouter.get(
           essayIeltsCoherenceScore: a.essayIeltsCoherenceScore,
           essayIeltsLexicalScore: a.essayIeltsLexicalScore,
           essayIeltsGrammarScore: a.essayIeltsGrammarScore,
+          essayAiScore: a.essayAiScore,
+          essayAiFeedback: a.essayAiFeedback,
+          essayAiTaskScore: a.essayAiTaskScore,
+          essayAiCoherenceScore: a.essayAiCoherenceScore,
+          essayAiLexicalScore: a.essayAiLexicalScore,
+          essayAiGrammarScore: a.essayAiGrammarScore,
           speakingAudioData: a.speakingAudioData,
           speakingTranscript: a.speakingTranscript,
           speakingAiScore: a.speakingAiScore,

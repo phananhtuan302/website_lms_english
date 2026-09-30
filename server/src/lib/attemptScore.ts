@@ -2,8 +2,10 @@
  * The ONE place an attempt's total score is worked out (Phase 15, "điểm tự luận vào tổng").
  *
  * Points model (there is no per-question points field in the schema, so this is derived):
- *  - an auto-graded question (multipleChoice / trueFalse / fillBlank) is worth 1 point;
- *  - an `essay` question is worth its `essayMaxScore` points and earns its `Answer.manualScore`;
+ *  - an auto-graded question (multipleChoice / trueFalse / fillBlank / matching) is worth 1 point;
+ *  - an `essay` question is worth its `essayMaxScore` points and earns `manualScore ?? essayAiScore`
+ *    (2026-09: essays are now AI-graded automatically at submit time, same "teacher override wins,
+ *    else the AI grade" rule speaking already used — see `Answer.essayAiScore`'s doc comment);
  *  - a `speaking` question is worth `SPEAKING_QUESTION_POINTS` (1 — the same as one auto-graded
  *    question, so a single recording does not swamp the multiple-choice part) and earns that many
  *    points × `(manualScore ?? speakingAiScore) / SPEAKING_SCORE_SCALE` (the teacher's override
@@ -12,12 +14,13 @@
  *    it must not hold the attempt in limbo).
  *
  * `scorePercent = earnedPoints / possiblePoints × 100` over the questions that are SCORED: every
- * auto-graded question, every speaking question, and every essay the teacher has already graded.
- * An attempt with at least one essay still UNGRADED is PROVISIONAL ("tạm tính"): its percent is
- * computed over the scored questions only — which, while every essay is ungraded, is exactly the
- * number the platform showed before this model existed — and it becomes final by itself once the
- * last essay is graded. `provisional` is never stored: it is derived from the ungraded essay
- * answers wherever it is needed (no schema change).
+ * auto-graded question, every speaking question, and every essay that has EITHER an AI grade or a
+ * teacher grade. An attempt with at least one essay that has NEITHER (in practice: the one-off case
+ * an AI grading call itself failed/errored at submit time — a blank essay still gets an AI score of
+ * 0, same as speaking's "never recorded = 0") is PROVISIONAL ("tạm tính"): its percent is computed
+ * over the scored questions only, and it becomes final by itself once that last essay is graded.
+ * `provisional` is never stored: it is derived from the ungraded essay answers wherever it is needed
+ * (no schema change).
  *
  * `correctCount` / `totalCount` keep meaning "auto-graded questions right / total" ("Đúng 3/5
  * câu") and are read from the values frozen on the `Attempt` at submit time, so re-scoring after
@@ -40,6 +43,8 @@ export interface ManualScoreItem {
   maxPoints: number;
   manualScore: number | null;
   speakingAiScore: number | null;
+  /** Only meaningful for `type: 'essay'` — see `Answer.essayAiScore`'s doc comment. */
+  essayAiScore: number | null;
 }
 
 export interface AttemptScore {
@@ -76,11 +81,12 @@ export function computeAttemptScore(input: AttemptScoreInput): AttemptScore {
 
   for (const item of input.manual) {
     if (item.type === 'essay') {
-      if (item.manualScore === null) {
+      const effectiveScore = item.manualScore ?? item.essayAiScore;
+      if (effectiveScore === null) {
         ungradedCount += 1;
         continue;
       }
-      earnedPoints += clamp(item.manualScore, item.maxPoints);
+      earnedPoints += clamp(effectiveScore, item.maxPoints);
       possiblePoints += item.maxPoints;
     } else {
       // `maxPoints` of a speaking item is the 0–100 scale its score is given on; the question
@@ -114,6 +120,7 @@ interface ScoredQuestion {
 interface ScoredAnswer {
   manualScore: number | null;
   speakingAiScore: number | null;
+  essayAiScore: number | null;
 }
 
 /** Builds the essay/speaking items of a test for one attempt, from the test's questions and the
@@ -131,6 +138,7 @@ export function buildManualItems(
       maxPoints: question.type === 'essay' ? (question.essayMaxScore ?? 0) : SPEAKING_SCORE_SCALE,
       manualScore: answer?.manualScore ?? null,
       speakingAiScore: answer?.speakingAiScore ?? null,
+      essayAiScore: answer?.essayAiScore ?? null,
     });
   }
   return items;
@@ -149,6 +157,7 @@ export async function loadManualItemsByAttempt(attemptIds: string[]): Promise<Ma
       attemptId: true,
       manualScore: true,
       speakingAiScore: true,
+      essayAiScore: true,
       question: { select: { type: true, essayMaxScore: true } },
     },
   });
@@ -159,6 +168,7 @@ export async function loadManualItemsByAttempt(attemptIds: string[]): Promise<Ma
       maxPoints: type === 'essay' ? (answer.question.essayMaxScore ?? 0) : SPEAKING_SCORE_SCALE,
       manualScore: answer.manualScore,
       speakingAiScore: answer.speakingAiScore,
+      essayAiScore: answer.essayAiScore,
     });
   }
   return result;
@@ -175,7 +185,9 @@ export async function loadProvisionalInfo(attemptIds: string[]): Promise<Map<str
   const info = new Map<string, ProvisionalInfo>();
   for (const [attemptId, list] of items) {
     // Same rule as `computeAttemptScore` (and the "cần chấm" queues in `lib/classAttention.ts`).
-    const ungradedCount = list.filter((i) => i.type === 'essay' && i.manualScore === null).length;
+    const ungradedCount = list.filter(
+      (i) => i.type === 'essay' && i.manualScore === null && i.essayAiScore === null,
+    ).length;
     info.set(attemptId, { provisional: ungradedCount > 0, ungradedCount });
   }
   return info;

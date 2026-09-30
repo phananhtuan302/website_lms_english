@@ -171,7 +171,7 @@ teacherClassOverviewRouter.get(
           studentId: true,
           testId: true,
           submittedAt: true,
-          _count: { select: { answers: { where: { manualScore: null, question: { type: 'essay' } } } } },
+          _count: { select: { answers: { where: { manualScore: null, essayAiScore: null, question: { type: 'essay' } } } } },
         },
       }),
       prisma.attempt.findMany({

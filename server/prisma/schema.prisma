@@ -880,6 +880,28 @@ model Answer {
   essayIeltsCoherenceScore Float?
   essayIeltsLexicalScore   Float?
   essayIeltsGrammarScore   Float?
+  /// AI essay grading (2026-09, customer request -- supersedes PROJECT_PLAN Assumption
+  /// A3's original "Writing never gets AI grading"). Computed ONCE at whole-attempt
+  /// submit time (unlike Speaking, an essay has no per-question submit moment -- it's
+  /// finalized together with the rest of the attempt) via the currently-registered
+  /// `EssayGradingProvider` (Mock by default -- see `docs/INTEGRATIONS_TODO.md`), and
+  /// counts toward `Attempt.scorePercent` immediately (`manualScore ?? essayAiScore`,
+  /// same "teacher override wins, else the AI value" rule Speaking already established
+  /// -- see `lib/attemptScore.ts`). Never overwritten afterward by re-grading logic; a
+  /// teacher's own grade (`manualScore`/`essayIelts*Score` above) always wins once
+  /// present, exactly like `speakingAiScore` is overridden by `manualScore`.
+  /// `essayAiScore` is on the SAME scale `manualScore` would be (0-`essayMaxScore`, or
+  /// 0-9 when `Question.essayUseIeltsCriteria`). The 4 `essayAi*Score` columns mirror
+  /// `essayIelts*Score` above but hold the AI's OWN suggested breakdown -- only
+  /// populated when `essayUseIeltsCriteria` is true -- so the teacher's grading form can
+  /// pre-fill from the AI's suggestion (a starting point to review/adjust, never
+  /// auto-applied without the teacher's own save) instead of a blank form.
+  essayAiScore             Float?
+  essayAiFeedback          String?
+  essayAiTaskScore         Float?
+  essayAiCoherenceScore    Float?
+  essayAiLexicalScore      Float?
+  essayAiGrammarScore      Float?
   /// Speaking (T-052–T-056). `speakingAudioData` is the student's recorded answer,
   /// stored as a base64 `data:` URL (documented local storage convention — no real
   /// cloud/object storage exists in this build, see `attempts.routes.ts`'s module doc

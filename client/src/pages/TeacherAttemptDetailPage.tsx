@@ -42,6 +42,14 @@ function parseBandScoreInput(text: string): number | null {
   return Math.abs(value * 2 - Math.round(value * 2)) < 1e-9 ? value : null;
 }
 
+/** Formats the teacher's own score if graded, else the AI's suggestion, else '' —
+ * the shared pre-fill rule for the essay grading form's score inputs (2026-09). */
+function formatBandFallback(manual: number | null, ai: number | null): string {
+  if (manual != null) return formatPoints(manual);
+  if (ai != null) return formatPoints(ai);
+  return '';
+}
+
 const SCORE_INPUT_CLASS =
   'w-28 rounded-md border border-primary-200 px-3 py-2 text-base text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:py-1.5 sm:text-sm';
 const COMMENT_INPUT_CLASS =
@@ -106,14 +114,17 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
           const next = { ...prev };
           for (const q of data.questions) {
             if (q.type === 'essay' && !next[q.questionId]) {
+              // Pre-fills from the teacher's own grade if one exists, else the AI's
+              // suggestion (2026-09) — same "adjust this number" starting-point
+              // convenience Speaking's override already used, now extended to essay.
               next[q.questionId] = {
                 ...emptyGradeDraft(),
-                scoreText: q.manualScore != null ? formatPoints(q.manualScore) : '',
+                scoreText: formatBandFallback(q.manualScore, q.essayAiScore),
                 comment: q.manualComment ?? '',
-                taskScoreText: q.essayIeltsTaskScore != null ? formatPoints(q.essayIeltsTaskScore) : '',
-                coherenceScoreText: q.essayIeltsCoherenceScore != null ? formatPoints(q.essayIeltsCoherenceScore) : '',
-                lexicalScoreText: q.essayIeltsLexicalScore != null ? formatPoints(q.essayIeltsLexicalScore) : '',
-                grammarScoreText: q.essayIeltsGrammarScore != null ? formatPoints(q.essayIeltsGrammarScore) : '',
+                taskScoreText: formatBandFallback(q.essayIeltsTaskScore, q.essayAiTaskScore),
+                coherenceScoreText: formatBandFallback(q.essayIeltsCoherenceScore, q.essayAiCoherenceScore),
+                lexicalScoreText: formatBandFallback(q.essayIeltsLexicalScore, q.essayAiLexicalScore),
+                grammarScoreText: formatBandFallback(q.essayIeltsGrammarScore, q.essayAiGrammarScore),
               };
             }
             if (q.type === 'speaking' && !next[q.questionId]) {
@@ -450,7 +461,11 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
               </p>
               {q.type === 'essay' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
-                  {q.manualScore != null ? `${formatPoints(q.manualScore)} / ${formatPoints(q.essayMaxScore ?? 0)}` : t('teacherAttemptDetail.notGradedYet')}
+                  {q.manualScore != null
+                    ? `${formatPoints(q.manualScore)} / ${formatPoints(q.essayMaxScore ?? 0)}`
+                    : q.essayAiScore != null
+                      ? t('teacherAttemptDetail.essayScoreAi', { score: formatPoints(q.essayAiScore), max: formatPoints(q.essayMaxScore ?? 0) })
+                      : t('teacherAttemptDetail.notGradedYet')}
                 </span>
               ) : q.type === 'speaking' ? (
                 <span className="shrink-0 rounded-full bg-primary-200 px-3 py-1 text-xs font-bold uppercase text-primary-800">
@@ -478,6 +493,25 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                 <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-base-white p-3">
                   {q.textAnswer?.trim() ? q.textAnswer : <em>{t('teacherAttemptDetail.noAnswerSubmitted')}</em>}
                 </div>
+                {q.essayAiFeedback && (
+                  <div className="rounded-md border border-primary-100 bg-primary-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                      {t('teacherAttemptDetail.mockAiGradingLabel')}
+                    </p>
+                    {q.essayUseIeltsCriteria && (
+                      <p className="mt-1 text-xs text-base-black/70">
+                        {t('teacherAttemptDetail.aiIeltsTaskLabel', { score: formatPoints(q.essayAiTaskScore ?? 0) })}
+                        {' · '}
+                        {t('teacherAttemptDetail.aiIeltsCoherenceLabel', { score: formatPoints(q.essayAiCoherenceScore ?? 0) })}
+                        {' · '}
+                        {t('teacherAttemptDetail.aiIeltsLexicalLabel', { score: formatPoints(q.essayAiLexicalScore ?? 0) })}
+                        {' · '}
+                        {t('teacherAttemptDetail.aiIeltsGrammarLabel', { score: formatPoints(q.essayAiGrammarScore ?? 0) })}
+                      </p>
+                    )}
+                    <p className="mt-1">{q.essayAiFeedback}</p>
+                  </div>
+                )}
                 <div className="flex flex-col gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
                   {q.essayUseIeltsCriteria ? (
                     <div className="grid gap-3 sm:grid-cols-2">

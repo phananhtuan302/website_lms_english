@@ -5,9 +5,12 @@
  * provider later (see `docs/INTEGRATIONS_TODO.md`) never touches business logic — only
  * `./index.ts`'s factory and a new file implementing this same interface.
  *
- * Per PROJECT_PLAN Assumption A3, Speaking is the ONLY AI-graded content type in this
- * product — Writing/essay questions are always graded manually by a teacher
- * (`Answer.manualScore`/`manualComment`, T-042), never through this interface.
+ * Per PROJECT_PLAN Assumption A3, this interface is specific to Speaking's shape
+ * (transcript + audio reference). Essay/Writing questions are ALSO AI-graded now
+ * (2026-09, superseding A3's original "Speaking only" scoping) but through the separate
+ * `EssayGradingProvider` interface (`./essayGradingProvider.ts`) — essay input/output
+ * shapes (IELTS band criteria, word counts) don't fit this one, so it was kept
+ * Speaking-only rather than generalized.
  */
 
 export interface AIGradingResult {

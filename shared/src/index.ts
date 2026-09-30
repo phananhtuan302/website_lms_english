@@ -584,6 +584,19 @@ export interface AttemptResultQuestionDTO {
   essayIeltsCoherenceScore: number | null;
   essayIeltsLexicalScore: number | null;
   essayIeltsGrammarScore: number | null;
+  /** AI essay grading (2026-09) — the ORIGINAL grade from the currently-registered
+   * `EssayGradingProvider` (Mock by default), computed once at whole-attempt submit
+   * time. `manualScore`/`essayIelts*Score` above are the teacher's OVERRIDE, which wins
+   * once present, exactly like Speaking's `speakingAiScore`/`manualScore` pair. Same
+   * 0-`essayMaxScore` (or 0-9) scale as `manualScore`. */
+  essayAiScore: number | null;
+  essayAiFeedback: string | null;
+  /** Only meaningful when `essayUseIeltsCriteria` is `true` — the AI's own suggested
+   * 4-criteria breakdown, mirroring `essayIelts*Score` above. `null` otherwise. */
+  essayAiTaskScore: number | null;
+  essayAiCoherenceScore: number | null;
+  essayAiLexicalScore: number | null;
+  essayAiGrammarScore: number | null;
   /** Speaking (T-052–T-056) — see `Question.allowedResponseSeconds`/`promptAudioUrl`'s
    * doc comments in schema.prisma; both `null` for a non-`speaking` question. */
   allowedResponseSeconds: number | null;
