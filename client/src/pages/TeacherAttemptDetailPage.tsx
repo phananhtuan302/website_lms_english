@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SPEAKING_SCORE_SCALE, type AttemptResultDTO, type AttemptSiblingsDTO } from '@platform/shared';
+import { IELTS_BAND_MAX, SPEAKING_SCORE_SCALE, type AttemptResultDTO, type AttemptSiblingsDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { CLASSES_HOME_PATH, classTabPath } from '../lib/classWorkspace';
@@ -14,6 +14,16 @@ import { formatPoints, formatScore10 } from '../lib/scoreFormat';
 interface GradeDraft {
   scoreText: string;
   comment: string;
+  /** Only meaningful for an essay question with `essayUseIeltsCriteria` (2026-09) — 4
+   * separate 0-9 band scores instead of one free-form `scoreText`. */
+  taskScoreText: string;
+  coherenceScoreText: string;
+  lexicalScoreText: string;
+  grammarScoreText: string;
+}
+
+function emptyGradeDraft(): GradeDraft {
+  return { scoreText: '', comment: '', taskScoreText: '', coherenceScoreText: '', lexicalScoreText: '', grammarScoreText: '' };
 }
 
 /** A typed score: a Vietnamese teacher writes "4,5" as often as "4.5", so both are accepted.
@@ -22,6 +32,14 @@ function parseScoreInput(text: string): number | null {
   const normalized = text.trim().replace(',', '.');
   if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
   return Number(normalized);
+}
+
+/** A valid IELTS band score: 0-9 in 0.5 steps — same rule the server enforces, checked
+ * here too so the teacher sees a clear error before the request round-trip. */
+function parseBandScoreInput(text: string): number | null {
+  const value = parseScoreInput(text);
+  if (value === null || value < 0 || value > IELTS_BAND_MAX) return null;
+  return Math.abs(value * 2 - Math.round(value * 2)) < 1e-9 ? value : null;
 }
 
 const SCORE_INPUT_CLASS =
@@ -89,8 +107,13 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
           for (const q of data.questions) {
             if (q.type === 'essay' && !next[q.questionId]) {
               next[q.questionId] = {
+                ...emptyGradeDraft(),
                 scoreText: q.manualScore != null ? formatPoints(q.manualScore) : '',
                 comment: q.manualComment ?? '',
+                taskScoreText: q.essayIeltsTaskScore != null ? formatPoints(q.essayIeltsTaskScore) : '',
+                coherenceScoreText: q.essayIeltsCoherenceScore != null ? formatPoints(q.essayIeltsCoherenceScore) : '',
+                lexicalScoreText: q.essayIeltsLexicalScore != null ? formatPoints(q.essayIeltsLexicalScore) : '',
+                grammarScoreText: q.essayIeltsGrammarScore != null ? formatPoints(q.essayIeltsGrammarScore) : '',
               };
             }
             if (q.type === 'speaking' && !next[q.questionId]) {
@@ -101,6 +124,7 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
               // (not pre-filled from `speakingAiFeedback`) so a saved `manualComment`
               // always reflects something the teacher actually wrote.
               next[q.questionId] = {
+                ...emptyGradeDraft(),
                 scoreText:
                   q.manualScore != null
                     ? formatPoints(q.manualScore)
@@ -126,6 +150,110 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
     teacherApi.getAttemptSiblings(attemptId).then(setSiblings).catch(() => setSiblings(null));
   }, [attemptId]);
 
+  function updateDraft(questionId: string, patch: Partial<GradeDraft>) {
+    setDrafts((prev) => ({ ...prev, [questionId]: { ...(prev[questionId] ?? emptyGradeDraft()), ...patch } }));
+  }
+
+  /** Shared tail of both save handlers below — updates the header total/chip and this
+   * question's stored grade from the response, in place, no reload; then advances to the
+   * next ungraded essay ("Lưu và chấm bài kế tiếp") exactly the same way either grading
+   * mode does it. */
+  async function afterGradeSaved(
+    questionId: string,
+    saved: Awaited<ReturnType<typeof teacherApi.gradeEssayAnswer>>,
+    savedLine: string,
+    goNext: boolean,
+  ) {
+    setResult((prev) =>
+      prev
+        ? {
+            ...prev,
+            scorePercent: saved.scorePercent,
+            provisional: saved.provisional,
+            ungradedCount: saved.ungradedCount,
+            questions: prev.questions.map((q) =>
+              q.questionId === questionId
+                ? {
+                    ...q,
+                    manualScore: saved.manualScore,
+                    manualComment: saved.manualComment,
+                    essayIeltsTaskScore: saved.ieltsCriteria?.taskScore ?? null,
+                    essayIeltsCoherenceScore: saved.ieltsCriteria?.coherenceScore ?? null,
+                    essayIeltsLexicalScore: saved.ieltsCriteria?.lexicalScore ?? null,
+                    essayIeltsGrammarScore: saved.ieltsCriteria?.grammarScore ?? null,
+                  }
+                : q,
+            ),
+          }
+        : prev,
+    );
+
+    if (!goNext) {
+      setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
+      return;
+    }
+    if (saved.ungradedCount > 0) {
+      // Another essay of THIS attempt is still waiting — finish it before moving on.
+      setSavedMessages((prev) => ({
+        ...prev,
+        [questionId]: `${savedLine} ${t('scoring.grade.moreInThisAttempt', { count: saved.ungradedCount })}`,
+      }));
+      return;
+    }
+    try {
+      const next = await teacherApi.getNextUngradedAttempt(attemptId!);
+      if (next.nextAttemptId) {
+        // `replace`: the back button still returns to the list, not through every student graded.
+        navigate(`/teacher/attempts/${next.nextAttemptId}`, {
+          replace: true,
+          state: { savedNotice: savedLine, crossedIntoClassName: next.crossedIntoClassName ?? null },
+        });
+      } else {
+        setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
+        setAllDone({ classId: next.classId, savedLine });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } catch {
+      setSavedMessages((prev) => ({ ...prev, [questionId]: `${savedLine} ${t('scoring.grade.nextFailed')}` }));
+    }
+  }
+
+  /** Save path for an essay with `essayUseIeltsCriteria` (2026-09) — 4 band scores
+   * instead of one free-form score; the server computes the overall `manualScore` itself
+   * (their average, rounded to the nearest 0.5), so this only has to validate each is a
+   * real 0-9 band score before sending. */
+  async function handleSaveIeltsGrade(questionId: string, goNext = false) {
+    if (!attemptId || !result) return;
+    const draft = drafts[questionId] ?? emptyGradeDraft();
+    const taskScore = parseBandScoreInput(draft.taskScoreText);
+    const coherenceScore = parseBandScoreInput(draft.coherenceScoreText);
+    const lexicalScore = parseBandScoreInput(draft.lexicalScoreText);
+    const grammarScore = parseBandScoreInput(draft.grammarScoreText);
+    if (taskScore === null || coherenceScore === null || lexicalScore === null || grammarScore === null) {
+      setGradingErrors((prev) => ({ ...prev, [questionId]: t('scoring.grade.ieltsCriteriaInvalid', { max: IELTS_BAND_MAX }) }));
+      setSavedMessages((prev) => ({ ...prev, [questionId]: '' }));
+      return;
+    }
+    setSavingQuestionId(questionId);
+    setGradingErrors((prev) => ({ ...prev, [questionId]: '' }));
+    setSavedMessages((prev) => ({ ...prev, [questionId]: '' }));
+    try {
+      const saved = await teacherApi.gradeEssayAnswer(attemptId, questionId, {
+        ieltsCriteria: { taskScore, coherenceScore, lexicalScore, grammarScore },
+        comment: draft.comment.trim() === '' ? null : draft.comment,
+      });
+      const savedLine = t('scoring.grade.savedIelts', { name: result.studentName, score: formatPoints(saved.manualScore) });
+      await afterGradeSaved(questionId, saved, savedLine, goNext);
+    } catch (err) {
+      setGradingErrors((prev) => ({
+        ...prev,
+        [questionId]: err instanceof ApiError ? err.message : t('teacherAttemptDetail.saveGradeFailed'),
+      }));
+    } finally {
+      setSavingQuestionId(null);
+    }
+  }
+
   async function handleSaveGrade(questionId: string, maxScore: number | null, goNext = false) {
     if (!attemptId || !result) return;
     const max = maxScore ?? 0;
@@ -149,56 +277,12 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
         score,
         comment: draft.comment.trim() === '' ? null : draft.comment,
       });
-      // The header total (and the "tạm tính" chip) follow the saved grade at once — no reload.
-      setResult((prev) =>
-        prev
-          ? {
-              ...prev,
-              scorePercent: saved.scorePercent,
-              provisional: saved.provisional,
-              ungradedCount: saved.ungradedCount,
-              questions: prev.questions.map((q) =>
-                q.questionId === questionId
-                  ? { ...q, manualScore: saved.manualScore, manualComment: saved.manualComment }
-                  : q,
-              ),
-            }
-          : prev,
-      );
       const savedLine = t('scoring.grade.saved', {
         name: result.studentName,
         score: formatPoints(saved.manualScore),
         max: formatPoints(max),
       });
-
-      if (!goNext) {
-        setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
-        return;
-      }
-      if (saved.ungradedCount > 0) {
-        // Another essay of THIS attempt is still waiting — finish it before moving on.
-        setSavedMessages((prev) => ({
-          ...prev,
-          [questionId]: `${savedLine} ${t('scoring.grade.moreInThisAttempt', { count: saved.ungradedCount })}`,
-        }));
-        return;
-      }
-      try {
-        const next = await teacherApi.getNextUngradedAttempt(attemptId);
-        if (next.nextAttemptId) {
-          // `replace`: the back button still returns to the list, not through every student graded.
-          navigate(`/teacher/attempts/${next.nextAttemptId}`, {
-            replace: true,
-            state: { savedNotice: savedLine, crossedIntoClassName: next.crossedIntoClassName ?? null },
-          });
-        } else {
-          setSavedMessages((prev) => ({ ...prev, [questionId]: savedLine }));
-          setAllDone({ classId: next.classId, savedLine });
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      } catch {
-        setSavedMessages((prev) => ({ ...prev, [questionId]: `${savedLine} ${t('scoring.grade.nextFailed')}` }));
-      }
+      await afterGradeSaved(questionId, saved, savedLine, goNext);
     } catch (err) {
       setGradingErrors((prev) => ({
         ...prev,
@@ -395,33 +479,65 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                   {q.textAnswer?.trim() ? q.textAnswer : <em>{t('teacherAttemptDetail.noAnswerSubmitted')}</em>}
                 </div>
                 <div className="flex flex-col gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
-                  <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                    {t('teacherAttemptDetail.scoreOutOf', { max: formatPoints(q.essayMaxScore ?? 0) })}
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      value={drafts[q.questionId]?.scoreText ?? ''}
-                      onChange={(event) =>
-                        setDrafts((prev) => ({
-                          ...prev,
-                          [q.questionId]: { ...prev[q.questionId], scoreText: event.target.value, comment: prev[q.questionId]?.comment ?? '' },
-                        }))
-                      }
-                      className={SCORE_INPUT_CLASS}
-                    />
-                  </label>
+                  {q.essayUseIeltsCriteria ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(
+                        [
+                          ['taskScoreText', 'teacherAttemptDetail.ieltsTaskLabel'],
+                          ['coherenceScoreText', 'teacherAttemptDetail.ieltsCoherenceLabel'],
+                          ['lexicalScoreText', 'teacherAttemptDetail.ieltsLexicalLabel'],
+                          ['grammarScoreText', 'teacherAttemptDetail.ieltsGrammarLabel'],
+                        ] as const
+                      ).map(([field, labelKey]) => (
+                        <label key={field} className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                          {t(labelKey)}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            value={drafts[q.questionId]?.[field] ?? ''}
+                            onChange={(event) => updateDraft(q.questionId, { [field]: event.target.value })}
+                            placeholder={t('teacherAttemptDetail.ieltsBandPlaceholder', { max: IELTS_BAND_MAX })}
+                            className={SCORE_INPUT_CLASS}
+                          />
+                        </label>
+                      ))}
+                      {(() => {
+                        const draft = drafts[q.questionId];
+                        const scores = [
+                          parseBandScoreInput(draft?.taskScoreText ?? ''),
+                          parseBandScoreInput(draft?.coherenceScoreText ?? ''),
+                          parseBandScoreInput(draft?.lexicalScoreText ?? ''),
+                          parseBandScoreInput(draft?.grammarScoreText ?? ''),
+                        ];
+                        if (scores.some((s) => s === null)) return null;
+                        const average = Math.round(((scores as number[]).reduce((a, b) => a + b, 0) / 4) * 2) / 2;
+                        return (
+                          <p className="text-sm font-semibold text-primary-700 sm:col-span-2">
+                            {t('teacherAttemptDetail.ieltsAveragePreview', { average: formatPoints(average) })}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+                      {t('teacherAttemptDetail.scoreOutOf', { max: formatPoints(q.essayMaxScore ?? 0) })}
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={drafts[q.questionId]?.scoreText ?? ''}
+                        onChange={(event) => updateDraft(q.questionId, { scoreText: event.target.value })}
+                        className={SCORE_INPUT_CLASS}
+                      />
+                    </label>
+                  )}
                   <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
                     {t('teacherAttemptDetail.commentOptional')}
                     <textarea
                       rows={3}
                       value={drafts[q.questionId]?.comment ?? ''}
-                      onChange={(event) =>
-                        setDrafts((prev) => ({
-                          ...prev,
-                          [q.questionId]: { scoreText: prev[q.questionId]?.scoreText ?? '', comment: event.target.value },
-                        }))
-                      }
+                      onChange={(event) => updateDraft(q.questionId, { comment: event.target.value })}
                       placeholder={t('teacherAttemptDetail.feedbackPlaceholder')}
                       className={COMMENT_INPUT_CLASS}
                     />
@@ -429,7 +545,11 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => handleSaveGrade(q.questionId, q.essayMaxScore, true)}
+                      onClick={() =>
+                        q.essayUseIeltsCriteria
+                          ? handleSaveIeltsGrade(q.questionId, true)
+                          : handleSaveGrade(q.questionId, q.essayMaxScore, true)
+                      }
                       disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
                       className={SAVE_NEXT_BUTTON_CLASS}
                     >
@@ -437,7 +557,11 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSaveGrade(q.questionId, q.essayMaxScore)}
+                      onClick={() =>
+                        q.essayUseIeltsCriteria
+                          ? handleSaveIeltsGrade(q.questionId)
+                          : handleSaveGrade(q.questionId, q.essayMaxScore)
+                      }
                       disabled={savingQuestionId === q.questionId || result.status !== 'submitted'}
                       className={SAVE_BUTTON_CLASS}
                     >
@@ -495,12 +619,7 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                         inputMode="decimal"
                         autoComplete="off"
                         value={drafts[q.questionId]?.scoreText ?? ''}
-                        onChange={(event) =>
-                          setDrafts((prev) => ({
-                            ...prev,
-                            [q.questionId]: { ...prev[q.questionId], scoreText: event.target.value, comment: prev[q.questionId]?.comment ?? '' },
-                          }))
-                        }
+                        onChange={(event) => updateDraft(q.questionId, { scoreText: event.target.value })}
                         className={SCORE_INPUT_CLASS}
                       />
                     </label>
@@ -509,12 +628,7 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                       <textarea
                         rows={3}
                         value={drafts[q.questionId]?.comment ?? ''}
-                        onChange={(event) =>
-                          setDrafts((prev) => ({
-                            ...prev,
-                            [q.questionId]: { scoreText: prev[q.questionId]?.scoreText ?? '', comment: event.target.value },
-                          }))
-                        }
+                        onChange={(event) => updateDraft(q.questionId, { comment: event.target.value })}
                         placeholder={t('teacherAttemptDetail.overrideFeedbackPlaceholder')}
                         className={COMMENT_INPUT_CLASS}
                       />

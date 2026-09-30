@@ -83,6 +83,16 @@ function defaultQuestionBody(
       allowedResponseSeconds: 60,
     };
   }
+  if (type === 'matching') {
+    return {
+      type,
+      prompt: t('teacherTestEditor.defaultQuestions.matchingPrompt'),
+      choices: ['i', 'ii', 'iii', 'iv'].map((label, index) => ({
+        text: t('teacherTestEditor.defaultQuestions.matchingOption', { label }),
+        isCorrect: index === 0,
+      })),
+    };
+  }
   return {
     type,
     prompt: t('teacherTestEditor.defaultQuestions.multipleChoicePrompt'),
@@ -90,6 +100,33 @@ function defaultQuestionBody(
       text: t('teacherTestEditor.defaultQuestions.option', { letter }),
       isCorrect: index === 0,
     })),
+  };
+}
+
+/** A brand-new `matching` question's starting choices (2026-09, IELTS Reading "match a
+ * paragraph to a heading" support) — copies the option list from the PREVIOUS `matching`
+ * question already in this section, if there is one, instead of the generic i/ii/iii/iv
+ * placeholder. Real IELTS matching sections reuse one heading/option list across many
+ * questions; without this, a teacher would have to retype that whole list by hand for
+ * every single question (a real IELTS-teacher review's explicit complaint). Correctness
+ * always resets to the first option — copying which one was "correct" for a DIFFERENT
+ * paragraph would be actively misleading, not a helpful default. */
+function matchingQuestionBody(
+  existingQuestions: Array<{ type: QuestionType; choices: Array<{ text: string }> }> | undefined,
+  t: TFunction,
+): { type: 'matching'; prompt: string; choices: { text: string; isCorrect: boolean }[] } {
+  const previousMatching = [...(existingQuestions ?? [])].reverse().find((q) => q.type === 'matching');
+  if (previousMatching && previousMatching.choices.length > 0) {
+    return {
+      type: 'matching',
+      prompt: t('teacherTestEditor.defaultQuestions.matchingPrompt'),
+      choices: previousMatching.choices.map((c, index) => ({ text: c.text, isCorrect: index === 0 })),
+    };
+  }
+  return defaultQuestionBody('matching', t) as {
+    type: 'matching';
+    prompt: string;
+    choices: { text: string; isCorrect: boolean }[];
   };
 }
 
@@ -313,6 +350,29 @@ function TestEditorBody({
     runStructural(() => teacherApi.createSection(testId, { title: sectionTitle }));
   }
 
+  /** "Dựng khung 4 kỹ năng mẫu" (2026-09, IELTS mock-test support) — only offered for a
+   * brand-new `mockTest` with zero sections yet (a convenience starting point, not a
+   * requirement — a teacher can still add/rename/remove sections freely afterward).
+   * Creates the 4 sections one at a time (this test-authoring API has no bulk-create),
+   * chained inside ONE `runStructural` call so a mid-way failure still leaves whatever
+   * sections were created before it (rather than silently discarding them) and the save
+   * indicator only shows one in-flight action, not 4. */
+  function handleScaffoldMockTest() {
+    const titles = [
+      t('teacherTestEditor.mockScaffold.listeningTitle'),
+      t('teacherTestEditor.mockScaffold.readingTitle'),
+      t('teacherTestEditor.mockScaffold.writingTitle'),
+      t('teacherTestEditor.mockScaffold.speakingTitle'),
+    ];
+    runStructural(async () => {
+      let latest: TestDetailDTO | null = null;
+      for (const title of titles) {
+        latest = await teacherApi.createSection(testId, { title });
+      }
+      return latest!;
+    });
+  }
+
   function handleDeleteSection(sectionId: string) {
     runStructural(() => teacherApi.deleteSection(testId, sectionId));
   }
@@ -334,7 +394,18 @@ function TestEditorBody({
       test?.sections.find((s) => s.id === sectionId)?.questions.map((q) => q.id) ?? [],
     );
     runStructural(async () => {
-      const updated = await teacherApi.createQuestion(testId, sectionId, defaultQuestionBody(type, t));
+      // `matching`'s "copy the previous question's choices" convenience needs each
+      // sibling question's LATEST saved choices — this page's own `test` state is
+      // deliberately NOT kept in sync with a plain content edit elsewhere in the editor
+      // (see `handleSaveQuestion`'s doc comment: avoiding a flicker back to older state),
+      // so it can be stale here (e.g. a teacher just retyped question 1's choices and
+      // tabbed away, then immediately clicks "+ Ghép nối" for question 2). A fresh fetch
+      // right before building the default sidesteps that staleness entirely.
+      const body =
+        type === 'matching'
+          ? matchingQuestionBody((await teacherApi.getTest(testId)).sections.find((s) => s.id === sectionId)?.questions, t)
+          : defaultQuestionBody(type, t);
+      const updated = await teacherApi.createQuestion(testId, sectionId, body);
       if (type === 'multipleChoice') {
         const newId = updated.sections
           .find((s) => s.id === sectionId)
@@ -632,6 +703,19 @@ function TestEditorBody({
             onQuestionFirstEdit={onQuestionFirstEdit}
           />
         ))}
+
+        {meta.testType === 'mockTest' && test.sections.length === 0 && (
+          <div className="rounded-md border border-primary-200 bg-primary-50 p-4">
+            <p className="text-sm text-base-black/70">{t('teacherTestEditor.mockScaffold.hint')}</p>
+            <button
+              type="button"
+              onClick={handleScaffoldMockTest}
+              className="mt-2 rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+            >
+              {t('teacherTestEditor.mockScaffold.button')}
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleAddSection} className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">

@@ -160,9 +160,22 @@ function AttemptResultPage() {
 
             {q.type === 'essay' ? (
               <div className="mt-2 flex flex-col gap-2 text-sm text-base-black/80">
+                {q.essayTaskType && (
+                  <span className="self-start rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+                    {t(`attemptResult.essayTaskType.${q.essayTaskType}`)}
+                  </span>
+                )}
                 <div className="whitespace-pre-wrap rounded-md border border-primary-100 bg-primary-50 p-3">
                   {q.textAnswer?.trim() ? q.textAnswer : <em>{t('attemptResult.noAnswerSubmitted')}</em>}
                 </div>
+                {q.essayUseIeltsCriteria && q.manualScore != null && (
+                  <ul className="grid gap-1 rounded-md border border-primary-100 bg-primary-50 p-3 text-xs sm:grid-cols-2">
+                    <li>{t('attemptResult.ieltsTaskLabel', { score: formatPoints(q.essayIeltsTaskScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsCoherenceLabel', { score: formatPoints(q.essayIeltsCoherenceScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsLexicalLabel', { score: formatPoints(q.essayIeltsLexicalScore ?? 0) })}</li>
+                    <li>{t('attemptResult.ieltsGrammarLabel', { score: formatPoints(q.essayIeltsGrammarScore ?? 0) })}</li>
+                  </ul>
+                )}
                 {q.manualComment && (
                   <p className="text-xs italic text-base-black/60">
                     {t('attemptResult.teacherCommentLine', { comment: q.manualComment })}

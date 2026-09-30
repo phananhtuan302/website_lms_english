@@ -274,6 +274,28 @@ enum QuestionType {
   /// essay's manual grading, reusing the SAME `Answer.manualScore`/`manualComment`
   /// columns (T-055) — see those fields' doc comment below.
   speaking
+  /// Matching (2026-09, IELTS-style authoring): structurally identical to
+  /// `multipleChoice` (one prompt, several `Choice` rows, exactly one flagged
+  /// `isCorrect`) and graded by the exact same code path -- the only difference is
+  /// presentational, a distinct label so a teacher building an IELTS Reading section
+  /// ("match this paragraph to the correct heading") can tell it apart from an ordinary
+  /// multiple-choice question. Kept as its own type rather than reusing `multipleChoice`
+  /// so the UI can offer a "copy the option list from the previous Matching question in
+  /// this section" convenience (real IELTS matching sections reuse one heading/option
+  /// list across many questions) without guessing at intent from a generic MC question.
+  matching
+}
+
+/// Which IELTS Writing task an `essay` question represents (2026-09) -- purely a label +
+/// a suggested `essayMinWords` default; does not change scoring or storage in any other
+/// way. `null` (the default) for every essay question that isn't specifically an IELTS
+/// Writing task.
+enum EssayTaskType {
+  /// Task 1: describe a chart/graph/diagram/map (or, General Training, a letter) --
+  /// real IELTS minimum is 150 words.
+  task1
+  /// Task 2: an opinion/discussion essay -- real IELTS minimum is 250 words.
+  task2
 }
 
 /// The kind of `Test` this is (T-036/T-038, Assumption A4). `generic` (default) is every
@@ -603,6 +625,44 @@ model Question {
   /// Speaking question's prompt is its own distinct piece of content, not shared context
   /// across several questions the way one Reading passage or Listening clip is.
   promptAudioUrl         String?
+  /// Only meaningful for `speaking` (2026-09, IELTS Speaking Part 2 "cue card" support):
+  /// a silent preparation window BEFORE the response window (`allowedResponseSeconds`)
+  /// starts. `null`/`0` (the default) means no prep phase at all -- the response window
+  /// starts the instant the question is shown, unchanged original behavior. When set,
+  /// `TakeTestPage.tsx` shows a prep countdown with recording disabled, then starts the
+  /// response countdown only once prep ends -- letting a question genuinely model "1
+  /// minute to prepare, then speak for up to 2 minutes" instead of mixing both phases
+  /// into one timer (real IELTS Part 2 specifically tests fluency AFTER limited prep;
+  /// collapsing the phases changes what's being assessed).
+  preparationSeconds     Int?
+  /// Only meaningful for `essay` (2026-09, IELTS Writing support): a soft minimum word
+  /// count shown to the student as a hint (`TakeTestPage.tsx` shows a live word counter
+  /// against it) -- deliberately NOT enforced/blocking, since real IELTS itself doesn't
+  /// reject an under-length submission outright, a human examiner just marks it down.
+  /// `null` (the default) shows no hint at all.
+  essayMinWords          Int?
+  /// Only meaningful for `essay`: which IELTS Writing task this is, if any -- see
+  /// `EssayTaskType`'s doc comment. Purely a label + a suggested `essayMinWords` default
+  /// in the authoring UI; `null` for a non-IELTS essay question.
+  essayTaskType          EssayTaskType?
+  /// Only meaningful for `essay` (2026-09, IELTS Writing band scoring): when `true`,
+  /// grading this essay's `Answer` uses 4 separate 0-9 IELTS band criteria
+  /// (`Answer.essayIeltsTaskScore`/`essayIeltsCoherenceScore`/`essayIeltsLexicalScore`/
+  /// `essayIeltsGrammarScore`) instead of one free-form score -- `Answer.manualScore` is
+  /// still populated (the average of the 4, rounded to the nearest 0.5, real IELTS
+  /// convention) so every existing reader of `manualScore` (`lib/attemptScore.ts`, the
+  /// gradebook, exports, ...) needs NO changes at all. `essayMaxScore` is forced to `9`
+  /// server-side whenever this is `true` (the fixed IELTS band scale), regardless of what
+  /// a client sends -- one source of truth, never an inconsistent max score.
+  essayUseIeltsCriteria  Boolean        @default(false)
+  /// Only meaningful for `fillBlank` (2026-09, IELTS Listening/Reading "no more than N
+  /// words" support): a soft maximum word count shown to the student as a hint/live
+  /// counter (`TakeTestPage.tsx`) -- NOT a separate grading rule. An answer that exceeds
+  /// it will typically already fail the exact-match auto-grading against
+  /// `acceptedAnswers` on its own (a teacher's accepted answers are the short correct
+  /// phrase), so this is purely a self-check aid for the student while they type, same
+  /// non-blocking philosophy as `essayMinWords` above. `null` shows no hint.
+  fillBlankMaxWords      Int?
   choices                Choice[]
   answers                Answer[]
   createdAt              DateTime     @default(now())
@@ -808,6 +868,18 @@ model Answer {
   /// still only count auto-gradable questions) — see `lib/attemptScore.ts` for the model.
   manualScore             Float?
   manualComment           String?
+  /// The 4 IELTS Writing band criteria (2026-09) -- only ever set when the underlying
+  /// `Question.essayUseIeltsCriteria` is `true`, via the same grading endpoint as
+  /// `manualScore` above. Each is a 0-9 band score in 0.5 steps (real IELTS convention).
+  /// `manualScore` itself is ALSO populated whenever these are (as their average,
+  /// rounded to the nearest 0.5, computed server-side) -- these 4 columns exist purely
+  /// so the grading UI can show/restore the individual criteria breakdown; every OTHER
+  /// reader of a score (`lib/attemptScore.ts`, the gradebook, exports, the student result
+  /// page's headline number) keeps reading `manualScore` exactly as before, unchanged.
+  essayIeltsTaskScore      Float?
+  essayIeltsCoherenceScore Float?
+  essayIeltsLexicalScore   Float?
+  essayIeltsGrammarScore   Float?
   /// Speaking (T-052–T-056). `speakingAudioData` is the student's recorded answer,
   /// stored as a base64 `data:` URL (documented local storage convention — no real
   /// cloud/object storage exists in this build, see `attempts.routes.ts`'s module doc

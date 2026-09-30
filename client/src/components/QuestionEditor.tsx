@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import type { QuestionDTO, QuestionType, UpdateQuestionRequest } from '@platform/shared';
+import type { EssayTaskType, QuestionDTO, QuestionType, UpdateQuestionRequest } from '@platform/shared';
+import { IELTS_BAND_MAX } from '@platform/shared';
 import { HoldSave } from '../lib/serialSaver';
 import { useSerialSaver } from '../lib/editorSave';
 import { newUuid } from '../lib/ids';
@@ -40,8 +41,17 @@ interface Draft {
   type: QuestionType;
   choices: ChoiceDraft[];
   acceptedAnswersText: string;
+  /** 2026-09, IELTS "no more than N words" hint (`fillBlank` only). Empty = no hint. */
+  fillBlankMaxWordsText: string;
   essayMaxScoreText: string;
+  /** 2026-09, IELTS Writing support (`essay` only). Empty = no hint/label. */
+  essayMinWordsText: string;
+  essayTaskType: EssayTaskType | '';
+  essayUseIeltsCriteria: boolean;
   allowedResponseSecondsText: string;
+  /** 2026-09, IELTS Speaking Part 2 "cue card" support (`speaking` only). Empty/0 = no
+   * preparation phase. */
+  preparationSecondsText: string;
   promptAudioUrl: string;
 }
 
@@ -74,18 +84,46 @@ function buildBody(draft: Draft, t: TFunction): UpdateQuestionRequest {
       .map((a) => a.trim())
       .filter((a) => a.length > 0);
     if (acceptedAnswers.length === 0) throw new HoldSave(t('questionEditor.hold.acceptedAnswer'));
-    return { type, prompt, acceptedAnswers };
+    // Empty text = no hint (`null`), never held — this field is always optional.
+    const fillBlankMaxWords = draft.fillBlankMaxWordsText.trim() === ''
+      ? null
+      : parseWholeNumber(draft.fillBlankMaxWordsText, 1, 50);
+    return { type, prompt, acceptedAnswers, fillBlankMaxWords };
   }
   if (type === 'essay') {
+    // `essayUseIeltsCriteria` forces the server's own fixed band scale regardless of
+    // what's sent for `essayMaxScore` — sending the current draft value either way keeps
+    // this simple; the server is the single source of truth for what actually gets
+    // stored (see `resolvedEssayMaxScore` server-side).
     const essayMaxScore = parseWholeNumber(draft.essayMaxScoreText, 1, 1000);
     if (essayMaxScore === null) throw new HoldSave(t('questionEditor.hold.essayScore'));
-    return { type, prompt, essayMaxScore };
+    const essayMinWords = draft.essayMinWordsText.trim() === ''
+      ? null
+      : parseWholeNumber(draft.essayMinWordsText, 0, 2000);
+    return {
+      type,
+      prompt,
+      essayMaxScore,
+      essayMinWords,
+      essayTaskType: draft.essayTaskType === '' ? null : draft.essayTaskType,
+      essayUseIeltsCriteria: draft.essayUseIeltsCriteria,
+    };
   }
   if (type === 'speaking') {
     const allowedResponseSeconds = parseWholeNumber(draft.allowedResponseSecondsText, 5, 300);
     if (allowedResponseSeconds === null) throw new HoldSave(t('questionEditor.hold.speakingSeconds'));
+    // Empty text = no preparation phase (`null`), never held — always optional.
+    const preparationSeconds = draft.preparationSecondsText.trim() === ''
+      ? null
+      : parseWholeNumber(draft.preparationSecondsText, 0, 300);
     const url = draft.promptAudioUrl.trim();
-    return { type, prompt, allowedResponseSeconds, promptAudioUrl: url === '' ? null : url };
+    return {
+      type,
+      prompt,
+      allowedResponseSeconds,
+      preparationSeconds,
+      promptAudioUrl: url === '' ? null : url,
+    };
   }
 
   const filled = draft.choices.filter((c) => c.text.trim() !== '');
@@ -106,11 +144,16 @@ function initialDraft(question: QuestionDTO): Draft {
     type: question.type,
     choices: question.choices.map((c) => ({ id: c.id, text: c.text, isCorrect: c.isCorrect })),
     acceptedAnswersText: question.acceptedAnswers.join(', '),
+    fillBlankMaxWordsText: question.fillBlankMaxWords === null ? '' : String(question.fillBlankMaxWords),
     // Essay max score (T-042) defaults to 10 (matches the server's own default) when a question
     // has none yet, e.g. right after switching TO essay from another type.
     essayMaxScoreText: String(question.essayMaxScore ?? 10),
+    essayMinWordsText: question.essayMinWords === null ? '' : String(question.essayMinWords),
+    essayTaskType: question.essayTaskType ?? '',
+    essayUseIeltsCriteria: question.essayUseIeltsCriteria,
     // Speaking (T-052) — response window defaults to 60 seconds; prompt audio is optional.
     allowedResponseSecondsText: String(question.allowedResponseSeconds ?? 60),
+    preparationSecondsText: question.preparationSeconds === null ? '' : String(question.preparationSeconds),
     promptAudioUrl: question.promptAudioUrl ?? '',
   };
 }
@@ -207,7 +250,7 @@ function QuestionEditor({
         { id: newUuid(), text: t('questionEditor.trueLabel'), isCorrect: true },
         { id: newUuid(), text: t('questionEditor.falseLabel'), isCorrect: false },
       ];
-    } else if (newType === 'multipleChoice' && choices.length < 2) {
+    } else if ((newType === 'multipleChoice' || newType === 'matching') && choices.length < 2) {
       choices = ['A', 'B', 'C', 'D'].map((letter, i) => ({
         id: newUuid(),
         text: t('teacherTestEditor.defaultQuestions.option', { letter }),
@@ -216,6 +259,26 @@ function QuestionEditor({
     }
     setUndo(null);
     update({ type: newType, choices }, { immediate: true });
+  }
+
+  /** Adds/removes the 3rd, fixed "Not Given" choice for a `trueFalse` question (2026-09,
+   * IELTS True/False/Not Given support) — same "always a fixed label, never freely
+   * typed" rule as the original True/False pair. Unchecking while "Not Given" happens to
+   * be the marked-correct choice hands correctness back to the first choice, same
+   * "someone must stay correct" rule `removeChoice` already uses for multipleChoice. */
+  function toggleNotGiven(checked: boolean) {
+    const choices = draftRef.current.choices;
+    if (checked) {
+      if (choices.length >= 3) return;
+      const next = [...choices, { id: newUuid(), text: t('questionEditor.notGivenLabel'), isCorrect: false }];
+      update({ choices: next }, { immediate: true });
+    } else {
+      if (choices.length < 3) return;
+      const removed = choices[2];
+      let next = choices.slice(0, 2);
+      if (removed.isCorrect) next = next.map((c, i) => ({ ...c, isCorrect: i === 0 }));
+      update({ choices: next }, { immediate: true });
+    }
   }
 
   function markCorrect(choiceId: string) {
@@ -277,6 +340,7 @@ function QuestionEditor({
     fillBlank: t('questionEditor.types.fillBlank'),
     essay: t('questionEditor.types.essay'),
     speaking: t('questionEditor.types.speaking'),
+    matching: t('questionEditor.types.matching'),
   };
 
   const { type } = draft;
@@ -319,6 +383,7 @@ function QuestionEditor({
             <option value="fillBlank">{t('questionEditor.types.fillBlank')}</option>
             <option value="essay">{t('questionEditor.types.essay')}</option>
             <option value="speaking">{t('questionEditor.types.speaking')}</option>
+            <option value="matching">{t('questionEditor.types.matching')}</option>
           </select>
           <button
             type="button"
@@ -353,35 +418,119 @@ function QuestionEditor({
       </label>
 
       {type === 'fillBlank' ? (
-        <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-          {t('questionEditor.acceptedAnswersLabel')}
-          <input
-            type="text"
-            value={draft.acceptedAnswersText}
-            onChange={(event) => update({ acceptedAnswersText: event.target.value })}
-            onBlur={flush}
-            placeholder={t('questionEditor.acceptedAnswersPlaceholder')}
-            className={inputClass}
-          />
-        </label>
+        <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+            {t('questionEditor.acceptedAnswersLabel')}
+            <input
+              type="text"
+              value={draft.acceptedAnswersText}
+              onChange={(event) => update({ acceptedAnswersText: event.target.value })}
+              onBlur={flush}
+              placeholder={t('questionEditor.acceptedAnswersPlaceholder')}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+            {t('questionEditor.fillBlankMaxWordsLabel')}
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={draft.fillBlankMaxWordsText}
+              onChange={(event) =>
+                update({ fillBlankMaxWordsText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })
+              }
+              onBlur={flush}
+              placeholder={t('questionEditor.fillBlankMaxWordsPlaceholder')}
+              className={`${inputClass} w-32`}
+            />
+            <span className="text-xs font-normal text-base-black/50">{t('questionEditor.fillBlankMaxWordsHint')}</span>
+          </label>
+        </div>
       ) : type === 'essay' ? (
-        <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
-          {t('questionEditor.essayMaxScoreLabel')}
-          <input
-            type="number"
-            min={1}
-            max={1000}
-            value={draft.essayMaxScoreText}
-            onChange={(event) =>
-              update({ essayMaxScoreText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })
-            }
-            onBlur={flush}
-            className={`${inputClass} w-32`}
-          />
-          <span className="text-xs font-normal text-base-black/50">{t('questionEditor.essayHint')}</span>
-        </label>
+        <div className="mt-3 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-3">
+            <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+              {t('questionEditor.essayTaskTypeLabel')}
+              <select
+                value={draft.essayTaskType}
+                onChange={(event) => {
+                  const nextTaskType = event.target.value as EssayTaskType | '';
+                  // A convenience default, not a hard rule — picking a task suggests the
+                  // real IELTS minimum word count, but the teacher can still change it.
+                  const suggestedMinWords = nextTaskType === 'task1' ? '150' : nextTaskType === 'task2' ? '250' : draft.essayMinWordsText;
+                  update({ essayTaskType: nextTaskType, essayMinWordsText: suggestedMinWords }, { immediate: true });
+                }}
+                className={`${inputClass} w-40`}
+              >
+                <option value="">{t('questionEditor.essayTaskTypeNone')}</option>
+                <option value="task1">{t('questionEditor.essayTaskTypeTask1')}</option>
+                <option value="task2">{t('questionEditor.essayTaskTypeTask2')}</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+              {t('questionEditor.essayMinWordsLabel')}
+              <input
+                type="number"
+                min={0}
+                max={2000}
+                value={draft.essayMinWordsText}
+                onChange={(event) =>
+                  update({ essayMinWordsText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })
+                }
+                onBlur={flush}
+                placeholder={t('questionEditor.essayMinWordsPlaceholder')}
+                className={`${inputClass} w-32`}
+              />
+            </label>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+            <input
+              type="checkbox"
+              checked={draft.essayUseIeltsCriteria}
+              onChange={(event) => update({ essayUseIeltsCriteria: event.target.checked }, { immediate: true })}
+              className="h-5 w-5"
+            />
+            {t('questionEditor.essayUseIeltsCriteriaLabel')}
+          </label>
+          {draft.essayUseIeltsCriteria ? (
+            <p className="text-xs font-normal text-base-black/50">{t('questionEditor.essayIeltsCriteriaHint', { max: IELTS_BAND_MAX })}</p>
+          ) : (
+            <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+              {t('questionEditor.essayMaxScoreLabel')}
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={draft.essayMaxScoreText}
+                onChange={(event) =>
+                  update({ essayMaxScoreText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })
+                }
+                onBlur={flush}
+                className={`${inputClass} w-32`}
+              />
+              <span className="text-xs font-normal text-base-black/50">{t('questionEditor.essayHint')}</span>
+            </label>
+          )}
+        </div>
       ) : type === 'speaking' ? (
         <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+            {t('questionEditor.speakingPreparationTimeLabel')}
+            <input
+              type="number"
+              min={0}
+              max={300}
+              value={draft.preparationSecondsText}
+              onChange={(event) =>
+                update({ preparationSecondsText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })
+              }
+              onBlur={flush}
+              placeholder={t('questionEditor.speakingPreparationTimePlaceholder')}
+              className={`${inputClass} w-32`}
+            />
+            <span className="text-xs font-normal text-base-black/50">{t('questionEditor.speakingPreparationTimeHint')}</span>
+          </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('questionEditor.speakingResponseTimeLabel')}
             <input
@@ -413,6 +562,17 @@ function QuestionEditor({
         <div className="mt-3 flex flex-col gap-2">
           <span className="text-sm font-medium text-base-black">{t('questionEditor.choicesLabel')}</span>
           <p className="text-sm font-semibold text-green-800">{t('questionEditor.pickCorrectHint')}</p>
+          {type === 'trueFalse' && (
+            <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+              <input
+                type="checkbox"
+                checked={draft.choices.length === 3}
+                onChange={(event) => toggleNotGiven(event.target.checked)}
+                className="h-5 w-5"
+              />
+              {t('questionEditor.trueFalseNotGivenLabel')}
+            </label>
+          )}
           <div role="radiogroup" aria-label={t('questionEditor.choicesLabel')} className="flex flex-col gap-2">
             {draft.choices.map((choice, choiceIndex) => (
               <div
@@ -455,7 +615,7 @@ function QuestionEditor({
                       {t('questionEditor.correctPill')}
                     </span>
                   )}
-                  {type === 'multipleChoice' && draft.choices.length > 2 && (
+                  {(type === 'multipleChoice' || type === 'matching') && draft.choices.length > 2 && (
                     <button
                       type="button"
                       onClick={() => removeChoice(choice.id)}
@@ -469,12 +629,12 @@ function QuestionEditor({
               </div>
             ))}
           </div>
-          {hasEmptyChoice && type === 'multipleChoice' && (
+          {hasEmptyChoice && (type === 'multipleChoice' || type === 'matching') && (
             <p className="text-xs text-amber-800" data-testid="empty-choice-hint">
               {t('questionEditor.emptyChoiceHint')}
             </p>
           )}
-          {type === 'multipleChoice' && (
+          {(type === 'multipleChoice' || type === 'matching') && (
             <button
               type="button"
               onClick={addChoice}

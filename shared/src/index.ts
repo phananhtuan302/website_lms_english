@@ -90,9 +90,15 @@ export interface AuthTokenPayload {
 // Shared shapes for the teacher test-authoring API. Mirrors `server/prisma/schema.prisma`
 // (Test/Section/Question/Choice) but as plain DTOs, never the Prisma model directly.
 
-/** Matches the Prisma `QuestionType` enum (T-007, extended by T-042 with `essay`) — kept
- * as a literal union here since Prisma enums can't be imported into client code. */
-export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank' | 'essay' | 'speaking';
+/** Matches the Prisma `QuestionType` enum (T-007, extended by T-042 with `essay`, and by
+ * the 2026-09 IELTS-authoring work with `matching`) — kept as a literal union here since
+ * Prisma enums can't be imported into client code. */
+export type QuestionType = 'multipleChoice' | 'trueFalse' | 'fillBlank' | 'essay' | 'speaking' | 'matching';
+
+/** Matches the Prisma `EssayTaskType` enum (2026-09, IELTS Writing support) — same
+ * "string union, Prisma enums can't be imported into client code" convention as
+ * `QuestionType` above. `null` (not part of this union) means "not an IELTS task". */
+export type EssayTaskType = 'task1' | 'task2';
 
 /** Matches the Prisma `TestType` enum (T-036/T-038, Assumption A4) — same "string union,
  * Prisma enums can't be imported into client code" convention as `QuestionType` above.
@@ -120,6 +126,13 @@ export const TEST_TYPE_LABELS: Record<TestType, string> = {
  * override (`manualScore`, T-055) live on this same scale. */
 export const SPEAKING_SCORE_SCALE = 100;
 
+/** The fixed IELTS Writing band scale (2026-09) — an essay question with
+ * `essayUseIeltsCriteria: true` is always graded out of this many points (forced
+ * server-side regardless of `essayMaxScore`), and each of its 4 individual criteria is a
+ * band score on this same 0-N scale, in 0.5 steps (real IELTS convention). Shared so the
+ * grading UI's inputs and the server's validation always agree on the range. */
+export const IELTS_BAND_MAX = 9;
+
 export interface ChoiceDTO {
   id: string;
   text: string;
@@ -134,15 +147,36 @@ export interface QuestionDTO {
   order: number;
   /** Only meaningful for `fillBlank`; empty array for the other types. */
   acceptedAnswers: string[];
-  /** Only meaningful for `multipleChoice`/`trueFalse`; empty array for `fillBlank`. */
+  /** Only meaningful for `multipleChoice`/`trueFalse`/`matching`; empty array for
+   * `fillBlank`/`essay`/`speaking`. */
   choices: ChoiceDTO[];
   /** Only meaningful for `essay` (T-042) — the point value a teacher grades this essay
-   * out of. `null` for every other type. */
+   * out of. `null` for every other type. Forced to `9` server-side whenever
+   * `essayUseIeltsCriteria` is `true` (see that field below). */
   essayMaxScore: number | null;
+  /** Only meaningful for `essay` (2026-09, IELTS Writing) — a soft minimum word count
+   * shown to the student as a non-blocking hint. `null` for every other type or when not
+   * configured. */
+  essayMinWords: number | null;
+  /** Only meaningful for `essay` — which IELTS Writing task this is, if any; see
+   * `EssayTaskType`. `null` for every other type or when not an IELTS task. */
+  essayTaskType: EssayTaskType | null;
+  /** Only meaningful for `essay` (2026-09) — when `true`, grading this question's
+   * answers uses 4 separate IELTS band criteria instead of one free-form score. See
+   * `Answer`'s Prisma doc comment for the full model. */
+  essayUseIeltsCriteria: boolean;
+  /** Only meaningful for `fillBlank` (2026-09, IELTS "no more than N words" support) — a
+   * soft maximum word count shown to the student as a non-blocking hint. `null` for
+   * every other type or when not configured. */
+  fillBlankMaxWords: number | null;
   /** Only meaningful for `speaking` (T-052) — seconds allowed to respond once the
    * student reaches this question, enforced client-side by a visible countdown
    * (`TakeTestPage.tsx`). `null` for every other type. */
   allowedResponseSeconds: number | null;
+  /** Only meaningful for `speaking` (2026-09, IELTS Speaking Part 2 "cue card" support) —
+   * a silent preparation window before the response window starts. `null`/`0` means no
+   * prep phase. `null` for every other type. */
+  preparationSeconds: number | null;
   /** Only meaningful for `speaking` (T-052) — an optional audio clip for the prompt
    * itself, independent of the text `prompt` above. `null` for every other type or when
    * not configured. */
@@ -282,16 +316,32 @@ export interface ChoiceInput {
 export interface CreateQuestionRequest {
   type: QuestionType;
   prompt: string;
-  /** Required (non-empty) for multipleChoice/trueFalse, ignored for fillBlank/essay. */
+  /** Required (non-empty) for multipleChoice/trueFalse/matching, ignored otherwise. */
   choices?: ChoiceInput[];
   /** Required (non-empty) for fillBlank, ignored otherwise. */
   acceptedAnswers?: string[];
   /** Only meaningful for `essay` (T-042). Omitted defaults to 10 server-side; ignored
-   * for every other type. */
+   * for every other type. Forced to `9` server-side whenever `essayUseIeltsCriteria` is
+   * `true`, regardless of what's sent here. */
   essayMaxScore?: number | null;
+  /** Only meaningful for `essay` (2026-09). Omitted/`null` shows no hint. Ignored for
+   * every other type. */
+  essayMinWords?: number | null;
+  /** Only meaningful for `essay` (2026-09). Omitted/`null` means "not an IELTS task".
+   * Ignored for every other type. */
+  essayTaskType?: EssayTaskType | null;
+  /** Only meaningful for `essay` (2026-09). Omitted defaults to `false` server-side.
+   * Ignored for every other type. */
+  essayUseIeltsCriteria?: boolean;
+  /** Only meaningful for `fillBlank` (2026-09). Omitted/`null` shows no hint. Ignored
+   * for every other type. */
+  fillBlankMaxWords?: number | null;
   /** Only meaningful for `speaking` (T-052). Omitted defaults to 60 seconds
    * server-side; ignored for every other type. */
   allowedResponseSeconds?: number | null;
+  /** Only meaningful for `speaking` (2026-09). Omitted/`null`/`0` means no preparation
+   * phase. Ignored for every other type. */
+  preparationSeconds?: number | null;
   /** Only meaningful for `speaking` (T-052). Optional even for a speaking question — a
    * Speaking question may be text-prompt-only. Ignored for every other type. */
   promptAudioUrl?: string | null;
@@ -399,9 +449,21 @@ export interface AttemptQuestionDTO {
   choices: Array<{ id: string; text: string }>;
   /** Only meaningful for `essay` (T-042) — shown to the student as "out of N points". */
   essayMaxScore: number | null;
+  /** Only meaningful for `essay` — see `QuestionDTO`'s doc comment. `null` for every
+   * other type or when not configured. */
+  essayMinWords: number | null;
+  /** Only meaningful for `essay` — see `QuestionDTO`'s doc comment. `null` for every
+   * other type or when not an IELTS task. */
+  essayTaskType: EssayTaskType | null;
+  /** Only meaningful for `fillBlank` — see `QuestionDTO`'s doc comment. `null` for
+   * every other type or when not configured. */
+  fillBlankMaxWords: number | null;
   /** Only meaningful for `speaking` (T-052) — see `QuestionDTO`'s doc comment. `null`
    * for every other type. */
   allowedResponseSeconds: number | null;
+  /** Only meaningful for `speaking` — see `QuestionDTO`'s doc comment. `null`/`0` means
+   * no preparation phase. `null` for every other type. */
+  preparationSeconds: number | null;
   promptAudioUrl: string | null;
 }
 
@@ -500,13 +562,33 @@ export interface AttemptResultQuestionDTO {
    * Phase 15 a graded essay/speaking score is part of `AttemptResultDTO.scorePercent`
    * (worth `essayMaxScore` / `SPEAKING_SCORE_SCALE` points — `server/src/lib/attemptScore.ts`). */
   essayMaxScore: number | null;
+  /** Only meaningful for `essay` — see `QuestionDTO`'s doc comment. `null` for every
+   * other type or when not configured/not an IELTS task. */
+  essayMinWords: number | null;
+  essayTaskType: EssayTaskType | null;
+  /** Only meaningful for `essay` — see `QuestionDTO`'s doc comment. When `true`, this
+   * essay is graded via the 4 `essayIelts*Score` fields below instead of a free-form
+   * `manualScore`; `manualScore` is still populated (their average) for every other
+   * reader of a score. */
+  essayUseIeltsCriteria: boolean;
+  /** Only meaningful for `fillBlank` — see `QuestionDTO`'s doc comment. */
+  fillBlankMaxWords: number | null;
   /** Teacher-set override (T-042 essay, T-055 speaking) — wins once present over the
    * respective auto/AI value for both display and reporting purposes. */
   manualScore: number | null;
   manualComment: string | null;
+  /** The 4 IELTS Writing band criteria (2026-09) — only ever non-null when
+   * `essayUseIeltsCriteria` is `true` and the teacher has graded this answer; each is a
+   * 0-9 band score in 0.5 steps. `manualScore` above is their average, already rounded. */
+  essayIeltsTaskScore: number | null;
+  essayIeltsCoherenceScore: number | null;
+  essayIeltsLexicalScore: number | null;
+  essayIeltsGrammarScore: number | null;
   /** Speaking (T-052–T-056) — see `Question.allowedResponseSeconds`/`promptAudioUrl`'s
    * doc comments in schema.prisma; both `null` for a non-`speaking` question. */
   allowedResponseSeconds: number | null;
+  /** Only meaningful for `speaking` — see `QuestionDTO`'s doc comment. */
+  preparationSeconds: number | null;
   promptAudioUrl: string | null;
   /** The student's recorded answer, as a base64 `data:` URL (documented local storage
    * convention, see `attempts.routes.ts`'s module doc comment), and the client-generated
@@ -587,10 +669,27 @@ export type AttemptResultResponseDTO = AttemptResultDTO | AttemptResultPendingDT
 
 // --- Manual essay grading (T-042) ---------------------------------------------------
 
-/** Body for `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`. `score`
- * must be between 0 and the question's `essayMaxScore`; `comment` is optional. */
+/** The 4 IELTS Writing band criteria (2026-09), each a 0-9 band score in 0.5 steps. */
+export interface IeltsCriteriaScores {
+  taskScore: number;
+  coherenceScore: number;
+  lexicalScore: number;
+  grammarScore: number;
+}
+
+/** Body for `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade`.
+ *
+ * Exactly one of `score` or `ieltsCriteria` is meaningful, chosen by the QUESTION's own
+ * `essayUseIeltsCriteria` flag (validated server-side against the real question, never
+ * trusted from the client): a plain essay/speaking question takes `score` (0 to the
+ * question's `essayMaxScore`, or `SPEAKING_SCORE_SCALE` for speaking) exactly as
+ * before; an IELTS-criteria essay takes `ieltsCriteria` instead — the server computes
+ * `score` itself as their average, rounded to the nearest 0.5 (real IELTS convention),
+ * so a client can never submit a `score` that doesn't match its own criteria. `comment`
+ * is optional either way. */
 export interface GradeEssayAnswerRequest {
-  score: number;
+  score?: number;
+  ieltsCriteria?: IeltsCriteriaScores;
   comment?: string | null;
 }
 
@@ -2694,6 +2793,9 @@ export interface GradeEssayAnswerResponse {
   questionId: string;
   manualScore: number;
   manualComment: string | null;
+  /** Echoes what was actually stored — `null` unless this question uses IELTS criteria
+   * grading (see `GradeEssayAnswerRequest`'s doc comment). */
+  ieltsCriteria: IeltsCriteriaScores | null;
   scorePercent: number;
   provisional: boolean;
   ungradedCount: number;

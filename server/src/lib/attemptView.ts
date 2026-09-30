@@ -40,9 +40,15 @@ interface QuestionRow {
   acceptedAnswers: string[];
   /** Only meaningful for `essay` (T-042) — see `Question.essayMaxScore`'s doc comment. */
   essayMaxScore: number | null;
+  essayMinWords: number | null;
+  essayTaskType: 'task1' | 'task2' | null;
+  essayUseIeltsCriteria: boolean;
+  /** Only meaningful for `fillBlank` — see `Question.fillBlankMaxWords`'s doc comment. */
+  fillBlankMaxWords: number | null;
   /** Only meaningful for `speaking` (T-052) — see `Question.allowedResponseSeconds`/
    * `promptAudioUrl`'s doc comments in schema.prisma. */
   allowedResponseSeconds: number | null;
+  preparationSeconds: number | null;
   promptAudioUrl: string | null;
   choices: ChoiceRow[];
 }
@@ -110,7 +116,11 @@ export function buildRuntimeSections(
           order: questionIndex + 1,
           choices,
           essayMaxScore: question.essayMaxScore,
+          essayMinWords: question.essayMinWords,
+          essayTaskType: question.essayTaskType,
+          fillBlankMaxWords: question.fillBlankMaxWords,
           allowedResponseSeconds: question.allowedResponseSeconds,
+          preparationSeconds: question.preparationSeconds,
           promptAudioUrl: question.promptAudioUrl,
         };
       }),
@@ -139,6 +149,10 @@ export function buildResultQuestions(
       isCorrect: boolean | null;
       manualScore?: number | null;
       manualComment?: string | null;
+      essayIeltsTaskScore?: number | null;
+      essayIeltsCoherenceScore?: number | null;
+      essayIeltsLexicalScore?: number | null;
+      essayIeltsGrammarScore?: number | null;
       speakingAudioData?: string | null;
       speakingTranscript?: string | null;
       speakingAiScore?: number | null;
@@ -159,9 +173,18 @@ export function buildResultQuestions(
       textAnswer: answer?.textAnswer ?? null,
       isCorrect: answer?.isCorrect ?? null,
       essayMaxScore: question.essayMaxScore,
+      essayMinWords: question.essayMinWords,
+      essayTaskType: question.essayTaskType,
+      essayUseIeltsCriteria: question.essayUseIeltsCriteria,
+      fillBlankMaxWords: question.fillBlankMaxWords,
       manualScore: answer?.manualScore ?? null,
       manualComment: answer?.manualComment ?? null,
+      essayIeltsTaskScore: answer?.essayIeltsTaskScore ?? null,
+      essayIeltsCoherenceScore: answer?.essayIeltsCoherenceScore ?? null,
+      essayIeltsLexicalScore: answer?.essayIeltsLexicalScore ?? null,
+      essayIeltsGrammarScore: answer?.essayIeltsGrammarScore ?? null,
       allowedResponseSeconds: question.allowedResponseSeconds,
+      preparationSeconds: question.preparationSeconds,
       promptAudioUrl: question.promptAudioUrl,
       speakingAudioData: answer?.speakingAudioData ?? null,
       speakingTranscript: answer?.speakingTranscript ?? null,

@@ -471,9 +471,16 @@
     "essayPlaceholder": "Nhập câu trả lời của em vào đây (không thể dán — em tự gõ câu trả lời nhé).",
     "essayGradedManually": "Được giáo viên chấm điểm thủ công, thang điểm tối đa {{points}} điểm.",
     "essayCopyPasteDisabled": "Chức năng sao chép/dán đã bị vô hiệu hóa ở ô này.",
+    "essayWordCount": "{{count}}/{{min}} từ (gợi ý số từ tối thiểu)",
+    "essayTaskType": {
+      "task1": "Task 1",
+      "task2": "Task 2"
+    },
     "pasteBlocked": "Không được phép dán vào câu trả lời này. Em tự gõ câu trả lời của em nhé.",
     "copyBlocked": "Không được phép sao chép nội dung ra khỏi câu trả lời này.",
     "fillBlankPlaceholder": "Nhập câu trả lời của em",
+    "fillBlankWordCount": "{{count}}/{{max}} từ",
+    "speakingPreparingTimeLeft": "Thời gian chuẩn bị còn lại: {{time}}",
     "speakingTimeLeft": "Thời gian còn lại để trả lời: {{time}}",
     "speakingSubmittedNotice": "Câu trả lời Nói của em đã được ghi âm và nộp. Em không thể ghi âm lại — em có thể xem điểm số và nhận xét cuối cùng ở trang kết quả của bài kiểm tra này sau khi bài được nộp.",
     "speakingExpiredNotice": "Đã hết thời gian trả lời câu hỏi Nói này. Em không thể ghi âm cho câu này nữa — hãy tiếp tục với các câu hỏi khác.",
@@ -672,7 +679,7 @@
   "scoring": {
     "provisional": {"chip_one":"Tạm tính — còn {{count}} bài viết chưa chấm","chip_other":"Tạm tính — còn {{count}} bài viết chưa chấm","short":"tạm tính","studentChip":"Điểm tạm tính","studentNote_one":"Giáo viên chưa chấm xong {{count}} bài viết của em, nên điểm này có thể còn thay đổi.","studentNote_other":"Giáo viên chưa chấm xong {{count}} bài viết của em, nên điểm này có thể còn thay đổi."},
     "detail": {"headline":"Điểm: {{score}}/10"},
-    "grade": {"saved":"Đã lưu điểm của {{name}}: {{score}}/{{max}}.","saveAndNext":"Lưu và chấm bài kế tiếp","scoreEmpty":"Hãy nhập điểm, từ 0 đến {{max}}.","scoreInvalid":"Điểm phải là một con số, ví dụ 4 hoặc 4,5.","scoreRange":"Điểm phải từ 0 đến {{max}}.","moreInThisAttempt_one":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","moreInThisAttempt_other":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","allDoneTitle":"Đã chấm xong tất cả bài viết của lớp 🎉","allDoneHint":"Không còn bài viết nào đang chờ chấm.","allDoneAllClassesTitle":"Đã chấm xong tất cả bài viết của MỌI lớp đã giao bài này 🎉","allDoneAllClassesHint":"Không còn bài viết nào đang chờ chấm, ở bất kỳ lớp nào.","crossedIntoClass":"Đã chuyển sang lớp {{className}} — vẫn còn bài viết chưa chấm ở đây.","backToClass":"Về trang lớp","nextFailed":"Đã lưu điểm, nhưng chưa tìm được bài kế tiếp. Hãy bấm Quay lại để chọn bài khác.","prevStudent":"← Học sinh trước","nextStudent":"Học sinh sau →","studentPosition":"Học sinh {{position}}/{{total}}"},
+    "grade": {"saved":"Đã lưu điểm của {{name}}: {{score}}/{{max}}.","savedIelts":"Đã lưu điểm của {{name}}: {{score}}/9 (trung bình 4 tiêu chí).","saveAndNext":"Lưu và chấm bài kế tiếp","scoreEmpty":"Hãy nhập điểm, từ 0 đến {{max}}.","scoreInvalid":"Điểm phải là một con số, ví dụ 4 hoặc 4,5.","scoreRange":"Điểm phải từ 0 đến {{max}}.","ieltsCriteriaInvalid":"Hãy nhập đủ 4 tiêu chí, mỗi tiêu chí là số từ 0 đến {{max}}, theo bước 0,5 (VD: 6 hoặc 6,5).","moreInThisAttempt_one":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","moreInThisAttempt_other":"Đã lưu. Bài này còn {{count}} câu viết chưa chấm.","allDoneTitle":"Đã chấm xong tất cả bài viết của lớp 🎉","allDoneHint":"Không còn bài viết nào đang chờ chấm.","allDoneAllClassesTitle":"Đã chấm xong tất cả bài viết của MỌI lớp đã giao bài này 🎉","allDoneAllClassesHint":"Không còn bài viết nào đang chờ chấm, ở bất kỳ lớp nào.","crossedIntoClass":"Đã chuyển sang lớp {{className}} — vẫn còn bài viết chưa chấm ở đây.","backToClass":"Về trang lớp","nextFailed":"Đã lưu điểm, nhưng chưa tìm được bài kế tiếp. Hãy bấm Quay lại để chọn bài khác.","prevStudent":"← Học sinh trước","nextStudent":"Học sinh sau →","studentPosition":"Học sinh {{position}}/{{total}}"},
     "gradebook": {"scaleNote":"Điểm tính trên thang điểm 10.","legend":"* Điểm tạm tính: bài còn phần viết chưa chấm.","cellTitleProvisional":"{{correct}}/{{total}} câu đúng · tạm tính, còn {{count}} bài viết chưa chấm — bấm để xem bài làm"},
     "download": {"done":"Đã tải \"{{fileName}}\". Mở trong thư mục Tải xuống của trình duyệt."},
     "excel": {"title":"BẢNG ĐIỂM","classLine":"Lớp: {{className}}","semesterLine":"Học kỳ: {{semester}}","noSemester":"chưa chọn","exportDate":"Ngày xuất: {{date}}","scaleLine":"Thang điểm: 10","stt":"STT","student":"Họ và tên","average":"Điểm trung bình","notSubmitted":"Chưa nộp","note":"Ghi chú","provisionalNote":"Tạm tính (còn bài viết chưa chấm)","statusRow":"Trạng thái điểm","released":"Đã cho xem","notReleased":"Chưa cho xem","classAverage":"Trung bình cả lớp"},
@@ -752,6 +759,14 @@
     "noAnswerSubmitted": "(chưa nộp câu trả lời)",
     "teacherCommentLine": "Nhận xét của giáo viên: {{comment}}",
     "essayNotGradedYet": "Giáo viên chưa chấm bài luận này.",
+    "essayTaskType": {
+      "task1": "Task 1",
+      "task2": "Task 2"
+    },
+    "ieltsTaskLabel": "Task Achievement/Response: {{score}}",
+    "ieltsCoherenceLabel": "Coherence & Cohesion: {{score}}",
+    "ieltsLexicalLabel": "Lexical Resource: {{score}}",
+    "ieltsGrammarLabel": "Grammatical Range & Accuracy: {{score}}",
     "noRecordingSubmitted": "(em chưa nộp bản ghi âm cho câu hỏi này)",
     "teacherFeedbackLine": "Nhận xét của giáo viên: {{feedback}}",
     "feedbackLine": "Nhận xét: {{feedback}}",
@@ -784,6 +799,12 @@
     "incorrect": "Sai",
     "noAnswerSubmitted": "(chưa nộp câu trả lời)",
     "scoreOutOf": "Điểm (trên {{max}})",
+    "ieltsTaskLabel": "Task Achievement/Response",
+    "ieltsCoherenceLabel": "Coherence & Cohesion",
+    "ieltsLexicalLabel": "Lexical Resource",
+    "ieltsGrammarLabel": "Grammatical Range & Accuracy",
+    "ieltsBandPlaceholder": "0-{{max}}, bước 0,5",
+    "ieltsAveragePreview": "Điểm trung bình (làm tròn 0,5): {{average}}",
     "commentOptional": "Nhận xét (không bắt buộc)",
     "feedbackPlaceholder": "Nhận xét dành cho học sinh",
     "saving": "Đang lưu...",
@@ -1000,7 +1021,8 @@
       "trueFalse": "Đúng / Sai",
       "fillBlank": "Điền vào chỗ trống",
       "essay": "Tự luận",
-      "speaking": "Nói"
+      "speaking": "Nói",
+      "matching": "Ghép nối"
     }
   },
   "studentVocabExercise": {
@@ -1388,7 +1410,9 @@
       "essayPrompt": "Câu hỏi tự luận mới",
       "speakingPrompt": "Câu hỏi nói mới",
       "multipleChoicePrompt": "Câu hỏi trắc nghiệm mới",
-      "option": "Lựa chọn {{letter}}"
+      "option": "Lựa chọn {{letter}}",
+      "matchingPrompt": "Ghép đoạn văn này với tiêu đề đúng",
+      "matchingOption": "Tiêu đề {{label}}"
     },
     "testTypes": {
       "generic": "Chung",
@@ -1406,6 +1430,14 @@
       "testTypeLabel": "Loại bài kiểm tra",
       "publishedLabel": "Đã xuất bản (học sinh chỉ thấy Kiểm tra Unit khi đã xuất bản)",
       "viewUnitLeaderboard": "Xem bảng xếp hạng của Unit này →"
+    },
+    "mockScaffold": {
+      "hint": "Đây là bài \"Thi thử\" — bạn có thể dựng sẵn khung 4 kỹ năng (Nghe, Đọc, Viết, Nói) để bắt đầu nhanh hơn, hoặc tự thêm nhóm câu bên dưới.",
+      "button": "Dựng khung 4 kỹ năng mẫu",
+      "listeningTitle": "Nghe",
+      "readingTitle": "Đọc",
+      "writingTitle": "Viết",
+      "speakingTitle": "Nói"
     },
     "sections": {
       "heading": "Các nhóm câu & câu hỏi",
@@ -1429,6 +1461,7 @@
       "addFillBlank": "+ Điền vào chỗ trống",
       "addEssay": "+ Tự luận (Viết)",
       "addSpeaking": "+ Nói",
+      "addMatching": "+ Ghép nối",
       "newSectionTitleLabel": "Tên nhóm câu mới",
       "newSectionTitlePlaceholder": "VD: Đọc hiểu",
       "addSection": "Thêm nhóm câu",
@@ -1552,13 +1585,29 @@
     "promptLabel": "Nội dung câu hỏi",
     "acceptedAnswersLabel": "Đáp án được chấp nhận (phân cách bằng dấu phẩy)",
     "acceptedAnswersPlaceholder": "VD: Paris, paris",
+    "fillBlankMaxWordsLabel": "Giới hạn số từ tối đa (không bắt buộc)",
+    "fillBlankMaxWordsPlaceholder": "VD: 2",
+    "fillBlankMaxWordsHint": "Chỉ là gợi ý hiển thị cho học sinh (kiểu IELTS \"không quá 2 từ\") — không tự động chặn khi vượt giới hạn.",
+    "essayTaskTypeLabel": "Dạng bài (IELTS Writing)",
+    "essayTaskTypeNone": "Không thuộc dạng nào",
+    "essayTaskTypeTask1": "Task 1 (mô tả biểu đồ/thư)",
+    "essayTaskTypeTask2": "Task 2 (bài luận)",
+    "essayMinWordsLabel": "Số từ tối thiểu (gợi ý)",
+    "essayMinWordsPlaceholder": "VD: 150",
     "essayMaxScoreLabel": "Điểm tối đa (giáo viên chấm thủ công trên thang điểm này)",
     "essayHint": "Học sinh nộp bài dạng văn bản tự do; loại câu hỏi này không có lựa chọn hay đáp án được chấm tự động.",
+    "essayUseIeltsCriteriaLabel": "Chấm theo 4 tiêu chí IELTS (Task/Coherence/Lexical/Grammar) thay vì 1 điểm duy nhất",
+    "essayIeltsCriteriaHint": "Giáo viên sẽ chấm 4 tiêu chí riêng, mỗi tiêu chí theo thang điểm 0-{{max}}; điểm tổng là trung bình cộng, làm tròn đến 0,5.",
+    "speakingPreparationTimeLabel": "Thời gian chuẩn bị trước khi nói (giây, không bắt buộc)",
+    "speakingPreparationTimePlaceholder": "VD: 60 (để trống nếu không cần chuẩn bị)",
+    "speakingPreparationTimeHint": "Kiểu IELTS Speaking Part 2: học sinh có khoảng thời gian im lặng để chuẩn bị trước, sau đó mới bắt đầu tính giờ trả lời/ghi âm.",
     "speakingResponseTimeLabel": "Thời gian trả lời cho phép (giây)",
     "speakingPromptAudioLabel": "URL âm thanh đề bài (không bắt buộc)",
     "speakingPromptAudioPlaceholder": "https://... (để trống nếu chỉ dùng đề bài dạng văn bản)",
     "speakingHint": "Học sinh ghi âm câu trả lời trực tiếp trên trình duyệt trong thời gian cho phép, và câu trả lời được chấm điểm tự động (chấm bằng AI giả lập) — bạn có thể xem lại và điều chỉnh điểm sau đó từ trang chi tiết lượt làm bài.",
     "choicesLabel": "Các lựa chọn trả lời",
+    "trueFalseNotGivenLabel": "Thêm lựa chọn \"Không có thông tin\" (Not Given)",
+    "notGivenLabel": "Không có thông tin",
     "markCorrectAriaLabel": "Đánh dấu lựa chọn {{number}} là đáp án đúng",
     "removeChoiceAriaLabel": "Xóa lựa chọn {{number}}",
     "removeButton": "Xóa",
@@ -1568,7 +1617,8 @@
       "trueFalse": "Đúng / Sai",
       "fillBlank": "Điền vào chỗ trống",
       "essay": "Tự luận (Viết)",
-      "speaking": "Nói"
+      "speaking": "Nói",
+      "matching": "Ghép nối"
     },
     "pickCorrectHint": "Bấm vào ô tròn để chọn đáp án đúng",
     "freshDefaultBanner": "Câu hỏi này vẫn dùng nội dung mẫu — hãy sửa câu hỏi và kiểm tra lại đáp án đúng trước khi giao bài.",
@@ -1629,6 +1679,10 @@
     "timeLimit": "Thời gian làm bài: {{minutes}} phút",
     "essayPlaceholder": "Học sinh sẽ gõ câu trả lời ở đây.",
     "speakingNote": "Học sinh sẽ bấm ghi âm và nói trong {{seconds}} giây. Bản xem thử không ghi âm.",
+    "speakingPreparationNote": "Trước đó, học sinh có {{seconds}} giây chuẩn bị (không ghi âm được trong lúc này).",
+    "essayMinWordsNote": "Gợi ý số từ tối thiểu: {{min}} từ.",
+    "essayIeltsCriteriaNote": "Giáo viên sẽ chấm theo 4 tiêu chí IELTS (thang điểm 0-9), không phải 1 điểm duy nhất.",
+    "fillBlankMaxWordsNote": "Gợi ý: không quá {{max}} từ.",
     "submitDisabled": "Đây là bản xem thử nên nút Nộp bài không hoạt động."
   },
   "assignTestDialog": {

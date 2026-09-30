@@ -335,6 +335,9 @@ function TestSectionEditor({
         <button type="button" onClick={() => onAddQuestion('speaking')} className={addButtonClass}>
           {t('teacherTestEditor.sections.addSpeaking')}
         </button>
+        <button type="button" onClick={() => onAddQuestion('matching')} className={addButtonClass}>
+          {t('teacherTestEditor.sections.addMatching')}
+        </button>
       </div>
     </div>
   );

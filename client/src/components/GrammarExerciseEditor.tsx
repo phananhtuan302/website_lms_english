@@ -114,16 +114,18 @@ function GrammarExerciseEditor({ exercise, index, onSave, onDelete }: GrammarExe
     void save({ type, prompt, choices: next });
   }
 
-  // `essay`/`speaking` are included only so this map stays exhaustive against the full
-  // shared `QuestionType` union — Grammar practice exercises are objective-only, so
-  // neither is ever actually offered by this editor's type dropdown below (see this
-  // component's/`teacherGrammar.routes.ts`'s validation, which rejects both server-side).
+  // `essay`/`speaking`/`matching` are included only so this map stays exhaustive against
+  // the full shared `QuestionType` union — Grammar practice exercises are objective-only
+  // multiple-choice/true-false/fill-blank, so none of the three is ever actually offered
+  // by this editor's type dropdown below (see this component's/`teacherGrammar.routes.ts`'s
+  // validation, which rejects all three server-side).
   const typeLabel: Record<QuestionType, string> = {
     multipleChoice: t('grammarExerciseEditor.typeLabel.multipleChoice'),
     trueFalse: t('grammarExerciseEditor.typeLabel.trueFalse'),
     fillBlank: t('grammarExerciseEditor.typeLabel.fillBlank'),
     essay: t('grammarExerciseEditor.typeLabel.essay'),
     speaking: t('grammarExerciseEditor.typeLabel.speaking'),
+    matching: t('grammarExerciseEditor.typeLabel.matching'),
   };
 
   return (

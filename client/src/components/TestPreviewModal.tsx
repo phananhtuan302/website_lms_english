@@ -220,6 +220,11 @@ function TestPreviewModal({ testId, onClose }: TestPreviewModalProps) {
 
                   {active.question.type === 'essay' ? (
                     <div className="mt-4">
+                      {active.question.essayTaskType && (
+                        <span className="mb-2 inline-block rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+                          {t(`takeTest.essayTaskType.${active.question.essayTaskType}`)}
+                        </span>
+                      )}
                       <textarea
                         value={answers[active.question.id]?.text ?? ''}
                         onChange={(event) => setAnswer(active.question.id, { text: event.target.value })}
@@ -227,20 +232,38 @@ function TestPreviewModal({ testId, onClose }: TestPreviewModalProps) {
                         placeholder={t('testPreview.essayPlaceholder')}
                         className="w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                       />
-                      {active.question.essayMaxScore != null && (
+                      {active.question.essayMinWords != null && (
                         <p className="mt-1 text-xs text-base-black/50">
-                          {t('takeTest.essayGradedManually', { points: active.question.essayMaxScore })}
+                          {t('testPreview.essayMinWordsNote', { min: active.question.essayMinWords })}
                         </p>
+                      )}
+                      {active.question.essayUseIeltsCriteria ? (
+                        <p className="mt-1 text-xs text-base-black/50">
+                          {t('testPreview.essayIeltsCriteriaNote')}
+                        </p>
+                      ) : (
+                        active.question.essayMaxScore != null && (
+                          <p className="mt-1 text-xs text-base-black/50">
+                            {t('takeTest.essayGradedManually', { points: active.question.essayMaxScore })}
+                          </p>
+                        )
                       )}
                     </div>
                   ) : active.question.type === 'fillBlank' ? (
-                    <input
-                      type="text"
-                      value={answers[active.question.id]?.text ?? ''}
-                      onChange={(event) => setAnswer(active.question.id, { text: event.target.value })}
-                      placeholder={t('takeTest.fillBlankPlaceholder')}
-                      className="mt-4 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                    />
+                    <div className="mt-4">
+                      <input
+                        type="text"
+                        value={answers[active.question.id]?.text ?? ''}
+                        onChange={(event) => setAnswer(active.question.id, { text: event.target.value })}
+                        placeholder={t('takeTest.fillBlankPlaceholder')}
+                        className="w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                      />
+                      {active.question.fillBlankMaxWords != null && (
+                        <p className="mt-1 text-xs text-base-black/50">
+                          {t('testPreview.fillBlankMaxWordsNote', { max: active.question.fillBlankMaxWords })}
+                        </p>
+                      )}
+                    </div>
                   ) : active.question.type === 'speaking' ? (
                     <div className="mt-4 flex flex-col gap-3">
                       {active.question.promptAudioUrl && (
@@ -253,6 +276,11 @@ function TestPreviewModal({ testId, onClose }: TestPreviewModalProps) {
                       >
                         🎤 {t('takeTest.startRecording')}
                       </button>
+                      {active.question.preparationSeconds != null && active.question.preparationSeconds > 0 && (
+                        <p className="text-xs text-base-black/60">
+                          {t('testPreview.speakingPreparationNote', { seconds: active.question.preparationSeconds })}
+                        </p>
+                      )}
                       <p className="text-xs text-base-black/60">
                         {t('testPreview.speakingNote', { seconds: active.question.allowedResponseSeconds ?? 60 })}
                       </p>

@@ -471,9 +471,16 @@
     "essayPlaceholder": "Write your response here (pasting is disabled — please type your own answer).",
     "essayGradedManually": "Graded manually by your teacher, out of {{points}} points.",
     "essayCopyPasteDisabled": "Copy/paste is disabled on this field.",
+    "essayWordCount": "{{count}}/{{min}} words (suggested minimum)",
+    "essayTaskType": {
+      "task1": "Task 1",
+      "task2": "Task 2"
+    },
     "pasteBlocked": "Pasting into this answer is not allowed. Please type your answer yourself.",
     "copyBlocked": "Copying text out of this answer is not allowed.",
     "fillBlankPlaceholder": "Type your answer",
+    "fillBlankWordCount": "{{count}}/{{max}} words",
+    "speakingPreparingTimeLeft": "Preparation time left: {{time}}",
     "speakingTimeLeft": "Time left to respond: {{time}}",
     "speakingSubmittedNotice": "Your Speaking answer has been recorded and submitted. It can't be re-recorded — you can revisit your final score and feedback from this test's result page once it's submitted.",
     "speakingExpiredNotice": "Time's up for this Speaking question. You can no longer record an answer for it — please continue with the other questions.",
@@ -681,7 +688,7 @@
   "scoring": {
     "provisional": {"chip_one":"Provisional — {{count}} written answer still to grade","chip_other":"Provisional — {{count}} written answers still to grade","short":"provisional","studentChip":"Provisional score","studentNote_one":"Your teacher has not finished grading {{count}} of your written answers, so this score may still change.","studentNote_other":"Your teacher has not finished grading {{count}} of your written answers, so this score may still change."},
     "detail": {"headline":"Score: {{score}}/10"},
-    "grade": {"saved":"Saved the score for {{name}}: {{score}}/{{max}}.","saveAndNext":"Save and grade the next one","scoreEmpty":"Please enter a score from 0 to {{max}}.","scoreInvalid":"The score must be a number, for example 4 or 4.5.","scoreRange":"The score must be between 0 and {{max}}.","moreInThisAttempt_one":"Saved. This attempt still has {{count}} written answer to grade.","moreInThisAttempt_other":"Saved. This attempt still has {{count}} written answers to grade.","allDoneTitle":"You have graded every written answer in the class 🎉","allDoneHint":"No written answers are waiting to be graded.","allDoneAllClassesTitle":"You have graded every written answer in EVERY class assigned this test 🎉","allDoneAllClassesHint":"No written answers are waiting to be graded, in any class.","crossedIntoClass":"Switched to class {{className}} — it still has ungraded written answers here.","backToClass":"Back to the class","nextFailed":"The score was saved, but the next attempt could not be found. Go back to pick another one.","prevStudent":"← Previous student","nextStudent":"Next student →","studentPosition":"Student {{position}}/{{total}}"},
+    "grade": {"saved":"Saved the score for {{name}}: {{score}}/{{max}}.","savedIelts":"Saved the score for {{name}}: {{score}}/9 (average of the 4 criteria).","saveAndNext":"Save and grade the next one","scoreEmpty":"Please enter a score from 0 to {{max}}.","scoreInvalid":"The score must be a number, for example 4 or 4.5.","scoreRange":"The score must be between 0 and {{max}}.","ieltsCriteriaInvalid":"Please enter all 4 criteria, each a number from 0 to {{max}} in 0.5 steps (e.g. 6 or 6.5).","moreInThisAttempt_one":"Saved. This attempt still has {{count}} written answer to grade.","moreInThisAttempt_other":"Saved. This attempt still has {{count}} written answers to grade.","allDoneTitle":"You have graded every written answer in the class 🎉","allDoneHint":"No written answers are waiting to be graded.","allDoneAllClassesTitle":"You have graded every written answer in EVERY class assigned this test 🎉","allDoneAllClassesHint":"No written answers are waiting to be graded, in any class.","crossedIntoClass":"Switched to class {{className}} — it still has ungraded written answers here.","backToClass":"Back to the class","nextFailed":"The score was saved, but the next attempt could not be found. Go back to pick another one.","prevStudent":"← Previous student","nextStudent":"Next student →","studentPosition":"Student {{position}}/{{total}}"},
     "gradebook": {"scaleNote":"Scores are out of 10.","legend":"* Provisional score: the written part has not been graded yet.","cellTitleProvisional":"{{correct}}/{{total}} correct · provisional, {{count}} written answer(s) still to grade — click to view the attempt"},
     "download": {"done":"Downloaded \"{{fileName}}\". Open it from your browser's Downloads folder."},
     "excel": {"title":"GRADEBOOK","classLine":"Class: {{className}}","semesterLine":"Semester: {{semester}}","noSemester":"not selected","exportDate":"Exported on: {{date}}","scaleLine":"Scale: out of 10","stt":"No.","student":"Full name","average":"Average score","notSubmitted":"Not submitted","note":"Note","provisionalNote":"Provisional (written answers not graded yet)","statusRow":"Score status","released":"Shown to students","notReleased":"Not shown yet","classAverage":"Class average"},
@@ -761,6 +768,14 @@
     "noAnswerSubmitted": "(no answer submitted)",
     "teacherCommentLine": "Teacher's comment: {{comment}}",
     "essayNotGradedYet": "Your teacher hasn't graded this essay yet.",
+    "essayTaskType": {
+      "task1": "Task 1",
+      "task2": "Task 2"
+    },
+    "ieltsTaskLabel": "Task Achievement/Response: {{score}}",
+    "ieltsCoherenceLabel": "Coherence & Cohesion: {{score}}",
+    "ieltsLexicalLabel": "Lexical Resource: {{score}}",
+    "ieltsGrammarLabel": "Grammatical Range & Accuracy: {{score}}",
     "noRecordingSubmitted": "(you did not submit a recording for this question)",
     "teacherFeedbackLine": "Teacher's feedback: {{feedback}}",
     "feedbackLine": "Feedback: {{feedback}}",
@@ -793,6 +808,12 @@
     "incorrect": "Incorrect",
     "noAnswerSubmitted": "(no answer submitted)",
     "scoreOutOf": "Score (out of {{max}})",
+    "ieltsTaskLabel": "Task Achievement/Response",
+    "ieltsCoherenceLabel": "Coherence & Cohesion",
+    "ieltsLexicalLabel": "Lexical Resource",
+    "ieltsGrammarLabel": "Grammatical Range & Accuracy",
+    "ieltsBandPlaceholder": "0-{{max}}, 0.5 steps",
+    "ieltsAveragePreview": "Average score (rounded to 0.5): {{average}}",
     "commentOptional": "Comment (optional)",
     "feedbackPlaceholder": "Feedback for the student",
     "saving": "Saving...",
@@ -1009,7 +1030,8 @@
       "trueFalse": "True / False",
       "fillBlank": "Fill in the blank",
       "essay": "Essay",
-      "speaking": "Speaking"
+      "speaking": "Speaking",
+      "matching": "Matching"
     }
   },
   "studentVocabExercise": {
@@ -1397,7 +1419,9 @@
       "essayPrompt": "New essay question",
       "speakingPrompt": "New speaking question",
       "multipleChoicePrompt": "New multiple-choice question",
-      "option": "Option {{letter}}"
+      "option": "Option {{letter}}",
+      "matchingPrompt": "Match this paragraph to the correct heading",
+      "matchingOption": "Heading {{label}}"
     },
     "testTypes": {
       "generic": "Generic",
@@ -1415,6 +1439,14 @@
       "testTypeLabel": "Test type",
       "publishedLabel": "Published (Unit tests are only visible to students once published)",
       "viewUnitLeaderboard": "View this unit's leaderboard →"
+    },
+    "mockScaffold": {
+      "hint": "This is a \"Mock Test\" — you can scaffold the 4 skills (Listening, Reading, Writing, Speaking) to get started faster, or just add your own groups below.",
+      "button": "Scaffold the 4 skills",
+      "listeningTitle": "Listening",
+      "readingTitle": "Reading",
+      "writingTitle": "Writing",
+      "speakingTitle": "Speaking"
     },
     "sections": {
       "heading": "Question groups & questions",
@@ -1438,6 +1470,7 @@
       "addFillBlank": "+ Fill in the blank",
       "addEssay": "+ Essay (Writing)",
       "addSpeaking": "+ Speaking",
+      "addMatching": "+ Matching",
       "newSectionTitleLabel": "New group name",
       "newSectionTitlePlaceholder": "e.g. Reading Comprehension",
       "addSection": "Add question group",
@@ -1561,13 +1594,29 @@
     "promptLabel": "Prompt",
     "acceptedAnswersLabel": "Accepted answers (comma-separated)",
     "acceptedAnswersPlaceholder": "e.g. Paris, paris",
+    "fillBlankMaxWordsLabel": "Max word count (optional)",
+    "fillBlankMaxWordsPlaceholder": "e.g. 2",
+    "fillBlankMaxWordsHint": "Just a hint shown to the student (IELTS-style \"no more than 2 words\") — not automatically enforced.",
+    "essayTaskTypeLabel": "Task (IELTS Writing)",
+    "essayTaskTypeNone": "Not an IELTS task",
+    "essayTaskTypeTask1": "Task 1 (describe a chart/letter)",
+    "essayTaskTypeTask2": "Task 2 (essay)",
+    "essayMinWordsLabel": "Minimum word count (hint)",
+    "essayMinWordsPlaceholder": "e.g. 150",
     "essayMaxScoreLabel": "Max score (teacher grades manually out of this many points)",
     "essayHint": "The student submits free text; there are no choices or an auto-graded answer for this question type.",
+    "essayUseIeltsCriteriaLabel": "Grade with 4 IELTS band criteria (Task/Coherence/Lexical/Grammar) instead of one score",
+    "essayIeltsCriteriaHint": "The teacher will grade 4 separate criteria, each on a 0-{{max}} band scale; the overall score is their average, rounded to the nearest 0.5.",
+    "speakingPreparationTimeLabel": "Preparation time before speaking (seconds, optional)",
+    "speakingPreparationTimePlaceholder": "e.g. 60 (leave blank if no preparation is needed)",
+    "speakingPreparationTimeHint": "IELTS Speaking Part 2 style: the student gets a silent preparation window first, then the response/recording timer starts.",
     "speakingResponseTimeLabel": "Response time allowed (seconds)",
     "speakingPromptAudioLabel": "Prompt audio URL (optional)",
     "speakingPromptAudioPlaceholder": "https://... (leave blank for a text-only prompt)",
     "speakingHint": "The student records a spoken answer in-browser within the time allowed, and it is graded automatically (Mock AI grading) — you can review and override the score afterward from the attempt detail page.",
     "choicesLabel": "Answer choices",
+    "trueFalseNotGivenLabel": "Add a \"Not Given\" choice",
+    "notGivenLabel": "Not Given",
     "markCorrectAriaLabel": "Mark choice {{number}} as correct",
     "removeChoiceAriaLabel": "Remove choice {{number}}",
     "removeButton": "Remove",
@@ -1577,7 +1626,8 @@
       "trueFalse": "True / False",
       "fillBlank": "Fill in the blank",
       "essay": "Essay (Writing)",
-      "speaking": "Speaking"
+      "speaking": "Speaking",
+      "matching": "Matching"
     },
     "pickCorrectHint": "Click the circle to choose the correct answer",
     "freshDefaultBanner": "This question still uses the sample content — edit the question and double-check the correct answer before assigning it.",
@@ -1638,6 +1688,10 @@
     "timeLimit": "Time limit: {{minutes}} minutes",
     "essayPlaceholder": "Students type their answer here.",
     "speakingNote": "Students press record and speak for {{seconds}} seconds. The preview does not record.",
+    "speakingPreparationNote": "Before that, students get {{seconds}} seconds to prepare (recording isn't available yet during this time).",
+    "essayMinWordsNote": "Suggested minimum: {{min}} words.",
+    "essayIeltsCriteriaNote": "The teacher will grade this with 4 IELTS band criteria (0-9 scale), not a single score.",
+    "fillBlankMaxWordsNote": "Hint: no more than {{max}} words.",
     "submitDisabled": "This is a preview, so the Submit button does nothing."
   },
   "assignTestDialog": {

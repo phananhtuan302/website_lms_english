@@ -43,6 +43,15 @@ function formatRemaining(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+/** Word count for the live counters below (2026-09, IELTS min/max-word hints) — split on
+ * whitespace, empty text counts as 0. Deliberately simple (no punctuation-aware tokenizing):
+ * these hints are non-blocking self-checks, not a grading rule, so an approximate count
+ * that matches what the student would count by eye is more useful than a precise one. */
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  return trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+}
+
 /** `fillBlank` and `essay` (T-042) both store their answer as plain `textAnswer` rather
  * than `selectedChoiceId` — every "is this question answered / what do I persist" check
  * in this file branches on this shared predicate instead of re-listing both types. */
@@ -110,6 +119,14 @@ function TakeTestPage() {
   // re-recording, mirrors the server-side `speakingSubmittedAt` lock in
   // `attempts.routes.ts`).
   const speakingDeadlinesRef = useRef<Record<string, number>>({});
+  /** 2026-09, IELTS Speaking Part 2 "cue card" support: a silent prep-phase deadline,
+   * only ever set for a question with `preparationSeconds > 0`, latched the same "first
+   * time reached, ticks in the background regardless of navigation" way as
+   * `speakingDeadlinesRef` above. `speakingDeadlinesRef` for that same question is only
+   * latched once THIS deadline has passed (see the effect below) — so the response
+   * window genuinely starts after prep ends, not at the same instant the question
+   * first appears. */
+  const speakingPrepDeadlinesRef = useRef<Record<string, number>>({});
   const [speakingStatus, setSpeakingStatus] = useState<
     Record<string, 'recording' | 'submitting' | 'submitted' | 'error' | 'expired'>
   >({});
@@ -369,6 +386,19 @@ function TakeTestPage() {
     const q = flatQuestions[currentIndex];
     if (!q || q.type !== 'speaking' || q.allowedResponseSeconds == null) return;
     if (speakingStatus[q.id] === 'submitted') return;
+
+    // Prep phase first, if this question has one (2026-09, IELTS Part 2 support): latch
+    // ITS deadline the first time reached, same pattern as the response deadline below,
+    // and don't start the response window at all until prep is over. `now` is in this
+    // effect's deps specifically so it re-checks every tick and starts the response
+    // window the instant prep ends, without needing the student to navigate away and back.
+    if (q.preparationSeconds != null && q.preparationSeconds > 0) {
+      if (speakingPrepDeadlinesRef.current[q.id] == null) {
+        speakingPrepDeadlinesRef.current[q.id] = Date.now() + q.preparationSeconds * 1000;
+      }
+      if (now < speakingPrepDeadlinesRef.current[q.id]) return;
+    }
+
     if (speakingDeadlinesRef.current[q.id] == null) {
       speakingDeadlinesRef.current[q.id] = Date.now() + q.allowedResponseSeconds * 1000;
       // T-064: tell the server this question's window has started too — it's the
@@ -381,7 +411,7 @@ function TakeTestPage() {
         studentApi.startSpeakingWindow(attemptId, q.id).catch(() => undefined);
       }
     }
-  }, [attemptId, currentIndex, flatQuestions, speakingStatus]);
+  }, [attemptId, currentIndex, flatQuestions, speakingStatus, now]);
 
   // Enforces the Speaking countdown at expiry (T-052): auto-stops an in-progress
   // recording (which submits whatever was captured so far via `MediaRecorder.onstop` ->
@@ -718,6 +748,10 @@ function TakeTestPage() {
 
   const current = flatQuestions[currentIndex];
   const remainingMs = deadline !== null ? deadline - now : null;
+  // 2026-09, IELTS Speaking Part 2 support: true while `current` is a speaking question
+  // still in its silent prep phase (see the deadline-latching effect above).
+  const currentPrepDeadline = current ? speakingPrepDeadlinesRef.current[current.id] : undefined;
+  const isPreparingCurrent = currentPrepDeadline != null && now < currentPrepDeadline;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -868,6 +902,11 @@ function TakeTestPage() {
 
           {current.type === 'essay' ? (
             <div className="mt-4">
+              {current.essayTaskType && (
+                <span className="mb-2 inline-block rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+                  {t(`takeTest.essayTaskType.${current.essayTaskType}`)}
+                </span>
+              )}
               <textarea
                 value={answers[current.id]?.textAnswer ?? ''}
                 onChange={(event) => handleTextChange(current, event.target.value)}
@@ -879,6 +918,16 @@ function TakeTestPage() {
                 placeholder={t('takeTest.essayPlaceholder')}
                 className="w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
               />
+              {current.essayMinWords != null &&
+                (() => {
+                  const wordCount = countWords(answers[current.id]?.textAnswer ?? '');
+                  const underMin = wordCount < current.essayMinWords!;
+                  return (
+                    <p className={`mt-1 text-xs font-medium ${underMin ? 'text-amber-700' : 'text-green-700'}`}>
+                      {t('takeTest.essayWordCount', { count: wordCount, min: current.essayMinWords })}
+                    </p>
+                  );
+                })()}
               <p className="mt-1 text-xs text-base-black/50">
                 {current.essayMaxScore != null &&
                   `${t('takeTest.essayGradedManually', { points: current.essayMaxScore })} `}
@@ -891,87 +940,115 @@ function TakeTestPage() {
               )}
             </div>
           ) : current.type === 'fillBlank' ? (
-            <input
-              type="text"
-              value={answers[current.id]?.textAnswer ?? ''}
-              onChange={(event) => handleTextChange(current, event.target.value)}
-              disabled={isSubmitting}
-              placeholder={t('takeTest.fillBlankPlaceholder')}
-              className="mt-4 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
+            <div className="mt-4">
+              <input
+                type="text"
+                value={answers[current.id]?.textAnswer ?? ''}
+                onChange={(event) => handleTextChange(current, event.target.value)}
+                disabled={isSubmitting}
+                placeholder={t('takeTest.fillBlankPlaceholder')}
+                className="w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              />
+              {current.fillBlankMaxWords != null &&
+                (() => {
+                  const wordCount = countWords(answers[current.id]?.textAnswer ?? '');
+                  const overMax = wordCount > current.fillBlankMaxWords!;
+                  return (
+                    <p className={`mt-1 text-xs font-medium ${overMax ? 'text-red-700' : 'text-base-black/50'}`}>
+                      {t('takeTest.fillBlankWordCount', { count: wordCount, max: current.fillBlankMaxWords })}
+                    </p>
+                  );
+                })()}
+            </div>
           ) : current.type === 'speaking' ? (
             <div className="mt-4 flex flex-col gap-3">
               {current.promptAudioUrl && <audio controls src={current.promptAudioUrl} className="w-full" />}
 
-              {(() => {
-                const currentDeadline = speakingDeadlinesRef.current[current.id];
-                if (
-                  speakingStatus[current.id] === 'submitted' ||
-                  speakingStatus[current.id] === 'expired' ||
-                  currentDeadline == null
-                )
-                  return null;
-                const remainingMsForSpeaking = currentDeadline - now;
-                return (
-                  <div
-                    role="timer"
-                    className={`self-start rounded-md px-3 py-1.5 text-sm font-bold ${
-                      remainingMsForSpeaking < 10_000 ? 'bg-red-100 text-red-700' : 'bg-primary-100 text-primary-700'
-                    }`}
-                  >
-                    {t('takeTest.speakingTimeLeft', { time: formatRemaining(remainingMsForSpeaking) })}
-                  </div>
-                );
-              })()}
-
-              {speakingStatus[current.id] === 'submitted' ? (
-                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-                  <p>{t('takeTest.speakingSubmittedNotice')}</p>
-                  {speakingResults[current.id] && (
-                    <p className="mt-1 text-xs text-green-700">
-                      {t('takeTest.speakingImmediateGrade', {
-                        score: speakingResults[current.id].aiScore,
-                        feedback: speakingResults[current.id].aiFeedback,
-                      })}
-                    </p>
-                  )}
-                </div>
-              ) : speakingStatus[current.id] === 'expired' ? (
-                // The response window ran out before the student ever started recording
-                // (see the countdown-expiry effect above) — a plain, stable notice
-                // instead of the recording button, which would otherwise let them start a
-                // recording against an already-passed deadline.
-                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  {t('takeTest.speakingExpiredNotice')}
+              {isPreparingCurrent && speakingStatus[current.id] !== 'submitted' ? (
+                // Silent prep phase (2026-09, IELTS Part 2 "cue card" support) — no
+                // recording control at all yet; the response window (and its own
+                // countdown/record button below) only starts once this one runs out.
+                <div
+                  role="timer"
+                  className="self-start rounded-md bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800"
+                >
+                  {t('takeTest.speakingPreparingTimeLeft', {
+                    time: formatRemaining(currentPrepDeadline! - now),
+                  })}
                 </div>
               ) : (
-                <div className="flex flex-col items-start gap-2">
-                  {speakingStatus[current.id] === 'recording' ? (
-                    <button
-                      type="button"
-                      onClick={() => stopRecording(current)}
-                      className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-red-700"
-                    >
-                      ⏹ {t('takeTest.stopAndSubmitRecording')}
-                    </button>
+                <>
+                  {(() => {
+                    const currentDeadline = speakingDeadlinesRef.current[current.id];
+                    if (
+                      speakingStatus[current.id] === 'submitted' ||
+                      speakingStatus[current.id] === 'expired' ||
+                      currentDeadline == null
+                    )
+                      return null;
+                    const remainingMsForSpeaking = currentDeadline - now;
+                    return (
+                      <div
+                        role="timer"
+                        className={`self-start rounded-md px-3 py-1.5 text-sm font-bold ${
+                          remainingMsForSpeaking < 10_000 ? 'bg-red-100 text-red-700' : 'bg-primary-100 text-primary-700'
+                        }`}
+                      >
+                        {t('takeTest.speakingTimeLeft', { time: formatRemaining(remainingMsForSpeaking) })}
+                      </div>
+                    );
+                  })()}
+
+                  {speakingStatus[current.id] === 'submitted' ? (
+                    <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                      <p>{t('takeTest.speakingSubmittedNotice')}</p>
+                      {speakingResults[current.id] && (
+                        <p className="mt-1 text-xs text-green-700">
+                          {t('takeTest.speakingImmediateGrade', {
+                            score: speakingResults[current.id].aiScore,
+                            feedback: speakingResults[current.id].aiFeedback,
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  ) : speakingStatus[current.id] === 'expired' ? (
+                    // The response window ran out before the student ever started recording
+                    // (see the countdown-expiry effect above) — a plain, stable notice
+                    // instead of the recording button, which would otherwise let them start a
+                    // recording against an already-passed deadline.
+                    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      {t('takeTest.speakingExpiredNotice')}
+                    </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => void startRecording(current)}
-                      disabled={speakingStatus[current.id] === 'submitting'}
-                      className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {speakingStatus[current.id] === 'submitting'
-                        ? t('takeTest.submitting')
-                        : `🎤 ${t('takeTest.startRecording')}`}
-                    </button>
+                    <div className="flex flex-col items-start gap-2">
+                      {speakingStatus[current.id] === 'recording' ? (
+                        <button
+                          type="button"
+                          onClick={() => stopRecording(current)}
+                          className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-red-700"
+                        >
+                          ⏹ {t('takeTest.stopAndSubmitRecording')}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void startRecording(current)}
+                          disabled={speakingStatus[current.id] === 'submitting'}
+                          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {speakingStatus[current.id] === 'submitting'
+                            ? t('takeTest.submitting')
+                            : `🎤 ${t('takeTest.startRecording')}`}
+                        </button>
+                      )}
+                      {!speechApiSupported && (
+                        <p className="text-xs text-base-black/50">
+                          {t('takeTest.speechApiUnsupported')}
+                        </p>
+                      )}
+                    </div>
                   )}
-                  {!speechApiSupported && (
-                    <p className="text-xs text-base-black/50">
-                      {t('takeTest.speechApiUnsupported')}
-                    </p>
-                  )}
-                </div>
+                </>
               )}
 
               {speakingError && (

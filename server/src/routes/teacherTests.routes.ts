@@ -35,6 +35,7 @@ import type {
   UpdateTestClassScheduleRequest,
   UpdateTestRequest,
 } from '@platform/shared';
+import { IELTS_BAND_MAX } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -53,7 +54,14 @@ export const teacherTestsRouter = Router();
 // teacher's test, reusing these exact routes rather than a parallel admin-only API.
 teacherTestsRouter.use(requireAuth, requireRole('teacher', 'admin'));
 
-const QUESTION_TYPES: QuestionType[] = ['multipleChoice', 'trueFalse', 'fillBlank', 'essay', 'speaking'];
+const QUESTION_TYPES: QuestionType[] = [
+  'multipleChoice',
+  'trueFalse',
+  'fillBlank',
+  'essay',
+  'speaking',
+  'matching',
+];
 
 /** T-036/T-038 (Assumption A4) — every value `Test.testType` supports. */
 const TEST_TYPES: TestType[] = ['generic', 'unitTest', 'vocabularyCheck', 'listeningTest', 'mockTest'];
@@ -69,6 +77,19 @@ const DEFAULT_ESSAY_MAX_SCORE = 10;
 const DEFAULT_SPEAKING_SECONDS = 60;
 const MIN_SPEAKING_SECONDS = 5;
 const MAX_SPEAKING_SECONDS = 300;
+
+/** 2026-09, IELTS Speaking Part 2 "cue card" support: an optional silent prep window
+ * before `allowedResponseSeconds` starts (see `Question.preparationSeconds`'s doc
+ * comment). `0`/omitted means no prep phase at all — 300s (5 min) is generously above
+ * real IELTS's own 1-minute Part 2 prep, room enough for a teacher's own variation. */
+const MIN_PREPARATION_SECONDS = 0;
+const MAX_PREPARATION_SECONDS = 300;
+
+/** 2026-09, IELTS Writing/Listening/Reading word-count hints — generous upper bounds
+ * (never enforced as a hard grading rule, see the fields' own doc comments), just
+ * guarding against a nonsensical value like a negative number or a typo'd huge one. */
+const MAX_ESSAY_MIN_WORDS = 2000;
+const MAX_FILL_BLANK_MAX_WORDS = 50;
 
 // --- Shared query/serialization helpers --------------------------------------------
 
@@ -143,7 +164,12 @@ function toTestDetailDTO(test: NonNullable<NestedTest>): TestDetailDTO {
       order: question.order,
       acceptedAnswers: question.acceptedAnswers,
       essayMaxScore: question.essayMaxScore,
+      essayMinWords: question.essayMinWords,
+      essayTaskType: question.essayTaskType,
+      essayUseIeltsCriteria: question.essayUseIeltsCriteria,
+      fillBlankMaxWords: question.fillBlankMaxWords,
       allowedResponseSeconds: question.allowedResponseSeconds,
+      preparationSeconds: question.preparationSeconds,
       promptAudioUrl: question.promptAudioUrl,
       choices: question.choices.map((choice) => ({
         id: choice.id,
@@ -232,13 +258,26 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
     ) {
       return 'fillBlank questions require at least one non-empty accepted answer.';
     }
+    if (
+      body.fillBlankMaxWords !== undefined &&
+      body.fillBlankMaxWords !== null &&
+      (typeof body.fillBlankMaxWords !== 'number' ||
+        !Number.isInteger(body.fillBlankMaxWords) ||
+        body.fillBlankMaxWords < 1 ||
+        body.fillBlankMaxWords > MAX_FILL_BLANK_MAX_WORDS)
+    ) {
+      return `fillBlankMaxWords must be a whole number between 1 and ${MAX_FILL_BLANK_MAX_WORDS}, or omitted/null for no hint.`;
+    }
     return null;
   }
 
   if (body.type === 'essay') {
-    // No choices/acceptedAnswers apply (T-042) — only `essayMaxScore` needs validating,
-    // and it's optional (defaults to `DEFAULT_ESSAY_MAX_SCORE` at the call site).
+    // No choices/acceptedAnswers apply (T-042) — `essayMaxScore` is optional (defaults
+    // to `DEFAULT_ESSAY_MAX_SCORE` at the call site) UNLESS `essayUseIeltsCriteria` is
+    // true, in which case it's forced to `IELTS_BAND_MAX` regardless (see the create/
+    // update handlers), so no validation of it is needed in that case either.
     if (
+      body.essayUseIeltsCriteria !== true &&
       body.essayMaxScore !== undefined &&
       body.essayMaxScore !== null &&
       (typeof body.essayMaxScore !== 'number' ||
@@ -247,6 +286,27 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
         body.essayMaxScore > 1000)
     ) {
       return 'essayMaxScore must be a whole number between 1 and 1000, or omitted for the default.';
+    }
+    if (
+      body.essayMinWords !== undefined &&
+      body.essayMinWords !== null &&
+      (typeof body.essayMinWords !== 'number' ||
+        !Number.isInteger(body.essayMinWords) ||
+        body.essayMinWords < 0 ||
+        body.essayMinWords > MAX_ESSAY_MIN_WORDS)
+    ) {
+      return `essayMinWords must be a whole number between 0 and ${MAX_ESSAY_MIN_WORDS}, or omitted/null for no hint.`;
+    }
+    if (
+      body.essayTaskType !== undefined &&
+      body.essayTaskType !== null &&
+      body.essayTaskType !== 'task1' &&
+      body.essayTaskType !== 'task2'
+    ) {
+      return "essayTaskType must be 'task1', 'task2', or null.";
+    }
+    if (body.essayUseIeltsCriteria !== undefined && typeof body.essayUseIeltsCriteria !== 'boolean') {
+      return 'essayUseIeltsCriteria must be a boolean.';
     }
     return null;
   }
@@ -266,6 +326,16 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
       return `allowedResponseSeconds must be a whole number of seconds between ${MIN_SPEAKING_SECONDS} and ${MAX_SPEAKING_SECONDS}, or omitted for the default.`;
     }
     if (
+      body.preparationSeconds !== undefined &&
+      body.preparationSeconds !== null &&
+      (typeof body.preparationSeconds !== 'number' ||
+        !Number.isInteger(body.preparationSeconds) ||
+        body.preparationSeconds < MIN_PREPARATION_SECONDS ||
+        body.preparationSeconds > MAX_PREPARATION_SECONDS)
+    ) {
+      return `preparationSeconds must be a whole number of seconds between ${MIN_PREPARATION_SECONDS} and ${MAX_PREPARATION_SECONDS}, or omitted for none.`;
+    }
+    if (
       body.promptAudioUrl !== undefined &&
       body.promptAudioUrl !== null &&
       typeof body.promptAudioUrl !== 'string'
@@ -275,7 +345,7 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
     return null;
   }
 
-  // multipleChoice / trueFalse
+  // multipleChoice / trueFalse / matching
   const choices = body.choices;
   if (
     !Array.isArray(choices) ||
@@ -286,17 +356,29 @@ function validateQuestionBody(body: Partial<CreateQuestionRequest>): string | nu
   ) {
     return 'Choices must be a list of { text, isCorrect } with non-empty text.';
   }
-  if (body.type === 'trueFalse' && choices.length !== 2) {
-    return 'trueFalse questions require exactly 2 choices.';
+  if (body.type === 'trueFalse' && choices.length !== 2 && choices.length !== 3) {
+    // 2026-09: a 3rd choice is the IELTS "Not Given"/"Yes/No/Not Given" variant — see
+    // `QuestionEditor.tsx`'s trueFalse handling for how the 3rd option is added/removed
+    // (always a fixed label, never freely typed, same as the original 2).
+    return 'trueFalse questions require exactly 2 or 3 choices.';
   }
-  if (body.type === 'multipleChoice' && choices.length < 2) {
-    return 'multipleChoice questions require at least 2 choices.';
+  if ((body.type === 'multipleChoice' || body.type === 'matching') && choices.length < 2) {
+    return `${body.type} questions require at least 2 choices.`;
   }
   const correctCount = choices.filter((c) => c.isCorrect).length;
   if (correctCount !== 1) {
     return 'Exactly one choice must be marked as correct.';
   }
   return null;
+}
+
+/** The `essayMaxScore` a question is actually created/updated with — shared by both the
+ * create and update question handlers so they can never drift apart. Forces the fixed
+ * IELTS band scale whenever `essayUseIeltsCriteria` is on, regardless of what a client
+ * sent (see that field's doc comment in schema.prisma). */
+function resolvedEssayMaxScore(body: Partial<CreateQuestionRequest>): number {
+  if (body.essayUseIeltsCriteria === true) return IELTS_BAND_MAX;
+  return body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE;
 }
 
 // --- Test CRUD ----------------------------------------------------------------------
@@ -528,7 +610,12 @@ teacherTestsRouter.post(
                   order: question.order,
                   acceptedAnswers: question.acceptedAnswers,
                   essayMaxScore: question.essayMaxScore,
+                  essayMinWords: question.essayMinWords,
+                  essayTaskType: question.essayTaskType,
+                  essayUseIeltsCriteria: question.essayUseIeltsCriteria,
+                  fillBlankMaxWords: question.fillBlankMaxWords,
                   allowedResponseSeconds: question.allowedResponseSeconds,
+                  preparationSeconds: question.preparationSeconds,
                   promptAudioUrl: question.promptAudioUrl,
                   choices: {
                     create: question.choices.map((choice) => ({
@@ -967,9 +1054,14 @@ teacherTestsRouter.post(
         order,
         acceptedAnswers:
           body.type === 'fillBlank' ? (body.acceptedAnswers as string[]).map((a) => a.trim()) : [],
-        essayMaxScore: body.type === 'essay' ? (body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE) : null,
+        essayMaxScore: body.type === 'essay' ? resolvedEssayMaxScore(body) : null,
+        essayMinWords: body.type === 'essay' ? (body.essayMinWords ?? null) : null,
+        essayTaskType: body.type === 'essay' ? (body.essayTaskType ?? null) : null,
+        essayUseIeltsCriteria: body.type === 'essay' ? (body.essayUseIeltsCriteria ?? false) : false,
+        fillBlankMaxWords: body.type === 'fillBlank' ? (body.fillBlankMaxWords ?? null) : null,
         allowedResponseSeconds:
           body.type === 'speaking' ? (body.allowedResponseSeconds ?? DEFAULT_SPEAKING_SECONDS) : null,
+        preparationSeconds: body.type === 'speaking' ? (body.preparationSeconds ?? null) : null,
         promptAudioUrl: body.type === 'speaking' ? (body.promptAudioUrl ?? null) : null,
         choices:
           body.type === 'fillBlank' || body.type === 'essay' || body.type === 'speaking'
@@ -1064,9 +1156,14 @@ teacherTestsRouter.patch(
           prompt: (body.prompt as string).trim(),
           acceptedAnswers:
             newType === 'fillBlank' ? (body.acceptedAnswers as string[]).map((a) => a.trim()) : [],
-          essayMaxScore: newType === 'essay' ? (body.essayMaxScore ?? DEFAULT_ESSAY_MAX_SCORE) : null,
+          essayMaxScore: newType === 'essay' ? resolvedEssayMaxScore(body) : null,
+          essayMinWords: newType === 'essay' ? (body.essayMinWords ?? null) : null,
+          essayTaskType: newType === 'essay' ? (body.essayTaskType ?? null) : null,
+          essayUseIeltsCriteria: newType === 'essay' ? (body.essayUseIeltsCriteria ?? false) : false,
+          fillBlankMaxWords: newType === 'fillBlank' ? (body.fillBlankMaxWords ?? null) : null,
           allowedResponseSeconds:
             newType === 'speaking' ? (body.allowedResponseSeconds ?? DEFAULT_SPEAKING_SECONDS) : null,
+          preparationSeconds: newType === 'speaking' ? (body.preparationSeconds ?? null) : null,
           promptAudioUrl: newType === 'speaking' ? (body.promptAudioUrl ?? null) : null,
         },
       });

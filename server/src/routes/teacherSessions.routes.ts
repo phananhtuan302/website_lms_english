@@ -21,9 +21,10 @@ import type {
   CreateSessionResponse,
   GradeEssayAnswerRequest,
   GradeEssayAnswerResponse,
+  IeltsCriteriaScores,
   TestSessionDTO,
 } from '@platform/shared';
-import { SPEAKING_SCORE_SCALE } from '@platform/shared';
+import { IELTS_BAND_MAX, SPEAKING_SCORE_SCALE } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -294,6 +295,10 @@ teacherSessionsRouter.get(
           isCorrect: a.isCorrect,
           manualScore: a.manualScore,
           manualComment: a.manualComment,
+          essayIeltsTaskScore: a.essayIeltsTaskScore,
+          essayIeltsCoherenceScore: a.essayIeltsCoherenceScore,
+          essayIeltsLexicalScore: a.essayIeltsLexicalScore,
+          essayIeltsGrammarScore: a.essayIeltsGrammarScore,
           speakingAudioData: a.speakingAudioData,
           speakingTranscript: a.speakingTranscript,
           speakingAiScore: a.speakingAiScore,
@@ -328,6 +333,17 @@ teacherSessionsRouter.get(
   }),
 );
 
+/** A valid IELTS band score: 0-9 in 0.5 steps. */
+function isValidBandScore(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    !Number.isNaN(value) &&
+    value >= 0 &&
+    value <= IELTS_BAND_MAX &&
+    Math.abs(value * 2 - Math.round(value * 2)) < 1e-9
+  );
+}
+
 /** PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade — manual essay
  * grading (T-042) AND Speaking override (T-055) — both reuse the exact same
  * `manualScore`/`manualComment` columns and the same "teacher value wins once present"
@@ -339,7 +355,13 @@ teacherSessionsRouter.get(
  * valid for an `essay`/`speaking` question that has actually been submitted (an
  * in-progress attempt has nothing final to grade yet, and an ungraded Speaking answer —
  * one the student never recorded — has no AI verdict to override either); `score` must
- * be within `[0, essayMaxScore]` for essay or `[0, SPEAKING_SCORE_SCALE]` for speaking. */
+ * be within `[0, essayMaxScore]` for essay or `[0, SPEAKING_SCORE_SCALE]` for speaking.
+ *
+ * 2026-09: an essay question with `essayUseIeltsCriteria: true` takes `ieltsCriteria`
+ * (4 band scores) INSTEAD of `score` — which of the two is required is decided by the
+ * QUESTION's own flag, never trusted from the request body. `score`/`manualScore` is
+ * still computed and stored either way (the average of the 4, rounded to the nearest
+ * 0.5) so every other reader of a score needs no changes at all. */
 teacherSessionsRouter.patch(
   '/attempts/:attemptId/answers/:questionId/grade',
   asyncHandler(async (req, res) => {
@@ -384,25 +406,66 @@ teacherSessionsRouter.patch(
     }
 
     const body = req.body as Partial<GradeEssayAnswerRequest>;
-    const maxScore = question.type === 'essay' ? (question.essayMaxScore ?? 0) : SPEAKING_SCORE_SCALE;
-    if (typeof body.score !== 'number' || Number.isNaN(body.score) || body.score < 0 || body.score > maxScore) {
-      res.status(400).json({ error: `score must be a number between 0 and ${maxScore}.` });
-      return;
+    const useIeltsCriteria = question.type === 'essay' && question.essayUseIeltsCriteria;
+
+    let finalScore: number;
+    let ieltsCriteria: IeltsCriteriaScores | null = null;
+
+    if (useIeltsCriteria) {
+      const c = body.ieltsCriteria;
+      if (
+        !c ||
+        !isValidBandScore(c.taskScore) ||
+        !isValidBandScore(c.coherenceScore) ||
+        !isValidBandScore(c.lexicalScore) ||
+        !isValidBandScore(c.grammarScore)
+      ) {
+        res.status(400).json({
+          error: `This question uses IELTS band criteria — ieltsCriteria must provide taskScore/coherenceScore/lexicalScore/grammarScore, each a number between 0 and ${IELTS_BAND_MAX} in 0.5 steps.`,
+        });
+        return;
+      }
+      // Real IELTS convention: the overall Writing score is the average of the 4
+      // criteria, rounded to the nearest 0.5 — computed here, never trusted from the
+      // client, so `manualScore` can never disagree with its own criteria.
+      const average = (c.taskScore + c.coherenceScore + c.lexicalScore + c.grammarScore) / 4;
+      finalScore = Math.round(average * 2) / 2;
+      ieltsCriteria = c;
+    } else {
+      const maxScore = question.type === 'essay' ? (question.essayMaxScore ?? 0) : SPEAKING_SCORE_SCALE;
+      if (typeof body.score !== 'number' || Number.isNaN(body.score) || body.score < 0 || body.score > maxScore) {
+        res.status(400).json({ error: `score must be a number between 0 and ${maxScore}.` });
+        return;
+      }
+      finalScore = body.score;
     }
+
     if (body.comment !== undefined && body.comment !== null && typeof body.comment !== 'string') {
       res.status(400).json({ error: 'comment must be a string or null.' });
       return;
     }
+
+    // Explicitly nulling the 4 criteria columns when NOT using criteria mode (rather
+    // than omitting them) means a question that stops using IELTS criteria after some
+    // answers were already graded that way can never leave stale criteria data behind
+    // the next time it's (re-)graded.
+    const criteriaData = {
+      essayIeltsTaskScore: ieltsCriteria?.taskScore ?? null,
+      essayIeltsCoherenceScore: ieltsCriteria?.coherenceScore ?? null,
+      essayIeltsLexicalScore: ieltsCriteria?.lexicalScore ?? null,
+      essayIeltsGrammarScore: ieltsCriteria?.grammarScore ?? null,
+    };
 
     await prisma.answer.upsert({
       where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
       create: {
         attemptId: attempt.id,
         questionId: question.id,
-        manualScore: body.score,
+        manualScore: finalScore,
         manualComment: body.comment ?? null,
+        ...criteriaData,
       },
-      update: { manualScore: body.score, manualComment: body.comment ?? null },
+      update: { manualScore: finalScore, manualComment: body.comment ?? null, ...criteriaData },
     });
 
     // Phase 15: the grade now counts towards the attempt's total — re-score it (same helper the
@@ -410,8 +473,9 @@ teacherSessionsRouter.patch(
     const rescored = await recomputeAttemptScore(attempt.id);
     const response: GradeEssayAnswerResponse = {
       questionId: question.id,
-      manualScore: body.score,
+      manualScore: finalScore,
       manualComment: body.comment ?? null,
+      ieltsCriteria,
       scorePercent: rescored?.scorePercent ?? attempt.scorePercent ?? 0,
       provisional: rescored?.provisional ?? false,
       ungradedCount: rescored?.ungradedCount ?? 0,
