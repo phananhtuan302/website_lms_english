@@ -66,7 +66,7 @@ function ClassSemesterSelect({ cls, periods, periodsError, onChanged }: ClassSem
           value={cls.currentPeriodId ?? ''}
           onChange={handleChange}
           disabled={periods === null || noPeriods || saving}
-          className="w-56 rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-40 rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-56"
         >
           {periods === null && <option value="">{t('classWorkspace.semesterLoading')}</option>}
           {periods !== null && !cls.currentPeriodId && (

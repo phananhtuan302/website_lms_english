@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ClassGradebookDTO } from '@platform/shared';
+import HorizontalScrollHint from '../../components/HorizontalScrollHint';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classTabPath } from '../../lib/classWorkspace';
 import { downloadGradebookXlsx, type GradebookExportLabels } from '../../lib/gradebookExcelExport';
@@ -225,7 +226,7 @@ function ClassGradesTab() {
               {t('classGrades.noSubmissions')}
             </p>
           )}
-          <div
+          <HorizontalScrollHint
             className="max-h-[70vh] overflow-auto rounded-xl border border-primary-200"
             role="region"
             aria-label={t('classGrades.gridAriaLabel')}
@@ -353,7 +354,7 @@ function ClassGradesTab() {
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </HorizontalScrollHint>
 
           <ul className="flex flex-col gap-1 text-sm text-base-black/60">
             <li>{t('classGrades.footnoteBest')}</li>

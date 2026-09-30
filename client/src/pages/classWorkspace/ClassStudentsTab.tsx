@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ClassRosterStudentDTO } from '@platform/shared';
+import HorizontalScrollHint from '../../components/HorizontalScrollHint';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { classTabPath } from '../../lib/classWorkspace';
 import { formatScore10 } from '../../lib/scoreFormat';
@@ -162,7 +163,7 @@ function ClassStudentsTab() {
           <p className="mt-1 text-sm text-base-black/60">{t('classStudents.emptyHint')}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-200">
+        <HorizontalScrollHint className="overflow-x-auto rounded-xl border border-primary-200">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50 text-left text-xs font-semibold uppercase tracking-wide text-primary-700">
               <tr>
@@ -222,7 +223,7 @@ function ClassStudentsTab() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HorizontalScrollHint>
       )}
 
       <div className="flex flex-col gap-1 text-sm text-base-black/60">

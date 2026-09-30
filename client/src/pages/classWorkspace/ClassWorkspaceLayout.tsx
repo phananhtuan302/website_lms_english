@@ -122,18 +122,18 @@ function ClassWorkspaceLayout() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-4 rounded-2xl border border-primary-100 bg-primary-50 p-5">
+      <header className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-primary-50 p-4 sm:gap-4 sm:p-5">
         <div>{backLink}</div>
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
-            <h1 className="break-words text-2xl font-bold text-primary-700 sm:text-3xl">
+            <h1 className="break-words text-xl font-bold text-primary-700 sm:text-3xl">
               {cls.name}
             </h1>
-            <p className="mt-1 text-sm text-base-black/60">
+            <p className="mt-0.5 text-sm text-base-black/60 sm:mt-1">
               {t('classWorkspace.studentCount', { count: cls.studentCount })}
             </p>
           </div>
-          <div className="flex flex-wrap items-start gap-4">
+          <div className="flex flex-wrap items-start gap-3 sm:gap-4">
             {classes.length > 1 && (
               <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-base-black/60">
                 {t('classWorkspace.classSwitcherLabel')}
@@ -142,7 +142,7 @@ function ClassWorkspaceLayout() {
                   onChange={(event) =>
                     navigate(classTabPath(event.target.value, activeTab.segment))
                   }
-                  className="w-56 rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  className="w-40 rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:w-56"
                 >
                   {classes.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
@@ -160,8 +160,11 @@ function ClassWorkspaceLayout() {
                 periodsError={periodsError}
                 onChanged={setClass}
               />
-              {/* Phase 15: says what the semester choice means for students. */}
-              <p className="max-w-xs text-xs text-base-black/60">{t('classWorkspace.semesterHelper')}</p>
+              {/* Phase 15: says what the semester choice means for students. Hidden on a phone
+                width — the class workspace header was eating close to half the screen height
+                there before any real content showed (2026-09 mobile review); the dropdown's own
+                label already says what it does. */}
+              <p className="hidden max-w-xs text-xs text-base-black/60 sm:block">{t('classWorkspace.semesterHelper')}</p>
             </div>
           </div>
         </div>

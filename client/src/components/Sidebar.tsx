@@ -161,6 +161,7 @@ const CloseIcon = ({ className }: IconProps) => (
 
 const TEACHER_NAV_ITEMS: NavItem[] = [
   { labelKey: 'teacherNav.classes', to: '/teacher/classes', icon: ClassesIcon, activePrefixes: ['/teacher/classes'] },
+  { labelKey: 'teacherNav.gradesOverview', to: '/teacher/grades-overview', icon: GradesIcon },
   {
     labelKey: 'teacherNav.library',
     to: '/teacher/library',
@@ -332,6 +333,10 @@ function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               </div>
               <div className={`flex items-center gap-2 ${collapsed ? 'md:flex-col' : ''}`}>
                 <TextSizeButton compact={collapsed} />
+                {/* Collapsed rail only: a visible gap between the frequently-used text-size
+                  toggle and Logout — stacked flush with no separation, the two same-size squares
+                  were an easy mis-tap into an accidental logout (2026-09 mobile/phone review). */}
+                {collapsed && <div aria-hidden="true" className="hidden h-px w-8 shrink-0 bg-white/10 md:block" />}
                 <button
                   type="button"
                   onClick={logout}

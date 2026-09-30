@@ -19,6 +19,13 @@ Keep entries short. If a session resolves a new ambiguity not already covered by
 
 ---
 
+## 2026-09-30 — Leader — Phase 19: post-redesign persona re-review (laptop + phone), 4 fixes
+
+- Task IDs touched: none new (small polish on top of T-119, done directly by the Leader)
+- What changed: re-ran the "Thầy Hải" (multi-class, tech-savvy) persona review against the Phase 18 redesign specifically, once at a laptop viewport and once at a phone viewport, both via the click-by-text browser daemon with no code/API access. Fixed the 4 items the customer picked: added "Tổng quan điểm số" as a direct sidebar link (previously 3 clicks deep); added a visible divider between the collapsed rail's text-size and Logout buttons (previously flush squares, a real mis-tap-into-logout risk); shrank the class workspace header on phone widths (was eating ~400/844px before any tab content showed); added a reusable `HorizontalScrollHint` component (scroll-position-aware edge fade) to the gradebook and roster tables, which previously cut columns off on a phone with no visual cue that scrolling revealed more.
+- Why / decisions made: the two-orange-squares fix stays `md:`-only (a plain gap/divider, not a confirm dialog) — the phone review confirmed the same two buttons aren't adjacent on phone (they only live inside the open drawer there, already clearly labelled), and logout has never asked for confirmation anywhere else in the app, so a one-off confirm here would be inconsistent rather than a real fix for the actual failure mode (visual adjacency in one specific layout). The scroll-fade component was built generic (any `overflow-auto`/`overflow-x-auto` container) rather than special-cased per page, since both affected tables needed the identical behaviour. Verified the fade numerically, not just visually — a temporary `checkscroll` command added to the review-only browser daemon (never part of the app) confirmed `scrollWidth`/`clientWidth`/computed opacity directly against the real fixture data (e.g. class 7A1's grades table: 672px content in a 356px box, right fade opacity `1`).
+- Status after this entry: Phase 19 done — `tsc --noEmit` clean; all 4 fixes re-verified live against the non-destructive `t117.teacher.hai@example.com` fixture (6 classes, untouched from Phase 16/17) at both viewports. 3 smaller items from the same reviews were surfaced but explicitly NOT fixed (outside what the customer approved this round) — see BACKLOG.md's Phase 19 section.
+
 ## 2026-09-29 — Leader/Dev — Phase 17: fixes for all 5 multi-class findings (T-118)
 
 - Task IDs touched: T-118A (duplicate), T-118B (cross-class grading + score overview), T-118C (class-card colours + student transfer)
