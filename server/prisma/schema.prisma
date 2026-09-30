@@ -1246,6 +1246,24 @@ enum SiteLanguage {
   vi
 }
 
+/// The site-wide brand color theme (2026-09, admin "custom theme" request). Each value
+/// names a hand-picked, pre-built 50-950 color scale -- there is deliberately no
+/// free-form hex/RGB input, only a curated set, so an admin can never pick a low-contrast
+/// or muddy combination. The actual color values live client-side only
+/// (`client/src/lib/themePalettes.ts`) -- this enum just needs a fixed, valid set of ids;
+/// mirrors the `ThemeId` string union in `@platform/shared`, same convention as
+/// `SiteLanguage` above.
+enum ThemeId {
+  sunset
+  ocean
+  forest
+  violet
+  teal
+  rose
+  amber
+  indigo
+}
+
 /// Singleton settings row (T-067). `id` is always the fixed string `"singleton"` — there
 /// is exactly one row, ever; every read/write targets `id: SETTINGS_ID` (see the
 /// matching constant in `server/src/routes/settings.routes.ts`) rather than modeling
@@ -1263,6 +1281,7 @@ enum SiteLanguage {
 model Settings {
   id        String       @id @default("singleton")
   language  SiteLanguage @default(en)
+  themeId   ThemeId      @default(sunset)
   updatedAt DateTime     @updatedAt
 
   @@map("settings")

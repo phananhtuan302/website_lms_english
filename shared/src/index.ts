@@ -1948,19 +1948,30 @@ export interface AdminAttemptListResponseDTO {
  * code" convention as `UserRole`/`TestType`. */
 export type SiteLanguage = 'en' | 'vi';
 
+/** The site-wide brand color themes (2026-09, admin "custom theme" request) — a fixed,
+ * curated set of pre-built color scales, deliberately not a free-form hex/RGB input (see
+ * `client/src/lib/themePalettes.ts` for the actual color values and swatch metadata).
+ * Mirrors the Prisma `ThemeId` enum, same convention as `SiteLanguage` above. `sunset` is
+ * the original hand-tuned orange-red from T-004 and stays the default. */
+export const THEME_IDS = ['sunset', 'ocean', 'forest', 'violet', 'teal', 'rose', 'amber', 'indigo'] as const;
+export type ThemeId = (typeof THEME_IDS)[number];
+
 /** Response for `GET /api/settings` (T-067, PUBLIC — no auth required). This is the
- * single site-wide language every client, logged in or not, must render in — there is
- * deliberately no per-user override or public switcher anywhere in this contract (see
+ * single site-wide language/theme every client, logged in or not, must render in — there
+ * is deliberately no per-user override or public switcher anywhere in this contract (see
  * PROJECT_PLAN Guiding Principle 3). */
 export interface SettingsDTO {
   language: SiteLanguage;
+  themeId: ThemeId;
 }
 
 /** Body for `PATCH /api/admin/settings` (T-072, admin-only) — the only way to change the
- * site-wide language anywhere in the product; see `SettingsDTO`'s doc comment above for
- * why there's no other switcher. Validated server-side to be exactly `'en'` or `'vi'`. */
+ * site-wide language/theme anywhere in the product; see `SettingsDTO`'s doc comment above
+ * for why there's no other switcher. Either field may be sent alone (a partial update);
+ * each is validated server-side against its fixed set of allowed values. */
 export interface UpdateSettingsRequest {
-  language: SiteLanguage;
+  language?: SiteLanguage;
+  themeId?: ThemeId;
 }
 
 // --- Class-based organization (T-074, Phase 12) -------------------------------------

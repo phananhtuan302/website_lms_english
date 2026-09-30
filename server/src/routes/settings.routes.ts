@@ -35,7 +35,10 @@ settingsRouter.get(
     // the first seed run), fall back to the documented default (`en`, Assumption A13)
     // rather than erroring or writing on a read.
     const settings = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
-    const body: SettingsDTO = { language: settings?.language ?? 'en' };
+    const body: SettingsDTO = {
+      language: settings?.language ?? 'en',
+      themeId: settings?.themeId ?? 'sunset',
+    };
     res.status(200).json(body);
   }),
 );

@@ -3,6 +3,31 @@
 @tailwind utilities;
 
 /*
+ * Default brand theme (2026-09, admin "custom theme" feature) — the original T-004
+ * hand-tuned orange-red scale, as `"R G B"` triplets so `tailwind.config.js`'s
+ * `rgb(var(--color-primary-*) / <alpha-value>)` color tokens have a value even before
+ * `main.tsx` calls `applyTheme()` (e.g. this file's own CSS load, or a no-JS edge case).
+ * `main.tsx` overwrites these same properties on `documentElement.style` (inline style
+ * beats this `:root` stylesheet rule) with whichever theme `GET /api/settings` returns,
+ * BEFORE the first render — so in the normal case a visitor never sees this default
+ * flash before their actual theme, they're just the safety-net values. Keep these
+ * byte-identical to `themePalettes.ts`'s `sunset` entry.
+ */
+:root {
+  --color-primary-50: 255 245 242;
+  --color-primary-100: 255 231 224;
+  --color-primary-200: 255 205 189;
+  --color-primary-300: 255 171 145;
+  --color-primary-400: 250 135 103;
+  --color-primary-500: 242 105 74;
+  --color-primary-600: 218 82 54;
+  --color-primary-700: 181 64 42;
+  --color-primary-800: 143 50 32;
+  --color-primary-900: 107 37 23;
+  --color-primary-950: 71 23 8;
+}
+
+/*
  * Readability (Phase 15). The interface is used by teachers who read on small laptops and often
  * enlarge the page, so the faint greys are lifted site-wide here instead of in ~100 files.
  * Plain rules placed AFTER the Tailwind utilities so they win over the originals (same
@@ -12,7 +37,11 @@
  *    (#575757, 7:1 on white, ≥ 6:1 on the pink primary-50/100 backgrounds). This also covers the
  *    faded "unpublished score" text in the gradebook (`text-base-black/35`).
  *  - `text-primary-600` (#da5236) was only 4.0:1 on white / 3.7:1 on primary-50; it now uses the
- *    primary-700 shade (5.6:1) — same hue, just a little deeper.
+ *    primary-700 shade (5.6:1) — same hue, just a little deeper. Written as `rgb(var(--color-
+ *    primary-700))`, NOT `theme('colors.primary.700')`: since that Tailwind color token is
+ *    itself `rgb(var(--x) / <alpha-value>)` (2026-09, admin theme feature), `theme()` would
+ *    paste the literal, un-substituted string `<alpha-value>` into this plain CSS rule — that
+ *    placeholder is only ever resolved inside Tailwind's own class-generation pipeline.
  *  - Tailwind's default placeholder colour (gray-400, 2.5:1) becomes a readable grey.
  *  - The smallest helper text (`text-xs`, used for hints, badges and table headers) is 13px
  *    instead of 12px. No element combines `text-xs` with a responsive font-size class, so this
@@ -31,7 +60,7 @@
 }
 
 .text-primary-600 {
-  color: theme('colors.primary.700');
+  color: rgb(var(--color-primary-700));
 }
 
 /* Text-size safety net: a form field (or the label around it) never grows wider than the space it
@@ -58,8 +87,8 @@ textarea::placeholder {
 .bg-app-canvas {
   background-color: #f8fafc; /* slate-50 */
   background-image:
-    radial-gradient(60rem 30rem at 100% -10%, rgb(242 105 74 / 0.05), transparent 60%),
-    radial-gradient(50rem 25rem at -10% 110%, rgb(242 105 74 / 0.04), transparent 60%);
+    radial-gradient(60rem 30rem at 100% -10%, rgb(var(--color-primary-500) / 0.05), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 110%, rgb(var(--color-primary-500) / 0.04), transparent 60%);
   background-attachment: fixed;
 }
 
