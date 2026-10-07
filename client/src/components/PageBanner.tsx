@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import BannerIllustration from './BannerIllustration';
 
 interface PageBannerProps {
   eyebrow?: ReactNode;
@@ -14,41 +15,43 @@ interface PageBannerProps {
 
 /**
  * Reusable decorative banner (2026-09, customer request: "background, hình banner đẹp mắt") —
- * a gradient panel in the site's own brand hue with a few soft, purely-CSS blurred shapes and a
- * faint dot grid, never an external image (no licensing/broken-link risk, nothing to load). Used
- * on the public home page, the auth pages' side panel (`AuthLayout`), and the teacher class list.
+ * a gradient panel in the site's own brand hue, never an external image (no licensing/broken-
+ * link risk, nothing to load). Used on the public home page, the auth pages' side panel
+ * (`AuthLayout`), and the teacher class list.
+ *
+ * "Luxury" pass (2026-10): dropped the dot-grid texture and the top-right blur blob — a very
+ * recognizable "generic AI dashboard" combination — in favor of `BannerIllustration`, a small
+ * hand-drawn card/checkmark composition (`hero` size only; `compact` stays plain, it's a slim
+ * strip with no room for one).
  */
 function PageBanner({ eyebrow, title, subtitle, actions, size = 'hero', className = '' }: PageBannerProps) {
   const isCompact = size === 'compact';
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-primary-800 text-base-white shadow-panel ${
+      // A deeper, richer gradient (700→600→950, was 600→500→800) reads as a jewel tone instead
+      // of a bright candy wash; the `hero` title now uses `font-display` (Playfair Display,
+      // loaded in `index.html`) for an editorial moment — `compact` stays sans/bold since it's
+      // a slim strip, not a hero.
+      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 via-primary-600 to-primary-950 text-base-white shadow-panel ${
         isCompact ? 'px-5 py-4 sm:px-8 sm:py-5' : 'px-6 py-10 sm:px-10 sm:py-14'
       } ${className}`}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl"
-      />
-      <div
-        aria-hidden="true"
         className="pointer-events-none absolute -bottom-20 left-1/4 h-64 w-64 rounded-full bg-primary-950/30 blur-2xl"
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage: 'radial-gradient(rgb(255 255 255 / 0.14) 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-        }}
-      />
-      <div className="relative flex flex-col gap-1">
+      {!isCompact && (
+        <BannerIllustration className="pointer-events-none absolute -right-2 top-1/2 hidden h-44 w-52 -translate-y-1/2 lg:block" />
+      )}
+      <div className={`relative flex flex-col gap-1 ${isCompact ? '' : 'lg:max-w-[60%]'}`}>
         {eyebrow && (
           <p className="text-xs font-semibold uppercase tracking-wider text-primary-100">{eyebrow}</p>
         )}
-        <div className={isCompact ? 'text-lg font-bold sm:text-xl' : 'text-2xl font-bold sm:text-4xl'}>{title}</div>
+        <div className={isCompact ? 'text-lg font-bold sm:text-xl' : 'font-display text-3xl font-bold sm:text-5xl'}>
+          {title}
+        </div>
         {subtitle && (
-          <div className={`max-w-xl text-primary-50 ${isCompact ? 'text-sm' : 'mt-1 text-sm sm:text-base'}`}>
+          <div className={`max-w-xl text-primary-50 ${isCompact ? 'text-sm' : 'mt-2 text-sm sm:text-base'}`}>
             {subtitle}
           </div>
         )}

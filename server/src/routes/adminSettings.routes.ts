@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express';
-import { THEME_IDS, type SettingsDTO, type UpdateSettingsRequest } from '@platform/shared';
+import { THEME_IDS, UI_STYLE_IDS, type SettingsDTO, type UpdateSettingsRequest } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -30,9 +30,10 @@ adminSettingsRouter.patch(
     const body = req.body as Partial<UpdateSettingsRequest>;
     const hasLanguage = body.language !== undefined;
     const hasTheme = body.themeId !== undefined;
+    const hasUiStyle = body.uiStyle !== undefined;
 
-    if (!hasLanguage && !hasTheme) {
-      res.status(400).json({ error: 'Provide language and/or themeId.' });
+    if (!hasLanguage && !hasTheme && !hasUiStyle) {
+      res.status(400).json({ error: 'Provide language, themeId, and/or uiStyle.' });
       return;
     }
     if (hasLanguage && body.language !== 'en' && body.language !== 'vi') {
@@ -43,21 +44,31 @@ adminSettingsRouter.patch(
       res.status(400).json({ error: `themeId must be one of: ${THEME_IDS.join(', ')}.` });
       return;
     }
+    if (hasUiStyle && !UI_STYLE_IDS.includes(body.uiStyle!)) {
+      res.status(400).json({ error: `uiStyle must be one of: ${UI_STYLE_IDS.join(', ')}.` });
+      return;
+    }
 
     const settings = await prisma.settings.upsert({
       where: { id: SETTINGS_ID },
       update: {
         ...(hasLanguage ? { language: body.language } : {}),
         ...(hasTheme ? { themeId: body.themeId } : {}),
+        ...(hasUiStyle ? { uiStyle: body.uiStyle } : {}),
       },
       create: {
         id: SETTINGS_ID,
         ...(hasLanguage ? { language: body.language } : {}),
         ...(hasTheme ? { themeId: body.themeId } : {}),
+        ...(hasUiStyle ? { uiStyle: body.uiStyle } : {}),
       },
     });
 
-    const response: SettingsDTO = { language: settings.language, themeId: settings.themeId };
+    const response: SettingsDTO = {
+      language: settings.language,
+      themeId: settings.themeId,
+      uiStyle: settings.uiStyle,
+    };
     res.status(200).json(response);
   }),
 );

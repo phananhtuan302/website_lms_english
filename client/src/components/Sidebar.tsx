@@ -7,6 +7,7 @@ import { useAttemptLock } from '../context/useAttemptLock';
 import { dashboardPathForRole } from '../lib/roles';
 import NotificationBell from './NotificationBell';
 import TextSizeButton from './TextSizeButton';
+import { AvatarUpload, SettingsIcon } from './ui';
 
 interface NavItem {
   labelKey: string;
@@ -189,12 +190,17 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { labelKey: 'header.nav.admin.tests', to: '/admin/tests', icon: TestsIcon },
   { labelKey: 'header.nav.admin.flashcardSets', to: '/admin/flashcard-sets', icon: FlashcardsIcon },
   { labelKey: 'header.nav.admin.grammarTopics', to: '/admin/grammar-topics', icon: GrammarIcon },
+  // 2026-10: Settings was reachable only via the Dashboard's "Truy cập nhanh" quick-links list,
+  // never from the sidebar itself like every other admin section — easy to lose track of,
+  // especially now that it also holds the new UI-style picker. Added here so it's a direct,
+  // permanent nav entry.
+  { labelKey: 'header.nav.admin.settings', to: '/admin/settings', icon: SettingsIcon },
 ];
 
 const NAV_LINK_BASE =
-  'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors';
+  'group flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors';
 const NAV_LINK_INACTIVE = 'text-slate-300 hover:bg-white/10 hover:text-base-white';
-const NAV_LINK_ACTIVE = 'bg-primary-500 text-base-white shadow-card';
+const NAV_LINK_ACTIVE = 'bg-primary-500 text-base-white shadow-glow';
 
 interface SidebarProps {
   /** Whether the mobile off-canvas drawer is open (state lives in `AppShell` so its own
@@ -283,7 +289,7 @@ function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       >
         <div className={`flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
           <Link to="/" className="flex min-w-0 items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-500 text-sm font-extrabold text-base-white">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 text-sm font-extrabold text-base-white shadow-glow">
               E
             </span>
             <span className={`truncate text-base font-bold text-base-white ${collapsed ? 'md:hidden' : ''}`}>{APP_NAME}</span>
@@ -324,11 +330,14 @@ function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             <div className="flex flex-col gap-2">
               <div className={`flex items-center gap-2 ${collapsed ? 'md:justify-center' : ''}`}>
                 {user.role === 'student' && <NotificationBell key={user.id} />}
-                <div className={`min-w-0 flex-1 ${collapsed ? 'md:hidden' : ''}`}>
-                  <p className="truncate text-sm font-medium text-base-white">{user.name}</p>
-                  <p className="truncate text-xs font-medium uppercase text-primary-300">
-                    {user.role === 'teacher' || user.role === 'student' ? t(`roles.${user.role}`) : user.role}
-                  </p>
+                <div className={`flex min-w-0 flex-1 items-center gap-2 ${collapsed ? 'md:hidden' : ''}`}>
+                  <AvatarUpload size="sm" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-base-white">{user.name}</p>
+                    <p className="truncate text-xs font-medium uppercase text-primary-300">
+                      {user.role === 'teacher' || user.role === 'student' ? t(`roles.${user.role}`) : user.role}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className={`flex items-center gap-2 ${collapsed ? 'md:flex-col' : ''}`}>

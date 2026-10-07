@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { AdminFlashcardSetSummaryDTO } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
+import { Alert, Badge, cardClassName, EmptyState, FlashcardsIcon, PageHeader } from '../components/ui';
 
 /** Admin-only "browse everything" list for Flashcard sets (T-071) — same pattern as
  * `AdminTestsPage.tsx`: shows the owning teacher on every row, and opens the EXISTING
@@ -23,41 +24,37 @@ function AdminFlashcardSetsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">{t('adminFlashcardSets.heading')}</h1>
-      <p className="mt-1 text-sm text-base-black/60">{t('adminFlashcardSets.subtitle')}</p>
+      <PageHeader
+        title={t('adminFlashcardSets.heading')}
+        subtitle={t('adminFlashcardSets.subtitle')}
+        icon={<FlashcardsIcon className="h-5 w-5" />}
+      />
 
-      {error && (
-        <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <Alert>{error}</Alert>}
 
-      <ul className="mt-8 flex flex-col gap-3">
+      <ul className="flex flex-col gap-3">
         {sets === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
-        {sets?.length === 0 && <p className="text-sm text-base-black/60">{t('adminFlashcardSets.empty')}</p>}
+        {sets?.length === 0 && <EmptyState title={t('adminFlashcardSets.empty')} />}
         {sets?.map((set) => (
           <li key={set.id}>
             <Link
               to={`/teacher/flashcard-sets/${set.id}`}
-              className="flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-5 py-4 transition-colors hover:border-primary-300"
+              className={cardClassName(
+                { variant: 'glass', hoverable: true },
+                'flex items-center justify-between px-5 py-4',
+              )}
             >
               <div>
                 <p className="font-semibold text-primary-700">{set.name}</p>
                 <p className="mt-1 text-xs text-base-black/60">
                   {t('adminFlashcardSets.owner', { name: set.teacherName, email: set.teacherEmail })}
                 </p>
-                <p className="mt-1 text-xs text-base-black/60">
-                  {t('adminFlashcardSets.cardCount', { count: set.cardCount })} ·{' '}
-                  {t('adminFlashcardSets.updatedAt', { date: new Date(set.updatedAt).toLocaleString() })}
-                  {set.unitName && (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="rounded-full bg-primary-100 px-2 py-0.5 font-medium text-primary-700">
-                        {set.unitName}
-                      </span>
-                    </>
-                  )}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-base-black/60">
+                  <span>
+                    {t('adminFlashcardSets.cardCount', { count: set.cardCount })} ·{' '}
+                    {t('adminFlashcardSets.updatedAt', { date: new Date(set.updatedAt).toLocaleString() })}
+                  </span>
+                  {set.unitName && <Badge>{set.unitName}</Badge>}
                 </p>
               </div>
               <span className="text-sm font-medium text-primary-600">{t('adminFlashcardSets.openEditor')}</span>

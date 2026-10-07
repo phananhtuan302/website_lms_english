@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 2026-10 "Modern SaaS" redesign — crisper rendering for the new `Inter` body font
+ * (`tailwind.config.js`'s `fontFamily.sans`, loaded in `index.html`). */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 /*
  * Default brand theme (2026-09, admin "custom theme" feature) — the original T-004
  * hand-tuned orange-red scale, as `"R G B"` triplets so `tailwind.config.js`'s
@@ -81,15 +89,319 @@ textarea::placeholder {
 /*
  * "Professional dashboard" pass (2026-09, customer request: sidebar nav + a more polished
  * look site-wide). `AppShell`'s content area uses `.bg-app-canvas` instead of flat white — a
- * very soft two-tone wash (cool slate + a whisper of the brand hue) that every existing white
- * `bg-base-white` card already "floats" on top of with no per-page changes needed.
+ * two-tone wash (cool slate + the brand hue) that every existing white `bg-base-white` card
+ * already "floats" on top of with no per-page changes needed.
+ *
+ * 2026-10 "Modern SaaS" redesign: the original wash (two blobs at 4–5% opacity) was so faint
+ * it read as flat white — bumped to three visibly-colored pools (reads `--color-primary-*`
+ * directly like every other token here, so it recolors with the admin's chosen theme preset).
+ *
+ * "Luxury" pass: that first pass ran the color pools hot (0.16/0.12/0.09) and added a dot-grid
+ * texture — a very recognizable "generic AI dashboard" cliché at this point, and busy besides.
+ * Dropped the dots entirely; pools turned down to a quiet ambient wash.
+ *
+ * "Glassmorphism" pass (2026-10, customer request: "siêu hiện đại" — gradient mesh + frosted
+ * glass): a glass card only reads as glass when there's something colorful behind it to blur,
+ * so this goes back to a visibly colorful wash — six overlapping pools instead of three, each a
+ * different `primary-*` step (not a second hue — the 8-theme-preset system is one brand hue by
+ * design, see `tailwind.config.js`'s `colors.primary` comment) so the "mesh" comes from shape
+ * and position, not from breaking the theme system. Every `.bg-glass-panel` surface (`Card`'s
+ * `glass` variant) is composed against this.
  */
 .bg-app-canvas {
   background-color: #f8fafc; /* slate-50 */
   background-image:
-    radial-gradient(60rem 30rem at 100% -10%, rgb(var(--color-primary-500) / 0.05), transparent 60%),
-    radial-gradient(50rem 25rem at -10% 110%, rgb(var(--color-primary-500) / 0.04), transparent 60%);
+    radial-gradient(48rem 34rem at 8% -5%, rgb(var(--color-primary-400) / 0.5), transparent 60%),
+    radial-gradient(42rem 30rem at 92% 8%, rgb(var(--color-primary-600) / 0.4), transparent 58%),
+    radial-gradient(50rem 36rem at 100% 65%, rgb(var(--color-primary-300) / 0.38), transparent 60%),
+    radial-gradient(38rem 30rem at 15% 60%, rgb(var(--color-primary-700) / 0.28), transparent 55%),
+    radial-gradient(44rem 34rem at 50% 105%, rgb(var(--color-primary-500) / 0.3), transparent 60%),
+    radial-gradient(36rem 26rem at 60% 35%, rgb(var(--color-primary-200) / 0.3), transparent 55%);
   background-attachment: fixed;
+}
+
+/* A frosted-glass surface (2026-10 "glassmorphism" pass) — semi-transparent + blurred, so
+ * `.bg-app-canvas`'s color mesh shows through softly instead of sitting under a flat white
+ * card. High enough opacity (85%) to keep body text at full contrast; the blur + tint is what
+ * reads as "glass", not transparency of the text itself. `backdrop-filter` is unsupported only
+ * on very old browsers, where this just degrades to a plain translucent white panel — never
+ * broken, just slightly less glassy. */
+.bg-glass-panel {
+  background-color: rgb(255 255 255 / 0.85);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+
+/*
+ * ============================================================================
+ * UI STYLE OVERRIDES (2026-10, admin request: 4 selectable site-wide styles —
+ * `client/src/lib/uiStyles.ts`'s `applyUiStyle` sets `data-ui-style` on <html>;
+ * `glass` — everything above this block — is the default and needs no entry
+ * here. Each block below overrides the SAME classes every admin component
+ * already emits (Card/StatCard/Button/Table/PageHeader/AppShell/BarChart), so
+ * switching styles needs no per-component code and repaints instantly, same
+ * "attribute-scoped override, same specificity trick as the readability
+ * overrides above" approach as `.text-base-black\/60` etc. Attribute-selector
+ * specificity (0,2,0) already beats those plain single-class overrides
+ * (0,1,0), so source order here doesn't matter for that interaction, but
+ * these stay below them for readability.
+ *
+ * Compound selectors like `.bg-primary-500\/15.text-primary-700` target one
+ * exact component (`StatCard`'s icon chip) without touching every other use
+ * of `text-primary-700` (link text, etc.) elsewhere in the app.
+ * ============================================================================
+ */
+
+/* ---- dark ("Nền tối + màu neon rực" / dark premium) --------------------- */
+[data-ui-style='dark'] {
+  color-scheme: dark;
+}
+[data-ui-style='dark'] .bg-app-canvas {
+  background-color: #0a0a12;
+  background-image:
+    radial-gradient(60rem 40rem at 10% -10%, rgb(var(--color-primary-500) / 0.28), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 10%, rgb(var(--color-primary-600) / 0.24), transparent 60%),
+    radial-gradient(44rem 34rem at 60% 100%, rgb(var(--color-primary-400) / 0.2), transparent 60%);
+}
+[data-ui-style='dark'] .bg-base-white {
+  background-color: #15151f;
+}
+/* `AppShell`'s header/footer use the opacity-modifier form (`bg-base-white/80`, `/50`) —
+ * Tailwind generates those as separate atomic classes from plain `.bg-base-white`, so they
+ * need their own override rather than being caught by the rule above. */
+[data-ui-style='dark'] .bg-base-white\/80 {
+  background-color: rgb(21 21 31 / 0.85);
+}
+[data-ui-style='dark'] .bg-base-white\/50 {
+  background-color: rgb(21 21 31 / 0.7);
+}
+[data-ui-style='dark'] .hover\:bg-white\/50:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+[data-ui-style='dark'] .border-primary-100\/70 {
+  border-color: rgb(var(--color-primary-500) / 0.18);
+}
+[data-ui-style='dark'] .bg-slate-50 {
+  background-color: #1a1a26;
+}
+[data-ui-style='dark'] .bg-slate-100 {
+  background-color: #20202e;
+}
+[data-ui-style='dark'] .bg-glass-panel {
+  background-color: rgb(18 18 28 / 0.65);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+[data-ui-style='dark'] .border-slate-200,
+[data-ui-style='dark'] .border-slate-100,
+[data-ui-style='dark'] .border-slate-300 {
+  border-color: rgb(255 255 255 / 0.12);
+}
+[data-ui-style='dark'] .border-white\/60 {
+  border-color: rgb(var(--color-primary-400) / 0.35);
+}
+[data-ui-style='dark'] .text-base-black {
+  color: #f4f4f6;
+}
+[data-ui-style='dark'] .text-base-black\/35,
+[data-ui-style='dark'] .text-base-black\/40,
+[data-ui-style='dark'] .text-base-black\/50,
+[data-ui-style='dark'] .text-base-black\/60 {
+  color: rgb(244 244 246 / 0.62);
+}
+[data-ui-style='dark'] .text-slate-400 {
+  color: #8d8da3;
+}
+[data-ui-style='dark'] .text-slate-500 {
+  color: #9d9db1;
+}
+[data-ui-style='dark'] .text-slate-600,
+[data-ui-style='dark'] .text-slate-700 {
+  color: #c6c6d6;
+}
+[data-ui-style='dark'] .hover\:bg-slate-50:hover,
+[data-ui-style='dark'] .hover\:bg-slate-100:hover,
+[data-ui-style='dark'] .hover\:border-slate-400:hover {
+  background-color: rgb(255 255 255 / 0.07);
+}
+[data-ui-style='dark'] .hover\:bg-white\/50:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+/* Black drop shadows vanish on a near-black surface, so cards/buttons lean on a soft brand-hue
+   glow instead — reads as the "neon" accent the dark style is named for. */
+[data-ui-style='dark'] .shadow-card {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.05),
+    0 4px 20px -4px rgb(var(--color-primary-500) / 0.18);
+}
+[data-ui-style='dark'] .shadow-card-hover {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.07),
+    0 10px 30px -6px rgb(var(--color-primary-500) / 0.32);
+}
+[data-ui-style='dark'] .bg-slate-900 {
+  background-color: #0a0a12; /* Sidebar's dark surface, deepened to match this style's near-black */
+}
+
+/* ---- brutalist ("Màu khối đậm, viền dày" / neo-brutalist) ---------------- */
+[data-ui-style='brutalist'] .bg-app-canvas {
+  background-color: #fdf8f0;
+  background-image: none;
+}
+[data-ui-style='brutalist'] .bg-glass-panel {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='brutalist'] .rounded-xl,
+[data-ui-style='brutalist'] .rounded-lg,
+[data-ui-style='brutalist'] .rounded-2xl,
+[data-ui-style='brutalist'] .rounded-md {
+  border-radius: 4px;
+}
+[data-ui-style='brutalist'] .border,
+[data-ui-style='brutalist'] .border-slate-200,
+[data-ui-style='brutalist'] .border-slate-100,
+[data-ui-style='brutalist'] .border-white\/60 {
+  border-width: 2px;
+  border-color: #000000;
+}
+[data-ui-style='brutalist'] .shadow-card,
+[data-ui-style='brutalist'] .shadow-card-hover {
+  box-shadow: 4px 4px 0 0 #000000;
+}
+[data-ui-style='brutalist'] .shadow-panel {
+  box-shadow: 6px 6px 0 0 #000000;
+}
+/* Gradient-fill headings (`bg-clip-text`) become solid black — a hairline-and-shadow style
+   doesn't mix with a soft gradient wash on the text itself. */
+[data-ui-style='brutalist'] .bg-clip-text {
+  background-image: none;
+  -webkit-text-fill-color: #000000;
+  color: #000000;
+}
+/* StatCard icon chips: solid brand color + white icon instead of a pastel 15%-opacity tint —
+   compound selectors so only the exact chip combo is hit, not every `text-primary-700` use. */
+[data-ui-style='brutalist'] .bg-primary-500\/15.text-primary-700 {
+  background-color: rgb(var(--color-primary-500));
+  color: #ffffff;
+}
+[data-ui-style='brutalist'] .bg-emerald-500\/15.text-emerald-700 {
+  background-color: #10b981;
+  color: #ffffff;
+}
+[data-ui-style='brutalist'] .bg-amber-500\/15.text-amber-700 {
+  background-color: #f59e0b;
+  color: #ffffff;
+}
+[data-ui-style='brutalist'] .bg-sky-500\/15.text-sky-700 {
+  background-color: #0ea5e9;
+  color: #ffffff;
+}
+[data-ui-style='brutalist'] .bg-violet-500\/15.text-violet-700 {
+  background-color: #8b5cf6;
+  color: #ffffff;
+}
+[data-ui-style='brutalist'] .bg-rose-500\/15.text-rose-700 {
+  background-color: #f43f5e;
+  color: #ffffff;
+}
+/* The dashboard hero (`.admin-hero`, `AdminDashboardPage.tsx`) becomes a flat color block with
+   a thick border and an offset shadow instead of a frosted panel. */
+[data-ui-style='brutalist'] .admin-hero {
+  background-color: rgb(var(--color-primary-300));
+  border: 3px solid #000000;
+  box-shadow: 6px 6px 0 0 #000000;
+}
+[data-ui-style='brutalist'] .admin-hero h1 {
+  background-image: none;
+  -webkit-text-fill-color: #000000;
+  color: #000000;
+}
+
+/* ---- vivid ("Banner gradient + icon 3D rực rỡ") -------------------------- */
+[data-ui-style='vivid'] .bg-app-canvas {
+  background-image:
+    radial-gradient(48rem 34rem at 8% -5%, rgb(var(--color-primary-400) / 0.6), transparent 60%),
+    radial-gradient(42rem 30rem at 92% 8%, rgb(var(--color-primary-600) / 0.5), transparent 58%),
+    radial-gradient(50rem 36rem at 100% 65%, rgb(var(--color-primary-300) / 0.45), transparent 60%),
+    radial-gradient(38rem 30rem at 15% 60%, rgb(var(--color-primary-700) / 0.35), transparent 55%),
+    radial-gradient(44rem 34rem at 50% 105%, rgb(var(--color-primary-500) / 0.4), transparent 60%),
+    radial-gradient(36rem 26rem at 60% 35%, rgb(var(--color-primary-200) / 0.4), transparent 55%);
+}
+/* Opaque instead of frosted — this style's cards are solid, colorful surfaces, not glass. */
+[data-ui-style='vivid'] .bg-glass-panel {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='vivid'] .rounded-xl {
+  border-radius: 1.25rem;
+}
+[data-ui-style='vivid'] .rounded-lg {
+  border-radius: 1rem;
+}
+[data-ui-style='vivid'] .rounded-2xl {
+  border-radius: 2rem;
+}
+[data-ui-style='vivid'] .border-white\/60,
+[data-ui-style='vivid'] .border-slate-200 {
+  border-color: transparent;
+}
+[data-ui-style='vivid'] .shadow-card {
+  box-shadow:
+    0 8px 24px -6px rgb(0 0 0 / 0.12),
+    0 2px 6px -2px rgb(0 0 0 / 0.08);
+}
+[data-ui-style='vivid'] .shadow-card-hover {
+  box-shadow:
+    0 16px 34px -8px rgb(0 0 0 / 0.2),
+    0 4px 10px -2px rgb(0 0 0 / 0.1);
+}
+/* StatCard icon chips: a saturated gradient fill instead of a pastel tint — the "icon 3D rực
+   rỡ" cue, simulated with gradient + depth since there's no 3D icon asset pipeline here. */
+[data-ui-style='vivid'] .bg-primary-500\/15.text-primary-700 {
+  background-image: linear-gradient(135deg, rgb(var(--color-primary-400)), rgb(var(--color-primary-600)));
+  color: #ffffff;
+}
+[data-ui-style='vivid'] .bg-emerald-500\/15.text-emerald-700 {
+  background-image: linear-gradient(135deg, #34d399, #059669);
+  color: #ffffff;
+}
+[data-ui-style='vivid'] .bg-amber-500\/15.text-amber-700 {
+  background-image: linear-gradient(135deg, #fbbf24, #d97706);
+  color: #ffffff;
+}
+[data-ui-style='vivid'] .bg-sky-500\/15.text-sky-700 {
+  background-image: linear-gradient(135deg, #38bdf8, #0284c7);
+  color: #ffffff;
+}
+[data-ui-style='vivid'] .bg-violet-500\/15.text-violet-700 {
+  background-image: linear-gradient(135deg, #a78bfa, #7c3aed);
+  color: #ffffff;
+}
+[data-ui-style='vivid'] .bg-rose-500\/15.text-rose-700 {
+  background-image: linear-gradient(135deg, #fb7185, #e11d48);
+  color: #ffffff;
+}
+/* The dashboard hero becomes an opaque, saturated gradient banner (the style's namesake)
+   instead of a frosted panel, with white text on top of it. */
+[data-ui-style='vivid'] .admin-hero {
+  background-image: linear-gradient(
+    135deg,
+    rgb(var(--color-primary-400)),
+    rgb(var(--color-primary-600)) 55%,
+    rgb(var(--color-primary-800))
+  );
+  border-color: transparent;
+}
+[data-ui-style='vivid'] .admin-hero h1 {
+  background-image: none;
+  -webkit-text-fill-color: #ffffff;
+  color: #ffffff;
+}
+[data-ui-style='vivid'] .admin-hero p {
+  color: rgb(255 255 255 / 0.92);
 }
 
 /* A thin, unobtrusive scrollbar for the sidebar's own scroll area (nav can get long once a

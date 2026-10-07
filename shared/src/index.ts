@@ -45,6 +45,16 @@ export interface AuthUser {
   role: UserRole;
   classId: string | null;
   className: string | null;
+  /** A self-uploaded profile photo as a `data:image/...` URL, or `null` if this user hasn't
+   * set one — every UI that renders it falls back to an initials avatar in that case. */
+  avatarUrl: string | null;
+}
+
+/** Body for `PATCH /api/auth/me/avatar` — self-service only (there is no admin-sets-someone-
+ * else's-photo endpoint). `avatarUrl` is either a `data:image/...` URL (client-resized/
+ * compressed before upload, see `AvatarUpload.tsx`) or `null` to remove the current photo. */
+export interface UpdateAvatarRequest {
+  avatarUrl: string | null;
 }
 
 /** Body for `POST /api/auth/register`. `role` is intentionally omitted — the public
@@ -1963,6 +1973,7 @@ export interface AdminUserDTO {
   name: string;
   role: UserRole;
   createdAt: string;
+  avatarUrl: string | null;
 }
 
 /** Body for `GET /api/admin/users` query params (not a request body, but shared here for
@@ -2068,22 +2079,35 @@ export type SiteLanguage = 'en' | 'vi';
 export const THEME_IDS = ['sunset', 'ocean', 'forest', 'violet', 'teal', 'rose', 'amber', 'indigo'] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
+/** The site-wide UI style (2026-10, admin request: 4 selectable visual languages).
+ * Orthogonal to `ThemeId` — `ThemeId` is the brand HUE, `UiStyleId` is the overall look
+ * applied on top of it (surface treatment, shadow, corners, light/dark). `glass` (frosted
+ * gradient-mesh panels) is the default and requires no CSS override (see
+ * `client/src/index.css`); the other three each override the same surface/text/shadow
+ * classes under a `[data-ui-style="…"]` attribute — same "CSS var / attribute scoped
+ * override" approach as `ThemeId`, so switching needs no per-component code, no reload,
+ * and recolors instantly. Mirrors the Prisma `UiStyleId` enum. */
+export const UI_STYLE_IDS = ['glass', 'brutalist', 'vivid', 'dark'] as const;
+export type UiStyleId = (typeof UI_STYLE_IDS)[number];
+
 /** Response for `GET /api/settings` (T-067, PUBLIC — no auth required). This is the
- * single site-wide language/theme every client, logged in or not, must render in — there
- * is deliberately no per-user override or public switcher anywhere in this contract (see
- * PROJECT_PLAN Guiding Principle 3). */
+ * single site-wide language/theme/style every client, logged in or not, must render in —
+ * there is deliberately no per-user override or public switcher anywhere in this contract
+ * (see PROJECT_PLAN Guiding Principle 3). */
 export interface SettingsDTO {
   language: SiteLanguage;
   themeId: ThemeId;
+  uiStyle: UiStyleId;
 }
 
 /** Body for `PATCH /api/admin/settings` (T-072, admin-only) — the only way to change the
- * site-wide language/theme anywhere in the product; see `SettingsDTO`'s doc comment above
- * for why there's no other switcher. Either field may be sent alone (a partial update);
- * each is validated server-side against its fixed set of allowed values. */
+ * site-wide language/theme/style anywhere in the product; see `SettingsDTO`'s doc comment
+ * above for why there's no other switcher. Any subset of fields may be sent (a partial
+ * update); each is validated server-side against its fixed set of allowed values. */
 export interface UpdateSettingsRequest {
   language?: SiteLanguage;
   themeId?: ThemeId;
+  uiStyle?: UiStyleId;
 }
 
 // --- Class-based organization (T-074, Phase 12) -------------------------------------

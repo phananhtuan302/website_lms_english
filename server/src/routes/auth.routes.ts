@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express';
-import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest } from '@platform/shared';
+import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, UpdateAvatarRequest } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { hashPassword, verifyPassword } from '../lib/password';
 import { signToken } from '../lib/jwt';
@@ -27,6 +27,7 @@ function toAuthUser(user: {
   role: string;
   classId: string | null;
   class?: { name: string } | null;
+  avatarUrl: string | null;
 }): AuthUser {
   return {
     id: user.id,
@@ -35,6 +36,7 @@ function toAuthUser(user: {
     role: user.role as AuthUser['role'],
     classId: user.classId,
     className: user.class?.name ?? null,
+    avatarUrl: user.avatarUrl,
   };
 }
 
@@ -167,6 +169,46 @@ authRouter.get(
       res.status(404).json({ error: 'User not found.' });
       return;
     }
+    res.status(200).json(toAuthUser(user));
+  }),
+);
+
+// A resized/JPEG-compressed 160x160 avatar (`AvatarUpload.tsx`'s client-side canvas step)
+// comes in well under this — it's a ceiling against a caller sending something uncompressed,
+// not a target size.
+const MAX_AVATAR_DATA_URL_LENGTH = 400_000;
+const AVATAR_DATA_URL_RE = /^data:image\/(png|jpe?g|webp);base64,/;
+
+/**
+ * PATCH /api/auth/me/avatar (2026-10 "luxury" redesign) — self-service only; there is no
+ * endpoint for setting someone ELSE's avatar (not even for an admin — `AdminUserDTO` exposes
+ * `avatarUrl` read-only). `avatarUrl` is stored as-is (a `data:image/...;base64,...` string,
+ * already resized/compressed client-side) or `null` to remove the current photo.
+ */
+authRouter.patch(
+  '/me/avatar',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<UpdateAvatarRequest>;
+    const avatarUrl = body.avatarUrl === null ? null : body.avatarUrl;
+
+    if (avatarUrl !== null) {
+      if (typeof avatarUrl !== 'string' || !AVATAR_DATA_URL_RE.test(avatarUrl)) {
+        res.status(400).json({ error: 'avatarUrl must be a data:image/(png|jpeg|webp) URL, or null.' });
+        return;
+      }
+      if (avatarUrl.length > MAX_AVATAR_DATA_URL_LENGTH) {
+        res.status(400).json({ error: 'Image is too large. Please choose a smaller photo.' });
+        return;
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user!.sub },
+      data: { avatarUrl },
+      include: { class: { select: { name: true } } },
+    });
+
     res.status(200).json(toAuthUser(user));
   }),
 );

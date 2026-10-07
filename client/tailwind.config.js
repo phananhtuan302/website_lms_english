@@ -22,6 +22,33 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // 2026-10 "Modern SaaS" redesign — Inter (loaded in index.html) as the display/body
+      // typeface everywhere `font-sans` applies (Tailwind's default stack stays as the
+      // fallback chain, so a slow/blocked font request never leaves blank text).
+      fontFamily: {
+        sans: [
+          'Inter',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'Helvetica Neue',
+          'Arial',
+          'sans-serif',
+        ],
+        // "Luxury" pass — a serif reserved for the one or two biggest headings per page
+        // (`PageHeader`, `PageBanner`), never body text/controls/nav, so it reads as a
+        // deliberate accent rather than a wholesale font swap.
+        display: ['"Playfair Display"', 'Georgia', 'Cambria', 'serif'],
+      },
+      // Rounder corners than Tailwind's defaults (xl 12px→16px, 2xl 16px→24px) — the softer
+      // "Modern SaaS" card/modal/button look. Every existing `rounded-xl`/`rounded-2xl` class
+      // picks this up automatically; nothing needed a rename.
+      borderRadius: {
+        xl: '1rem',
+        '2xl': '1.5rem',
+      },
       colors: {
         primary: {
           50: 'rgb(var(--color-primary-50) / <alpha-value>)',
@@ -51,11 +78,26 @@ export default {
       // Tailwind's default `slate` scale (unchanged, always available) is the neutral partner
       // to the one brand hue above — used for the sidebar and page background, never for text
       // that competes with `primary`.
+      //
+      // 2026-10 "quiet utility" pass — admin tools that read as premium (Linear, Stripe,
+      // Vercel) lean on a crisp hairline border for definition, not a heavy drop shadow; a
+      // loud shadow reads as "soft consumer app", not "serious tool". `card` is now just
+      // enough lift to separate a surface from the page without competing with its border;
+      // `card-hover` stays a clear step up so hover/lift interactions still read.
       boxShadow: {
-        card: '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06)',
-        'card-hover': '0 4px 8px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06)',
-        panel: '0 10px 30px -10px rgb(0 0 0 / 0.15)',
-        sidebar: '1px 0 0 0 rgb(0 0 0 / 0.06), 2px 0 12px -4px rgb(0 0 0 / 0.12)',
+        card: '0 1px 2px 0 rgb(0 0 0 / 0.04)',
+        'card-hover': '0 4px 10px -2px rgb(0 0 0 / 0.10)',
+        panel: '0 16px 40px -12px rgb(0 0 0 / 0.22)',
+        sidebar: '1px 0 0 0 rgb(0 0 0 / 0.06), 4px 0 16px -4px rgb(0 0 0 / 0.16)',
+        // A softer, deeper shadow for floating surfaces (popovers, dropdown menus) that sit
+        // above cards, between `card-hover` and `panel`.
+        dropdown: '0 12px 28px -8px rgb(0 0 0 / 0.18), 0 4px 10px -4px rgb(0 0 0 / 0.10)',
+        // A shadow tinted with the current brand hue (reads `--color-primary-*` directly, same
+        // convention as `colors.primary` above — NOT `theme()`, see that comment) instead of
+        // plain black, for a colorful "glow" under primary buttons and the active nav item.
+        // Repaints with the admin's chosen theme preset automatically, like every other
+        // `primary-*` class already does.
+        glow: '0 10px 24px -6px rgb(var(--color-primary-500) / 0.45), 0 3px 8px -2px rgb(var(--color-primary-600) / 0.3)',
       },
     },
   },

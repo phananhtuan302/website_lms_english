@@ -38,6 +38,7 @@ settingsRouter.get(
     const body: SettingsDTO = {
       language: settings?.language ?? 'en',
       themeId: settings?.themeId ?? 'sunset',
+      uiStyle: settings?.uiStyle ?? 'glass',
     };
     res.status(200).json(body);
   }),

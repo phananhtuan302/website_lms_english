@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AttemptSummaryDTO } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
+import { Alert, AttemptsIcon, Badge, Button, Input, LinkButton, PageHeader, Table } from '../components/ui';
 
 const PAGE_SIZE = 20;
 
@@ -72,32 +72,28 @@ function AdminAttemptsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">{t('adminAttempts.heading')}</h1>
-      <p className="mt-1 text-sm text-base-black/60">{t('adminAttempts.subtitle')}</p>
+      <PageHeader
+        title={t('adminAttempts.heading')}
+        subtitle={t('adminAttempts.subtitle')}
+        icon={<AttemptsIcon className="h-5 w-5" />}
+      />
 
-      <form onSubmit={handleSearchSubmit} className="mt-6 flex items-end gap-2">
+      <form onSubmit={handleSearchSubmit} className="flex items-end gap-2">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('adminAttempts.searchLabel')}
-          <input
+          <Input
             type="text"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            className="w-72 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="w-72"
           />
         </label>
-        <button
-          type="submit"
-          className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-        >
+        <Button type="submit" variant="outline">
           {t('adminAttempts.searchSubmit')}
-        </button>
+        </Button>
       </form>
 
-      {error && (
-        <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <Alert className="mt-4">{error}</Alert>}
 
       {data === null && !error && <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>}
       {data?.attempts.length === 0 && (
@@ -106,82 +102,68 @@ function AdminAttemptsPage() {
 
       {data && data.attempts.length > 0 && (
         <>
-          <div className="mt-6 overflow-x-auto rounded-xl border border-primary-200">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-primary-50 text-xs font-semibold uppercase text-primary-700">
-                <tr>
-                  <th className="px-4 py-3">{t('adminAttempts.columns.student')}</th>
-                  <th className="px-4 py-3">{t('adminAttempts.columns.test')}</th>
-                  <th className="px-4 py-3">{t('adminAttempts.columns.status')}</th>
-                  <th className="px-4 py-3">{t('adminAttempts.columns.score')}</th>
-                  <th className="px-4 py-3">{t('adminAttempts.columns.timeTaken')}</th>
-                  <th className="px-4 py-3">{t('adminAttempts.columns.started')}</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {data.attempts.map((attempt) => (
-                  <tr key={attempt.attemptId} className="border-t border-primary-100">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-base-black">{attempt.studentName}</p>
-                      <p className="text-xs text-base-black/50">{attempt.studentEmail}</p>
-                    </td>
-                    <td className="px-4 py-3 text-base-black/80">{attempt.testTitle}</td>
-                    <td className="px-4 py-3">
-                      <span className={attempt.status === 'submitted' ? 'text-green-700' : 'text-primary-600'}>
-                        {attempt.status === 'submitted'
-                          ? t('adminAttempts.status.submitted')
-                          : t('adminAttempts.status.inProgress')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {attempt.scorePercent !== null
-                        ? `${attempt.scorePercent}% (${attempt.correctCount}/${attempt.totalCount})`
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-base-black/70">{formatDuration(attempt.timeTakenSeconds)}</td>
-                    <td className="px-4 py-3 text-base-black/70">{new Date(attempt.startedAt).toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Link
-                          to={`/teacher/attempts/${attempt.attemptId}`}
-                          className="font-medium text-primary-600 hover:underline"
-                        >
-                          {t('adminAttempts.viewDetail')}
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(attempt.attemptId)}
-                          className="font-medium text-red-600 hover:underline"
-                        >
-                          {t('adminAttempts.delete')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table className="mt-6">
+            <Table.Head>
+              <tr>
+                <Table.HeaderCell>{t('adminAttempts.columns.student')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminAttempts.columns.test')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminAttempts.columns.status')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminAttempts.columns.score')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminAttempts.columns.timeTaken')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminAttempts.columns.started')}</Table.HeaderCell>
+                <Table.HeaderCell />
+              </tr>
+            </Table.Head>
+            <tbody>
+              {data.attempts.map((attempt) => (
+                <Table.Row key={attempt.attemptId}>
+                  <Table.Cell>
+                    <p className="font-medium text-base-black">{attempt.studentName}</p>
+                    <p className="text-xs text-base-black/50">{attempt.studentEmail}</p>
+                  </Table.Cell>
+                  <Table.Cell className="text-base-black/80">{attempt.testTitle}</Table.Cell>
+                  <Table.Cell>
+                    <Badge tone={attempt.status === 'submitted' ? 'green' : 'amber'}>
+                      {attempt.status === 'submitted'
+                        ? t('adminAttempts.status.submitted')
+                        : t('adminAttempts.status.inProgress')}
+                    </Badge>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {attempt.scorePercent !== null
+                      ? `${attempt.scorePercent}% (${attempt.correctCount}/${attempt.totalCount})`
+                      : '—'}
+                  </Table.Cell>
+                  <Table.Cell className="text-base-black/70">{formatDuration(attempt.timeTakenSeconds)}</Table.Cell>
+                  <Table.Cell className="text-base-black/70">{new Date(attempt.startedAt).toLocaleString()}</Table.Cell>
+                  <Table.Cell>
+                    <div className="flex items-center gap-2">
+                      <LinkButton to={`/teacher/attempts/${attempt.attemptId}`} variant="ghost" size="sm">
+                        {t('adminAttempts.viewDetail')}
+                      </LinkButton>
+                      <Button variant="ghost" tone="danger" size="sm" onClick={() => handleDelete(attempt.attemptId)}>
+                        {t('adminAttempts.delete')}
+                      </Button>
+                    </div>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </tbody>
+          </Table>
 
           <div className="mt-4 flex items-center justify-between text-sm text-base-black/70">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="rounded-md border border-primary-200 px-3 py-1.5 font-medium text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
               {t('adminAttempts.previousPage')}
-            </button>
+            </Button>
             <span>{t('adminAttempts.pageOf', { page, totalPages })}</span>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-md border border-primary-200 px-3 py-1.5 font-medium text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('adminAttempts.nextPage')}
-            </button>
+            </Button>
           </div>
         </>
       )}

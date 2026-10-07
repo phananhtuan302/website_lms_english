@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest } from '@platform/shared';
+import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, UpdateAvatarRequest } from '@platform/shared';
 import { apiRequest, setStoredToken, getStoredToken } from '../lib/apiClient';
 import { AuthContext, type AuthContextValue } from './authContextInstance';
 
@@ -76,9 +76,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateAvatar = useCallback(async (avatarUrl: string | null) => {
+    const body: UpdateAvatarRequest = { avatarUrl };
+    const updated = await apiRequest<AuthUser>('/api/auth/me/avatar', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    setUser(updated);
+    return updated;
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isLoading, login, register, logout }),
-    [user, isLoading, login, register, logout],
+    () => ({ user, isLoading, login, register, logout, updateAvatar }),
+    [user, isLoading, login, register, logout, updateAvatar],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

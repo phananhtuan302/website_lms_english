@@ -18,6 +18,9 @@ export interface AuthContextValue {
   login: (credentials: LoginRequest) => Promise<AuthUser>;
   register: (data: RegisterRequest) => Promise<AuthUser>;
   logout: () => void;
+  /** Sets or clears (`null`) the current user's own profile photo and updates local session
+   * state so the UI reflects it immediately. */
+  updateAvatar: (avatarUrl: string | null) => Promise<AuthUser>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);

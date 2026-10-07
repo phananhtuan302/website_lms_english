@@ -4,6 +4,20 @@ import type { AdminUserDTO, UserRole } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
 import { useAuth } from '../context/useAuth';
+import {
+  Alert,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  PageHeader,
+  Select,
+  SectionHeading,
+  Table,
+  UsersIcon,
+} from '../components/ui';
 
 const ROLES: UserRole[] = ['teacher', 'student', 'admin'];
 const MIN_PASSWORD_LENGTH = 8;
@@ -101,119 +115,106 @@ function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-700">{t('adminUsers.heading')}</h1>
-      <p className="mt-1 text-sm text-base-black/60">{t('adminUsers.subtitle')}</p>
+      <PageHeader
+        title={t('adminUsers.heading')}
+        subtitle={t('adminUsers.subtitle')}
+        icon={<UsersIcon className="h-5 w-5" />}
+      />
 
-      <section className="mt-6 rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">{t('adminUsers.createHeading')}</h2>
+      <Card variant="glass" padding="sm">
+        <SectionHeading>{t('adminUsers.createHeading')}</SectionHeading>
         <form onSubmit={handleCreate} className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('adminUsers.form.name')}
-            <input
-              type="text"
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              className="w-48 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
+            <Input type="text" value={newName} onChange={(event) => setNewName(event.target.value)} className="w-48" />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('adminUsers.form.email')}
-            <input
-              type="email"
-              value={newEmail}
-              onChange={(event) => setNewEmail(event.target.value)}
-              className="w-56 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
+            <Input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} className="w-56" />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('adminUsers.form.password')}
-            <input
+            <Input
               type="password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               placeholder={t('adminUsers.form.passwordPlaceholder', { count: MIN_PASSWORD_LENGTH })}
-              className="w-40 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+              className="w-40"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('adminUsers.form.role')}
-            <select
-              value={newRole}
-              onChange={(event) => setNewRole(event.target.value as UserRole)}
-              className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            >
+            <Select value={newRole} onChange={(event) => setNewRole(event.target.value as UserRole)}>
               {ROLES.map((role) => (
                 <option key={role} value={role}>
                   {t(`roles.${role}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <button
+          <Button
             type="submit"
             disabled={isCreating || !newName.trim() || !newEmail.trim() || newPassword.length < MIN_PASSWORD_LENGTH}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isCreating ? t('adminUsers.form.submitting') : t('adminUsers.form.submit')}
-          </button>
+          </Button>
         </form>
-      </section>
+      </Card>
 
       <section className="mt-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
           {t('adminUsers.filter.roleLabel')}
-          <select
-            value={roleFilter}
-            onChange={(event) => setRoleFilter(event.target.value as UserRole | '')}
-            className="rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-          >
+          <Select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as UserRole | '')}>
             <option value="">{t('adminUsers.filter.allRoles')}</option>
             {ROLES.map((role) => (
               <option key={role} value={role}>
                 {t(`roles.${role}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <form onSubmit={handleSearchSubmit} className="flex items-end gap-2">
           <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
             {t('adminUsers.filter.searchLabel')}
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className="w-56 rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
+            <Input type="text" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} className="w-56" />
           </label>
-          <button
-            type="submit"
-            className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
+          <Button type="submit" variant="outline">
             {t('adminUsers.filter.searchSubmit')}
-          </button>
+          </Button>
         </form>
       </section>
 
-      {error && (
-        <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <Alert className="mt-4">{error}</Alert>}
 
-      <ul className="mt-6 flex flex-col gap-2">
+      <div className="mt-6">
         {users === null && <p className="text-sm text-base-black/60">{t('common.loading')}</p>}
-        {users?.length === 0 && <p className="text-sm text-base-black/60">{t('adminUsers.noResults')}</p>}
-        {users?.map((user) => (
-          <UserRow
-            key={user.id}
-            user={user}
-            isSelf={user.id === currentUser?.id}
-            onSave={handleUpdate}
-            onResetPassword={handleResetPassword}
-            onDelete={() => handleDelete(user.id)}
-          />
-        ))}
-      </ul>
+        {users?.length === 0 && <EmptyState title={t('adminUsers.noResults')} />}
+        {users && users.length > 0 && (
+          <Table>
+            <Table.Head>
+              <tr>
+                <Table.HeaderCell>{t('adminUsers.form.name')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminUsers.form.email')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminUsers.form.role')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminUsers.columns.joined')}</Table.HeaderCell>
+                <Table.HeaderCell>{t('adminUsers.columns.actions')}</Table.HeaderCell>
+              </tr>
+            </Table.Head>
+            <tbody>
+              {users.map((user) => (
+                <UserRow
+                  key={user.id}
+                  user={user}
+                  isSelf={user.id === currentUser?.id}
+                  onSave={handleUpdate}
+                  onResetPassword={handleResetPassword}
+                  onDelete={() => handleDelete(user.id)}
+                />
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </div>
     </div>
   );
 }
@@ -260,91 +261,103 @@ function UserRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-primary-100 px-3 py-2">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          onBlur={() => maybeSave()}
-          className="w-40 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-        />
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          onBlur={() => maybeSave()}
-          className="w-56 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-        />
-        <select
-          value={role}
-          onChange={(event) => {
-            const nextRole = event.target.value as UserRole;
-            setRole(nextRole);
-            maybeSave(nextRole);
-          }}
-          className="rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {t(`roles.${r}`)}
-            </option>
-          ))}
-        </select>
-        <span className="text-xs text-base-black/50">
-          {t('adminUsers.joinedOn', { date: new Date(user.createdAt).toLocaleDateString() })}
-        </span>
-        {isSelf && <span className="text-xs font-medium text-primary-600">{t('adminUsers.you')}</span>}
-
-        <button
-          type="button"
-          onClick={() => setIsResetting((prev) => !prev)}
-          className="ml-auto rounded px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
-        >
-          {t('adminUsers.resetPasswordButton')}
-        </button>
-        {!isSelf && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+    <>
+      <Table.Row>
+        <Table.Cell>
+          <div className="flex items-center gap-2">
+            <Avatar name={user.name} src={user.avatarUrl} size="sm" className="hidden sm:inline-flex" />
+            <Input
+              type="text"
+              size="sm"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => maybeSave()}
+              className="w-36"
+            />
+            {isSelf && <Badge>{t('adminUsers.you')}</Badge>}
+          </div>
+        </Table.Cell>
+        <Table.Cell>
+          <Input
+            type="email"
+            size="sm"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            onBlur={() => maybeSave()}
+            className="w-52"
+          />
+        </Table.Cell>
+        <Table.Cell>
+          <Select
+            size="sm"
+            value={role}
+            onChange={(event) => {
+              const nextRole = event.target.value as UserRole;
+              setRole(nextRole);
+              maybeSave(nextRole);
+            }}
           >
-            {t('adminUsers.delete')}
-          </button>
-        )}
-      </div>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {t(`roles.${r}`)}
+              </option>
+            ))}
+          </Select>
+        </Table.Cell>
+        <Table.Cell className="whitespace-nowrap text-base-black/60">
+          {new Date(user.createdAt).toLocaleDateString()}
+        </Table.Cell>
+        <Table.Cell>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsResetting((prev) => !prev)}>
+              {t('adminUsers.resetPasswordButton')}
+            </Button>
+            {!isSelf && (
+              <Button variant="ghost" tone="danger" size="sm" onClick={onDelete}>
+                {t('adminUsers.delete')}
+              </Button>
+            )}
+          </div>
+        </Table.Cell>
+      </Table.Row>
 
       {isResetting && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-primary-100 pt-2">
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
-            placeholder={t('adminUsers.resetPasswordPlaceholder', { count: MIN_PASSWORD_LENGTH })}
-            className="w-64 rounded-md border border-primary-200 px-2 py-1 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-          />
-          <button
-            type="button"
-            onClick={handleConfirmReset}
-            disabled={newPassword.length < MIN_PASSWORD_LENGTH}
-            className="rounded-md bg-primary-500 px-3 py-1 text-xs font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('adminUsers.confirmResetButton')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsResetting(false);
-              setNewPassword('');
-            }}
-            className="rounded px-2 py-1 text-xs font-medium text-base-black/60 hover:bg-primary-50"
-          >
-            {t('adminUsers.cancel')}
-          </button>
-        </div>
+        <Table.Row>
+          <Table.Cell colSpan={5} className="bg-primary-50/50">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="password"
+                size="sm"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder={t('adminUsers.resetPasswordPlaceholder', { count: MIN_PASSWORD_LENGTH })}
+                className="w-64"
+              />
+              <Button size="sm" onClick={handleConfirmReset} disabled={newPassword.length < MIN_PASSWORD_LENGTH}>
+                {t('adminUsers.confirmResetButton')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsResetting(false);
+                  setNewPassword('');
+                }}
+              >
+                {t('adminUsers.cancel')}
+              </Button>
+            </div>
+          </Table.Cell>
+        </Table.Row>
       )}
-      {resetMessage && <p className="text-xs font-medium text-primary-600">{resetMessage}</p>}
-    </li>
+      {resetMessage && (
+        <Table.Row>
+          <Table.Cell colSpan={5} className="py-1 text-xs font-medium text-primary-600">
+            {resetMessage}
+          </Table.Cell>
+        </Table.Row>
+      )}
+    </>
   );
 }
 

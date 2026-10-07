@@ -39,6 +39,7 @@ function toAdminUserDTO(user: {
   name: string;
   role: string;
   createdAt: Date;
+  avatarUrl: string | null;
 }): AdminUserDTO {
   return {
     id: user.id,
@@ -46,6 +47,7 @@ function toAdminUserDTO(user: {
     name: user.name,
     role: user.role as UserRole,
     createdAt: user.createdAt.toISOString(),
+    avatarUrl: user.avatarUrl,
   };
 }
 

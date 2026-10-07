@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>English Test Platform</title>
+    <!-- 2026-10 "Modern SaaS" redesign — site-wide body typeface (tailwind.config.js's
+         `fontFamily.sans`), loaded once here instead of self-hosted so there's no build-time
+         font pipeline to maintain. Extended for the "luxury" pass with Playfair Display
+         (`fontFamily.display`) — a serif reserved for the one or two largest headings per page
+         (`PageHeader`'s `<h1>`, `PageBanner`'s title), never body text or controls. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <script>
       // "Chữ to": apply the saved text size before the first paint (see src/lib/textSize.ts).
       try {

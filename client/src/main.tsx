@@ -6,6 +6,7 @@ import './index.css';
 import { initI18n } from './i18n/i18n';
 import { apiRequest } from './lib/apiClient';
 import { applyTheme } from './lib/themePalettes';
+import { applyUiStyle } from './lib/uiStyles';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -37,6 +38,7 @@ async function bootstrap() {
     // `sunset` default, so a failed fetch here just leaves that in place, unlike language
     // which needs an explicit fallback value to pass to `initI18n`.
     applyTheme(settings.themeId);
+    applyUiStyle(settings.uiStyle);
   } catch {
     // Keep the 'en' default — see doc comment above.
   }
