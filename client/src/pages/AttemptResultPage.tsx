@@ -5,6 +5,7 @@ import { SPEAKING_SCORE_SCALE, type AttemptResultResponseDTO } from '@platform/s
 import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import { formatPoints, formatScore10 } from '../lib/scoreFormat';
+import AiFeedbackSections from '../components/AiFeedbackSections';
 
 /** T-113: the big solid "← Về Bài cần làm" button a child sees right after finishing a test. */
 const BACK_HOME_BUTTON_CLASS =
@@ -184,12 +185,19 @@ function AttemptResultPage() {
                 )}
                 {/* Teacher comment wins once present; otherwise the AI's own feedback
                     (2026-09) — same "teacher value wins" rule as Speaking's feedback below. */}
-                {(q.manualComment ?? q.essayAiFeedback) && (
+                {q.manualComment ? (
                   <p className="text-xs italic text-base-black/60">
-                    {q.manualComment
-                      ? t('attemptResult.teacherCommentLine', { comment: q.manualComment })
-                      : t('attemptResult.feedbackLine', { feedback: q.essayAiFeedback })}
+                    {t('attemptResult.teacherCommentLine', { comment: q.manualComment })}
                   </p>
+                ) : (
+                  q.essayAiFeedback && (
+                    <div className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-base-black/70">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                        {t('common.aiNote')}
+                      </p>
+                      <AiFeedbackSections feedback={q.essayAiFeedback} />
+                    </div>
+                  )
                 )}
                 {q.manualScore == null && q.essayAiScore == null && (
                   <p className="text-xs text-base-black/50">
@@ -207,12 +215,19 @@ function AttemptResultPage() {
                 {/* Teacher override wins once present (T-055); otherwise show the
                     AI/mock feedback (T-054) — same "teacher value wins" rule as the
                     score badge above. */}
-                {(q.manualComment ?? q.speakingAiFeedback) && (
+                {q.manualComment ? (
                   <p className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-base-black/70">
-                    {q.manualComment
-                      ? t('attemptResult.teacherFeedbackLine', { feedback: q.manualComment })
-                      : t('attemptResult.feedbackLine', { feedback: q.speakingAiFeedback })}
+                    {t('attemptResult.teacherFeedbackLine', { feedback: q.manualComment })}
                   </p>
+                ) : (
+                  q.speakingAiFeedback && (
+                    <div className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-base-black/70">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                        {t('common.aiNote')}
+                      </p>
+                      <AiFeedbackSections feedback={q.speakingAiFeedback} />
+                    </div>
+                  )
                 )}
                 {q.speakingAudioData && q.manualScore == null && q.speakingAiScore == null && (
                   <p className="text-xs text-base-black/50">{t('attemptResult.recordingNotGradedYet')}</p>

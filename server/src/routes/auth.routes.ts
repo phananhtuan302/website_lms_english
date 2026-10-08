@@ -20,7 +20,10 @@ export const authRouter = Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-function toAuthUser(user: {
+/** Exported so other join flows that issue their own JWT — currently the guest-join
+ * endpoints in `sessions.routes.ts` (2026-10, `TestSession.allowGuests`) — build the
+ * exact same `AuthUser` shape rather than duplicating this mapping. */
+export function toAuthUser(user: {
   id: string;
   email: string;
   name: string;
@@ -28,6 +31,7 @@ function toAuthUser(user: {
   classId: string | null;
   class?: { name: string } | null;
   avatarUrl: string | null;
+  isGuest: boolean;
 }): AuthUser {
   return {
     id: user.id,
@@ -37,6 +41,7 @@ function toAuthUser(user: {
     classId: user.classId,
     className: user.class?.name ?? null,
     avatarUrl: user.avatarUrl,
+    isGuest: user.isGuest,
   };
 }
 

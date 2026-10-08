@@ -108,6 +108,21 @@ export function awaitingGradingWhere(
   };
 }
 
+/** Submitted attempts, on `testIds`, by students of `classId` (one class or several), that hold
+ * a `speaking` answer the real AI provider failed to grade (fell back to the mock heuristic —
+ * see `Answer.speakingAiFellBackToMock`'s doc comment) and no teacher has overridden yet. */
+export function speakingFallbackWhere(
+  testIds: string[],
+  classId: string | string[],
+): Prisma.AttemptWhereInput {
+  return {
+    status: 'submitted',
+    testId: { in: testIds },
+    student: { classId: typeof classId === 'string' ? classId : { in: classId } },
+    answers: { some: { manualScore: null, speakingAiFellBackToMock: true, question: { type: 'speaking' } } },
+  };
+}
+
 function emptyAttention(classId: string): ClassAttentionDTO {
   return {
     classId,
@@ -115,6 +130,7 @@ function emptyAttention(classId: string): ClassAttentionDTO {
     notSubmittedStudentCount: 0,
     overdueNotSubmittedStudentCount: 0,
     needsGradingCount: 0,
+    speakingNeedsReviewCount: 0,
   };
 }
 
@@ -205,9 +221,13 @@ export async function computeClassesAttention(
 
   const watchedTestIds = [...new Set([...watchedByClass.values()].flat().map((test) => test.id))];
   const studentIds = students.map((student) => student.id);
-  const [gradingRows, submittedPairs] = await Promise.all([
+  const [gradingRows, speakingFallbackRows, submittedPairs] = await Promise.all([
     prisma.attempt.findMany({
       where: awaitingGradingWhere(allTestIds, classIds),
+      select: { testId: true, student: { select: { classId: true } } },
+    }),
+    prisma.attempt.findMany({
+      where: speakingFallbackWhere(allTestIds, classIds),
       select: { testId: true, student: { select: { classId: true } } },
     }),
     watchedTestIds.length === 0 || studentIds.length === 0
@@ -228,6 +248,12 @@ export async function computeClassesAttention(
     const classId = row.student.classId;
     if (classId !== null && classTestIds.get(classId)?.has(row.testId)) {
       result.get(classId)!.needsGradingCount += 1;
+    }
+  }
+  for (const row of speakingFallbackRows) {
+    const classId = row.student.classId;
+    if (classId !== null && classTestIds.get(classId)?.has(row.testId)) {
+      result.get(classId)!.speakingNeedsReviewCount += 1;
     }
   }
 

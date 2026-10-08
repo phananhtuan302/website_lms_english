@@ -127,6 +127,13 @@ function AttentionBadges({ cls, attention }: { cls: ClassDTO; attention: ClassAt
       className: 'bg-primary-100 text-primary-800',
     });
   }
+  if (attention.speakingNeedsReviewCount > 0) {
+    badges.push({
+      key: 'speakingNeedsReview',
+      text: t('teacherHome.attention.speakingNeedsReview', { count: attention.speakingNeedsReviewCount }),
+      className: 'bg-amber-100 text-amber-900',
+    });
+  }
   if (badges.length === 0) {
     return <p className="text-xs text-base-black/50">{t('teacherHome.attention.none')}</p>;
   }

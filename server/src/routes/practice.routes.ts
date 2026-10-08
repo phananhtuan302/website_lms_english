@@ -202,6 +202,7 @@ practiceRouter.post(
     });
 
     const response: JoinSessionResponse = {
+      joined: true,
       attemptId: attempt.id,
       sessionId: session.id,
       testId: test.id,

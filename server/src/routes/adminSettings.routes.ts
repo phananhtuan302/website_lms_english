@@ -22,6 +22,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { SETTINGS_ID } from './settings.routes';
 import { encryptSecret } from '../lib/secretCrypto';
 import { DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT } from '../grading/essayGradingPrompt';
+import { DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT } from '../grading/speakingGradingPrompt';
 
 export const adminSettingsRouter = Router();
 
@@ -97,16 +98,19 @@ adminSettingsRouter.get(
       model: settings?.essayGradingModel ?? null,
       systemPrompt: settings?.essayGradingSystemPrompt ?? DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
       defaultSystemPrompt: DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
+      speakingGradingEnabled: settings?.speakingGradingEnabled ?? false,
+      speakingSystemPrompt: settings?.speakingGradingSystemPrompt ?? DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT,
+      defaultSpeakingSystemPrompt: DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT,
     };
     res.status(200).json(response);
   }),
 );
 
 /** PATCH /api/admin/settings/ai-grading — admin-only partial update. Validates that
- * turning `essayGradingEnabled` on never leaves the provider unable to actually call an
- * endpoint (missing base URL/model/key) — see `AiGradingSettingsDTO`'s doc comment for
- * the exact field semantics (`apiKey` replaces, `clearApiKey` removes, omitting both
- * leaves the stored key untouched). */
+ * turning `essayGradingEnabled` OR `speakingGradingEnabled` on never leaves the provider
+ * unable to actually call an endpoint (missing base URL/model/key) — see
+ * `AiGradingSettingsDTO`'s doc comment for the exact field semantics (`apiKey` replaces,
+ * `clearApiKey` removes, omitting both leaves the stored key untouched). */
 adminSettingsRouter.patch(
   '/settings/ai-grading',
   asyncHandler(async (req, res) => {
@@ -117,8 +121,19 @@ adminSettingsRouter.patch(
     const hasClearApiKey = body.clearApiKey === true;
     const hasModel = body.model !== undefined;
     const hasSystemPrompt = body.systemPrompt !== undefined;
+    const hasSpeakingEnabled = body.speakingGradingEnabled !== undefined;
+    const hasSpeakingSystemPrompt = body.speakingSystemPrompt !== undefined;
 
-    if (!hasEnabled && !hasBaseUrl && !hasApiKey && !hasClearApiKey && !hasModel && !hasSystemPrompt) {
+    if (
+      !hasEnabled &&
+      !hasBaseUrl &&
+      !hasApiKey &&
+      !hasClearApiKey &&
+      !hasModel &&
+      !hasSystemPrompt &&
+      !hasSpeakingEnabled &&
+      !hasSpeakingSystemPrompt
+    ) {
       res.status(400).json({ error: 'Provide at least one field to update.' });
       return;
     }
@@ -133,16 +148,21 @@ adminSettingsRouter.patch(
 
     const existing = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
 
-    if (hasEnabled && body.essayGradingEnabled) {
-      const resultingBaseUrl = hasBaseUrl ? body.apiBaseUrl!.trim() : existing?.essayGradingApiBaseUrl;
-      const resultingModel = hasModel ? body.model!.trim() : existing?.essayGradingModel;
-      const resultingHasKey = hasApiKey ? true : hasClearApiKey ? false : Boolean(existing?.essayGradingApiKeyEncrypted);
-      if (!resultingBaseUrl || !resultingModel || !resultingHasKey) {
-        res.status(400).json({
-          error: 'Cannot enable AI grading until apiBaseUrl, model, and an API key are all configured.',
-        });
-        return;
-      }
+    const resultingBaseUrl = hasBaseUrl ? body.apiBaseUrl!.trim() : existing?.essayGradingApiBaseUrl;
+    const resultingModel = hasModel ? body.model!.trim() : existing?.essayGradingModel;
+    const resultingHasKey = hasApiKey ? true : hasClearApiKey ? false : Boolean(existing?.essayGradingApiKeyEncrypted);
+
+    if (hasEnabled && body.essayGradingEnabled && (!resultingBaseUrl || !resultingModel || !resultingHasKey)) {
+      res.status(400).json({
+        error: 'Cannot enable AI essay grading until apiBaseUrl, model, and an API key are all configured.',
+      });
+      return;
+    }
+    if (hasSpeakingEnabled && body.speakingGradingEnabled && (!resultingBaseUrl || !resultingModel || !resultingHasKey)) {
+      res.status(400).json({
+        error: 'Cannot enable AI speaking grading until apiBaseUrl, model, and an API key are all configured.',
+      });
+      return;
     }
 
     const data = {
@@ -152,6 +172,8 @@ adminSettingsRouter.patch(
       ...(hasClearApiKey ? { essayGradingApiKeyEncrypted: null } : {}),
       ...(hasModel ? { essayGradingModel: body.model!.trim() } : {}),
       ...(hasSystemPrompt ? { essayGradingSystemPrompt: body.systemPrompt } : {}),
+      ...(hasSpeakingEnabled ? { speakingGradingEnabled: body.speakingGradingEnabled } : {}),
+      ...(hasSpeakingSystemPrompt ? { speakingGradingSystemPrompt: body.speakingSystemPrompt } : {}),
     };
 
     const settings = await prisma.settings.upsert({
@@ -167,6 +189,9 @@ adminSettingsRouter.patch(
       model: settings.essayGradingModel,
       systemPrompt: settings.essayGradingSystemPrompt ?? DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
       defaultSystemPrompt: DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
+      speakingGradingEnabled: settings.speakingGradingEnabled,
+      speakingSystemPrompt: settings.speakingGradingSystemPrompt ?? DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT,
+      defaultSpeakingSystemPrompt: DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT,
     };
     res.status(200).json(response);
   }),

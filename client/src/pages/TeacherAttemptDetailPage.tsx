@@ -6,6 +6,7 @@ import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { CLASSES_HOME_PATH, classTabPath } from '../lib/classWorkspace';
 import { formatPoints, formatScore10 } from '../lib/scoreFormat';
+import AiFeedbackSections from '../components/AiFeedbackSections';
 
 /** Local draft state for one essay/speaking question's manual-grading form (T-042
  * essay, T-055 speaking override) — kept separate from `result` so an in-progress edit
@@ -496,7 +497,7 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                 {q.essayAiFeedback && (
                   <div className="rounded-md border border-primary-100 bg-primary-50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
-                      {t('teacherAttemptDetail.mockAiGradingLabel')}
+                      {t('common.aiNote')}
                     </p>
                     {q.essayUseIeltsCriteria && (
                       <p className="mt-1 text-xs text-base-black/70">
@@ -509,7 +510,7 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                         {t('teacherAttemptDetail.aiIeltsGrammarLabel', { score: formatPoints(q.essayAiGrammarScore ?? 0) })}
                       </p>
                     )}
-                    <p className="mt-1">{q.essayAiFeedback}</p>
+                    <AiFeedbackSections feedback={q.essayAiFeedback} className="mt-1" />
                   </div>
                 )}
                 <div className="flex flex-col gap-3 rounded-md border border-primary-100 bg-primary-50 p-3">
@@ -636,12 +637,17 @@ function AttemptDetail({ attemptId }: { attemptId: string | undefined }) {
                     {q.speakingTranscript?.trim() ? q.speakingTranscript : <em>{t('teacherAttemptDetail.noTranscript')}</em>}
                   </p>
                 </div>
+                {q.speakingAiFellBackToMock && (
+                  <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                    {t('teacherAttemptDetail.speakingAiFallbackWarning')}
+                  </p>
+                )}
                 {q.speakingAiFeedback && (
                   <div className="rounded-md border border-primary-100 bg-primary-50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
-                      {t('teacherAttemptDetail.mockAiGradingLabel')}
+                      {t('common.aiNote')}
                     </p>
-                    <p className="mt-1">{q.speakingAiFeedback}</p>
+                    <AiFeedbackSections feedback={q.speakingAiFeedback} className="mt-1" />
                   </div>
                 )}
                 {q.speakingAudioData ? (

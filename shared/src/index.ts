@@ -48,6 +48,10 @@ export interface AuthUser {
   /** A self-uploaded profile photo as a `data:image/...` URL, or `null` if this user hasn't
    * set one — every UI that renders it falls back to an initials avatar in that case. */
   avatarUrl: string | null;
+  /** 2026-10 — see `User.isGuest`'s doc comment in schema.prisma. Always `false` for a
+   * real registered/logged-in account; `true` only for the throwaway identity a
+   * no-account QR-session join creates. */
+  isGuest: boolean;
 }
 
 /** Body for `PATCH /api/auth/me/avatar` — self-service only (there is no admin-sets-someone-
@@ -412,6 +416,25 @@ export interface TestSessionDTO {
   /** Relative join URL, e.g. `/join/<token>` — see `server/src/routes/teacherSessions.routes.ts`
    * for why a relative path (no scheme/host) is the documented choice here. */
   joinUrl: string;
+  /** 2026-10 — see `TestSession.startAt`'s doc comment in schema.prisma. `null` means
+   * "starts immediately" (unchanged default behavior). */
+  startAt: string | null;
+  /** 2026-10 — see `TestSession.endAt`'s doc comment in schema.prisma. `null` means no
+   * scheduled auto-close — the teacher closes it manually (unchanged prior behavior). */
+  endAt: string | null;
+  /** 2026-10 — see `TestSession.allowGuests`'s doc comment in schema.prisma. */
+  allowGuests: boolean;
+}
+
+/** Body for `POST /api/teacher/tests/:testId/sessions` — every field optional, same
+ * "omit for the old default behavior" convention as every other partial-update request
+ * in this API. `startAt`/`endAt`, if present, must be ISO date-time strings (or `null` to
+ * explicitly mean "no scheduled start/close"); if both are given, `endAt` must be after
+ * `startAt`. */
+export interface CreateSessionRequest {
+  startAt?: string | null;
+  endAt?: string | null;
+  allowGuests?: boolean;
 }
 
 /** Response for session creation only — includes the QR code as a data: URL (base64
@@ -421,29 +444,72 @@ export interface CreateSessionResponse extends TestSessionDTO {
   qrCodeDataUrl: string;
 }
 
-/** Response for the public join-token-check endpoint (`GET /api/sessions/join/:token`). */
+/** Response for the public join-token-check endpoint (`GET /api/sessions/join/:token`)
+ * and its manual-code equivalent (`GET /api/sessions/join-by-code/:code`) — identical
+ * shape either way, so the client's join page doesn't need to know which path a visitor
+ * arrived by. */
 export interface JoinTokenCheckResponse {
   valid: true;
   testId: string;
   testTitle: string;
   sessionId: string;
+  /** 2026-10 — see `TestSessionDTO.startAt`/`allowGuests`'s doc comments. Lets the join
+   * page decide, BEFORE the visitor logs in or types a guest name, whether to show a
+   * "starts at HH:mm" notice and/or a "join as guest" option. */
+  startAt: string | null;
+  allowGuests: boolean;
+}
+
+/** Body for `POST /api/sessions/join-by-code` (authenticated student) and
+ * `POST /api/sessions/join-by-code/guest` (no account). */
+export interface JoinByCodeRequest {
+  code: string;
 }
 
 // --- Student attempts: join, take-test runtime, grading, results (T-011–T-014) ------
 
 export type AttemptStatus = 'inProgress' | 'submitted';
 
-/** Response for `POST /api/sessions/join/:token` (requires a logged-in `student`).
- * Idempotent: joining a session the student already joined returns the SAME
- * `attemptId`/`variantId` rather than creating a second attempt or reassigning the
- * variant (see `Attempt.@@unique([sessionId, studentId])` in schema.prisma). */
-export interface JoinSessionResponse {
-  attemptId: string;
-  sessionId: string;
-  testId: string;
-  testTitle: string;
-  variantCode: string;
-  status: AttemptStatus;
+/** Response for `POST /api/sessions/join/:token` (requires a logged-in `student`) and
+ * its manual-code/guest equivalents. A discriminated union on `joined` (2026-10, added
+ * alongside `TestSession.startAt`):
+ * - `joined: true` — the normal case (unchanged from before `startAt` existed): an
+ *   `Attempt` now exists (or already did — idempotent, see
+ *   `Attempt.@@unique([sessionId, studentId])` in schema.prisma) and the student can
+ *   start answering immediately.
+ * - `joined: false` — the session has a future `startAt` that hasn't arrived yet. NO
+ *   `Attempt` is created (so its eventual `startedAt`/deadline can never predate the
+ *   real start) — the caller is expected to show a waiting room and retry this same
+ *   call once `startAt` passes. */
+export type JoinSessionResponse =
+  | {
+      joined: true;
+      attemptId: string;
+      sessionId: string;
+      testId: string;
+      testTitle: string;
+      variantCode: string;
+      status: AttemptStatus;
+    }
+  | { joined: false; startAt: string };
+
+/** Body for `POST /api/sessions/join/:token/guest` and
+ * `POST /api/sessions/join-by-code/guest` — no account needed, only a display name
+ * (2026-10, `TestSession.allowGuests`). */
+export interface JoinAsGuestRequest {
+  name: string;
+}
+
+/** Response for a successful guest join — carries a real JWT (same shape `/api/auth/login`
+ * issues, `role: 'student'`) so the guest's browser can use every existing
+ * student-only attempt/take-test endpoint unchanged; `user.isGuest` lets the client tell
+ * a guest session apart from a real logged-in student if it ever needs to (e.g. to hide
+ * account-only features). `join` is the same discriminated union as `JoinSessionResponse`
+ * above — a guest can also land in the `joined: false` waiting room. */
+export interface JoinAsGuestResponse {
+  token: string;
+  user: AuthUser;
+  join: JoinSessionResponse;
 }
 
 /** One question as presented during the take-test runtime — shuffled per the student's
@@ -625,6 +691,12 @@ export interface AttemptResultQuestionDTO {
    * AI-graded. */
   speakingAiScore: number | null;
   speakingAiFeedback: string | null;
+  /** 2026-10: `true` when the real AI speaking provider errored and `speakingAiScore`/
+   * `speakingAiFeedback` above are from the mock heuristic fallback instead (see
+   * `DbConfiguredSpeakingGradingProvider` in `server/src/grading/index.ts`) — a teacher
+   * must be told this isn't a real AI grade. Always `false` for a non-`speaking`
+   * question or one not yet AI-graded. */
+  speakingAiFellBackToMock: boolean;
 }
 
 /** Response for `GET /api/attempts/:attemptId/result` (student, own attempt only) and
@@ -736,6 +808,8 @@ export interface SubmitSpeakingAnswerResponse {
   questionId: string;
   aiScore: number;
   aiFeedback: string;
+  /** 2026-10 — see `AttemptResultQuestionDTO.speakingAiFellBackToMock`'s doc comment. */
+  aiFellBackToMock: boolean;
   submittedAt: string;
 }
 
@@ -799,6 +873,10 @@ export interface AttemptSummaryDTO {
   studentId: string;
   studentName: string;
   studentEmail: string;
+  /** 2026-10 — see `User.isGuest`'s doc comment in schema.prisma. Lets a teacher/admin
+   * browsing a list of attempts tell a no-account QR-session guest apart from a real
+   * enrolled student. */
+  studentIsGuest: boolean;
   status: AttemptStatus;
   correctCount: number | null;
   totalCount: number | null;
@@ -2123,7 +2201,12 @@ export interface UpdateSettingsRequest {
  * plaintext key back once saved, same convention as a password field. `defaultSystemPrompt`
  * is the built-in IELTS-standard prompt (`DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT` server-side)
  * so the UI can offer a "reset to default" action without duplicating that text in the
- * client bundle. */
+ * client bundle.
+ *
+ * `speakingGradingEnabled`/`speakingSystemPrompt`/`defaultSpeakingSystemPrompt` (2026-10)
+ * — Speaking grading, gated by its OWN enabled flag but sharing the SAME connection
+ * (`apiBaseUrl`/`hasApiKey`/`model`) as essay grading above, since one AI endpoint grades
+ * both. See `Settings`'s doc comment in schema.prisma. */
 export interface AiGradingSettingsDTO {
   essayGradingEnabled: boolean;
   apiBaseUrl: string | null;
@@ -2131,14 +2214,19 @@ export interface AiGradingSettingsDTO {
   model: string | null;
   systemPrompt: string;
   defaultSystemPrompt: string;
+  speakingGradingEnabled: boolean;
+  speakingSystemPrompt: string;
+  defaultSpeakingSystemPrompt: string;
 }
 
 /** Body for `PATCH /api/admin/settings/ai-grading` (admin-only). Any subset of fields
  * may be sent (a partial update). `apiKey`, if present, REPLACES the stored key (encrypted
  * server-side before storage) — send `clearApiKey: true` instead to remove it; omit both
- * to leave the currently-stored key untouched. Turning `essayGradingEnabled` to `true`
- * requires `apiBaseUrl`, `model`, and a configured API key (existing or sent in the same
- * request) to already be present, or the server rejects the request. */
+ * to leave the currently-stored key untouched. Turning `essayGradingEnabled` OR
+ * `speakingGradingEnabled` to `true` requires `apiBaseUrl`, `model`, and a configured API
+ * key (existing or sent in the same request) to already be present, or the server rejects
+ * the request — each flag is checked independently, so one can be on while the other is
+ * off. */
 export interface UpdateAiGradingSettingsRequest {
   essayGradingEnabled?: boolean;
   apiBaseUrl?: string;
@@ -2146,6 +2234,8 @@ export interface UpdateAiGradingSettingsRequest {
   clearApiKey?: boolean;
   model?: string;
   systemPrompt?: string;
+  speakingGradingEnabled?: boolean;
+  speakingSystemPrompt?: string;
 }
 
 // --- Class-based organization (T-074, Phase 12) -------------------------------------
@@ -2820,6 +2910,11 @@ export interface ClassAttentionDTO {
   overdueNotSubmittedStudentCount: number;
   /** Submitted attempts waiting for a manual grade (= `ClassOverviewDTO.needsGrading.count`). */
   needsGradingCount: number;
+  /** 2026-10: submitted attempts holding a `speaking` answer where the real AI provider
+   * errored and fell back to the mock heuristic (`Answer.speakingAiFellBackToMock`), and
+   * no teacher `manualScore` has overridden it yet — a teacher must listen and grade
+   * these themselves, since the stored score isn't from real AI grading. */
+  speakingNeedsReviewCount: number;
 }
 
 /** `GET /api/teacher/classes-attention` — one entry per class of the calling teacher, in the

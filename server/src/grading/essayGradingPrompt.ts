@@ -75,7 +75,33 @@ Grade holistically but evidence-first: quote or paraphrase specific phrases from
 candidate's response in your feedback to justify each band, exactly as a real examiner's
 notes would. Never award a higher band than the evidence in the response supports, and
 never let response length alone drive the Task score once the minimum length is met —
-length only matters through the Task Achievement/Response lens above.`.trim();
+length only matters through the Task Achievement/Response lens above.
+
+## HƯỚNG DẪN VIẾT NHẬN XÉT (feedback) — áp dụng cho MỌI trường phản hồi
+Toàn bộ nội dung nhận xét PHẢI được viết bằng TIẾNG VIỆT, dù bài làm của học sinh và các
+tiêu chí chấm điểm ở trên là tiếng Anh.
+
+Với từng tiêu chí (taskFeedback / coherenceFeedback / lexicalFeedback / grammarFeedback,
+hoặc đoạn đầu của "feedback" khi không chấm theo 4 tiêu chí riêng), hãy LIỆT KÊ RÕ RÀNG
+từng điểm bị trừ, không nhận xét chung chung — học sinh phải hiểu chính xác mình mất điểm
+ở đâu và vì sao. BẮT BUỘC về định dạng: mỗi điểm bị trừ là MỘT GẠCH ĐẦU DÒNG RIÊNG, bắt đầu
+bằng "- " và xuống dòng (ký tự "\n") trước mỗi gạch đầu dòng tiếp theo — không viết liền
+thành một đoạn văn dài. Nếu một tiêu chí không có lỗi gì đáng kể, chỉ cần một gạch đầu dòng
+duy nhất nói rõ điều đó.
+- Lỗi ngữ pháp: nêu đúng tên lỗi (chia động từ sai, sai thì, thiếu/sai mạo từ, sai giới từ,
+  sai số ít/số nhiều, trật tự từ sai...), trích đúng cụm/câu học sinh viết sai, và gợi ý
+  cách sửa.
+- Câu văn diễn đạt chưa tốt, gượng gạo, dùng từ chưa tự nhiên: trích câu đó ra và giải
+  thích vì sao nó chưa ổn.
+- Nội dung rối, thiếu mạch lạc, ý lặp lại, triển khai sơ sài, hoặc lạc một phần yêu cầu đề:
+  chỉ rõ đoạn/ý nào bị vậy và vì sao.
+
+Trường "overallFeedback" (hoặc câu cuối của "feedback" khi không chấm theo 4 tiêu chí
+riêng) KHÔNG dùng để liệt kê lỗi nữa — lỗi đã được liệt kê đầy đủ ở trên. Trường này CHỈ
+dùng để nêu ĐIỂM MẠNH của bài làm (ý tưởng hay, từ vựng tốt ở một số chỗ, câu phức dùng
+đúng, mở bài ấn tượng...), viết ngắn 1-3 câu, đặt ở CUỐI CÙNG của toàn bộ nhận xét. Nếu bài
+làm quá yếu đến mức không có điểm mạnh nào thực sự đáng ghi nhận, hãy để trống (không bắt
+buộc phải khen nếu không có gì đáng khen).`.trim();
 
 /** Builds the per-call user-turn prompt (question + candidate's answer + the exact JSON
  * shape the model must reply with) from one `EssayGradingInput`. */
@@ -97,7 +123,7 @@ export function buildEssayUserPrompt(input: EssayGradingInput): string {
       '',
       'Respond with STRICT JSON only (no markdown fences, no prose outside the JSON object), matching exactly this shape:',
       '{"taskScore": number, "coherenceScore": number, "lexicalScore": number, "grammarScore": number, "taskFeedback": string, "coherenceFeedback": string, "lexicalFeedback": string, "grammarFeedback": string, "overallFeedback": string}',
-      'Each *Score must be a multiple of 0.5 between 0 and 9. Each *Feedback string should be 1-3 sentences of specific, evidence-based justification for that criterion\'s band. overallFeedback should be a short (2-4 sentence) summary a student can act on.',
+      'Each *Score must be a multiple of 0.5 between 0 and 9. Write taskFeedback/coherenceFeedback/lexicalFeedback/grammarFeedback IN VIETNAMESE, each listing out every specific deduction in that criterion (see the system prompt\'s feedback-writing rules). overallFeedback must ALSO be in Vietnamese and contain ONLY a closing strengths note — leave it as an empty string "" if the response is too weak to have genuine strengths.',
     ]
       .filter(Boolean)
       .join('\n');
@@ -116,7 +142,7 @@ export function buildEssayUserPrompt(input: EssayGradingInput): string {
     `Using the same 4 IELTS criteria as a holistic guide, give one overall score out of ${input.essayMaxScore} reflecting overall writing quality.`,
     'Respond with STRICT JSON only (no markdown fences, no prose outside the JSON object), matching exactly this shape:',
     `{"score": number, "feedback": string}`,
-    `score must be a whole or half number between 0 and ${input.essayMaxScore}. feedback should be 2-4 sentences of specific, evidence-based justification.`,
+    `score must be a whole or half number between 0 and ${input.essayMaxScore}. feedback must be written IN VIETNAMESE: first list out every specific deduction (grammar mistakes named precisely, awkward/unnatural sentences quoted, confusing or underdeveloped content pointed out — see the system prompt's feedback-writing rules), THEN end with a short strengths note — or no strengths note at all if the response is too weak to have genuine strengths.`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -158,15 +184,21 @@ export function parseEssayGradingResponse(text: string, input: EssayGradingInput
     };
     const average = (criteria.taskScore + criteria.coherenceScore + criteria.lexicalScore + criteria.grammarScore) / 4;
     const score = Math.round(average * 2) / 2;
+    // Deductions first (one labeled paragraph per criterion, each listing its own specific
+    // errors), the closing strengths note LAST — `overallFeedback` is repurposed to be
+    // exactly that closing note (see the system prompt's feedback-writing rules), and is
+    // omitted entirely when blank rather than showing an empty "Điểm mạnh:" line.
     const feedback = [
-      typeof parsed.overallFeedback === 'string' ? parsed.overallFeedback : null,
-      typeof parsed.taskFeedback === 'string' ? `Task: ${parsed.taskFeedback}` : null,
-      typeof parsed.coherenceFeedback === 'string' ? `Coherence & Cohesion: ${parsed.coherenceFeedback}` : null,
-      typeof parsed.lexicalFeedback === 'string' ? `Lexical Resource: ${parsed.lexicalFeedback}` : null,
-      typeof parsed.grammarFeedback === 'string' ? `Grammatical Range & Accuracy: ${parsed.grammarFeedback}` : null,
+      typeof parsed.taskFeedback === 'string' ? `Nội dung & nhiệm vụ: ${parsed.taskFeedback}` : null,
+      typeof parsed.coherenceFeedback === 'string' ? `Mạch lạc & liên kết: ${parsed.coherenceFeedback}` : null,
+      typeof parsed.lexicalFeedback === 'string' ? `Từ vựng: ${parsed.lexicalFeedback}` : null,
+      typeof parsed.grammarFeedback === 'string' ? `Ngữ pháp: ${parsed.grammarFeedback}` : null,
+      typeof parsed.overallFeedback === 'string' && parsed.overallFeedback.trim() !== ''
+        ? `Điểm mạnh: ${parsed.overallFeedback.trim()}`
+        : null,
     ]
       .filter((line): line is string => line !== null)
-      .join('\n');
+      .join('\n\n');
     return { score, feedback, criteria };
   }
 

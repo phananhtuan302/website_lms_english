@@ -80,6 +80,8 @@ function AdminSettingsPage() {
   const [aiApiKeyInput, setAiApiKeyInput] = useState('');
   const [aiClearKey, setAiClearKey] = useState(false);
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
+  const [aiSpeakingEnabled, setAiSpeakingEnabled] = useState(false);
+  const [aiSpeakingSystemPrompt, setAiSpeakingSystemPrompt] = useState('');
   const [aiSaving, setAiSaving] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSavedMessage, setAiSavedMessage] = useState<string | null>(null);
@@ -93,6 +95,8 @@ function AdminSettingsPage() {
         setAiBaseUrl(settings.apiBaseUrl ?? '');
         setAiModel(settings.model ?? '');
         setAiSystemPrompt(settings.systemPrompt);
+        setAiSpeakingEnabled(settings.speakingGradingEnabled);
+        setAiSpeakingSystemPrompt(settings.speakingSystemPrompt);
         setAiApiKeyInput('');
         setAiClearKey(false);
       })
@@ -113,6 +117,8 @@ function AdminSettingsPage() {
         apiBaseUrl: aiBaseUrl.trim(),
         model: aiModel.trim(),
         systemPrompt: aiSystemPrompt,
+        speakingGradingEnabled: aiSpeakingEnabled,
+        speakingSystemPrompt: aiSpeakingSystemPrompt,
         ...(aiClearKey ? { clearApiKey: true } : aiApiKeyInput.trim() ? { apiKey: aiApiKeyInput.trim() } : {}),
       });
       setAiGrading(settings);
@@ -120,6 +126,8 @@ function AdminSettingsPage() {
       setAiBaseUrl(settings.apiBaseUrl ?? '');
       setAiModel(settings.model ?? '');
       setAiSystemPrompt(settings.systemPrompt);
+      setAiSpeakingEnabled(settings.speakingGradingEnabled);
+      setAiSpeakingSystemPrompt(settings.speakingSystemPrompt);
       setAiApiKeyInput('');
       setAiClearKey(false);
       setAiSavedMessage(t('adminSettings.aiGrading.saved'));
@@ -374,7 +382,7 @@ function AdminSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-base-black">
-                  {t('adminSettings.aiGrading.statusLabel', {
+                  {t('adminSettings.aiGrading.essayStatusLabel', {
                     status: aiEnabled
                       ? t('adminSettings.aiGrading.enabledBadge')
                       : t('adminSettings.aiGrading.disabledBadge'),
@@ -388,8 +396,27 @@ function AdminSettingsPage() {
                   {aiEnabled ? t('adminSettings.aiGrading.disableButton') : t('adminSettings.aiGrading.enableButton')}
                 </Button>
               </div>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-sm font-medium text-base-black">
+                  {t('adminSettings.aiGrading.speakingStatusLabel', {
+                    status: aiSpeakingEnabled
+                      ? t('adminSettings.aiGrading.enabledBadge')
+                      : t('adminSettings.aiGrading.disabledBadge'),
+                  })}
+                </p>
+                <Button
+                  type="button"
+                  variant={aiSpeakingEnabled ? 'outline' : 'solid'}
+                  onClick={() => setAiSpeakingEnabled((prev) => !prev)}
+                >
+                  {aiSpeakingEnabled ? t('adminSettings.aiGrading.disableButton') : t('adminSettings.aiGrading.enableButton')}
+                </Button>
+              </div>
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                {t('adminSettings.aiGrading.connectionHeading')}
+              </p>
+              <div className="mt-2 grid gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.apiBaseUrlLabel')}</span>
                   <Input
@@ -439,7 +466,7 @@ function AdminSettingsPage() {
 
               <div className="mt-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.systemPromptLabel')}</span>
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.essayPromptLabel')}</span>
                   <Button type="button" variant="outline" size="sm" onClick={() => setAiSystemPrompt(aiGrading.defaultSystemPrompt)}>
                     {t('adminSettings.aiGrading.resetPromptButton')}
                   </Button>
@@ -448,6 +475,27 @@ function AdminSettingsPage() {
                 <textarea
                   value={aiSystemPrompt}
                   onChange={(e) => setAiSystemPrompt(e.target.value)}
+                  rows={14}
+                  className="mt-2 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                />
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.speakingPromptLabel')}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiSpeakingSystemPrompt(aiGrading.defaultSpeakingSystemPrompt)}
+                  >
+                    {t('adminSettings.aiGrading.resetPromptButton')}
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-base-black/50">{t('adminSettings.aiGrading.speakingPromptHint')}</p>
+                <textarea
+                  value={aiSpeakingSystemPrompt}
+                  onChange={(e) => setAiSpeakingSystemPrompt(e.target.value)}
                   rows={14}
                   className="mt-2 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                 />

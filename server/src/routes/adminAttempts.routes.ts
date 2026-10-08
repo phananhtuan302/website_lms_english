@@ -75,6 +75,7 @@ adminAttemptsRouter.get(
       studentId: a.studentId,
       studentName: a.student.name,
       studentEmail: a.student.email,
+      studentIsGuest: a.student.isGuest,
       status: a.status,
       correctCount: a.correctCount,
       totalCount: a.totalCount,

@@ -17,6 +17,11 @@ export interface AuthContextValue {
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<AuthUser>;
   register: (data: RegisterRequest) => Promise<AuthUser>;
+  /** 2026-10: adopts an already-issued token/user pair as the current session — used by
+   * the no-account guest QR-session join (`JoinPage.tsx`), whose own API call
+   * (`studentApi.joinSessionAsGuest`) already did the "create an identity, get a JWT"
+   * work; this just stores it, same as `login`/`register` do after THEIR own call. */
+  adoptSession: (token: string, user: AuthUser) => void;
   logout: () => void;
   /** Sets or clears (`null`) the current user's own profile photo and updates local session
    * state so the UI reflects it immediately. */

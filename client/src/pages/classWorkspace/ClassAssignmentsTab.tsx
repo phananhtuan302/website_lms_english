@@ -10,6 +10,7 @@ import type {
 } from '@platform/shared';
 import ScoreReleaseDialog from '../../components/ScoreReleaseDialog';
 import TestClassSchedulePanel from '../../components/TestClassSchedulePanel';
+import LiveSessionManager from '../../components/LiveSessionManager';
 import { useClassWorkspace } from '../../hooks/useClassWorkspace';
 import { ApiError } from '../../lib/apiClient';
 import { withClassPrefix } from '../../lib/classLabel';
@@ -79,6 +80,7 @@ function ClassAssignmentsTab() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [scheduleOpenFor, setScheduleOpenFor] = useState<string | null>(null);
+  const [liveSessionOpenFor, setLiveSessionOpenFor] = useState<string | null>(null);
   // Read once, on arrival: the `assign` flag asks for the dialog, the effect below then removes it.
   const [dialogOpen, setDialogOpen] = useState(() => searchParams.get('assign') === '1' && Boolean(periodId));
   const [removingKey, setRemovingKey] = useState<string | null>(null);
@@ -140,6 +142,7 @@ function ClassAssignmentsTab() {
     try {
       await setClassAssignment(row.kind, row.item.id, cls.id, false);
       if (scheduleOpenFor === row.item.id) setScheduleOpenFor(null);
+      if (liveSessionOpenFor === row.item.id) setLiveSessionOpenFor(null);
       setNotice({ kind: 'ok', text: t('classAssignments.removed', { title: row.title }) });
       await refresh();
     } catch (err) {
@@ -201,14 +204,7 @@ function ClassAssignmentsTab() {
         </span>
       );
     }
-    if (state === 'closed') {
-      return <span className={`${badgeClass} bg-red-100 text-red-800`}>{t('classAssignments.status.closed')}</span>;
-    }
-    return (
-      <span className={`${badgeClass} bg-base-black/5 text-base-black/70`}>
-        {t('classAssignments.status.unlimited')}
-      </span>
-    );
+    return <span className={`${badgeClass} bg-red-100 text-red-800`}>{t('classAssignments.status.closed')}</span>;
   }
 
   function renderRow(row: Row) {
@@ -326,6 +322,15 @@ function ClassAssignmentsTab() {
               >
                 {t('classAssignments.actions.schedule')}
               </button>
+              <button
+                type="button"
+                aria-expanded={liveSessionOpenFor === testItem.id}
+                aria-label={t('classAssignments.actions.liveSessionAria', { title: row.title })}
+                onClick={() => setLiveSessionOpenFor((open) => (open === testItem.id ? null : testItem.id))}
+                className={actionClass}
+              >
+                {t('classAssignments.actions.liveSession')}
+              </button>
             </>
           )}
           <Link
@@ -367,6 +372,10 @@ function ClassAssignmentsTab() {
               void refresh();
             }}
           />
+        )}
+
+        {testItem && liveSessionOpenFor === testItem.id && (
+          <LiveSessionManager testId={testItem.id} testTitle={row.title} />
         )}
       </li>
     );

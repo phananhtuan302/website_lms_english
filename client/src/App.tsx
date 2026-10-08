@@ -92,8 +92,11 @@ function App() {
               {/* Phase 15: "Trợ giúp" — a public guide (teacher or student version by role). */}
               <Route path="/help" element={<HelpPage />} />
               {/* Public join-gate (T-011) — deliberately outside ProtectedRoute; it
-                handles the logged-out case itself (see JoinPage's doc comment). */}
+                handles the logged-out case itself (see JoinPage's doc comment).
+                2026-10: `/join` with no token shows a manual-code entry form first (the
+                QR code's own `/join/:token` link skips straight past it). */}
               <Route path="/join/:token" element={<JoinPage />} />
+              <Route path="/join" element={<JoinPage />} />
 
               {/* T-071: `admin` also allowed here — admin reuses these EXACT teacher pages
                 (e.g. the test/flashcard-set/grammar-topic editors) to manage ANY

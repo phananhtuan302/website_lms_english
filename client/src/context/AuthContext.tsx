@@ -71,6 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response.user;
   }, []);
 
+  const adoptSession = useCallback((token: string, nextUser: AuthUser) => {
+    setStoredToken(token);
+    setUser(nextUser);
+  }, []);
+
   const logout = useCallback(() => {
     setStoredToken(null);
     setUser(null);
@@ -87,8 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isLoading, login, register, logout, updateAvatar }),
-    [user, isLoading, login, register, logout, updateAvatar],
+    () => ({ user, isLoading, login, register, adoptSession, logout, updateAvatar }),
+    [user, isLoading, login, register, adoptSession, logout, updateAvatar],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

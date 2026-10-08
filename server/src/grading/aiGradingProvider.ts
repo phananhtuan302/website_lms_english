@@ -19,6 +19,12 @@ export interface AIGradingResult {
   /** Human-readable written feedback shown to the student (T-056), and to the teacher
    * before they optionally override it (T-055). */
   feedback: string;
+  /** 2026-10: `true` when this result came from the mock heuristic AFTER the real AI
+   * provider errored (see `DbConfiguredSpeakingGradingProvider` in `./index.ts`) —
+   * `undefined`/`false` for every other case (mock-by-default, or the real provider
+   * actually succeeded). The submit route persists this on `Answer.speakingAiFellBackToMock`
+   * so a teacher is told this score isn't from real AI grading. */
+  usedFallback?: boolean;
 }
 
 export interface AIGradingProvider {

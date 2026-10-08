@@ -16,8 +16,9 @@ import type { TestClassScheduleDTO } from '@platform/shared';
 import { prisma } from './prisma';
 
 /** Looks up the (testId, classId, periodId) schedule row, or `null` if the teacher never
- * configured one — callers must treat `null` as "fully unrestricted, not published",
- * exactly like every test authored before T-092/T-093 (backward compatible). */
+ * configured one. `isScorePublished` treats `null` as "not published" (unchanged since
+ * T-092); `checkAttemptWindow` treats it as "closed" (flipped 2026-10 — see that
+ * function's doc comment). */
 export function findTestClassSchedule(testId: string, classId: string, periodId: string) {
   return prisma.testClassSchedule.findUnique({
     where: { testId_classId_periodId: { testId, classId, periodId } },
@@ -41,8 +42,12 @@ export function isScorePublished(
 /** Can a student start/join a brand-NEW attempt right now, per this class's
  * `openAt`/`closeAt` window? Returns `null` if allowed, or a user-facing rejection
  * message (Vietnamese, per the customer's exact requested wording in BACKLOG.md T-093)
- * if not. `null` schedule (no row configured) = unrestricted, exactly like every test
- * authored before T-093.
+ * if not. 2026-10 (customer: "nếu để trống là đóng, không phải mở"): a `null` schedule,
+ * or one where the teacher never set EITHER date, now means CLOSED, not unrestricted —
+ * a test only opens once the teacher explicitly configures an `openAt` (which may be any
+ * already-passed instant, for "open now with no end date") and/or `closeAt`. This flipped
+ * the pre-T-093-era default; see this change's migration for the one-time backfill that
+ * kept already-open assignments open under the new rule.
  *
  * Deliberately takes only `openAt`/`closeAt` — never called for an attempt that already
  * exists (see both call sites' "resume an existing attempt" exemption, per BACKLOG.md
@@ -56,7 +61,7 @@ export function checkAttemptWindow(
    * site omits it (defaults to "right now"), so their behavior is unchanged. */
   now: Date = new Date(),
 ): string | null {
-  if (!schedule) return null;
+  if (!schedule || (!schedule.openAt && !schedule.closeAt)) return 'Bài chưa mở, quay lại sau.';
   if (schedule.openAt && now < schedule.openAt) return 'Bài chưa mở, quay lại sau.';
   if (schedule.closeAt && now > schedule.closeAt) return 'Đã quá giờ làm bài, bài này đã đóng.';
   return null;

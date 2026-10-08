@@ -163,6 +163,7 @@ export function buildResultQuestions(
       speakingTranscript?: string | null;
       speakingAiScore?: number | null;
       speakingAiFeedback?: string | null;
+      speakingAiFellBackToMock?: boolean;
     }
   >,
 ): AttemptResultQuestionDTO[] {
@@ -202,6 +203,7 @@ export function buildResultQuestions(
       speakingTranscript: answer?.speakingTranscript ?? null,
       speakingAiScore: answer?.speakingAiScore ?? null,
       speakingAiFeedback: answer?.speakingAiFeedback ?? null,
+      speakingAiFellBackToMock: answer?.speakingAiFellBackToMock ?? false,
     };
   });
 }

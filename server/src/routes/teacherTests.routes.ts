@@ -452,6 +452,10 @@ teacherTestsRouter.get(
         testId: { in: tests.map((t) => t.id) },
         status: 'submitted',
         timeTakenSeconds: { not: null },
+        // 2026-10: a guest's attempt (no-account QR-session join, `TestSession.allowGuests`)
+        // never counts toward this test's own stats either — same "only visible in its
+        // own session's results" rule as every class-wide gradebook/leaderboard/report.
+        student: { isGuest: false },
       },
       _avg: { timeTakenSeconds: true },
       _count: { _all: true },

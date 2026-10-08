@@ -34,6 +34,7 @@ import type {
   CreateGrammarTopicRequest,
   CreateQuestionRequest,
   CreateSectionRequest,
+  CreateSessionRequest,
   CreateSessionResponse,
   CreateTestRequest,
   CreateUnitRequest,
@@ -158,8 +159,8 @@ export const teacherApi = {
   regenerateVariants: (testId: string) =>
     apiRequest<RegenerateVariantsResponse>(`${base}/${testId}/variants/regenerate`, { method: 'POST' }),
 
-  startSession: (testId: string) =>
-    apiRequest<CreateSessionResponse>(`${base}/${testId}/sessions`, { method: 'POST' }),
+  startSession: (testId: string, body: CreateSessionRequest = {}) =>
+    apiRequest<CreateSessionResponse>(`${base}/${testId}/sessions`, { method: 'POST', body: JSON.stringify(body) }),
   listSessions: (testId: string) => apiRequest<TestSessionDTO[]>(`${base}/${testId}/sessions`),
   getSession: (sessionId: string) =>
     apiRequest<CreateSessionResponse>(`/api/teacher/sessions/${sessionId}`),

@@ -97,8 +97,15 @@ function TeacherSessionAttemptsPage() {
               {attempts.map((attempt) => (
                 <tr key={attempt.attemptId} className="border-t border-primary-100">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-base-black">{attempt.studentName}</p>
-                    <p className="text-xs text-base-black/50">{attempt.studentEmail}</p>
+                    <p className="font-medium text-base-black">
+                      {attempt.studentName}
+                      {attempt.studentIsGuest && (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          {t('teacherSessionAttempts.guestBadge')}
+                        </span>
+                      )}
+                    </p>
+                    {!attempt.studentIsGuest && <p className="text-xs text-base-black/50">{attempt.studentEmail}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <span

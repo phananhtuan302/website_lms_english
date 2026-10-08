@@ -251,6 +251,9 @@ function StudentDashboardPage() {
     setStartError(null);
     try {
       const res = await studentApi.startPractice(testId);
+      // Self-practice never has a scheduled start (`TestSession.startAt` is a `live`
+      // QR-session-only concept) — `joined` is always `true` here.
+      if (!res.joined) return;
       navigate(
         res.status === 'submitted'
           ? `/student/attempts/${res.attemptId}/result`

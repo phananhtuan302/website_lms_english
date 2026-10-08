@@ -46,19 +46,22 @@ export const TEST_TYPE_LABEL_KEYS: Record<TestType, string> = {
 
 // --- Schedule window -------------------------------------------------------------------
 
-export type AssignmentWindowState = 'unlimited' | 'upcoming' | 'open' | 'closed';
+export type AssignmentWindowState = 'upcoming' | 'open' | 'closed';
 
 /**
  * Where a test currently sits relative to its class schedule — mirrors the server's
  * `checkAttemptWindow` (`openAt` checked first, then `closeAt`) so the badge a teacher sees
- * matches what a student's start attempt would be told. No row, or a row with neither date =
- * "unlimited". `open` covers both "window is open now" and "opened with no close time".
+ * matches what a student's start attempt would be told. 2026-10: no row, or a row with
+ * neither date set, now reads as "closed" (not an unrestricted "open forever") — a teacher
+ * opens a test by explicitly setting `openAt` (any already-passed instant works, for "open
+ * now with no end date") and/or `closeAt`. `open` covers both "window is open now" and
+ * "opened with no close time".
  */
 export function scheduleWindowState(
   schedule: Pick<ClassAssignmentScheduleDTO, 'openAt' | 'closeAt'> | null,
   now: Date = new Date(),
 ): AssignmentWindowState {
-  if (!schedule || (!schedule.openAt && !schedule.closeAt)) return 'unlimited';
+  if (!schedule || (!schedule.openAt && !schedule.closeAt)) return 'closed';
   if (schedule.openAt && now < new Date(schedule.openAt)) return 'upcoming';
   if (schedule.closeAt && now > new Date(schedule.closeAt)) return 'closed';
   return 'open';

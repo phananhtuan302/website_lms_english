@@ -9,6 +9,9 @@ import type {
   AttemptDetailDTO,
   AttemptResultResponseDTO,
   AttemptSummaryDTO,
+  JoinAsGuestRequest,
+  JoinAsGuestResponse,
+  JoinByCodeRequest,
   JoinSessionResponse,
   JoinTokenCheckResponse,
   PracticeTestSummaryDTO,
@@ -34,9 +37,34 @@ export const studentApi = {
   checkJoinToken: (token: string) =>
     apiRequest<JoinTokenCheckResponse>(`/api/sessions/join/${token}`),
 
-  /** Requires a logged-in `student`. */
+  /** Requires a logged-in `student`. May return `{ joined: false, startAt }` if the
+   * session has a scheduled start that hasn't arrived yet (2026-10) — see
+   * `JoinSessionResponse`'s doc comment. */
   joinSession: (token: string) =>
     apiRequest<JoinSessionResponse>(`/api/sessions/join/${token}`, { method: 'POST' }),
+
+  /** Manual-fallback-code equivalents of the token-based check/join above (2026-10). */
+  checkJoinCode: (code: string) =>
+    apiRequest<JoinTokenCheckResponse>(`/api/sessions/join-by-code/${encodeURIComponent(code)}`),
+  joinSessionByCode: (code: string) =>
+    apiRequest<JoinSessionResponse>('/api/sessions/join-by-code', {
+      method: 'POST',
+      body: JSON.stringify({ code } satisfies JoinByCodeRequest),
+    }),
+
+  /** No-account join (2026-10, `TestSession.allowGuests`) — public, no auth header sent
+   * (the caller isn't logged in yet, that's the whole point). Returns a JWT the caller
+   * must store exactly like a normal login response. */
+  joinSessionAsGuest: (token: string, name: string) =>
+    apiRequest<JoinAsGuestResponse>(`/api/sessions/join/${token}/guest`, {
+      method: 'POST',
+      body: JSON.stringify({ name } satisfies JoinAsGuestRequest),
+    }),
+  joinSessionByCodeAsGuest: (code: string, name: string) =>
+    apiRequest<JoinAsGuestResponse>('/api/sessions/join-by-code/guest', {
+      method: 'POST',
+      body: JSON.stringify({ code, name } satisfies JoinByCodeRequest & JoinAsGuestRequest),
+    }),
 
   listMyAttempts: () => apiRequest<AttemptSummaryDTO[]>('/api/attempts'),
   getAttempt: (attemptId: string) => apiRequest<AttemptDetailDTO>(`/api/attempts/${attemptId}`),

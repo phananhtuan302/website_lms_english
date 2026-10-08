@@ -18,6 +18,7 @@ import QRCode from 'qrcode';
 import type {
   AttemptResultDTO,
   AttemptSummaryDTO,
+  CreateSessionRequest,
   CreateSessionResponse,
   GradeEssayAnswerRequest,
   GradeEssayAnswerResponse,
@@ -31,6 +32,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedTest } from '../lib/ownedTest';
 import { isAdminOrOwner } from '../lib/authz';
 import { generateJoinToken, generateManualCode } from '../lib/sessionCodes';
+import { autoCloseExpiredSessionsForTest } from '../lib/sessionExpiry';
 import { loadEnv } from '../config/env';
 import { fetchNestedTest } from '../lib/testQueries';
 import { buildResultQuestions } from '../lib/attemptView';
@@ -60,6 +62,9 @@ function toSessionDTO(session: {
   createdAt: Date;
   closedAt: Date | null;
   joinToken: string;
+  startAt: Date | null;
+  endAt: Date | null;
+  allowGuests: boolean;
 }): TestSessionDTO {
   return {
     id: session.id,
@@ -70,6 +75,9 @@ function toSessionDTO(session: {
     createdAt: session.createdAt.toISOString(),
     closedAt: session.closedAt ? session.closedAt.toISOString() : null,
     joinUrl: buildJoinUrl(session.joinToken),
+    startAt: session.startAt ? session.startAt.toISOString() : null,
+    endAt: session.endAt ? session.endAt.toISOString() : null,
+    allowGuests: session.allowGuests,
   };
 }
 
@@ -95,6 +103,39 @@ teacherSessionsRouter.post(
     const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
+    const body = req.body as Partial<CreateSessionRequest>;
+    let startAt: Date | null = null;
+    if (body.startAt !== undefined && body.startAt !== null) {
+      if (typeof body.startAt !== 'string') {
+        res.status(400).json({ error: 'startAt must be an ISO date-time string or null.' });
+        return;
+      }
+      const parsed = new Date(body.startAt);
+      if (Number.isNaN(parsed.getTime())) {
+        res.status(400).json({ error: 'startAt is not a valid date-time.' });
+        return;
+      }
+      startAt = parsed;
+    }
+    let endAt: Date | null = null;
+    if (body.endAt !== undefined && body.endAt !== null) {
+      if (typeof body.endAt !== 'string') {
+        res.status(400).json({ error: 'endAt must be an ISO date-time string or null.' });
+        return;
+      }
+      const parsed = new Date(body.endAt);
+      if (Number.isNaN(parsed.getTime())) {
+        res.status(400).json({ error: 'endAt is not a valid date-time.' });
+        return;
+      }
+      endAt = parsed;
+    }
+    if (startAt && endAt && endAt.getTime() <= startAt.getTime()) {
+      res.status(400).json({ error: 'endAt must be after startAt.' });
+      return;
+    }
+    const allowGuests = body.allowGuests === true;
+
     const joinToken = generateJoinToken();
     const manualCode = generateManualCode();
 
@@ -112,7 +153,7 @@ teacherSessionsRouter.post(
         data: { status: 'closed', closedAt: new Date() },
       });
       return tx.testSession.create({
-        data: { testId: test.id, joinToken, manualCode, status: 'active' },
+        data: { testId: test.id, joinToken, manualCode, status: 'active', startAt, endAt, allowGuests },
       });
     });
 
@@ -139,6 +180,7 @@ teacherSessionsRouter.get(
     const test = await requireOwnedTest(req.params.testId, req.user!, res);
     if (!test) return;
 
+    await autoCloseExpiredSessionsForTest(test.id);
     const sessions = await prisma.testSession.findMany({
       where: { testId: test.id },
       orderBy: { createdAt: 'desc' },
@@ -165,7 +207,14 @@ async function loadOwnedSession(sessionId: string, user: { sub: string; role: st
 teacherSessionsRouter.get(
   '/sessions/:sessionId',
   asyncHandler(async (req, res) => {
-    const session = await loadOwnedSession(req.params.sessionId, req.user!);
+    let session = await loadOwnedSession(req.params.sessionId, req.user!);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found.' });
+      return;
+    }
+
+    await autoCloseExpiredSessionsForTest(session.testId);
+    session = await loadOwnedSession(req.params.sessionId, req.user!);
     if (!session) {
       res.status(404).json({ error: 'Session not found.' });
       return;
@@ -245,6 +294,7 @@ teacherSessionsRouter.get(
       studentId: a.studentId,
       studentName: a.student.name,
       studentEmail: a.student.email,
+      studentIsGuest: a.student.isGuest,
       status: a.status,
       correctCount: a.correctCount,
       totalCount: a.totalCount,
@@ -309,6 +359,7 @@ teacherSessionsRouter.get(
           speakingTranscript: a.speakingTranscript,
           speakingAiScore: a.speakingAiScore,
           speakingAiFeedback: a.speakingAiFeedback,
+          speakingAiFellBackToMock: a.speakingAiFellBackToMock,
         },
       ]),
     );

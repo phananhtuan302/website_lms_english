@@ -47,6 +47,9 @@ adminContentRouter.get(
         testId: { in: tests.map((t) => t.id) },
         status: 'submitted',
         timeTakenSeconds: { not: null },
+        // 2026-10: exclude no-account guest QR-session joins — see the identical note in
+        // `teacherTests.routes.ts`'s own `timeStats` query.
+        student: { isGuest: false },
       },
       _avg: { timeTakenSeconds: true },
       _count: { _all: true },

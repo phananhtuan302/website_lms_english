@@ -78,13 +78,169 @@ export const attemptsRouter = Router();
 
 attemptsRouter.use(requireAuth, requireRole('student'));
 
-/** Loads an attempt owned by the calling student, or writes a 404 and returns `null`. */
+/**
+ * Grades every question exactly once and marks `attempt` terminal — the shared core of
+ * `POST /:attemptId/submit` below, extracted (2026-10) so `autoFinalizeIfExpired` can
+ * call the EXACT same logic when a student never explicitly submits (closed the tab,
+ * lost connection, ...) and the test's time limit has since passed. See that route's
+ * own doc comment for what this does and why (essay AI grading best-effort before the
+ * transaction, `scorePercent` via the shared `lib/attemptScore.ts` model, `timeTakenSeconds`
+ * computed once from `submittedAt - attempt.startedAt`).
+ */
+async function finalizeAttempt(attempt: { id: string; testId: string; startedAt: Date }) {
+  const [test, existingAnswers] = await Promise.all([
+    fetchNestedTest(attempt.testId),
+    prisma.answer.findMany({ where: { attemptId: attempt.id } }),
+  ]);
+  const answerByQuestionId = new Map(existingAnswers.map((a) => [a.questionId, a]));
+  const questions = flattenQuestionsInAuthoredOrder(test);
+  const gradableQuestions = questions.filter((q) => q.type !== 'essay' && q.type !== 'speaking');
+
+  let correctCount = 0;
+  const totalCount = gradableQuestions.length;
+
+  // Essay AI grading — run BEFORE the transaction below, never inside it (see this
+  // function's callers' doc comments for the full reasoning).
+  const essayQuestions = questions.filter((q) => q.type === 'essay');
+  const essayAiResults = new Map<string, EssayGradingResult>();
+  if (essayQuestions.length > 0) {
+    const essayProvider = getEssayGradingProvider();
+    await Promise.all(
+      essayQuestions.map(async (question) => {
+        try {
+          const result = await essayProvider.grade({
+            essayText: answerByQuestionId.get(question.id)?.textAnswer ?? '',
+            prompt: question.prompt,
+            essayMaxScore: question.essayMaxScore ?? 0,
+            essayMinWords: question.essayMinWords,
+            essayTaskType: question.essayTaskType,
+            useIeltsCriteria: question.essayUseIeltsCriteria,
+          });
+          essayAiResults.set(question.id, result);
+        } catch (err) {
+          console.warn(`[attempts] essay AI grading failed for question ${question.id}:`, err);
+        }
+      }),
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    for (const question of questions) {
+      const existing = answerByQuestionId.get(question.id);
+      const isCorrect =
+        question.type === 'essay' || question.type === 'speaking'
+          ? null
+          : gradeAnswer(question, {
+              selectedChoiceId: existing?.selectedChoiceId ?? null,
+              textAnswer: existing?.textAnswer ?? null,
+            });
+      if (isCorrect) correctCount += 1;
+
+      const essayAi = question.type === 'essay' ? essayAiResults.get(question.id) : undefined;
+      const essayAiData = essayAi
+        ? {
+            essayAiScore: essayAi.score,
+            essayAiFeedback: essayAi.feedback,
+            essayAiTaskScore: essayAi.criteria?.taskScore ?? null,
+            essayAiCoherenceScore: essayAi.criteria?.coherenceScore ?? null,
+            essayAiLexicalScore: essayAi.criteria?.lexicalScore ?? null,
+            essayAiGrammarScore: essayAi.criteria?.grammarScore ?? null,
+          }
+        : {};
+
+      await tx.answer.upsert({
+        where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
+        create: {
+          attemptId: attempt.id,
+          questionId: question.id,
+          selectedChoiceId: existing?.selectedChoiceId ?? null,
+          textAnswer: existing?.textAnswer ?? null,
+          isCorrect,
+          ...essayAiData,
+        },
+        update: { isCorrect, ...essayAiData },
+      });
+    }
+
+    // Phase 15: one shared scoring helper (auto-graded 1 point each + essay/speaking points).
+    // With no essay/speaking question this is exactly `correctCount / totalCount × 100`.
+    // The essay AI results computed above aren't in `answerByQuestionId` yet (they were just
+    // written above, in THIS transaction) — `scoringAnswerByQuestionId` overlays them so this
+    // attempt's very first `scorePercent` already reflects them, not a stale "still ungraded".
+    const scoringAnswerByQuestionId = new Map(
+      questions.map((q) => {
+        const existing = answerByQuestionId.get(q.id);
+        const aiResult = essayAiResults.get(q.id);
+        return [
+          q.id,
+          {
+            manualScore: existing?.manualScore ?? null,
+            speakingAiScore: existing?.speakingAiScore ?? null,
+            essayAiScore: aiResult ? aiResult.score : (existing?.essayAiScore ?? null),
+          },
+        ] as const;
+      }),
+    );
+    const scorePercent = computeAttemptScore({
+      correctCount,
+      totalCount,
+      manual: buildManualItems(questions, scoringAnswerByQuestionId),
+    }).scorePercent;
+
+    // T-017: total time taken, in whole seconds, computed ONCE here from the same
+    // `submittedAt` instant being stored — never recomputed later from a fresh
+    // `new Date()`, so re-reading this attempt afterward always reports the exact
+    // same duration.
+    const submittedAt = new Date();
+    const timeTakenSeconds = Math.max(0, Math.round((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000));
+
+    return tx.attempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: 'submitted',
+        submittedAt,
+        correctCount,
+        totalCount,
+        scorePercent,
+        timeTakenSeconds,
+      },
+    });
+  });
+}
+
+/**
+ * 2026-10: closes the gap the client-only countdown (`TakeTestPage.tsx`) always had — if
+ * a student closes the tab/loses connection right as a timed test's deadline passes,
+ * nothing server-side used to ever finalize that attempt; it stayed `inProgress`
+ * forever. Evaluated LAZILY at request time (this codebase's established convention —
+ * see `lib/testClassSchedule.ts`'s identical "no cron, check `now` whenever the row is
+ * next read" approach), from `loadOwnAttempt` below, so it's EVERY route in this file
+ * that benefits uniformly: the next time anyone touches this attempt (the student
+ * reopening the tab, an autosave request, or a teacher viewing it) it gets graded and
+ * locked right then, with whatever answers were already saved — exactly "tự động lưu và
+ * nộp bài" with no new infrastructure required. Untimed tests (`timeLimitMinutes: null`)
+ * are untouched, same as before this existed. */
+async function autoFinalizeIfExpired<T extends { id: string; testId: string; startedAt: Date; status: string }>(
+  attempt: T,
+): Promise<T> {
+  if (attempt.status !== 'inProgress') return attempt;
+  const test = await prisma.test.findUnique({ where: { id: attempt.testId }, select: { timeLimitMinutes: true } });
+  if (!test || test.timeLimitMinutes == null) return attempt;
+  const deadline = attempt.startedAt.getTime() + test.timeLimitMinutes * 60_000;
+  if (Date.now() < deadline) return attempt;
+  const finalized = await finalizeAttempt(attempt);
+  return { ...attempt, ...finalized };
+}
+
+/** Loads an attempt owned by the calling student, or writes a 404 and returns `null`.
+ * Auto-finalizes it first if its time limit has silently expired (2026-10) — see
+ * `autoFinalizeIfExpired`'s doc comment. */
 async function loadOwnAttempt(attemptId: string, studentId: string) {
   const attempt = await prisma.attempt.findUnique({ where: { id: attemptId } });
   if (!attempt || attempt.studentId !== studentId) {
     return null;
   }
-  return attempt;
+  return autoFinalizeIfExpired(attempt);
 }
 
 /** `GET /api/attempts` — the current student's own attempts across every test/session,
@@ -140,6 +296,7 @@ attemptsRouter.get(
         studentId: a.studentId,
         studentName: a.student.name,
         studentEmail: a.student.email,
+        studentIsGuest: a.student.isGuest,
         status: a.status,
         correctCount: scoresPublished ? a.correctCount : null,
         totalCount: scoresPublished ? a.totalCount : null,
@@ -298,132 +455,7 @@ attemptsRouter.post(
       return;
     }
 
-    const [test, existingAnswers] = await Promise.all([
-      fetchNestedTest(attempt.testId),
-      prisma.answer.findMany({ where: { attemptId: attempt.id } }),
-    ]);
-    const answerByQuestionId = new Map(existingAnswers.map((a) => [a.questionId, a]));
-    const questions = flattenQuestionsInAuthoredOrder(test);
-    const gradableQuestions = questions.filter((q) => q.type !== 'essay' && q.type !== 'speaking');
-
-    let correctCount = 0;
-    const totalCount = gradableQuestions.length;
-
-    // Essay AI grading (2026-09) — run BEFORE the transaction below, never inside it: a
-    // provider call is a network request (once a real one like Anthropic is
-    // configured), and a DB transaction should never sit open across one. Best-effort
-    // per question: a failure here (network hiccup, malformed provider response, ...)
-    // just leaves that essay's `essayAiScore` null — exactly the same "genuinely
-    // ungraded, needs a teacher" state an essay was always left in before this feature
-    // existed — it never blocks the student's submission.
-    const essayQuestions = questions.filter((q) => q.type === 'essay');
-    const essayAiResults = new Map<string, EssayGradingResult>();
-    if (essayQuestions.length > 0) {
-      const essayProvider = getEssayGradingProvider();
-      await Promise.all(
-        essayQuestions.map(async (question) => {
-          try {
-            const result = await essayProvider.grade({
-              essayText: answerByQuestionId.get(question.id)?.textAnswer ?? '',
-              prompt: question.prompt,
-              essayMaxScore: question.essayMaxScore ?? 0,
-              essayMinWords: question.essayMinWords,
-              essayTaskType: question.essayTaskType,
-              useIeltsCriteria: question.essayUseIeltsCriteria,
-            });
-            essayAiResults.set(question.id, result);
-          } catch (err) {
-            console.warn(`[attempts] essay AI grading failed for question ${question.id}:`, err);
-          }
-        }),
-      );
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      for (const question of questions) {
-        const existing = answerByQuestionId.get(question.id);
-        const isCorrect =
-          question.type === 'essay' || question.type === 'speaking'
-            ? null
-            : gradeAnswer(question, {
-                selectedChoiceId: existing?.selectedChoiceId ?? null,
-                textAnswer: existing?.textAnswer ?? null,
-              });
-        if (isCorrect) correctCount += 1;
-
-        const essayAi = question.type === 'essay' ? essayAiResults.get(question.id) : undefined;
-        const essayAiData = essayAi
-          ? {
-              essayAiScore: essayAi.score,
-              essayAiFeedback: essayAi.feedback,
-              essayAiTaskScore: essayAi.criteria?.taskScore ?? null,
-              essayAiCoherenceScore: essayAi.criteria?.coherenceScore ?? null,
-              essayAiLexicalScore: essayAi.criteria?.lexicalScore ?? null,
-              essayAiGrammarScore: essayAi.criteria?.grammarScore ?? null,
-            }
-          : {};
-
-        await tx.answer.upsert({
-          where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
-          create: {
-            attemptId: attempt.id,
-            questionId: question.id,
-            selectedChoiceId: existing?.selectedChoiceId ?? null,
-            textAnswer: existing?.textAnswer ?? null,
-            isCorrect,
-            ...essayAiData,
-          },
-          update: { isCorrect, ...essayAiData },
-        });
-      }
-
-      // Phase 15: one shared scoring helper (auto-graded 1 point each + essay/speaking points).
-      // With no essay/speaking question this is exactly `correctCount / totalCount × 100`.
-      // The essay AI results computed above aren't in `answerByQuestionId` yet (they were just
-      // written above, in THIS transaction) — `scoringAnswerByQuestionId` overlays them so this
-      // attempt's very first `scorePercent` already reflects them, not a stale "still ungraded".
-      const scoringAnswerByQuestionId = new Map(
-        questions.map((q) => {
-          const existing = answerByQuestionId.get(q.id);
-          const aiResult = essayAiResults.get(q.id);
-          return [
-            q.id,
-            {
-              manualScore: existing?.manualScore ?? null,
-              speakingAiScore: existing?.speakingAiScore ?? null,
-              essayAiScore: aiResult ? aiResult.score : (existing?.essayAiScore ?? null),
-            },
-          ] as const;
-        }),
-      );
-      const scorePercent = computeAttemptScore({
-        correctCount,
-        totalCount,
-        manual: buildManualItems(questions, scoringAnswerByQuestionId),
-      }).scorePercent;
-
-      // T-017: total time taken, in whole seconds, computed ONCE here from the same
-      // `submittedAt` instant being stored — never recomputed later from a fresh
-      // `new Date()`, so re-reading this attempt afterward always reports the exact
-      // same duration.
-      const submittedAt = new Date();
-      const timeTakenSeconds = Math.max(
-        0,
-        Math.round((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000),
-      );
-
-      return tx.attempt.update({
-        where: { id: attempt.id },
-        data: {
-          status: 'submitted',
-          submittedAt,
-          correctCount,
-          totalCount,
-          scorePercent,
-          timeTakenSeconds,
-        },
-      });
-    });
+    const result = await finalizeAttempt(attempt);
 
     const response: SubmitAttemptResponse = {
       attemptId: result.id,
@@ -513,6 +545,7 @@ attemptsRouter.get(
           speakingTranscript: a.speakingTranscript,
           speakingAiScore: a.speakingAiScore,
           speakingAiFeedback: a.speakingAiFeedback,
+          speakingAiFellBackToMock: a.speakingAiFellBackToMock,
         },
       ]),
     );
@@ -733,8 +766,9 @@ attemptsRouter.post(
     }
 
     const provider = getAIGradingProvider();
-    const { score, feedback } = await provider.grade(body.transcript, body.audioData, question.prompt);
+    const { score, feedback, usedFallback } = await provider.grade(body.transcript, body.audioData, question.prompt);
     const submittedAt = new Date();
+    const fellBackToMock = Boolean(usedFallback);
 
     await prisma.answer.upsert({
       where: { attemptId_questionId: { attemptId: attempt.id, questionId: question.id } },
@@ -745,6 +779,7 @@ attemptsRouter.post(
         speakingTranscript: body.transcript,
         speakingAiScore: score,
         speakingAiFeedback: feedback,
+        speakingAiFellBackToMock: fellBackToMock,
         speakingSubmittedAt: submittedAt,
       },
       update: {
@@ -752,6 +787,7 @@ attemptsRouter.post(
         speakingTranscript: body.transcript,
         speakingAiScore: score,
         speakingAiFeedback: feedback,
+        speakingAiFellBackToMock: fellBackToMock,
         speakingSubmittedAt: submittedAt,
       },
     });
@@ -760,6 +796,7 @@ attemptsRouter.post(
       questionId: question.id,
       aiScore: score,
       aiFeedback: feedback,
+      aiFellBackToMock: fellBackToMock,
       submittedAt: submittedAt.toISOString(),
     };
     res.status(200).json(response);

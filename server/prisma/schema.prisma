@@ -62,7 +62,18 @@ model User {
   // URL (client-side resized/compressed before upload — see `AvatarUpload.tsx` — so this stays
   // a few KB, not a blob column or external file storage). `null` means "no photo uploaded",
   // and every UI that renders it falls back to an initials avatar in that case.
-  avatarUrl String?
+  avatarUrl    String?
+  /// 2026-10: `true` for a throwaway account auto-created by the "join a QR session with
+  /// no account, just a name" flow (`TestSession.allowGuests`) — always `role: student`,
+  /// `classId: null`, an unusable random `passwordHash` (never intended to be logged
+  /// into directly; the session's own join flow issues a JWT for it). Every class-scoped
+  /// query (gradebook/leaderboard/reports/"awaiting grading") already filters by
+  /// `classId`, which a guest never has, so this flag only needs to be checked by the
+  /// handful of TEST-wide (not class-scoped) aggregates that would otherwise still pick
+  /// a guest up — see call sites of `isGuest` for the exact list. Relying on `classId ===
+  /// null` alone would be fragile (a real student can also end up classless), hence this
+  /// explicit flag.
+  isGuest      Boolean  @default(false)
 
   // A teacher's authored tests. Nothing at the DB layer stops a `student`-role user
   // from being the FK target here — the app layer (T-005 role middleware, T-008
@@ -601,13 +612,13 @@ model Section {
 ///   is, by definition, correct) and are always loaded together with the question.
 ///   Matching is case-insensitive at grading time (T-013), not enforced by the DB.
 model Question {
-  id                     String       @id @default(uuid())
+  id                     String         @id @default(uuid())
   sectionId              String
-  section                Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  section                Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   type                   QuestionType
   prompt                 String
   order                  Int
-  acceptedAnswers        String[]     @default([])
+  acceptedAnswers        String[]       @default([])
   /// Only meaningful for `essay` (T-042): the point value a teacher grades this essay
   /// out of (`Answer.manualScore` must be between 0 and this). `null` for every other
   /// type. Defaults to 10 at creation time if an essay is created without specifying one
@@ -670,7 +681,7 @@ model Question {
   fillBlankMaxWords      Int?
   choices                Choice[]
   answers                Answer[]
-  createdAt              DateTime     @default(now())
+  createdAt              DateTime       @default(now())
 
   @@map("questions")
 }
@@ -757,17 +768,39 @@ enum SessionMode {
 /// other still-active session(s) for that test. Either path sets `status: closed` (and
 /// `closedAt`); the public join-token-check endpoint then rejects it.
 model TestSession {
-  id         String        @id @default(uuid())
-  testId     String
-  test       Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
-  joinToken  String        @unique
-  manualCode String
-  status     SessionStatus @default(active)
+  id          String        @id @default(uuid())
+  testId      String
+  test        Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  joinToken   String        @unique
+  manualCode  String
+  status      SessionStatus @default(active)
   /// `live` (default) vs `selfPractice` — see `SessionMode`'s doc comment above.
-  mode       SessionMode   @default(live)
-  createdAt  DateTime      @default(now())
-  closedAt   DateTime?
-  attempts   Attempt[]
+  mode        SessionMode   @default(live)
+  /// 2026-10: when set, a join before this instant is accepted (the visitor sees a
+  /// waiting room) but does NOT create an `Attempt` yet — `Attempt.startedAt` (which
+  /// drives both the countdown deadline and `timeTakenSeconds`) must never predate the
+  /// real start, so the actual join/attempt-creation is deferred until `startAt` has
+  /// passed. `null` (default) means "starts immediately," unchanged from before this
+  /// field existed. See `sessions.routes.ts`'s join endpoint.
+  startAt     DateTime?
+  /// 2026-10 (customer: "có thể setup thời gian mở đóng làm bài"): when set, this
+  /// session stops accepting NEW joins once this instant passes — lazily enforced (no
+  /// cron) the next time the session is touched (`autoCloseExpiredSessionsForTest`,
+  /// `lib/sessionExpiry.ts`), which flips `status` to `closed` and sets `closedAt` to
+  /// this same instant. Exactly mirrors `startAt`'s "gate new joins only" scope: a
+  /// student already mid-attempt is never cut off by this field (their own test's time
+  /// limit, via `autoFinalizeIfExpired`, is what ends THEIR attempt). `null` (default)
+  /// means no auto-close — the teacher must close it manually, unchanged prior behavior.
+  endAt       DateTime?
+  /// 2026-10: when `true`, a visitor with NO account may join via `POST
+  /// /api/sessions/join/:token/guest` (name only, no login) — see `User.isGuest`'s doc
+  /// comment for how a guest's resulting `Attempt` is kept out of every class-wide
+  /// gradebook/leaderboard/report while still being gradeable and visible in THIS
+  /// session's own results list. `false` (default) — unchanged behavior otherwise.
+  allowGuests Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  closedAt    DateTime?
+  attempts    Attempt[]
 
   @@map("test_sessions")
 }
@@ -854,15 +887,15 @@ model Attempt {
 /// question just overwrites the prior value, so "save on change or interval" can never
 /// create duplicate answer rows for one question.
 model Answer {
-  id                      String    @id @default(uuid())
-  attemptId               String
-  attempt                 Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  questionId              String
-  question                Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  selectedChoiceId        String?
-  selectedChoice          Choice?   @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
-  textAnswer              String?
-  isCorrect               Boolean?
+  id                       String    @id @default(uuid())
+  attemptId                String
+  attempt                  Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId               String
+  question                 Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedChoiceId         String?
+  selectedChoice           Choice?   @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
+  textAnswer               String?
+  isCorrect                Boolean?
   /// Manual essay grading (T-042). Both stay `null` until a teacher grades this answer
   /// via `PATCH /api/teacher/attempts/:attemptId/answers/:questionId/grade` — only
   /// meaningful when the underlying `Question.type` is `essay` (never set for any other
@@ -871,8 +904,8 @@ model Answer {
   /// question's `essayMaxScore` is the only score that exists for it. Since Phase 15 it counts
   /// towards `Attempt.scorePercent` (worth `essayMaxScore` points; `correctCount`/`totalCount`
   /// still only count auto-gradable questions) — see `lib/attemptScore.ts` for the model.
-  manualScore             Float?
-  manualComment           String?
+  manualScore              Float?
+  manualComment            String?
   /// The 4 IELTS Writing band criteria (2026-09) -- only ever set when the underlying
   /// `Question.essayUseIeltsCriteria` is `true`, via the same grading endpoint as
   /// `manualScore` above. Each is a 0-9 band score in 0.5 steps (real IELTS convention).
@@ -925,11 +958,19 @@ model Answer {
   /// manual grading (not separate columns) — the teacher-set value wins once present,
   /// identical "teacher value wins" rule for both question types, see
   /// `AttemptResultQuestionDTO`'s doc comment in `@platform/shared`.
-  speakingAudioData       String?
-  speakingTranscript      String?
-  speakingAiScore         Float?
-  speakingAiFeedback      String?
-  speakingSubmittedAt     DateTime?
+  speakingAudioData        String?
+  speakingTranscript       String?
+  speakingAiScore          Float?
+  speakingAiFeedback       String?
+  /// 2026-10: `true` when the real AI speaking provider errored at submit time and this
+  /// answer's score/feedback above are from the mock heuristic fallback instead (see
+  /// `DbConfiguredSpeakingGradingProvider` in `server/src/grading/index.ts`) — the
+  /// student's submission is never blocked by this, but a teacher must be told their
+  /// score isn't from real AI grading. Surfaced on `TeacherAttemptDetailPage.tsx` (an
+  /// inline warning on this exact answer) and as a class-level "needs review" count in
+  /// `lib/classAttention.ts`, both until a teacher's own `manualScore` overrides it.
+  speakingAiFellBackToMock Boolean   @default(false)
+  speakingSubmittedAt      DateTime?
   /// T-064: when the student's response window actually started, per the server (set by
   /// `POST .../speaking-window/start`, called by the client the moment it first shows
   /// this question's countdown — first call wins, never overwritten). Enforces
@@ -937,8 +978,8 @@ model Answer {
   /// countdown, which was spoofable (a direct API call could submit an arbitrarily late
   /// "recording" for a short window with no pushback). `null` until the start signal
   /// arrives; a question with no `allowedResponseSeconds` configured never needs one.
-  speakingWindowStartedAt DateTime?
-  updatedAt               DateTime  @updatedAt
+  speakingWindowStartedAt  DateTime?
+  updatedAt                DateTime  @updatedAt
 
   @@unique([attemptId, questionId])
   @@map("answers")
@@ -1390,10 +1431,10 @@ enum UiStyleId {
 /// new `PATCH /api/admin/settings` route. Nothing about this shape needs to change for
 /// that endpoint to be trivial to add.
 model Settings {
-  id        String       @id @default("singleton")
-  language  SiteLanguage @default(en)
-  themeId   ThemeId      @default(sunset)
-  uiStyle   UiStyleId    @default(glass)
+  id       String       @id @default("singleton")
+  language SiteLanguage @default(en)
+  themeId  ThemeId      @default(sunset)
+  uiStyle  UiStyleId    @default(glass)
 
   /// Admin-editable AI essay/writing grading config (2026-10), written only via
   /// `PATCH /api/admin/settings/ai-grading` — never exposed on the public
@@ -1405,13 +1446,26 @@ model Settings {
   /// at rest. `essayGradingEnabled` defaults to `false`, so an unconfigured install keeps
   /// using `MockEssayGradingProvider` exactly as before this feature existed.
   essayGradingEnabled         Boolean @default(false)
+  /// Shared AI connection (2026-10, extended to Speaking) — `essayGradingApiBaseUrl` /
+  /// `essayGradingApiKeyEncrypted` / `essayGradingModel` are reused as-is by BOTH essay
+  /// grading (`essayGradingEnabled`) and speaking grading (`speakingGradingEnabled`)
+  /// below; the field names keep their original "essay" prefix (unchanged, to avoid an
+  /// unnecessary rename migration) but no longer describe only essay grading.
   essayGradingApiBaseUrl      String?
   /// AES-256-GCM ciphertext (iv.authTag.data, base64 segments) — never the raw key.
   essayGradingApiKeyEncrypted String?
   essayGradingModel           String?
   essayGradingSystemPrompt    String?
 
-  updatedAt DateTime     @updatedAt
+  /// Admin-editable AI Speaking grading config (2026-10) — same shape/semantics as the
+  /// essay fields above, reusing the SAME connection (baseUrl/key/model), since one AI
+  /// endpoint grades both. `speakingGradingEnabled` defaults to `false`, so an
+  /// unconfigured install keeps using `MockAIGradingProvider` exactly as before this
+  /// feature existed. See `server/src/grading/index.ts`'s `getAIGradingProvider()`.
+  speakingGradingEnabled      Boolean @default(false)
+  speakingGradingSystemPrompt String?
+
+  updatedAt DateTime @updatedAt
 
   @@map("settings")
 }

@@ -3,10 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type {
-  CreateSessionResponse,
   QuestionType,
   TestDetailDTO,
-  TestSessionDTO,
   TestType,
   TestVariantDTO,
   UnitDTO,
@@ -24,6 +22,7 @@ import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 import SaveStatusBar from '../components/SaveStatusBar';
 import TestPreviewModal from '../components/TestPreviewModal';
 import AssignTestToClassesDialog from '../components/AssignTestToClassesDialog';
+import LiveSessionManager from '../components/LiveSessionManager';
 
 /** Every value `Test.testType` supports (T-036/T-038, Assumption A4) — the authoring
  * dropdown below resolves each value's label via `t('teacherTestEditor.testTypes.*')`
@@ -208,11 +207,6 @@ function TestEditorBody({
   const [variantNote, setVariantNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [isRegeneratingVariants, setIsRegeneratingVariants] = useState(false);
 
-  const [sessions, setSessions] = useState<TestSessionDTO[]>([]);
-  const [currentSession, setCurrentSession] = useState<CreateSessionResponse | null>(null);
-  const [sessionError, setSessionError] = useState<string | null>(null);
-  const [isStartingSession, setIsStartingSession] = useState(false);
-
   const [showPreview, setShowPreview] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
@@ -261,10 +255,6 @@ function TestEditorBody({
         setLoadFailed(true);
       });
     refreshVariants();
-    teacherApi
-      .listSessions(testId)
-      .then(setSessions)
-      .catch(() => undefined);
     // Units (T-018) — needed for the "tag this test to a Unit" dropdown below.
     teacherApi
       .listUnits()
@@ -469,38 +459,6 @@ function TestEditorBody({
     }
   }
 
-  async function handleStartSession() {
-    setIsStartingSession(true);
-    setSessionError(null);
-    try {
-      await tracker.flushAll();
-      const session = await teacherApi.startSession(testId);
-      setCurrentSession(session);
-      const all = await teacherApi.listSessions(testId);
-      setSessions(all);
-      refreshVariants();
-    } catch (err) {
-      console.warn('[editor] start session failed:', rawErrorText(err));
-      setSessionError(friendlyEditorError(err, t));
-    } finally {
-      setIsStartingSession(false);
-    }
-  }
-
-  async function handleCloseSession(sessionId: string) {
-    try {
-      await teacherApi.closeSession(sessionId);
-      const all = await teacherApi.listSessions(testId);
-      setSessions(all);
-      if (currentSession?.id === sessionId) {
-        setCurrentSession({ ...currentSession, status: 'closed' });
-      }
-    } catch (err) {
-      console.warn('[editor] close session failed:', rawErrorText(err));
-      setSessionError(friendlyEditorError(err, t));
-    }
-  }
-
   async function openPreview() {
     await tracker.flushAll();
     setShowPreview(true);
@@ -679,6 +637,22 @@ function TestEditorBody({
         </div>
       </section>
 
+      {/* 2026-10: moved up from the bottom of the page (after Variants) to right after the
+          "next step" quick-action bar — this is a frequently-used, time-sensitive action
+          (started right before/during class) that previously required scrolling past the
+          entire Sections/Questions editor and Variants list to reach, per direct teacher
+          feedback that its old position was impractical for how often it's used. Also
+          reachable directly from the class "Bài tập" row without opening this editor at
+          all — see `LiveSessionManager`'s doc comment. */}
+      <section className="mt-8">
+        <LiveSessionManager
+          testId={testId}
+          testTitle={test.title}
+          beforeStart={() => tracker.flushAll()}
+          afterStart={refreshVariants}
+        />
+      </section>
+
       <section className="mt-8 flex flex-col gap-4">
         <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sections.heading')}</h2>
         {test.sections.length === 0 && (
@@ -772,100 +746,6 @@ function TestEditorBody({
             {variantNote.text}
           </p>
         )}
-      </section>
-
-      <section className="mt-8 rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sessions.heading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">{t('teacherTestEditor.sessions.description')}</p>
-        <button
-          type="button"
-          onClick={handleStartSession}
-          disabled={isStartingSession}
-          className="mt-3 rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isStartingSession
-            ? t('teacherTestEditor.sessions.starting')
-            : t('teacherTestEditor.sessions.start')}
-        </button>
-        {sessionError && <p className="mt-2 text-sm text-red-700">{sessionError}</p>}
-
-        {currentSession && (
-          <div className="mt-4 flex flex-col items-start gap-3 rounded-lg border border-primary-200 bg-primary-50 p-4 sm:flex-row sm:items-center">
-            <img
-              src={currentSession.qrCodeDataUrl}
-              alt={t('teacherTestEditor.sessions.qrCodeAlt', { title: test.title })}
-              className="h-40 w-40 rounded-md border border-primary-200 bg-base-white p-2"
-            />
-            <div>
-              <p className="text-sm text-base-black/70">{t('teacherTestEditor.sessions.scanOrJoin')}</p>
-              <p className="mt-1 break-all font-mono text-sm text-primary-700">
-                {currentSession.joinUrl}
-              </p>
-              <p className="mt-2 text-sm text-base-black/70">
-                {t('teacherTestEditor.sessions.manualFallbackCode')}{' '}
-                <span className="font-mono text-lg font-bold tracking-widest text-primary-700">
-                  {currentSession.manualCode}
-                </span>
-              </p>
-              <p className="mt-1 text-xs uppercase text-base-black/50">
-                {t('teacherTestEditor.sessions.statusLabel', {
-                  status: t(`teacherTestEditor.sessions.statusValues.${currentSession.status}`),
-                })}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <ul className="mt-4 flex flex-col gap-2">
-          {sessions.map((session) => (
-            <li
-              key={session.id}
-              className="flex flex-col gap-2 rounded-md border border-primary-100 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
-            >
-              <span>
-                {t('teacherTestEditor.sessions.codeLabel')}{' '}
-                <span className="font-mono font-semibold">{session.manualCode}</span> ·{' '}
-                <span
-                  className={session.status === 'active' ? 'text-green-700' : 'text-base-black/50'}
-                >
-                  {t(`teacherTestEditor.sessions.statusValues.${session.status}`)}
-                </span>{' '}
-                ·{' '}
-                {t('teacherTestEditor.sessions.startedAt', {
-                  date: new Date(session.createdAt).toLocaleString(),
-                })}
-              </span>
-              <span className="flex flex-wrap items-center gap-x-3">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/teacher/sessions/${session.id}/live`)}
-                  className="py-3 text-xs font-medium text-primary-600 hover:underline sm:py-0"
-                >
-                  {t('teacherTestEditor.sessions.liveMonitor')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/teacher/sessions/${session.id}/attempts`)}
-                  className="py-3 text-xs font-medium text-primary-600 hover:underline sm:py-0"
-                >
-                  {t('teacherTestEditor.sessions.viewAttempts')}
-                </button>
-                {session.status === 'active' && (
-                  <button
-                    type="button"
-                    onClick={() => handleCloseSession(session.id)}
-                    className="rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                  >
-                    {t('teacherTestEditor.sessions.close')}
-                  </button>
-                )}
-              </span>
-            </li>
-          ))}
-          {sessions.length === 0 && (
-            <p className="text-sm text-base-black/60">{t('teacherTestEditor.sessions.empty')}</p>
-          )}
-        </ul>
       </section>
 
       {showPreview && <TestPreviewModal testId={testId} onClose={() => setShowPreview(false)} />}
