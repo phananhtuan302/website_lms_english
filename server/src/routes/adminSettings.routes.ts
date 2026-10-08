@@ -8,11 +8,20 @@
  */
 
 import { Router } from 'express';
-import { THEME_IDS, UI_STYLE_IDS, type SettingsDTO, type UpdateSettingsRequest } from '@platform/shared';
+import {
+  THEME_IDS,
+  UI_STYLE_IDS,
+  type AiGradingSettingsDTO,
+  type SettingsDTO,
+  type UpdateAiGradingSettingsRequest,
+  type UpdateSettingsRequest,
+} from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { SETTINGS_ID } from './settings.routes';
+import { encryptSecret } from '../lib/secretCrypto';
+import { DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT } from '../grading/essayGradingPrompt';
 
 export const adminSettingsRouter = Router();
 
@@ -68,6 +77,96 @@ adminSettingsRouter.patch(
       language: settings.language,
       themeId: settings.themeId,
       uiStyle: settings.uiStyle,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+/** GET /api/admin/settings/ai-grading — admin-only read of the AI essay/writing grading
+ * config (2026-10). Never part of the public `GET /api/settings` — see
+ * `AiGradingSettingsDTO`'s doc comment in `@platform/shared`. Never returns the stored
+ * API key itself, only `hasApiKey`. */
+adminSettingsRouter.get(
+  '/settings/ai-grading',
+  asyncHandler(async (_req, res) => {
+    const settings = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
+    const response: AiGradingSettingsDTO = {
+      essayGradingEnabled: settings?.essayGradingEnabled ?? false,
+      apiBaseUrl: settings?.essayGradingApiBaseUrl ?? null,
+      hasApiKey: Boolean(settings?.essayGradingApiKeyEncrypted),
+      model: settings?.essayGradingModel ?? null,
+      systemPrompt: settings?.essayGradingSystemPrompt ?? DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
+      defaultSystemPrompt: DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+/** PATCH /api/admin/settings/ai-grading — admin-only partial update. Validates that
+ * turning `essayGradingEnabled` on never leaves the provider unable to actually call an
+ * endpoint (missing base URL/model/key) — see `AiGradingSettingsDTO`'s doc comment for
+ * the exact field semantics (`apiKey` replaces, `clearApiKey` removes, omitting both
+ * leaves the stored key untouched). */
+adminSettingsRouter.patch(
+  '/settings/ai-grading',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<UpdateAiGradingSettingsRequest>;
+    const hasEnabled = body.essayGradingEnabled !== undefined;
+    const hasBaseUrl = body.apiBaseUrl !== undefined;
+    const hasApiKey = typeof body.apiKey === 'string' && body.apiKey.trim() !== '';
+    const hasClearApiKey = body.clearApiKey === true;
+    const hasModel = body.model !== undefined;
+    const hasSystemPrompt = body.systemPrompt !== undefined;
+
+    if (!hasEnabled && !hasBaseUrl && !hasApiKey && !hasClearApiKey && !hasModel && !hasSystemPrompt) {
+      res.status(400).json({ error: 'Provide at least one field to update.' });
+      return;
+    }
+    if (hasBaseUrl && !/^https?:\/\/.+/i.test(body.apiBaseUrl!.trim())) {
+      res.status(400).json({ error: 'apiBaseUrl must be a valid http(s) URL.' });
+      return;
+    }
+    if (hasApiKey && hasClearApiKey) {
+      res.status(400).json({ error: 'Provide either apiKey or clearApiKey, not both.' });
+      return;
+    }
+
+    const existing = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
+
+    if (hasEnabled && body.essayGradingEnabled) {
+      const resultingBaseUrl = hasBaseUrl ? body.apiBaseUrl!.trim() : existing?.essayGradingApiBaseUrl;
+      const resultingModel = hasModel ? body.model!.trim() : existing?.essayGradingModel;
+      const resultingHasKey = hasApiKey ? true : hasClearApiKey ? false : Boolean(existing?.essayGradingApiKeyEncrypted);
+      if (!resultingBaseUrl || !resultingModel || !resultingHasKey) {
+        res.status(400).json({
+          error: 'Cannot enable AI grading until apiBaseUrl, model, and an API key are all configured.',
+        });
+        return;
+      }
+    }
+
+    const data = {
+      ...(hasEnabled ? { essayGradingEnabled: body.essayGradingEnabled } : {}),
+      ...(hasBaseUrl ? { essayGradingApiBaseUrl: body.apiBaseUrl!.trim() } : {}),
+      ...(hasApiKey ? { essayGradingApiKeyEncrypted: encryptSecret(body.apiKey!.trim()) } : {}),
+      ...(hasClearApiKey ? { essayGradingApiKeyEncrypted: null } : {}),
+      ...(hasModel ? { essayGradingModel: body.model!.trim() } : {}),
+      ...(hasSystemPrompt ? { essayGradingSystemPrompt: body.systemPrompt } : {}),
+    };
+
+    const settings = await prisma.settings.upsert({
+      where: { id: SETTINGS_ID },
+      update: data,
+      create: { id: SETTINGS_ID, ...data },
+    });
+
+    const response: AiGradingSettingsDTO = {
+      essayGradingEnabled: settings.essayGradingEnabled,
+      apiBaseUrl: settings.essayGradingApiBaseUrl,
+      hasApiKey: Boolean(settings.essayGradingApiKeyEncrypted),
+      model: settings.essayGradingModel,
+      systemPrompt: settings.essayGradingSystemPrompt ?? DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
+      defaultSystemPrompt: DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
     };
     res.status(200).json(response);
   }),

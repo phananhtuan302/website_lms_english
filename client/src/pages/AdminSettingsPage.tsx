@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SiteLanguage, ThemeId, UiStyleId } from '@platform/shared';
+import type { AiGradingSettingsDTO, SiteLanguage, ThemeId, UiStyleId } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
 import { applyTheme, THEME_DEFINITIONS } from '../lib/themePalettes';
 import { applyUiStyle, UI_STYLE_DEFINITIONS } from '../lib/uiStyles';
-import { Alert, Button, Card, PageHeader, SectionHeading, SettingsIcon } from '../components/ui';
+import { Alert, Button, Card, Input, PageHeader, SectionHeading, SettingsIcon } from '../components/ui';
 
 /** A small rendered preview of each UI style's signature surface treatment, for the picker
  * grid below — same "show, don't just name it" idea as the theme picker's color swatches. */
@@ -72,6 +72,63 @@ function AdminSettingsPage() {
   const [uiStyleSaving, setUiStyleSaving] = useState<UiStyleId | null>(null);
   const [uiStyleError, setUiStyleError] = useState<string | null>(null);
   const [uiStyleSavedMessage, setUiStyleSavedMessage] = useState<string | null>(null);
+
+  const [aiGrading, setAiGrading] = useState<AiGradingSettingsDTO | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiBaseUrl, setAiBaseUrl] = useState('');
+  const [aiModel, setAiModel] = useState('');
+  const [aiApiKeyInput, setAiApiKeyInput] = useState('');
+  const [aiClearKey, setAiClearKey] = useState(false);
+  const [aiSystemPrompt, setAiSystemPrompt] = useState('');
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSavedMessage, setAiSavedMessage] = useState<string | null>(null);
+
+  function loadAiGrading() {
+    adminApi
+      .getAiGradingSettings()
+      .then((settings) => {
+        setAiGrading(settings);
+        setAiEnabled(settings.essayGradingEnabled);
+        setAiBaseUrl(settings.apiBaseUrl ?? '');
+        setAiModel(settings.model ?? '');
+        setAiSystemPrompt(settings.systemPrompt);
+        setAiApiKeyInput('');
+        setAiClearKey(false);
+      })
+      .catch((err) => setAiError(err instanceof ApiError ? err.message : t('adminSettings.aiGrading.errors.loadFailed')));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(loadAiGrading, []);
+
+  async function handleSaveAiGrading() {
+    if (aiSaving) return;
+    setAiSaving(true);
+    setAiError(null);
+    setAiSavedMessage(null);
+    try {
+      const settings = await adminApi.updateAiGradingSettings({
+        essayGradingEnabled: aiEnabled,
+        apiBaseUrl: aiBaseUrl.trim(),
+        model: aiModel.trim(),
+        systemPrompt: aiSystemPrompt,
+        ...(aiClearKey ? { clearApiKey: true } : aiApiKeyInput.trim() ? { apiKey: aiApiKeyInput.trim() } : {}),
+      });
+      setAiGrading(settings);
+      setAiEnabled(settings.essayGradingEnabled);
+      setAiBaseUrl(settings.apiBaseUrl ?? '');
+      setAiModel(settings.model ?? '');
+      setAiSystemPrompt(settings.systemPrompt);
+      setAiApiKeyInput('');
+      setAiClearKey(false);
+      setAiSavedMessage(t('adminSettings.aiGrading.saved'));
+    } catch (err) {
+      setAiError(err instanceof ApiError ? err.message : t('adminSettings.aiGrading.errors.saveFailed'));
+    } finally {
+      setAiSaving(false);
+    }
+  }
 
   function load() {
     adminApi
@@ -298,6 +355,110 @@ function AdminSettingsPage() {
               </div>
 
               {uiStyleSavedMessage && <p className="mt-4 text-sm font-medium text-primary-700">{uiStyleSavedMessage}</p>}
+            </Card>
+          )
+        )}
+      </section>
+
+      {/* --- AI essay/writing grading --- */}
+      <section>
+        <SectionHeading>{t('adminSettings.aiGrading.heading')}</SectionHeading>
+        <p className="mt-1 text-sm text-base-black/60">{t('adminSettings.aiGrading.subtitle')}</p>
+
+        {aiGrading === null && !aiError ? (
+          <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
+        ) : (
+          aiGrading !== null && (
+            <Card variant="glass" className="mt-4">
+              {aiError && <Alert className="mb-4">{aiError}</Alert>}
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-base-black">
+                  {t('adminSettings.aiGrading.statusLabel', {
+                    status: aiEnabled
+                      ? t('adminSettings.aiGrading.enabledBadge')
+                      : t('adminSettings.aiGrading.disabledBadge'),
+                  })}
+                </p>
+                <Button
+                  type="button"
+                  variant={aiEnabled ? 'outline' : 'solid'}
+                  onClick={() => setAiEnabled((prev) => !prev)}
+                >
+                  {aiEnabled ? t('adminSettings.aiGrading.disableButton') : t('adminSettings.aiGrading.enableButton')}
+                </Button>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.apiBaseUrlLabel')}</span>
+                  <Input
+                    value={aiBaseUrl}
+                    onChange={(e) => setAiBaseUrl(e.target.value)}
+                    placeholder={t('adminSettings.aiGrading.apiBaseUrlPlaceholder')}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.modelLabel')}</span>
+                  <Input
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    placeholder={t('adminSettings.aiGrading.modelPlaceholder')}
+                  />
+                </label>
+              </div>
+
+              <label className="mt-4 flex flex-col gap-1">
+                <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.apiKeyLabel')}</span>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={aiApiKeyInput}
+                  disabled={aiClearKey}
+                  onChange={(e) => setAiApiKeyInput(e.target.value)}
+                  placeholder={
+                    aiGrading.hasApiKey
+                      ? t('adminSettings.aiGrading.apiKeyPlaceholderConfigured')
+                      : t('adminSettings.aiGrading.apiKeyPlaceholderEmpty')
+                  }
+                />
+              </label>
+              {aiGrading.hasApiKey && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-base-black/70">
+                  <input
+                    type="checkbox"
+                    checked={aiClearKey}
+                    onChange={(e) => {
+                      setAiClearKey(e.target.checked);
+                      if (e.target.checked) setAiApiKeyInput('');
+                    }}
+                  />
+                  {t('adminSettings.aiGrading.clearKeyCheckbox')}
+                </label>
+              )}
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiGrading.systemPromptLabel')}</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAiSystemPrompt(aiGrading.defaultSystemPrompt)}>
+                    {t('adminSettings.aiGrading.resetPromptButton')}
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-base-black/50">{t('adminSettings.aiGrading.systemPromptHint')}</p>
+                <textarea
+                  value={aiSystemPrompt}
+                  onChange={(e) => setAiSystemPrompt(e.target.value)}
+                  rows={14}
+                  className="mt-2 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                />
+              </div>
+
+              <div className="mt-4 flex items-center gap-3">
+                <Button type="button" onClick={handleSaveAiGrading} disabled={aiSaving}>
+                  {aiSaving ? t('adminSettings.aiGrading.saving') : t('adminSettings.aiGrading.saveButton')}
+                </Button>
+                {aiSavedMessage && <p className="text-sm font-medium text-primary-700">{aiSavedMessage}</p>}
+              </div>
             </Card>
           )
         )}

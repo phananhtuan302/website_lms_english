@@ -16,9 +16,11 @@ import type {
   AdminGrammarTopicSummaryDTO,
   AdminTestSummaryDTO,
   AdminUserDTO,
+  AiGradingSettingsDTO,
   CreateUserRequest,
   ResetPasswordRequest,
   SettingsDTO,
+  UpdateAiGradingSettingsRequest,
   UpdateSettingsRequest,
   UpdateUserRequest,
   UserRole,
@@ -75,4 +77,12 @@ export const adminApi = {
   getSettings: () => apiRequest<SettingsDTO>('/api/settings'),
   updateSettings: (body: UpdateSettingsRequest) =>
     apiRequest<SettingsDTO>(`${base}/settings`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // --- AI essay/writing grading config (2026-10) --------------------------------------
+  // Admin-only on both verbs (unlike the public-GET language/theme/style above) — this
+  // config includes whether a 3rd-party API key is set, so it never goes through the
+  // public `/api/settings` endpoint.
+  getAiGradingSettings: () => apiRequest<AiGradingSettingsDTO>(`${base}/settings/ai-grading`),
+  updateAiGradingSettings: (body: UpdateAiGradingSettingsRequest) =>
+    apiRequest<AiGradingSettingsDTO>(`${base}/settings/ai-grading`, { method: 'PATCH', body: JSON.stringify(body) }),
 };

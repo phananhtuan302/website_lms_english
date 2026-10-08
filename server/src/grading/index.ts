@@ -20,6 +20,10 @@ import { MockAIGradingProvider } from './mockAIGradingProvider';
 import type { EssayGradingProvider } from './essayGradingProvider';
 import { MockEssayGradingProvider } from './mockEssayGradingProvider';
 import { AnthropicEssayGradingProvider } from './anthropicEssayGradingProvider';
+import { OpenAiCompatibleEssayGradingProvider } from './openAiCompatibleEssayGradingProvider';
+import { DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT } from './essayGradingPrompt';
+import { prisma } from '../lib/prisma';
+import { decryptSecret } from '../lib/secretCrypto';
 
 export type { AIGradingProvider, AIGradingResult } from './aiGradingProvider';
 export type { EssayGradingProvider, EssayGradingInput, EssayGradingResult, EssayGradingCriteria } from './essayGradingProvider';
@@ -49,21 +53,21 @@ export function getAIGradingProvider(): AIGradingProvider {
   }
 }
 
-let cachedEssay: EssayGradingProvider | undefined;
+/** Env-driven fallback provider (`ESSAY_GRADING_PROVIDER=mock|anthropic`), memoized
+ * exactly like `getAIGradingProvider()` above — unchanged behavior from before the
+ * DB-driven admin config existed. Used by `DbConfiguredEssayGradingProvider` whenever
+ * the admin hasn't turned AI grading on (or hasn't fully configured it) from the UI. */
+let cachedStaticEssay: EssayGradingProvider | undefined;
 
-export function getEssayGradingProvider(): EssayGradingProvider {
-  if (cachedEssay) return cachedEssay;
+function getStaticEssayGradingProvider(): EssayGradingProvider {
+  if (cachedStaticEssay) return cachedStaticEssay;
 
-  // Defaults to 'mock' when unset — same "never block on a missing credential" rule as
-  // Speaking above. `anthropic` IS implemented (unlike Speaking's real-provider slot,
-  // still empty) — it's just not the default until an operator both opts in AND
-  // supplies a real `ANTHROPIC_API_KEY`.
   const configured = (process.env.ESSAY_GRADING_PROVIDER ?? 'mock').trim().toLowerCase();
 
   switch (configured) {
     case 'mock':
-      cachedEssay = new MockEssayGradingProvider();
-      return cachedEssay;
+      cachedStaticEssay = new MockEssayGradingProvider();
+      return cachedStaticEssay;
     case 'anthropic': {
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
@@ -72,8 +76,8 @@ export function getEssayGradingProvider(): EssayGradingProvider {
             'see docs/INTEGRATIONS_TODO.md.',
         );
       }
-      cachedEssay = new AnthropicEssayGradingProvider(apiKey);
-      return cachedEssay;
+      cachedStaticEssay = new AnthropicEssayGradingProvider(apiKey);
+      return cachedStaticEssay;
     }
     default:
       throw new Error(
@@ -81,4 +85,45 @@ export function getEssayGradingProvider(): EssayGradingProvider {
           'see docs/INTEGRATIONS_TODO.md.',
       );
   }
+}
+
+/**
+ * Dispatches to the admin-configured OpenAI-compatible endpoint (`Settings.essayGrading*`
+ * — edited from `/admin/settings/ai-grading`, see `adminSettings.routes.ts`) when it's
+ * turned on and fully filled in, otherwise falls back to the env-driven static provider
+ * (mock by default) exactly as before this feature existed.
+ *
+ * Reads `Settings` fresh on every call rather than caching — essay grading only happens
+ * once per essay question at whole-attempt submit time (never a hot path), so the extra
+ * primary-key lookup is negligible, and it's what lets an admin's edit on the Settings
+ * page take effect immediately with no server restart.
+ */
+class DbConfiguredEssayGradingProvider implements EssayGradingProvider {
+  async grade(input: Parameters<EssayGradingProvider['grade']>[0]) {
+    // 'singleton' mirrors `Settings`'s Prisma `@default` (see `settings.routes.ts`'s
+    // `SETTINGS_ID`) — inlined rather than imported to keep this low-level grading
+    // module from depending on the routes layer.
+    const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+
+    if (settings?.essayGradingEnabled && settings.essayGradingApiBaseUrl && settings.essayGradingApiKeyEncrypted && settings.essayGradingModel) {
+      const provider = new OpenAiCompatibleEssayGradingProvider({
+        baseUrl: settings.essayGradingApiBaseUrl,
+        apiKey: decryptSecret(settings.essayGradingApiKeyEncrypted),
+        model: settings.essayGradingModel,
+        systemPrompt: settings.essayGradingSystemPrompt || DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT,
+      });
+      return provider.grade(input);
+    }
+
+    return getStaticEssayGradingProvider().grade(input);
+  }
+}
+
+let cachedEssay: EssayGradingProvider | undefined;
+
+export function getEssayGradingProvider(): EssayGradingProvider {
+  if (!cachedEssay) {
+    cachedEssay = new DbConfiguredEssayGradingProvider();
+  }
+  return cachedEssay;
 }

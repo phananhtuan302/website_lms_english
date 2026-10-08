@@ -1394,6 +1394,23 @@ model Settings {
   language  SiteLanguage @default(en)
   themeId   ThemeId      @default(sunset)
   uiStyle   UiStyleId    @default(glass)
+
+  /// Admin-editable AI essay/writing grading config (2026-10), written only via
+  /// `PATCH /api/admin/settings/ai-grading` — never exposed on the public
+  /// `GET /api/settings`. Lets an admin point `EssayGradingProvider` at any
+  /// OpenAI-Chat-Completions-compatible endpoint (base URL + API key + model) and edit
+  /// the grading system prompt, from the UI, with no redeploy. See
+  /// `server/src/grading/index.ts`'s `getEssayGradingProvider()` for how this is read
+  /// at grading time, and `server/src/lib/secretCrypto.ts` for how the key is encrypted
+  /// at rest. `essayGradingEnabled` defaults to `false`, so an unconfigured install keeps
+  /// using `MockEssayGradingProvider` exactly as before this feature existed.
+  essayGradingEnabled         Boolean @default(false)
+  essayGradingApiBaseUrl      String?
+  /// AES-256-GCM ciphertext (iv.authTag.data, base64 segments) — never the raw key.
+  essayGradingApiKeyEncrypted String?
+  essayGradingModel           String?
+  essayGradingSystemPrompt    String?
+
   updatedAt DateTime     @updatedAt
 
   @@map("settings")

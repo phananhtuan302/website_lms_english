@@ -2110,6 +2110,44 @@ export interface UpdateSettingsRequest {
   uiStyle?: UiStyleId;
 }
 
+// --- AI essay/writing grading config (2026-10, admin-managed prompt + endpoint) -----
+// Mirrors `server/prisma/schema.prisma`'s `Settings.essayGrading*` columns. Deliberately
+// NOT part of `SettingsDTO`/`UpdateSettingsRequest` above — those are served on the
+// PUBLIC `GET /api/settings` every visitor's page load hits, and this config (an API
+// base URL + whether a key is configured + the grading prompt) must never be exposed to
+// a logged-out visitor. Read/written only via the admin-only
+// `GET`/`PATCH /api/admin/settings/ai-grading` routes in `adminSettings.routes.ts`.
+
+/** Response for `GET /api/admin/settings/ai-grading` (admin-only). `hasApiKey` reports
+ * whether a key is stored WITHOUT ever returning it — the server never sends the
+ * plaintext key back once saved, same convention as a password field. `defaultSystemPrompt`
+ * is the built-in IELTS-standard prompt (`DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT` server-side)
+ * so the UI can offer a "reset to default" action without duplicating that text in the
+ * client bundle. */
+export interface AiGradingSettingsDTO {
+  essayGradingEnabled: boolean;
+  apiBaseUrl: string | null;
+  hasApiKey: boolean;
+  model: string | null;
+  systemPrompt: string;
+  defaultSystemPrompt: string;
+}
+
+/** Body for `PATCH /api/admin/settings/ai-grading` (admin-only). Any subset of fields
+ * may be sent (a partial update). `apiKey`, if present, REPLACES the stored key (encrypted
+ * server-side before storage) — send `clearApiKey: true` instead to remove it; omit both
+ * to leave the currently-stored key untouched. Turning `essayGradingEnabled` to `true`
+ * requires `apiBaseUrl`, `model`, and a configured API key (existing or sent in the same
+ * request) to already be present, or the server rejects the request. */
+export interface UpdateAiGradingSettingsRequest {
+  essayGradingEnabled?: boolean;
+  apiBaseUrl?: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  model?: string;
+  systemPrompt?: string;
+}
+
 // --- Class-based organization (T-074, Phase 12) -------------------------------------
 // Mirrors `server/prisma/schema.prisma`'s `Class` model — see that model's doc comment
 // for the full design (PROJECT_PLAN Assumption A14) and the documented "block delete
