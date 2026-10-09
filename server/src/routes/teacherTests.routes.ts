@@ -13,11 +13,17 @@
 import { Router } from 'express';
 import type {
   ChoiceInput,
+  CommitImportedTestRequest,
+  CommitImportedTestResponse,
+  CommitImportedTestRowError,
   ContentClassAssignmentDTO,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateTestRequest,
   GenerateVariantsRequest,
+  GeneratedImportSectionDTO,
+  ImportTestFromImagesRequest,
+  ImportTestFromImagesResponse,
   QuestionType,
   ReorderQuestionsRequest,
   ReorderSectionsRequest,
@@ -35,7 +41,7 @@ import type {
   UpdateTestClassScheduleRequest,
   UpdateTestRequest,
 } from '@platform/shared';
-import { IELTS_BAND_MAX } from '@platform/shared';
+import { EXAM_IMPORT_MAX_IMAGES, IELTS_BAND_MAX } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -46,6 +52,7 @@ import { fetchNestedTest, type NestedTest } from '../lib/testQueries';
 import { isClassScopeFailure, requireClassPeriod, resolveTeacherClassId } from '../lib/reportClassScope';
 import { findTestClassSchedule, toTestClassScheduleDTO } from '../lib/testClassSchedule';
 import { ensureTestVariants, reconcileVariants, regenerateVariants } from '../lib/testVariants';
+import { generateTestFromImages } from '../aiTools/examImportGenerator';
 
 export const teacherTestsRouter = Router();
 
@@ -425,6 +432,146 @@ teacherTestsRouter.post(
     });
     const nested = await fetchNestedTest(test.id);
     res.status(201).json(toTestDetailDTO(nested));
+  }),
+);
+
+// --- AI exam-image import (2026-10, feature 3 of the "AI Content Tools" set) -----------
+// Images are resized/compressed client-side (same convention as `AvatarUpload.tsx`'s
+// canvas-resize, just tuned for OCR legibility instead of a 160x160 avatar) and capped at
+// `EXAM_IMPORT_MAX_IMAGES` pages so the whole request comfortably fits under the existing
+// GLOBAL `express.json({limit:'20mb'})` in `index.ts` — deliberately NOT given its own
+// larger per-route body limit, since Express's single global `express.json()` middleware
+// already consumes the request stream before any route-specific parser could apply a
+// different limit; re-plumbing that for one route isn't worth the risk to every other
+// route's body parsing. If a teacher's exam genuinely needs more than
+// `EXAM_IMPORT_MAX_IMAGES` pages, the documented answer is to split it into two imports.
+
+/** `POST /tests/import-from-images` — returns a DRAFT only (`generateTestFromImages` never
+ * writes to the DB). The teacher reviews/edits the draft client-side, then saves it via
+ * `POST /tests/import-from-images/commit` below. */
+teacherTestsRouter.post(
+  '/tests/import-from-images',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<ImportTestFromImagesRequest>;
+
+    if (!Array.isArray(body.images) || body.images.length === 0) {
+      res.status(400).json({ error: 'images must be a non-empty array.' });
+      return;
+    }
+    if (body.images.length > EXAM_IMPORT_MAX_IMAGES) {
+      res.status(400).json({ error: `images cannot exceed ${EXAM_IMPORT_MAX_IMAGES} pages per import.` });
+      return;
+    }
+    if (body.images.some((img) => typeof img !== 'string' || !/^data:image\/(png|jpe?g|webp);base64,/.test(img))) {
+      res.status(400).json({ error: 'Each image must be a data:image/(png|jpeg|webp);base64,... URL.' });
+      return;
+    }
+
+    const draft = await generateTestFromImages({ images: body.images });
+    const response: ImportTestFromImagesResponse = draft;
+    res.status(200).json(response);
+  }),
+);
+
+/**
+ * `POST /tests/import-from-images/commit` — persists the (possibly teacher-edited) draft
+ * from `POST /tests/import-from-images` above as a brand-new `Test`. The `Test`/`Section`
+ * rows are created unconditionally once `title` passes the same check manual creation
+ * uses; each QUESTION is independently re-validated through the EXACT SAME
+ * `validateQuestionBody` the manual question-create route uses — partial success, same "a
+ * bad row is skipped and reported, not a reason to reject the whole batch" convention as
+ * the flashcard bulk-import and generated-grammar-lesson commit routes.
+ */
+teacherTestsRouter.post(
+  '/tests/import-from-images/commit',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<CommitImportedTestRequest>;
+
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    if (!title) {
+      res.status(400).json({ error: 'Test title is required.' });
+      return;
+    }
+    if (!Array.isArray(body.sections)) {
+      res.status(400).json({ error: 'sections must be an array.' });
+      return;
+    }
+
+    const test = await prisma.test.create({
+      data: { title, teacherId: req.user!.sub, testType: 'generic' },
+    });
+
+    const errors: CommitImportedTestRowError[] = [];
+    let createdQuestionCount = 0;
+
+    for (const [sectionIndex, rawSection] of body.sections.entries()) {
+      const sectionBody = (rawSection ?? {}) as Partial<GeneratedImportSectionDTO>;
+      const sectionTitle =
+        typeof sectionBody.title === 'string' && sectionBody.title.trim() ? sectionBody.title.trim() : `Phần ${sectionIndex + 1}`;
+      const contentError = validateSectionContentFields({ passageText: sectionBody.passageText ?? null });
+      if (contentError) {
+        errors.push({ sectionIndex, questionIndex: -1, message: contentError });
+        continue;
+      }
+
+      const section = await prisma.section.create({
+        data: {
+          testId: test.id,
+          title: sectionTitle,
+          order: sectionIndex + 1,
+          passageText: sectionBody.passageText?.trim() || null,
+        },
+      });
+
+      const rawQuestions = Array.isArray(sectionBody.questions) ? sectionBody.questions : [];
+      let order = 1;
+      for (const [questionIndex, rawQuestion] of rawQuestions.entries()) {
+        const questionBody = (rawQuestion ?? {}) as Partial<CreateQuestionRequest>;
+        const validationError = validateQuestionBody(questionBody);
+        if (validationError) {
+          errors.push({ sectionIndex, questionIndex, message: validationError });
+          continue;
+        }
+
+        const choices = (questionBody.choices ?? []) as ChoiceInput[];
+        await prisma.question.create({
+          data: {
+            sectionId: section.id,
+            type: questionBody.type as QuestionType,
+            prompt: (questionBody.prompt as string).trim(),
+            order,
+            acceptedAnswers:
+              questionBody.type === 'fillBlank' ? (questionBody.acceptedAnswers as string[]).map((a) => a.trim()) : [],
+            essayMaxScore: questionBody.type === 'essay' ? resolvedEssayMaxScore(questionBody) : null,
+            essayMinWords: questionBody.type === 'essay' ? (questionBody.essayMinWords ?? null) : null,
+            essayTaskType: questionBody.type === 'essay' ? (questionBody.essayTaskType ?? null) : null,
+            essayUseIeltsCriteria: questionBody.type === 'essay' ? (questionBody.essayUseIeltsCriteria ?? false) : false,
+            fillBlankMaxWords: questionBody.type === 'fillBlank' ? (questionBody.fillBlankMaxWords ?? null) : null,
+            allowedResponseSeconds:
+              questionBody.type === 'speaking' ? (questionBody.allowedResponseSeconds ?? DEFAULT_SPEAKING_SECONDS) : null,
+            preparationSeconds: questionBody.type === 'speaking' ? (questionBody.preparationSeconds ?? null) : null,
+            promptAudioUrl: questionBody.type === 'speaking' ? (questionBody.promptAudioUrl ?? null) : null,
+            choices:
+              questionBody.type === 'fillBlank' || questionBody.type === 'essay' || questionBody.type === 'speaking'
+                ? undefined
+                : {
+                    create: choices.map((c, i) => ({ text: c.text.trim(), isCorrect: c.isCorrect, order: i + 1 })),
+                  },
+          },
+        });
+        order += 1;
+        createdQuestionCount += 1;
+      }
+    }
+
+    await reconcileVariants(test.id);
+    const nested = await fetchNestedTest(test.id);
+    const response: CommitImportedTestResponse = {
+      test: toTestDetailDTO(nested),
+      createdQuestionCount,
+      errors,
+    };
+    res.status(201).json(response);
   }),
 );
 

@@ -11,23 +11,27 @@ import type {
   BulkCreateFlashcardCardsRequest,
   BulkCreateFlashcardCardsResponse,
   BulkCreateFlashcardCardsRowError,
+  CefrLevel,
   ContentClassAssignmentDTO,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
   FlashcardCardDTO,
   FlashcardSetDetailDTO,
   FlashcardSetSummaryDTO,
+  GenerateVocabularyRequest,
+  GenerateVocabularyResponse,
   SentenceSubmissionDTO,
   UpdateContentClassesRequest,
   UpdateFlashcardCardRequest,
   UpdateFlashcardSetRequest,
 } from '@platform/shared';
-import { FLASHCARD_BULK_IMPORT_MAX_ROWS } from '@platform/shared';
+import { CEFR_LEVELS, FLASHCARD_BULK_IMPORT_MAX_ROWS } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireOwnedFlashcardSet } from '../lib/ownedFlashcardSet';
 import { loadOwnerClassesWithCurrentPeriod, validateClassIdsForOwner } from '../lib/contentClassAssignment';
+import { generateVocabulary, VOCAB_GENERATION_MAX_COUNT, VOCAB_GENERATION_MIN_COUNT } from '../aiTools/vocabGenerator';
 
 export const teacherFlashcardsRouter = Router();
 
@@ -48,6 +52,7 @@ function toCardDTO(card: {
   exampleSentence: string | null;
   synonyms: string[];
   antonyms: string[];
+  cefrLevel: string | null;
   order: number;
 }): FlashcardCardDTO {
   return {
@@ -60,6 +65,7 @@ function toCardDTO(card: {
     exampleSentence: card.exampleSentence,
     synonyms: card.synonyms,
     antonyms: card.antonyms,
+    cefrLevel: card.cefrLevel as CefrLevel | null,
     order: card.order,
   };
 }
@@ -115,8 +121,54 @@ function validateCardBody(body: Partial<CreateFlashcardCardRequest>): string | n
       return `${field} must be an array of strings.`;
     }
   }
+  if (body.cefrLevel != null && !CEFR_LEVELS.includes(body.cefrLevel)) {
+    return `cefrLevel must be one of: ${CEFR_LEVELS.join(', ')}.`;
+  }
   return null;
 }
+
+// --- AI vocabulary generation (2026-10, feature 1 of the "AI Content Tools" set) -------
+
+/**
+ * `POST /flashcards/generate` — NOT scoped to a `:setId` (unlike every other route in this
+ * file): generating a draft doesn't touch any particular set, or any set at all, until the
+ * teacher reviews it and chooses where to save it. Returns a DRAFT only (`generateVocabulary`
+ * never writes to the DB) — saving is a SEPARATE, later call to the existing
+ * `POST .../cards/bulk` endpoint above, into whichever set (new or existing) the teacher
+ * picks client-side. See `vocabGenerator.ts`'s doc comment for why there's no dedicated
+ * "commit" endpoint for this feature.
+ */
+teacherFlashcardsRouter.post(
+  '/flashcards/generate',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<GenerateVocabularyRequest>;
+
+    const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
+    if (!topic) {
+      res.status(400).json({ error: 'topic is required.' });
+      return;
+    }
+    if (!Array.isArray(body.levels) || body.levels.length === 0 || body.levels.some((l) => !CEFR_LEVELS.includes(l))) {
+      res.status(400).json({ error: `levels must be a non-empty array of: ${CEFR_LEVELS.join(', ')}.` });
+      return;
+    }
+    if (
+      typeof body.count !== 'number' ||
+      !Number.isInteger(body.count) ||
+      body.count < VOCAB_GENERATION_MIN_COUNT ||
+      body.count > VOCAB_GENERATION_MAX_COUNT
+    ) {
+      res.status(400).json({
+        error: `count must be an integer between ${VOCAB_GENERATION_MIN_COUNT} and ${VOCAB_GENERATION_MAX_COUNT}.`,
+      });
+      return;
+    }
+
+    const cards = await generateVocabulary({ topic, levels: body.levels, count: body.count });
+    const response: GenerateVocabularyResponse = { cards };
+    res.status(200).json(response);
+  }),
+);
 
 // --- Flashcard set CRUD ----------------------------------------------------------------
 
@@ -246,6 +298,7 @@ teacherFlashcardsRouter.post(
               exampleSentence: card.exampleSentence,
               synonyms: card.synonyms,
               antonyms: card.antonyms,
+              cefrLevel: card.cefrLevel,
               order: card.order,
             })),
           },
@@ -295,6 +348,7 @@ teacherFlashcardsRouter.post(
         exampleSentence: body.exampleSentence?.trim() || null,
         synonyms: (body.synonyms ?? []).map((s) => s.trim()).filter(Boolean),
         antonyms: (body.antonyms ?? []).map((s) => s.trim()).filter(Boolean),
+        cefrLevel: body.cefrLevel ?? null,
         order: (maxOrder._max.order ?? 0) + 1,
       },
     });
@@ -380,6 +434,7 @@ teacherFlashcardsRouter.post(
           exampleSentence: rowBody.exampleSentence?.trim() || null,
           synonyms: (rowBody.synonyms ?? []).map((s) => s.trim()).filter(Boolean),
           antonyms: (rowBody.antonyms ?? []).map((s) => s.trim()).filter(Boolean),
+          cefrLevel: rowBody.cefrLevel ?? null,
           order: nextOrder,
         },
       });
@@ -430,6 +485,7 @@ teacherFlashcardsRouter.patch(
         exampleSentence: body.exampleSentence?.trim() || null,
         synonyms: (body.synonyms ?? []).map((s) => s.trim()).filter(Boolean),
         antonyms: (body.antonyms ?? []).map((s) => s.trim()).filter(Boolean),
+        cefrLevel: body.cefrLevel ?? null,
       },
     });
 

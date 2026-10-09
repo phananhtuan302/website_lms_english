@@ -269,6 +269,7 @@ studentFlashcardsRouter.get(
         exampleSentence: card.exampleSentence,
         synonyms: card.synonyms,
         antonyms: card.antonyms,
+        cefrLevel: card.cefrLevel,
         order: card.order,
         progressStatus: progress?.status ?? null,
         // T-089: exposes the stricter "verified via self-check" tier alongside the

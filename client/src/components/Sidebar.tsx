@@ -116,6 +116,12 @@ const LeaderboardIcon = ({ className }: IconProps) => (
     <path d="M17 6h3a3 3 0 0 1-3 5" />
   </Icon>
 );
+const ChatIcon = ({ className }: IconProps) => (
+  <Icon className={className}>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.3-4.7A8 8 0 1 1 21 12Z" />
+    <path d="M8 11h.01M12 11h.01M16 11h.01" />
+  </Icon>
+);
 const HelpIcon = ({ className }: IconProps) => (
   <Icon className={className}>
     <circle cx="12" cy="12" r="9" />
@@ -175,6 +181,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
       '/teacher/curriculum',
     ],
   },
+  { labelKey: 'teacherNav.chatAssistant', to: '/teacher/chat', icon: ChatIcon },
 ];
 
 const STUDENT_NAV_ITEMS: NavItem[] = [

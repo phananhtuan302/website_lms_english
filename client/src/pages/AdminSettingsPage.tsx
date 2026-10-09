@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AiGradingSettingsDTO, SiteLanguage, ThemeId, UiStyleId } from '@platform/shared';
+import type { AiGradingSettingsDTO, AiToolsSettingsDTO, SiteLanguage, ThemeId, UiStyleId } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
 import { applyTheme, THEME_DEFINITIONS } from '../lib/themePalettes';
@@ -85,6 +85,87 @@ function AdminSettingsPage() {
   const [aiSaving, setAiSaving] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSavedMessage, setAiSavedMessage] = useState<string | null>(null);
+
+  const [aiTools, setAiTools] = useState<AiToolsSettingsDTO | null>(null);
+  const [aiToolsBaseUrl, setAiToolsBaseUrl] = useState('');
+  const [aiToolsModel, setAiToolsModel] = useState('');
+  const [aiToolsApiKeyInput, setAiToolsApiKeyInput] = useState('');
+  const [aiToolsClearKey, setAiToolsClearKey] = useState(false);
+  const [vocabGenEnabled, setVocabGenEnabled] = useState(false);
+  const [vocabGenPrompt, setVocabGenPrompt] = useState('');
+  const [grammarGenEnabled, setGrammarGenEnabled] = useState(false);
+  const [grammarGenPrompt, setGrammarGenPrompt] = useState('');
+  const [examImportEnabled, setExamImportEnabled] = useState(false);
+  const [examImportPrompt, setExamImportPrompt] = useState('');
+  const [teacherChatEnabled, setTeacherChatEnabled] = useState(false);
+  const [teacherChatPrompt, setTeacherChatPrompt] = useState('');
+  const [aiToolsSaving, setAiToolsSaving] = useState(false);
+  const [aiToolsError, setAiToolsError] = useState<string | null>(null);
+  const [aiToolsSavedMessage, setAiToolsSavedMessage] = useState<string | null>(null);
+
+  function loadAiTools() {
+    adminApi
+      .getAiToolsSettings()
+      .then((settings) => {
+        setAiTools(settings);
+        setAiToolsBaseUrl(settings.apiBaseUrl ?? '');
+        setAiToolsModel(settings.model ?? '');
+        setVocabGenEnabled(settings.vocabGenEnabled);
+        setVocabGenPrompt(settings.vocabGenSystemPrompt);
+        setGrammarGenEnabled(settings.grammarGenEnabled);
+        setGrammarGenPrompt(settings.grammarGenSystemPrompt);
+        setExamImportEnabled(settings.examImportEnabled);
+        setExamImportPrompt(settings.examImportSystemPrompt);
+        setTeacherChatEnabled(settings.teacherChatEnabled);
+        setTeacherChatPrompt(settings.teacherChatSystemPrompt);
+        setAiToolsApiKeyInput('');
+        setAiToolsClearKey(false);
+      })
+      .catch((err) => setAiToolsError(err instanceof ApiError ? err.message : t('adminSettings.aiTools.errors.loadFailed')));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(loadAiTools, []);
+
+  async function handleSaveAiTools() {
+    if (aiToolsSaving) return;
+    setAiToolsSaving(true);
+    setAiToolsError(null);
+    setAiToolsSavedMessage(null);
+    try {
+      const settings = await adminApi.updateAiToolsSettings({
+        apiBaseUrl: aiToolsBaseUrl.trim(),
+        model: aiToolsModel.trim(),
+        vocabGenEnabled,
+        vocabGenSystemPrompt: vocabGenPrompt,
+        grammarGenEnabled,
+        grammarGenSystemPrompt: grammarGenPrompt,
+        examImportEnabled,
+        examImportSystemPrompt: examImportPrompt,
+        teacherChatEnabled,
+        teacherChatSystemPrompt: teacherChatPrompt,
+        ...(aiToolsClearKey ? { clearApiKey: true } : aiToolsApiKeyInput.trim() ? { apiKey: aiToolsApiKeyInput.trim() } : {}),
+      });
+      setAiTools(settings);
+      setAiToolsBaseUrl(settings.apiBaseUrl ?? '');
+      setAiToolsModel(settings.model ?? '');
+      setVocabGenEnabled(settings.vocabGenEnabled);
+      setVocabGenPrompt(settings.vocabGenSystemPrompt);
+      setGrammarGenEnabled(settings.grammarGenEnabled);
+      setGrammarGenPrompt(settings.grammarGenSystemPrompt);
+      setExamImportEnabled(settings.examImportEnabled);
+      setExamImportPrompt(settings.examImportSystemPrompt);
+      setTeacherChatEnabled(settings.teacherChatEnabled);
+      setTeacherChatPrompt(settings.teacherChatSystemPrompt);
+      setAiToolsApiKeyInput('');
+      setAiToolsClearKey(false);
+      setAiToolsSavedMessage(t('adminSettings.aiTools.saved'));
+    } catch (err) {
+      setAiToolsError(err instanceof ApiError ? err.message : t('adminSettings.aiTools.errors.saveFailed'));
+    } finally {
+      setAiToolsSaving(false);
+    }
+  }
 
   function loadAiGrading() {
     adminApi
@@ -511,6 +592,171 @@ function AdminSettingsPage() {
           )
         )}
       </section>
+
+      {/* --- AI Content Tools (vocab/grammar generation, exam-image import, teacher chat) --- */}
+      <section>
+        <SectionHeading>{t('adminSettings.aiTools.heading')}</SectionHeading>
+        <p className="mt-1 text-sm text-base-black/60">{t('adminSettings.aiTools.subtitle')}</p>
+
+        {aiTools === null && !aiToolsError ? (
+          <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
+        ) : (
+          aiTools !== null && (
+            <Card variant="glass" className="mt-4">
+              {aiToolsError && <Alert className="mb-4">{aiToolsError}</Alert>}
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-base-black/50">
+                {t('adminSettings.aiTools.connectionHeading')}
+              </p>
+              <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiTools.apiBaseUrlLabel')}</span>
+                  <Input
+                    value={aiToolsBaseUrl}
+                    onChange={(e) => setAiToolsBaseUrl(e.target.value)}
+                    placeholder={t('adminSettings.aiTools.apiBaseUrlPlaceholder')}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-base-black">{t('adminSettings.aiTools.modelLabel')}</span>
+                  <Input
+                    value={aiToolsModel}
+                    onChange={(e) => setAiToolsModel(e.target.value)}
+                    placeholder={t('adminSettings.aiTools.modelPlaceholder')}
+                  />
+                </label>
+              </div>
+
+              <label className="mt-4 flex flex-col gap-1">
+                <span className="text-sm font-medium text-base-black">{t('adminSettings.aiTools.apiKeyLabel')}</span>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={aiToolsApiKeyInput}
+                  disabled={aiToolsClearKey}
+                  onChange={(e) => setAiToolsApiKeyInput(e.target.value)}
+                  placeholder={
+                    aiTools.hasApiKey
+                      ? t('adminSettings.aiTools.apiKeyPlaceholderConfigured')
+                      : t('adminSettings.aiTools.apiKeyPlaceholderEmpty')
+                  }
+                />
+              </label>
+              {aiTools.hasApiKey && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-base-black/70">
+                  <input
+                    type="checkbox"
+                    checked={aiToolsClearKey}
+                    onChange={(e) => {
+                      setAiToolsClearKey(e.target.checked);
+                      if (e.target.checked) setAiToolsApiKeyInput('');
+                    }}
+                  />
+                  {t('adminSettings.aiTools.clearKeyCheckbox')}
+                </label>
+              )}
+
+              <AiToolFeatureBlock
+                statusLabel={t('adminSettings.aiTools.vocabGen.statusLabel', {
+                  status: vocabGenEnabled ? t('adminSettings.aiTools.enabledBadge') : t('adminSettings.aiTools.disabledBadge'),
+                })}
+                enabled={vocabGenEnabled}
+                onToggle={() => setVocabGenEnabled((prev) => !prev)}
+                promptLabel={t('adminSettings.aiTools.vocabGen.promptLabel')}
+                promptHint={t('adminSettings.aiTools.vocabGen.promptHint')}
+                prompt={vocabGenPrompt}
+                onChangePrompt={setVocabGenPrompt}
+                onResetPrompt={() => setVocabGenPrompt(aiTools.defaultVocabGenSystemPrompt)}
+              />
+              <AiToolFeatureBlock
+                statusLabel={t('adminSettings.aiTools.grammarGen.statusLabel', {
+                  status: grammarGenEnabled ? t('adminSettings.aiTools.enabledBadge') : t('adminSettings.aiTools.disabledBadge'),
+                })}
+                enabled={grammarGenEnabled}
+                onToggle={() => setGrammarGenEnabled((prev) => !prev)}
+                promptLabel={t('adminSettings.aiTools.grammarGen.promptLabel')}
+                promptHint={t('adminSettings.aiTools.grammarGen.promptHint')}
+                prompt={grammarGenPrompt}
+                onChangePrompt={setGrammarGenPrompt}
+                onResetPrompt={() => setGrammarGenPrompt(aiTools.defaultGrammarGenSystemPrompt)}
+              />
+              <AiToolFeatureBlock
+                statusLabel={t('adminSettings.aiTools.examImport.statusLabel', {
+                  status: examImportEnabled ? t('adminSettings.aiTools.enabledBadge') : t('adminSettings.aiTools.disabledBadge'),
+                })}
+                enabled={examImportEnabled}
+                onToggle={() => setExamImportEnabled((prev) => !prev)}
+                promptLabel={t('adminSettings.aiTools.examImport.promptLabel')}
+                promptHint={t('adminSettings.aiTools.examImport.promptHint')}
+                prompt={examImportPrompt}
+                onChangePrompt={setExamImportPrompt}
+                onResetPrompt={() => setExamImportPrompt(aiTools.defaultExamImportSystemPrompt)}
+              />
+              <AiToolFeatureBlock
+                statusLabel={t('adminSettings.aiTools.teacherChat.statusLabel', {
+                  status: teacherChatEnabled ? t('adminSettings.aiTools.enabledBadge') : t('adminSettings.aiTools.disabledBadge'),
+                })}
+                enabled={teacherChatEnabled}
+                onToggle={() => setTeacherChatEnabled((prev) => !prev)}
+                promptLabel={t('adminSettings.aiTools.teacherChat.promptLabel')}
+                promptHint={t('adminSettings.aiTools.teacherChat.promptHint')}
+                prompt={teacherChatPrompt}
+                onChangePrompt={setTeacherChatPrompt}
+                onResetPrompt={() => setTeacherChatPrompt(aiTools.defaultTeacherChatSystemPrompt)}
+              />
+
+              <div className="mt-4 flex items-center gap-3">
+                <Button type="button" onClick={handleSaveAiTools} disabled={aiToolsSaving}>
+                  {aiToolsSaving ? t('adminSettings.aiTools.saving') : t('adminSettings.aiTools.saveButton')}
+                </Button>
+                {aiToolsSavedMessage && <p className="text-sm font-medium text-primary-700">{aiToolsSavedMessage}</p>}
+              </div>
+            </Card>
+          )
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** One feature's enable toggle + editable system prompt, reused 4x above (vocab/grammar
+ * generation, exam-image import, teacher chat) instead of duplicating the same JSX block —
+ * the AI Grading section above doesn't need this since it only has 2 toggles sharing one
+ * layout written out directly. */
+function AiToolFeatureBlock(props: {
+  statusLabel: string;
+  enabled: boolean;
+  onToggle: () => void;
+  promptLabel: string;
+  promptHint: string;
+  prompt: string;
+  onChangePrompt: (value: string) => void;
+  onResetPrompt: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-5 border-t border-primary-100 pt-4 first:mt-4 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-base-black">{props.statusLabel}</p>
+        <Button type="button" variant={props.enabled ? 'outline' : 'solid'} size="sm" onClick={props.onToggle}>
+          {props.enabled ? t('adminSettings.aiTools.disableButton') : t('adminSettings.aiTools.enableButton')}
+        </Button>
+      </div>
+      <div className="mt-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-base-black">{props.promptLabel}</span>
+          <Button type="button" variant="outline" size="sm" onClick={props.onResetPrompt}>
+            {t('adminSettings.aiTools.resetPromptButton')}
+          </Button>
+        </div>
+        <p className="mt-1 text-xs text-base-black/50">{props.promptHint}</p>
+        <textarea
+          value={props.prompt}
+          onChange={(e) => props.onChangePrompt(e.target.value)}
+          rows={10}
+          className="mt-2 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+        />
+      </div>
     </div>
   );
 }

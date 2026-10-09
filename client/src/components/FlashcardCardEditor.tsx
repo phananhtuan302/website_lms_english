@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FlashcardCardDTO, FlashcardCardInput } from '@platform/shared';
+import { CEFR_LEVELS, type CefrLevel, type FlashcardCardDTO, type FlashcardCardInput } from '@platform/shared';
 
 interface FlashcardCardEditorProps {
   card: FlashcardCardDTO;
@@ -25,6 +25,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
   const [exampleSentence, setExampleSentence] = useState(card.exampleSentence ?? '');
   const [synonymsText, setSynonymsText] = useState(card.synonyms.join(', '));
   const [antonymsText, setAntonymsText] = useState(card.antonyms.join(', '));
+  const [cefrLevel, setCefrLevel] = useState<CefrLevel | ''>(card.cefrLevel ?? '');
   const [saveError, setSaveError] = useState<string | null>(null);
 
   function splitList(text: string): string[] {
@@ -44,6 +45,7 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
       exampleSentence: exampleSentence.trim() || null,
       synonyms: splitList(synonymsText),
       antonyms: splitList(antonymsText),
+      cefrLevel: cefrLevel || null,
     };
   }
 
@@ -56,12 +58,43 @@ function FlashcardCardEditor({ card, index, onSave, onDelete }: FlashcardCardEdi
     }
   }
 
+  /** A `<select>` doesn't reliably fire `onBlur` right after a click-to-choose the way a
+   * text input does, so this saves immediately on change (passing the new value directly
+   * rather than through `cefrLevel` state, which wouldn't be updated yet inside this same
+   * handler) instead of waiting on the shared `save()`/`onBlur` convention above. */
+  async function handleCefrLevelChange(value: CefrLevel | '') {
+    setCefrLevel(value);
+    try {
+      setSaveError(null);
+      await onSave({ ...currentBody(), cefrLevel: value || null });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t('flashcardCardEditor.saveError'));
+    }
+  }
+
   return (
     <div className="rounded-lg border border-primary-100 bg-base-white p-4">
       <div className="flex items-start justify-between gap-3">
-        <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
-          {t('flashcardCardEditor.cardLabel', { number: index + 1 })}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+            {t('flashcardCardEditor.cardLabel', { number: index + 1 })}
+          </span>
+          <label className="flex items-center gap-1 text-xs font-medium text-base-black/70">
+            {t('flashcardCardEditor.cefrLevelLabel')}
+            <select
+              value={cefrLevel}
+              onChange={(e) => void handleCefrLevelChange(e.target.value as CefrLevel | '')}
+              className="rounded-md border border-primary-200 px-2 py-1 text-xs text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              <option value="">{t('flashcardCardEditor.cefrLevelNone')}</option>
+              {CEFR_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <button
           type="button"
           onClick={onDelete}

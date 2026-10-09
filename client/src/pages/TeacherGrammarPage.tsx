@@ -74,6 +74,12 @@ function TeacherGrammarPage() {
         >
           {isCreating ? t('teacherGrammar.creating') : t('teacherGrammar.createTopic')}
         </button>
+        <Link
+          to="/teacher/grammar-topics/generate"
+          className="rounded-md border border-primary-300 px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+        >
+          {t('teacherGrammar.generateWithAiButton')}
+        </Link>
       </form>
 
       {error && (

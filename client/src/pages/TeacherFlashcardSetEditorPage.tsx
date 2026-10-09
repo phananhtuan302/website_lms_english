@@ -11,6 +11,7 @@ import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import FlashcardCardEditor from '../components/FlashcardCardEditor';
 import FlashcardExcelImportPanel from '../components/FlashcardExcelImportPanel';
+import AiVocabGeneratorPanel from '../components/AiVocabGeneratorPanel';
 import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** Default new-card shape — a sensible, editable placeholder, same convention as
@@ -166,6 +167,7 @@ function TeacherFlashcardSetEditorPage() {
       </div>
 
       <FlashcardExcelImportPanel setId={setId} onImported={setSet} />
+      <AiVocabGeneratorPanel setId={setId} onImported={setSet} />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-bold text-base-black">{t('teacherFlashcardSetEditor.cardsHeading')}</h2>

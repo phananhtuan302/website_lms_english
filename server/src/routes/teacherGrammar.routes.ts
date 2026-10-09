@@ -11,9 +11,14 @@
 
 import { Router } from 'express';
 import type {
+  CommitGeneratedGrammarLessonRequest,
+  CommitGeneratedGrammarLessonResponse,
+  CommitGrammarExerciseRowError,
   ContentClassAssignmentDTO,
   CreateGrammarExerciseRequest,
   CreateGrammarTopicRequest,
+  GenerateGrammarLessonRequest,
+  GenerateGrammarLessonResponse,
   GrammarChoiceInput,
   GrammarExerciseDTO,
   GrammarReportResponseDTO,
@@ -36,6 +41,7 @@ import {
   type GrammarReportGroupBy,
 } from '../lib/reporting';
 import { isClassScopeFailure, requireClassPeriod, resolveTeacherClassId } from '../lib/reportClassScope';
+import { generateGrammarLesson } from '../aiTools/grammarGenerator';
 
 export const teacherGrammarRouter = Router();
 
@@ -251,6 +257,110 @@ teacherGrammarRouter.delete(
     if (!topic) return;
     await prisma.grammarTopic.delete({ where: { id: topic.id } });
     res.status(204).send();
+  }),
+);
+
+// --- AI grammar lesson generation (2026-10, feature 2 of the "AI Content Tools" set) ---
+
+/** `POST /grammar-topics/generate` — returns a DRAFT only (`generateGrammarLesson` never
+ * writes to the DB). The teacher reviews/edits the draft client-side, then saves it via
+ * `POST /grammar-topics/generate/commit` below. */
+teacherGrammarRouter.post(
+  '/grammar-topics/generate',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<GenerateGrammarLessonRequest>;
+    const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
+    if (!topic) {
+      res.status(400).json({ error: 'topic is required.' });
+      return;
+    }
+
+    const draft = await generateGrammarLesson({ topic });
+    const response: GenerateGrammarLessonResponse = draft;
+    res.status(200).json(response);
+  }),
+);
+
+/**
+ * `POST /grammar-topics/generate/commit` — persists the (possibly teacher-edited) draft
+ * from `POST /grammar-topics/generate` above. Creates the `GrammarTopic` unconditionally
+ * once `title`/`theoryContent`/`unitId` pass the SAME checks the manual create route uses,
+ * then attempts each exercise through the EXACT SAME `validateExerciseBody` the manual
+ * exercise-create route uses — partial success, same "a bad row is skipped and reported,
+ * not a reason to reject the whole batch" convention as the flashcard bulk-import route,
+ * since a teacher reviewing an AI draft deserves the same forgiveness a human typo does.
+ */
+teacherGrammarRouter.post(
+  '/grammar-topics/generate/commit',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<CommitGeneratedGrammarLessonRequest>;
+
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    if (!title) {
+      res.status(400).json({ error: 'Grammar topic title is required.' });
+      return;
+    }
+    const theoryContent = typeof body.theoryContent === 'string' ? body.theoryContent.trim() : '';
+    if (!theoryContent) {
+      res.status(400).json({ error: 'Theory content is required.' });
+      return;
+    }
+    const unitError = await validateUnitId(body.unitId);
+    if (unitError) {
+      res.status(400).json({ error: unitError });
+      return;
+    }
+    if (!Array.isArray(body.exercises)) {
+      res.status(400).json({ error: 'exercises must be an array.' });
+      return;
+    }
+
+    const topic = await prisma.grammarTopic.create({
+      data: { title, theoryContent, teacherId: req.user!.sub, unitId: body.unitId ?? null },
+    });
+
+    const errors: CommitGrammarExerciseRowError[] = [];
+    let createdExerciseCount = 0;
+    let order = 1;
+    for (const [index, raw] of body.exercises.entries()) {
+      const exerciseBody = (raw ?? {}) as Partial<CreateGrammarExerciseRequest>;
+      const validationError = validateExerciseBody(exerciseBody);
+      if (validationError) {
+        errors.push({ index, message: validationError });
+        continue;
+      }
+
+      const choices = (exerciseBody.choices ?? []) as GrammarChoiceInput[];
+      await prisma.grammarExercise.create({
+        data: {
+          topicId: topic.id,
+          type: exerciseBody.type as QuestionType,
+          prompt: (exerciseBody.prompt as string).trim(),
+          order,
+          acceptedAnswers:
+            exerciseBody.type === 'fillBlank' ? (exerciseBody.acceptedAnswers as string[]).map((a) => a.trim()) : [],
+          choices:
+            exerciseBody.type === 'fillBlank'
+              ? undefined
+              : {
+                  create: choices.map((c, i) => ({
+                    text: c.text.trim(),
+                    isCorrect: c.isCorrect,
+                    order: i + 1,
+                  })),
+                },
+        },
+      });
+      order += 1;
+      createdExerciseCount += 1;
+    }
+
+    const response: CommitGeneratedGrammarLessonResponse = {
+      topic: await fetchDetail(topic.id),
+      createdExerciseCount,
+      errors,
+    };
+    res.status(201).json(response);
   }),
 );
 

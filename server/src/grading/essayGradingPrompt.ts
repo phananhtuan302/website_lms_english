@@ -11,6 +11,7 @@
  */
 
 import type { EssayGradingCriteria, EssayGradingInput, EssayGradingResult } from './essayGradingProvider';
+import { extractJsonObject } from '../lib/extractJsonObject';
 
 /**
  * The full grading rubric handed to the model as its system prompt — IELTS's own public
@@ -146,19 +147,6 @@ export function buildEssayUserPrompt(input: EssayGradingInput): string {
   ]
     .filter(Boolean)
     .join('\n');
-}
-
-/** Extracts the first top-level `{...}` object from a string — tolerates a model
- * wrapping its JSON in ```json fences or a stray sentence despite being asked not to,
- * without needing a full JSON-repair library for what should almost always already be
- * clean output. */
-function extractJsonObject(text: string): string {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error('Essay grading response did not contain a JSON object.');
-  }
-  return text.slice(start, end + 1);
 }
 
 function clampBand(value: unknown, label: string): number {

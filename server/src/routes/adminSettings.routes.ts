@@ -12,8 +12,10 @@ import {
   THEME_IDS,
   UI_STYLE_IDS,
   type AiGradingSettingsDTO,
+  type AiToolsSettingsDTO,
   type SettingsDTO,
   type UpdateAiGradingSettingsRequest,
+  type UpdateAiToolsSettingsRequest,
   type UpdateSettingsRequest,
 } from '@platform/shared';
 import { prisma } from '../lib/prisma';
@@ -23,6 +25,12 @@ import { SETTINGS_ID } from './settings.routes';
 import { encryptSecret } from '../lib/secretCrypto';
 import { DEFAULT_ESSAY_GRADING_SYSTEM_PROMPT } from '../grading/essayGradingPrompt';
 import { DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT } from '../grading/speakingGradingPrompt';
+import {
+  DEFAULT_VOCAB_GENERATION_SYSTEM_PROMPT,
+  DEFAULT_GRAMMAR_GENERATION_SYSTEM_PROMPT,
+  DEFAULT_EXAM_IMPORT_SYSTEM_PROMPT,
+  DEFAULT_TEACHER_CHAT_SYSTEM_PROMPT,
+} from '../aiTools/defaultPrompts';
 
 export const adminSettingsRouter = Router();
 
@@ -192,6 +200,153 @@ adminSettingsRouter.patch(
       speakingGradingEnabled: settings.speakingGradingEnabled,
       speakingSystemPrompt: settings.speakingGradingSystemPrompt ?? DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT,
       defaultSpeakingSystemPrompt: DEFAULT_SPEAKING_GRADING_SYSTEM_PROMPT,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+/** GET /api/admin/settings/ai-tools — admin-only read of the "AI Content Tools" config
+ * (2026-10): a connection + 4 feature toggles independent from `/settings/ai-grading`
+ * above (see `Settings.aiTools*`'s doc comment in schema.prisma for why they're kept
+ * separate). Never returns the stored API key, only `hasApiKey`. */
+adminSettingsRouter.get(
+  '/settings/ai-tools',
+  asyncHandler(async (_req, res) => {
+    const settings = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
+    const response: AiToolsSettingsDTO = {
+      apiBaseUrl: settings?.aiToolsApiBaseUrl ?? null,
+      hasApiKey: Boolean(settings?.aiToolsApiKeyEncrypted),
+      model: settings?.aiToolsModel ?? null,
+
+      vocabGenEnabled: settings?.vocabGenEnabled ?? false,
+      vocabGenSystemPrompt: settings?.vocabGenSystemPrompt ?? DEFAULT_VOCAB_GENERATION_SYSTEM_PROMPT,
+      defaultVocabGenSystemPrompt: DEFAULT_VOCAB_GENERATION_SYSTEM_PROMPT,
+
+      grammarGenEnabled: settings?.grammarGenEnabled ?? false,
+      grammarGenSystemPrompt: settings?.grammarGenSystemPrompt ?? DEFAULT_GRAMMAR_GENERATION_SYSTEM_PROMPT,
+      defaultGrammarGenSystemPrompt: DEFAULT_GRAMMAR_GENERATION_SYSTEM_PROMPT,
+
+      examImportEnabled: settings?.examImportEnabled ?? false,
+      examImportSystemPrompt: settings?.examImportSystemPrompt ?? DEFAULT_EXAM_IMPORT_SYSTEM_PROMPT,
+      defaultExamImportSystemPrompt: DEFAULT_EXAM_IMPORT_SYSTEM_PROMPT,
+
+      teacherChatEnabled: settings?.teacherChatEnabled ?? false,
+      teacherChatSystemPrompt: settings?.teacherChatSystemPrompt ?? DEFAULT_TEACHER_CHAT_SYSTEM_PROMPT,
+      defaultTeacherChatSystemPrompt: DEFAULT_TEACHER_CHAT_SYSTEM_PROMPT,
+    };
+    res.status(200).json(response);
+  }),
+);
+
+/** PATCH /api/admin/settings/ai-tools — admin-only partial update. Validates that turning
+ * ANY of the 4 feature flags on never leaves it unable to actually call an endpoint
+ * (missing base URL/model/key) — same rule as `/settings/ai-grading`, applied per flag. */
+adminSettingsRouter.patch(
+  '/settings/ai-tools',
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<UpdateAiToolsSettingsRequest>;
+    const hasBaseUrl = body.apiBaseUrl !== undefined;
+    const hasApiKey = typeof body.apiKey === 'string' && body.apiKey.trim() !== '';
+    const hasClearApiKey = body.clearApiKey === true;
+    const hasModel = body.model !== undefined;
+
+    const hasVocabEnabled = body.vocabGenEnabled !== undefined;
+    const hasVocabPrompt = body.vocabGenSystemPrompt !== undefined;
+    const hasGrammarEnabled = body.grammarGenEnabled !== undefined;
+    const hasGrammarPrompt = body.grammarGenSystemPrompt !== undefined;
+    const hasExamEnabled = body.examImportEnabled !== undefined;
+    const hasExamPrompt = body.examImportSystemPrompt !== undefined;
+    const hasChatEnabled = body.teacherChatEnabled !== undefined;
+    const hasChatPrompt = body.teacherChatSystemPrompt !== undefined;
+
+    if (
+      !hasBaseUrl &&
+      !hasApiKey &&
+      !hasClearApiKey &&
+      !hasModel &&
+      !hasVocabEnabled &&
+      !hasVocabPrompt &&
+      !hasGrammarEnabled &&
+      !hasGrammarPrompt &&
+      !hasExamEnabled &&
+      !hasExamPrompt &&
+      !hasChatEnabled &&
+      !hasChatPrompt
+    ) {
+      res.status(400).json({ error: 'Provide at least one field to update.' });
+      return;
+    }
+    if (hasBaseUrl && !/^https?:\/\/.+/i.test(body.apiBaseUrl!.trim())) {
+      res.status(400).json({ error: 'apiBaseUrl must be a valid http(s) URL.' });
+      return;
+    }
+    if (hasApiKey && hasClearApiKey) {
+      res.status(400).json({ error: 'Provide either apiKey or clearApiKey, not both.' });
+      return;
+    }
+
+    const existing = await prisma.settings.findUnique({ where: { id: SETTINGS_ID } });
+
+    const resultingBaseUrl = hasBaseUrl ? body.apiBaseUrl!.trim() : existing?.aiToolsApiBaseUrl;
+    const resultingModel = hasModel ? body.model!.trim() : existing?.aiToolsModel;
+    const resultingHasKey = hasApiKey ? true : hasClearApiKey ? false : Boolean(existing?.aiToolsApiKeyEncrypted);
+    const connectionIncomplete = !resultingBaseUrl || !resultingModel || !resultingHasKey;
+
+    const enablingSomething =
+      (hasVocabEnabled && body.vocabGenEnabled) ||
+      (hasGrammarEnabled && body.grammarGenEnabled) ||
+      (hasExamEnabled && body.examImportEnabled) ||
+      (hasChatEnabled && body.teacherChatEnabled);
+
+    if (enablingSomething && connectionIncomplete) {
+      res.status(400).json({
+        error: 'Cannot enable an AI Content Tools feature until apiBaseUrl, model, and an API key are all configured.',
+      });
+      return;
+    }
+
+    const data = {
+      ...(hasBaseUrl ? { aiToolsApiBaseUrl: body.apiBaseUrl!.trim() } : {}),
+      ...(hasApiKey ? { aiToolsApiKeyEncrypted: encryptSecret(body.apiKey!.trim()) } : {}),
+      ...(hasClearApiKey ? { aiToolsApiKeyEncrypted: null } : {}),
+      ...(hasModel ? { aiToolsModel: body.model!.trim() } : {}),
+
+      ...(hasVocabEnabled ? { vocabGenEnabled: body.vocabGenEnabled } : {}),
+      ...(hasVocabPrompt ? { vocabGenSystemPrompt: body.vocabGenSystemPrompt } : {}),
+      ...(hasGrammarEnabled ? { grammarGenEnabled: body.grammarGenEnabled } : {}),
+      ...(hasGrammarPrompt ? { grammarGenSystemPrompt: body.grammarGenSystemPrompt } : {}),
+      ...(hasExamEnabled ? { examImportEnabled: body.examImportEnabled } : {}),
+      ...(hasExamPrompt ? { examImportSystemPrompt: body.examImportSystemPrompt } : {}),
+      ...(hasChatEnabled ? { teacherChatEnabled: body.teacherChatEnabled } : {}),
+      ...(hasChatPrompt ? { teacherChatSystemPrompt: body.teacherChatSystemPrompt } : {}),
+    };
+
+    const settings = await prisma.settings.upsert({
+      where: { id: SETTINGS_ID },
+      update: data,
+      create: { id: SETTINGS_ID, ...data },
+    });
+
+    const response: AiToolsSettingsDTO = {
+      apiBaseUrl: settings.aiToolsApiBaseUrl,
+      hasApiKey: Boolean(settings.aiToolsApiKeyEncrypted),
+      model: settings.aiToolsModel,
+
+      vocabGenEnabled: settings.vocabGenEnabled,
+      vocabGenSystemPrompt: settings.vocabGenSystemPrompt ?? DEFAULT_VOCAB_GENERATION_SYSTEM_PROMPT,
+      defaultVocabGenSystemPrompt: DEFAULT_VOCAB_GENERATION_SYSTEM_PROMPT,
+
+      grammarGenEnabled: settings.grammarGenEnabled,
+      grammarGenSystemPrompt: settings.grammarGenSystemPrompt ?? DEFAULT_GRAMMAR_GENERATION_SYSTEM_PROMPT,
+      defaultGrammarGenSystemPrompt: DEFAULT_GRAMMAR_GENERATION_SYSTEM_PROMPT,
+
+      examImportEnabled: settings.examImportEnabled,
+      examImportSystemPrompt: settings.examImportSystemPrompt ?? DEFAULT_EXAM_IMPORT_SYSTEM_PROMPT,
+      defaultExamImportSystemPrompt: DEFAULT_EXAM_IMPORT_SYSTEM_PROMPT,
+
+      teacherChatEnabled: settings.teacherChatEnabled,
+      teacherChatSystemPrompt: settings.teacherChatSystemPrompt ?? DEFAULT_TEACHER_CHAT_SYSTEM_PROMPT,
+      defaultTeacherChatSystemPrompt: DEFAULT_TEACHER_CHAT_SYSTEM_PROMPT,
     };
     res.status(200).json(response);
   }),

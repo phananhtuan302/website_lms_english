@@ -131,6 +131,10 @@ model User {
   classId String?
   class   Class?  @relation("ClassStudents", fields: [classId], references: [id], onDelete: SetNull)
 
+  // A teacher's own AI chat assistant conversation log (2026-10, feature 4 of the "AI
+  // Content Tools" set). Same "app layer enforces the role" note as `classes` above.
+  teacherChatMessages TeacherChatMessage[] @relation("TeacherChatMessages")
+
   @@map("users")
 }
 
@@ -1062,6 +1066,10 @@ model FlashcardCard {
   exampleSentence     String?
   synonyms            String[]                   @default([])
   antonyms            String[]                   @default([])
+  /// CEFR level tag (2026-10, AI vocabulary generation) — see `CefrLevel`'s doc comment
+  /// above. `null` for every card authored before this feature existed, and for any card a
+  /// teacher adds manually without picking a level.
+  cefrLevel           CefrLevel?
   order               Int
   progress            FlashcardProgress[]
   sentenceSubmissions VocabSentenceSubmission[]
@@ -1372,6 +1380,25 @@ model ClassAnnouncement {
   @@map("class_announcements")
 }
 
+/// One message in a teacher's own conversation with the AI chat assistant (2026-10,
+/// feature 4 of the "AI Content Tools" set) — simple append-only log, never shared between
+/// teachers. `role` mirrors the OpenAI Chat Completions roles this app's AI calls already
+/// use elsewhere (`'user' | 'assistant'`) — kept as a plain `String`, not a Prisma enum,
+/// since nothing outside `server/src/aiTools/teacherChatEngine.ts` ever needs to query by
+/// it. See `server/src/aiTools/teacherChatTools.ts`'s doc comment for the hard
+/// per-teacher scoping rule every reader of this data must follow.
+model TeacherChatMessage {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation("TeacherChatMessages", fields: [teacherId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([teacherId, createdAt])
+  @@map("teacher_chat_messages")
+}
+
 // --- Site-wide settings (T-067, Phase 10 Vietnamese localization) -------------------
 // A single global, admin-controlled setting: the current UI language. This is NOT a
 // per-user preference and there is NO public switcher anywhere in the product
@@ -1465,7 +1492,66 @@ model Settings {
   speakingGradingEnabled      Boolean @default(false)
   speakingGradingSystemPrompt String?
 
+  /// Admin-editable "AI Content Tools" connection (2026-10) — a SECOND, independent
+  /// OpenAI-Chat-Completions-compatible connection, deliberately NOT sharing
+  /// `essayGradingApiBaseUrl`/`essayGradingApiKeyEncrypted`/`essayGradingModel` above: those
+  /// fields back an already-live, production-used grading feature, and this block backs 4
+  /// newer, unrelated teacher-authoring features (AI vocabulary generation, AI grammar
+  /// lesson generation, AI exam-image import, and the teacher AI chat assistant) — keeping
+  /// them on a separate connection means editing/disabling one never risks the other. An
+  /// admin may of course point both connections at the same provider/key if they want.
+  /// Written only via `PATCH /api/admin/settings/ai-tools` (`adminSettings.routes.ts`); see
+  /// `server/src/aiTools/aiToolsConnection.ts` for how this is read at call time, and
+  /// `server/src/lib/secretCrypto.ts` for how the key is encrypted at rest (same scheme as
+  /// `essayGradingApiKeyEncrypted`). Every `*Enabled` flag below defaults to `false`, so an
+  /// unconfigured install exposes none of these 4 features until an admin turns them on.
+  aiToolsApiBaseUrl      String?
+  aiToolsApiKeyEncrypted String?
+  aiToolsModel           String?
+
+  /// AI Vocabulary generation (feature 1) — system prompt falls back to
+  /// `DEFAULT_VOCAB_GENERATION_SYSTEM_PROMPT` (`server/src/aiTools/vocabGenerator.ts`) when
+  /// unset.
+  vocabGenEnabled      Boolean @default(false)
+  vocabGenSystemPrompt String?
+
+  /// AI Grammar lesson generation (feature 2) — system prompt falls back to
+  /// `DEFAULT_GRAMMAR_GENERATION_SYSTEM_PROMPT` (`server/src/aiTools/grammarGenerator.ts`)
+  /// when unset.
+  grammarGenEnabled      Boolean @default(false)
+  grammarGenSystemPrompt String?
+
+  /// AI Exam-image import (feature 3, vision) — system prompt falls back to
+  /// `DEFAULT_EXAM_IMPORT_SYSTEM_PROMPT` (`server/src/aiTools/examImportGenerator.ts`) when
+  /// unset.
+  examImportEnabled      Boolean @default(false)
+  examImportSystemPrompt String?
+
+  /// Teacher AI chat assistant (feature 4) — system prompt falls back to
+  /// `DEFAULT_TEACHER_CHAT_SYSTEM_PROMPT` (`server/src/aiTools/teacherChatEngine.ts`) when
+  /// unset. `teacherChatToolsSupported` caches whether the configured endpoint accepts
+  /// OpenAI-style `tools`/function-calling (`null` = not probed yet) — see
+  /// `teacherChatEngine.ts`'s doc comment for the probe-once-per-config-change design and
+  /// the "data digest" fallback used when it's `false`.
+  teacherChatEnabled        Boolean  @default(false)
+  teacherChatSystemPrompt   String?
+  teacherChatToolsSupported Boolean?
+
   updatedAt DateTime @updatedAt
 
   @@map("settings")
+}
+
+/// CEFR proficiency levels (feature 1, AI vocabulary generation, 2026-10) — tags an
+/// individual `FlashcardCard.cefrLevel`, NOT the whole `FlashcardSet`, since a teacher may
+/// ask the generator for several levels at once and expects one set with each word labeled
+/// at its own level (not one set per level). Nullable on `FlashcardCard` because every card
+/// authored before this feature existed has no level.
+enum CefrLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
 }
