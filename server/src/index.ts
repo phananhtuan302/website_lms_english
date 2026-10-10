@@ -19,6 +19,7 @@ import { teacherReportsRouter } from './routes/teacherReports.routes';
 import { teacherVocabProgressRouter } from './routes/teacherVocabProgress.routes';
 import { vocabLeaderboardRouter } from './routes/vocabLeaderboard.routes';
 import { teacherGrammarRouter } from './routes/teacherGrammar.routes';
+import { teacherChatRouter } from './routes/teacherChat.routes';
 import { studentGrammarRouter } from './routes/studentGrammar.routes';
 import { teacherUnitTestsRouter } from './routes/teacherUnitTests.routes';
 import { teacherVocabularyCheckRouter } from './routes/teacherVocabularyCheck.routes';
@@ -157,6 +158,12 @@ app.use('/api/vocab-leaderboard', vocabLeaderboardRouter);
 // (T-048) + Grammar reporting (T-050). Same `/api/teacher` mount point as every other
 // teacher-only router above.
 app.use('/api/teacher', teacherGrammarRouter);
+
+// Teacher AI chat assistant (2026-10, feature 4 of the "AI Content Tools" set). Same
+// `/api/teacher` mount point as every other teacher-only router above — see
+// `teacherChat.routes.ts`'s module doc comment for why this one deliberately has no
+// admin-bypass ownership helper despite sharing the prefix.
+app.use('/api/teacher', teacherChatRouter);
 
 // Student-facing Grammar topic browsing/reading (T-047), practice exercises (T-048),
 // and the Grammar game (T-049). Same "not ownership-scoped, no enrollment concept"

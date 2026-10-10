@@ -86,23 +86,12 @@
       "subtitle": "Tests, vocabulary and grammar — all in one place, for teachers and students."
     },
     "login": {
-      "welcomeEyebrow": "Welcome back",
-      "subtitle": "Pick up where you left off. Your English learning starts here.",
-      "storyEyebrow": "Your space to learn",
-      "storyHeading": "Small steps. Confident English.",
-      "storyDescription": "A place for students and teachers to practice, discover new words, and keep learning together.",
-      "features": {
-        "tests": "Practice tests",
-        "vocabulary": "Vocabulary",
-        "progress": "Learning progress"
-      },
       "heading": "Log in",
       "submitting": "Logging in...",
       "submit": "Log in",
       "showPassword": "Show password",
       "newStudentPrompt": "New student?",
-      "createAccountLink": "Create an account",
-      "rememberEmail": "Remember email"
+      "createAccountLink": "Create an account"
     },
     "register": {
       "heading": "Create a student account",
@@ -534,27 +523,11 @@
     "heading": "Users",
     "subtitle": "Every account in the system — teachers, students, and admins. This is the only place (besides the seed script) that can create a teacher or admin account.",
     "createHeading": "Create a user",
-    "form": {
-      "name": "Name",
-      "email": "Email",
-      "password": "Password",
-      "passwordPlaceholder": "At least {{count}} characters",
-      "role": "Role",
-      "submit": "Create user",
-      "submitting": "Creating..."
-    },
-    "filter": {
-      "roleLabel": "Filter by role",
-      "allRoles": "All roles",
-      "searchLabel": "Search (name or email)",
-      "searchSubmit": "Search"
-    },
+    "form": { "name": "Name", "email": "Email", "password": "Password", "passwordPlaceholder": "At least {{count}} characters", "role": "Role", "submit": "Create user", "submitting": "Creating..." },
+    "filter": { "roleLabel": "Filter by role", "allRoles": "All roles", "searchLabel": "Search (name or email)", "searchSubmit": "Search" },
     "noResults": "No users match this filter.",
     "joinedOn": "Joined {{date}}",
-    "columns": {
-      "joined": "Joined",
-      "actions": "Actions"
-    },
+    "columns": { "joined": "Joined", "actions": "Actions" },
     "you": "(you)",
     "resetPasswordButton": "Reset password",
     "resetPasswordPlaceholder": "New password (at least {{count}} characters)",
@@ -563,341 +536,32 @@
     "delete": "Delete",
     "passwordResetSuccess": "Password reset.",
     "confirmDelete": "Delete this user? This cascades to everything they own (tests, attempts, progress, etc.) per the existing schema relations.",
-    "errors": {
-      "loadFailed": "Failed to load users.",
-      "createFailed": "Failed to create user.",
-      "saveFailed": "Failed to save user.",
-      "resetPasswordFailed": "Failed to reset password.",
-      "deleteFailed": "Failed to delete user."
-    }
+    "errors": { "loadFailed": "Failed to load users.", "createFailed": "Failed to create user.", "saveFailed": "Failed to save user.", "resetPasswordFailed": "Failed to reset password.", "deleteFailed": "Failed to delete user." }
   },
-  "adminTests": {
-    "heading": "All tests",
-    "subtitle": "Every test in the system, across every teacher. Open one to edit or delete it using the same editor a teacher uses.",
-    "empty": "No tests exist yet.",
-    "owner": "Owner: {{name}} ({{email}})",
-    "sectionCount_one": "{{count}} section",
-    "sectionCount_other": "{{count}} sections",
-    "questionCount_one": "{{count}} question",
-    "questionCount_other": "{{count}} questions",
-    "updatedAt": "updated {{date}}",
-    "openEditor": "Open editor →",
-    "errors": {
-      "loadFailed": "Failed to load tests."
-    }
+  "adminTests": { "heading": "All tests", "subtitle": "Every test in the system, across every teacher. Open one to edit or delete it using the same editor a teacher uses.", "empty": "No tests exist yet.", "owner": "Owner: {{name}} ({{email}})", "sectionCount_one": "{{count}} section", "sectionCount_other": "{{count}} sections", "questionCount_one": "{{count}} question", "questionCount_other": "{{count}} questions", "updatedAt": "updated {{date}}", "openEditor": "Open editor →", "errors": { "loadFailed": "Failed to load tests." } },
+  "adminFlashcardSets": { "heading": "All flashcard sets", "subtitle": "Every flashcard set in the system, across every teacher. Open one to edit or delete it using the same editor a teacher uses.", "empty": "No flashcard sets exist yet.", "owner": "Owner: {{name}} ({{email}})", "cardCount_one": "{{count}} card", "cardCount_other": "{{count}} cards", "updatedAt": "updated {{date}}", "openEditor": "Open editor →", "errors": { "loadFailed": "Failed to load flashcard sets." } },
+  "adminGrammarTopics": { "heading": "All Grammar topics", "subtitle": "Every Grammar topic in the system, across every teacher. Open one to edit or delete it using the same editor a teacher uses.", "empty": "No Grammar topics exist yet.", "owner": "Owner: {{name}} ({{email}})", "exerciseCount_one": "{{count}} exercise", "exerciseCount_other": "{{count}} exercises", "updatedAt": "updated {{date}}", "openEditor": "Open editor →", "errors": { "loadFailed": "Failed to load Grammar topics." } },
+  "adminAttempts": { "heading": "All attempts", "subtitle": "Every test attempt in the system, across every student and every test — not scoped to one session. Search by student or test, then open an attempt to edit its essay/Speaking manual grade (using the same grading form a teacher uses) or delete it.", "searchLabel": "Search (student name/email or test title)", "searchSubmit": "Search", "noResults": "No attempts match this search.", "columns": { "student": "Student", "test": "Test", "status": "Status", "score": "Score", "timeTaken": "Time taken", "started": "Started" }, "status": { "submitted": "Submitted", "inProgress": "In progress" }, "viewDetail": "View / edit", "delete": "Delete", "confirmDelete": "Delete this attempt? This permanently removes it and all its answers; it cannot be undone.", "previousPage": "Previous", "nextPage": "Next", "pageOf": "Page {{page}} of {{totalPages}}", "errors": { "loadFailed": "Failed to load attempts.", "deleteFailed": "Failed to delete attempt." } },
+  "adminSettings": { "pageHeading": "System settings", "heading": "Site language settings", "subtitle": "Controls the language every visitor sees — logged in or not, everywhere in the product. This is the only place in the entire system that can change it; there is no per-user or public language switcher anywhere else.", "currentLanguage": "Current site language: {{language}}", "languageNames": { "en": "English", "vi": "Vietnamese" }, "switching": "Switching...", "saved": "Site language switched to {{language}}. Every visitor will see it from their next page load.", "note": "This changes the language for every visitor, including logged-out visitors on the home and login pages. It does not change your own already-loaded interface until you reload.", "errors": { "loadFailed": "Failed to load the current site language.", "saveFailed": "Failed to switch the site language." }, "theme": { "heading": "Site color theme", "subtitle": "Pick a brand color theme for the entire website — applies to every visitor, everywhere in the product. These are pre-built, professionally coordinated palettes; there is no free-form color picker, so you can never end up with a jarring or hard-to-read combination.", "currentTheme": "Current theme: {{theme}}", "currentBadge": "In use", "switching": "Saving...", "saved": "Theme switched to {{theme}}. Your own view has already updated as a preview; every other visitor will see it from their next page load.", "errors": { "saveFailed": "Failed to switch the color theme." } }, "themeNames": { "sunset": "Sunset (Default)", "ocean": "Ocean Blue", "forest": "Forest Green", "violet": "Royal Violet", "teal": "Teal", "rose": "Rose", "amber": "Amber", "indigo": "Indigo" }, "uiStyle": { "heading": "UI style", "subtitle": "Pick an overall visual style for the entire website — applies to every visitor, everywhere in the product. Works together with the color theme above.", "currentStyle": "Current style: {{style}}", "currentBadge": "In use", "switching": "Saving...", "saved": "Style switched to {{style}}. Your own view has already updated as a preview; every other visitor will see it from their next page load.", "errors": { "saveFailed": "Failed to switch the UI style." }, "names": { "glass": "Glassmorphism", "brutalist": "Neo-brutalist", "vivid": "Vivid gradient", "dark": "Dark premium" } }, "aiGrading": { "heading": "AI essay/writing & speaking grading", "subtitle": "Point AI grading of Essay/Writing and Speaking answers at any OpenAI-compatible API endpoint (one shared connection, below), and edit each grading prompt — no code change or server restart needed. While a toggle is off, or the connection isn't fully configured, that answer type falls back to the built-in heuristic grader.", "essayStatusLabel": "Essay/Writing grading: {{status}}", "speakingStatusLabel": "Speaking grading: {{status}}", "enabledBadge": "Enabled", "disabledBadge": "Disabled", "enableButton": "Enable", "disableButton": "Disable", "connectionHeading": "Shared AI connection", "apiBaseUrlLabel": "API base URL", "apiBaseUrlPlaceholder": "e.g. https://api-ai.example.com/v1", "modelLabel": "Model", "modelPlaceholder": "e.g. ag/gemini-3.8-flash-medium", "apiKeyLabel": "API key", "apiKeyPlaceholderConfigured": "•••••••• (saved — leave blank to keep it)", "apiKeyPlaceholderEmpty": "Paste the API key", "clearKeyCheckbox": "Remove the saved key", "essayPromptLabel": "Essay/Writing grading prompt (system instructions sent to the AI)", "systemPromptHint": "Sent to the AI before every essay/writing answer. The built-in default is a condensed IELTS Writing band-descriptor rubric — edit it to change grading standards, tone, or language, with no code change.", "speakingPromptLabel": "Speaking grading prompt (system instructions sent to the AI)", "speakingPromptHint": "Sent to the AI along with the candidate's actual recorded audio before every speaking answer. The built-in default is a condensed IELTS Speaking band-descriptor rubric — edit it to change grading standards, tone, or language, with no code change.", "resetPromptButton": "Reset to built-in default", "saveButton": "Save AI grading settings", "saving": "Saving...", "saved": "AI grading settings saved.", "errors": { "loadFailed": "Failed to load AI grading settings.", "saveFailed": "Failed to save AI grading settings." } }, "aiTools": { "heading": "AI content tools for teaching", "subtitle": "Point a shared OpenAI-compatible API connection at the 4 AI features below (vocabulary generation, grammar lesson generation, exam-image import, the teacher chat assistant) — independent from the AI grading connection above. While a toggle is off, or the connection isn't fully configured, that feature is unavailable to teachers.", "connectionHeading": "Shared AI connection (used by all 4 features)", "apiBaseUrlLabel": "API base URL", "apiBaseUrlPlaceholder": "e.g. https://api-ai.example.com/v1", "modelLabel": "Model", "modelPlaceholder": "e.g. ag/gemini-3.8-flash-medium", "apiKeyLabel": "API key", "apiKeyPlaceholderConfigured": "•••••••• (saved — leave blank to keep it)", "apiKeyPlaceholderEmpty": "Paste the API key", "clearKeyCheckbox": "Remove the saved key", "enabledBadge": "Enabled", "disabledBadge": "Disabled", "enableButton": "Enable", "disableButton": "Disable", "resetPromptButton": "Reset to built-in default", "saveButton": "Save AI content tools settings", "saving": "Saving...", "saved": "AI content tools settings saved.", "errors": { "loadFailed": "Failed to load AI content tools settings.", "saveFailed": "Failed to save AI content tools settings." }, "vocabGen": { "statusLabel": "AI vocabulary generation: {{status}}", "promptLabel": "Vocabulary generation prompt (system instructions sent to the AI)", "promptHint": "Sent to the AI whenever a teacher asks it to generate a vocabulary list for a topic and CEFR level(s)." }, "grammarGen": { "statusLabel": "AI grammar lesson generation: {{status}}", "promptLabel": "Grammar lesson generation prompt (system instructions sent to the AI)", "promptHint": "Sent to the AI whenever a teacher asks it to generate a full grammar lesson plus practice exercises." }, "examImport": { "statusLabel": "AI exam-image import: {{status}}", "promptLabel": "Exam-image import prompt (system instructions sent to the AI)", "promptHint": "Sent to the AI together with the exam page images a teacher uploads." }, "teacherChat": { "statusLabel": "Teacher AI chat assistant: {{status}}", "promptLabel": "Chat assistant prompt (system instructions sent to the AI)", "promptHint": "Defines the scope and answering rules of the AI chat assistant available to teachers." } } },
+  "teacherCurriculum": { "heading": "Curriculum", "description": "Units and academic periods (semesters) are shared across every teacher account. Tag a test with a Unit from its editor page.", "units": { "heading": "Units", "nameLabel": "Name", "namePlaceholder": "e.g. Unit 3 — Food & Drink", "orderLabel": "Order", "addButton": "Add unit", "empty": "No units yet.", "deleteButton": "Delete", "loadFailed": "Failed to load units.", "validationError": "Unit name and a whole-number order are required.", "createFailed": "Failed to create unit.", "saveFailed": "Failed to save unit.", "deleteFailed": "Failed to delete unit." }, "periods": { "heading": "Academic periods (semesters)", "timezoneNote": "Dates are treated as calendar days in Vietnam time.", "nameLabel": "Name", "namePlaceholder": "e.g. Semester 1 2026", "startDateLabel": "Start date", "endDateLabel": "End date", "addButton": "Add period", "empty": "No academic periods yet.", "deleteButton": "Delete", "loadFailed": "Failed to load academic periods.", "validationError": "Name, start date, and end date are all required.", "createFailed": "Failed to create academic period.", "saveFailed": "Failed to save academic period.", "deleteFailed": "Failed to delete academic period." } },
+  "teacherNav": {"classes":"Classes","gradesOverview":"Grades overview","library":"Lesson bank","chatAssistant":"AI Assistant"},
+  "teacherChat": {
+    "heading": "AI Assistant",
+    "subtitle": "Ask about your own classes, tests, students and submissions — the assistant only answers using data you have access to.",
+    "clearButton": "Clear chat history",
+    "confirmClear": "Clear your entire conversation history with the AI assistant? This cannot be undone.",
+    "clearFailed": "Failed to clear the chat history.",
+    "loadFailed": "Failed to load the chat history.",
+    "emptyState": "No conversation yet — ask your first question below.",
+    "inputPlaceholder": "Ask the AI assistant about your classes, tests, students...",
+    "sendButton": "Send",
+    "sending": "Sending...",
+    "sendFailed": "Failed to send the message.",
+    "toolsUsed": "Used: {{tools}}"
   },
-  "adminFlashcardSets": {
-    "heading": "All flashcard sets",
-    "subtitle": "Every flashcard set in the system, across every teacher. Open one to edit or delete it using the same editor a teacher uses.",
-    "empty": "No flashcard sets exist yet.",
-    "owner": "Owner: {{name}} ({{email}})",
-    "cardCount_one": "{{count}} card",
-    "cardCount_other": "{{count}} cards",
-    "updatedAt": "updated {{date}}",
-    "openEditor": "Open editor →",
-    "errors": {
-      "loadFailed": "Failed to load flashcard sets."
-    }
-  },
-  "adminGrammarTopics": {
-    "heading": "All Grammar topics",
-    "subtitle": "Every Grammar topic in the system, across every teacher. Open one to edit or delete it using the same editor a teacher uses.",
-    "empty": "No Grammar topics exist yet.",
-    "owner": "Owner: {{name}} ({{email}})",
-    "exerciseCount_one": "{{count}} exercise",
-    "exerciseCount_other": "{{count}} exercises",
-    "updatedAt": "updated {{date}}",
-    "openEditor": "Open editor →",
-    "errors": {
-      "loadFailed": "Failed to load Grammar topics."
-    }
-  },
-  "adminAttempts": {
-    "heading": "All attempts",
-    "subtitle": "Every test attempt in the system, across every student and every test — not scoped to one session. Search by student or test, then open an attempt to edit its essay/Speaking manual grade (using the same grading form a teacher uses) or delete it.",
-    "searchLabel": "Search (student name/email or test title)",
-    "searchSubmit": "Search",
-    "noResults": "No attempts match this search.",
-    "columns": {
-      "student": "Student",
-      "test": "Test",
-      "status": "Status",
-      "score": "Score",
-      "timeTaken": "Time taken",
-      "started": "Started"
-    },
-    "status": {
-      "submitted": "Submitted",
-      "inProgress": "In progress"
-    },
-    "viewDetail": "View / edit",
-    "delete": "Delete",
-    "confirmDelete": "Delete this attempt? This permanently removes it and all its answers; it cannot be undone.",
-    "previousPage": "Previous",
-    "nextPage": "Next",
-    "pageOf": "Page {{page}} of {{totalPages}}",
-    "errors": {
-      "loadFailed": "Failed to load attempts.",
-      "deleteFailed": "Failed to delete attempt."
-    }
-  },
-  "adminSettings": {
-    "pageHeading": "System settings",
-    "heading": "Site language settings",
-    "subtitle": "Controls the language every visitor sees — logged in or not, everywhere in the product. This is the only place in the entire system that can change it; there is no per-user or public language switcher anywhere else.",
-    "currentLanguage": "Current site language: {{language}}",
-    "languageNames": {
-      "en": "English",
-      "vi": "Vietnamese"
-    },
-    "switching": "Switching...",
-    "saved": "Site language switched to {{language}}. Every visitor will see it from their next page load.",
-    "note": "This changes the language for every visitor, including logged-out visitors on the home and login pages. It does not change your own already-loaded interface until you reload.",
-    "errors": {
-      "loadFailed": "Failed to load the current site language.",
-      "saveFailed": "Failed to switch the site language."
-    },
-    "theme": {
-      "heading": "Site color theme",
-      "subtitle": "Pick a brand color theme for the entire website — applies to every visitor, everywhere in the product. These are pre-built, professionally coordinated palettes; there is no free-form color picker, so you can never end up with a jarring or hard-to-read combination.",
-      "currentTheme": "Current theme: {{theme}}",
-      "currentBadge": "In use",
-      "switching": "Saving...",
-      "saved": "Theme switched to {{theme}}. Your own view has already updated as a preview; every other visitor will see it from their next page load.",
-      "errors": {
-        "saveFailed": "Failed to switch the color theme."
-      }
-    },
-    "themeNames": {
-      "sunset": "Sunset (Default)",
-      "ocean": "Ocean Blue",
-      "forest": "Forest Green",
-      "violet": "Royal Violet",
-      "teal": "Teal",
-      "rose": "Rose",
-      "amber": "Amber",
-      "indigo": "Indigo"
-    },
-    "uiStyle": {
-      "heading": "UI style",
-      "subtitle": "Pick an overall visual style for the entire website — applies to every visitor, everywhere in the product. Works together with the color theme above.",
-      "currentStyle": "Current style: {{style}}",
-      "currentBadge": "In use",
-      "switching": "Saving...",
-      "saved": "Style switched to {{style}}. Your own view has already updated as a preview; every other visitor will see it from their next page load.",
-      "errors": {
-        "saveFailed": "Failed to switch the UI style."
-      },
-      "names": {
-        "glass": "Glassmorphism",
-        "brutalist": "Neo-brutalist",
-        "vivid": "Vivid gradient",
-        "dark": "Dark premium"
-      }
-    },
-    "aiGrading": {
-      "heading": "AI essay/writing & speaking grading",
-      "subtitle": "Point AI grading of Essay/Writing and Speaking answers at any OpenAI-compatible API endpoint (one shared connection, below), and edit each grading prompt — no code change or server restart needed. While a toggle is off, or the connection isn't fully configured, that answer type falls back to the built-in heuristic grader.",
-      "essayStatusLabel": "Essay/Writing grading: {{status}}",
-      "speakingStatusLabel": "Speaking grading: {{status}}",
-      "enabledBadge": "Enabled",
-      "disabledBadge": "Disabled",
-      "enableButton": "Enable",
-      "disableButton": "Disable",
-      "connectionHeading": "Shared AI connection",
-      "apiBaseUrlLabel": "API base URL",
-      "apiBaseUrlPlaceholder": "e.g. https://api-ai.example.com/v1",
-      "modelLabel": "Model",
-      "modelPlaceholder": "e.g. ag/gemini-3.8-flash-medium",
-      "apiKeyLabel": "API key",
-      "apiKeyPlaceholderConfigured": "•••••••• (saved — leave blank to keep it)",
-      "apiKeyPlaceholderEmpty": "Paste the API key",
-      "clearKeyCheckbox": "Remove the saved key",
-      "essayPromptLabel": "Essay/Writing grading prompt (system instructions sent to the AI)",
-      "systemPromptHint": "Sent to the AI before every essay/writing answer. The built-in default is a condensed IELTS Writing band-descriptor rubric — edit it to change grading standards, tone, or language, with no code change.",
-      "speakingPromptLabel": "Speaking grading prompt (system instructions sent to the AI)",
-      "speakingPromptHint": "Sent to the AI along with the candidate's actual recorded audio before every speaking answer. The built-in default is a condensed IELTS Speaking band-descriptor rubric — edit it to change grading standards, tone, or language, with no code change.",
-      "resetPromptButton": "Reset to built-in default",
-      "saveButton": "Save AI grading settings",
-      "saving": "Saving...",
-      "saved": "AI grading settings saved.",
-      "errors": {
-        "loadFailed": "Failed to load AI grading settings.",
-        "saveFailed": "Failed to save AI grading settings."
-      }
-    }
-  },
-  "teacherCurriculum": {
-    "heading": "Curriculum",
-    "description": "Units and academic periods (semesters) are shared across every teacher account. Tag a test with a Unit from its editor page.",
-    "units": {
-      "heading": "Units",
-      "nameLabel": "Name",
-      "namePlaceholder": "e.g. Unit 3 — Food & Drink",
-      "orderLabel": "Order",
-      "addButton": "Add unit",
-      "empty": "No units yet.",
-      "deleteButton": "Delete",
-      "loadFailed": "Failed to load units.",
-      "validationError": "Unit name and a whole-number order are required.",
-      "createFailed": "Failed to create unit.",
-      "saveFailed": "Failed to save unit.",
-      "deleteFailed": "Failed to delete unit."
-    },
-    "periods": {
-      "heading": "Academic periods (semesters)",
-      "timezoneNote": "Dates are treated as calendar days in Vietnam time.",
-      "nameLabel": "Name",
-      "namePlaceholder": "e.g. Semester 1 2026",
-      "startDateLabel": "Start date",
-      "endDateLabel": "End date",
-      "addButton": "Add period",
-      "empty": "No academic periods yet.",
-      "deleteButton": "Delete",
-      "loadFailed": "Failed to load academic periods.",
-      "validationError": "Name, start date, and end date are all required.",
-      "createFailed": "Failed to create academic period.",
-      "saveFailed": "Failed to save academic period.",
-      "deleteFailed": "Failed to delete academic period."
-    }
-  },
-  "teacherNav": {
-    "classes": "Classes",
-    "gradesOverview": "Grades overview",
-    "library": "Lesson bank"
-  },
-  "teacherHome": {
-    "greeting": "Welcome back, {{name}}! 👋",
-    "heading": "Classes",
-    "description": "Pick a class to assign work, see grades and manage it.",
-    "createButton": "+ New class",
-    "nameLabel": "Class name",
-    "namePlaceholder": "e.g. Class 6A",
-    "createSubmit": "Create class",
-    "creating": "Creating...",
-    "cancel": "Cancel",
-    "empty": "No classes yet — create your first class",
-    "emptyHint": "Once the class exists, you can start assigning work to your students right away.",
-    "noSemester": "No semester selected",
-    "studentCount_one": "{{count}} student",
-    "studentCount_other": "{{count}} students",
-    "loadFailed": "Failed to load your classes.",
-    "validationError": "Class name is required.",
-    "createFailed": "Failed to create class.",
-    "semesterLabel": "Semester",
-    "semesterHint": "The new class starts in this semester, so you can assign work right away. You can change it later.",
-    "noPeriods": "There is no semester yet, so the new class will have none.",
-    "noPeriodsLink": "Create a semester in Curriculum",
-    "attention": {
-      "label": "Needs attention",
-      "closingSoon_one": "{{count}} test closing soon",
-      "closingSoon_other": "{{count}} tests closing soon",
-      "notSubmitted_one": "{{count}} student has not submitted",
-      "notSubmitted_other": "{{count}} students have not submitted",
-      "overdue_one": "{{count}} student has not handed in a test that has closed",
-      "overdue_other": "{{count}} students have not handed in a test that has closed",
-      "needsGrading_one": "{{count}} test to grade",
-      "needsGrading_other": "{{count}} tests to grade",
-      "speakingNeedsReview_one": "{{count}} speaking answer needs review (AI failed)",
-      "speakingNeedsReview_other": "{{count}} speaking answers need review (AI failed)",
-      "none": "Nothing urgent"
-    }
-  },
-  "classWorkspace": {
-    "backToClasses": "← All classes",
-    "loadFailed": "Failed to load this class. Try reloading the page.",
-    "notFoundHeading": "Class not found",
-    "notFoundMessage": "This class doesn't exist, or isn't one of your own classes.",
-    "notFoundBack": "Back to your classes",
-    "studentCount_one": "{{count}} student",
-    "studentCount_other": "{{count}} students",
-    "classSwitcherLabel": "Switch to another class",
-    "semesterLabel": "Semester",
-    "semesterHelper": "Students see the work of the semester chosen here.",
-    "semesterPlaceholder": "-- Choose a semester --",
-    "semesterLoading": "Loading semesters...",
-    "switchingPeriod": "Switching...",
-    "noPeriods": "No semesters exist yet.",
-    "noPeriodsLink": "Create one in Curriculum",
-    "loadPeriodsFailed": "Failed to load semesters.",
-    "switchPeriodFailed": "Failed to switch semester.",
-    "confirmSwitchPeriod": "Switch this class to \"{{periodName}}\"? Students will immediately see only that semester's work instead of the current one. The old semester's work is kept.",
-    "confirmSetPeriod": "Set \"{{periodName}}\" as this class's semester? Students will only see work assigned for that semester.",
-    "noSemesterBanner": "This class has no semester yet — choose one in the Semester box above to start assigning work",
-    "tabsAriaLabel": "Class sections",
-    "tabs": {
-      "overview": "Overview",
-      "announcements": "Announcements",
-      "assignments": "Assignments",
-      "students": "Students",
-      "grades": "Grades",
-      "stats": "Statistics",
-      "settings": "Settings"
-    },
-    "overview": {
-      "studentsLabel": "Students",
-      "noStudentsHint": "No students yet — students choose their class when they register.",
-      "viewStudents": "View the student list",
-      "semesterLabel": "Current semester",
-      "noSemester": "No semester selected",
-      "semesterHint": "Change it from the top right.",
-      "noSemesterHint": "Choose a semester from the top right to start assigning work.",
-      "nextStepsHeading": "Next steps",
-      "assignTitle": "Assign new work",
-      "assignDescription": "Pick tests, flashcard sets or grammar topics from the Lesson bank to give to this class.",
-      "gradesTitle": "View grades",
-      "gradesDescription": "See every student's scores across this class's tests."
-    },
-    "settings": {
-      "renameHeading": "Class name",
-      "nameLabel": "Class name",
-      "saveButton": "Save name",
-      "saving": "Saving...",
-      "saved": "Saved.",
-      "nameRequired": "Class name is required.",
-      "renameFailed": "Failed to save the class name.",
-      "semesterHeading": "Semester",
-      "semesterDescription": "This class's current semester. When you change it, students only see the new semester's work; the old semester's work is kept and comes back if you switch back.",
-      "deleteHeading": "Delete class",
-      "deleteDescription": "A class can only be deleted when it has no students. This can't be undone.",
-      "hasStudentsNote_one": "This class still has {{count}} student, so it cannot be deleted yet.",
-      "hasStudentsNote_other": "This class still has {{count}} students, so it cannot be deleted yet.",
-      "deleteButton": "Delete this class",
-      "deleting": "Deleting...",
-      "confirmDelete": "Delete \"{{name}}\"? This cannot be undone.",
-      "deleteBlocked": "Can't delete this class because it still has students. Ask an Admin to move or remove those students first.",
-      "deleteFailed": "Failed to delete the class."
-    }
-  },
-  "teacherLibrary": {
-    "heading": "Lesson bank",
-    "intro": "The lesson bank is where you write content to reuse; you give it to a class from inside that class.",
-    "open": "Open →",
-    "tests": {
-      "title": "Tests",
-      "description": "Write and edit tests, and create QR codes for students to join.",
-      "count_one": "{{count}} test",
-      "count_other": "{{count}} tests"
-    },
-    "flashcards": {
-      "title": "Flashcards",
-      "description": "Write flashcard sets for students to study and practise.",
-      "count_one": "{{count}} set",
-      "count_other": "{{count}} sets"
-    },
-    "grammar": {
-      "title": "Grammar",
-      "description": "Write the theory and practice exercises for each grammar topic.",
-      "count_one": "{{count}} topic",
-      "count_other": "{{count}} topics"
-    },
-    "curriculum": {
-      "title": "Curriculum",
-      "description": "Manage the Units and semesters used to organise content.",
-      "count_one": "{{count}} Unit",
-      "count_other": "{{count}} Units"
-    }
-  },
+  "teacherHome": {"greeting":"Welcome back, {{name}}! 👋","heading":"Classes","description":"Pick a class to assign work, see grades and manage it.","createButton":"+ New class","nameLabel":"Class name","namePlaceholder":"e.g. Class 6A","createSubmit":"Create class","creating":"Creating...","cancel":"Cancel","empty":"No classes yet — create your first class","emptyHint":"Once the class exists, you can start assigning work to your students right away.","noSemester":"No semester selected","studentCount_one":"{{count}} student","studentCount_other":"{{count}} students","loadFailed":"Failed to load your classes.","validationError":"Class name is required.","createFailed":"Failed to create class.","semesterLabel":"Semester","semesterHint":"The new class starts in this semester, so you can assign work right away. You can change it later.","noPeriods":"There is no semester yet, so the new class will have none.","noPeriodsLink":"Create a semester in Curriculum","attention":{"label":"Needs attention","closingSoon_one":"{{count}} test closing soon","closingSoon_other":"{{count}} tests closing soon","notSubmitted_one":"{{count}} student has not submitted","notSubmitted_other":"{{count}} students have not submitted","overdue_one":"{{count}} student has not handed in a test that has closed","overdue_other":"{{count}} students have not handed in a test that has closed","needsGrading_one":"{{count}} test to grade","needsGrading_other":"{{count}} tests to grade","speakingNeedsReview_one":"{{count}} speaking answer needs review (AI failed)","speakingNeedsReview_other":"{{count}} speaking answers need review (AI failed)","none":"Nothing urgent"}},
+  "classWorkspace": {"backToClasses":"← All classes","loadFailed":"Failed to load this class. Try reloading the page.","notFoundHeading":"Class not found","notFoundMessage":"This class doesn't exist, or isn't one of your own classes.","notFoundBack":"Back to your classes","studentCount_one":"{{count}} student","studentCount_other":"{{count}} students","classSwitcherLabel":"Switch to another class","semesterLabel":"Semester","semesterHelper":"Students see the work of the semester chosen here.","semesterPlaceholder":"-- Choose a semester --","semesterLoading":"Loading semesters...","switchingPeriod":"Switching...","noPeriods":"No semesters exist yet.","noPeriodsLink":"Create one in Curriculum","loadPeriodsFailed":"Failed to load semesters.","switchPeriodFailed":"Failed to switch semester.","confirmSwitchPeriod":"Switch this class to \"{{periodName}}\"? Students will immediately see only that semester's work instead of the current one. The old semester's work is kept.","confirmSetPeriod":"Set \"{{periodName}}\" as this class's semester? Students will only see work assigned for that semester.","noSemesterBanner":"This class has no semester yet — choose one in the Semester box above to start assigning work","tabsAriaLabel":"Class sections","tabs":{"overview":"Overview","announcements":"Announcements","assignments":"Assignments","students":"Students","grades":"Grades","stats":"Statistics","settings":"Settings"},"overview":{"studentsLabel":"Students","noStudentsHint":"No students yet — students choose their class when they register.","viewStudents":"View the student list","semesterLabel":"Current semester","noSemester":"No semester selected","semesterHint":"Change it from the top right.","noSemesterHint":"Choose a semester from the top right to start assigning work.","nextStepsHeading":"Next steps","assignTitle":"Assign new work","assignDescription":"Pick tests, flashcard sets or grammar topics from the Lesson bank to give to this class.","gradesTitle":"View grades","gradesDescription":"See every student's scores across this class's tests."},"settings":{"renameHeading":"Class name","nameLabel":"Class name","saveButton":"Save name","saving":"Saving...","saved":"Saved.","nameRequired":"Class name is required.","renameFailed":"Failed to save the class name.","semesterHeading":"Semester","semesterDescription":"This class's current semester. When you change it, students only see the new semester's work; the old semester's work is kept and comes back if you switch back.","deleteHeading":"Delete class","deleteDescription":"A class can only be deleted when it has no students. This can't be undone.","hasStudentsNote_one":"This class still has {{count}} student, so it cannot be deleted yet.","hasStudentsNote_other":"This class still has {{count}} students, so it cannot be deleted yet.","deleteButton":"Delete this class","deleting":"Deleting...","confirmDelete":"Delete \"{{name}}\"? This cannot be undone.","deleteBlocked":"Can't delete this class because it still has students. Ask an Admin to move or remove those students first.","deleteFailed":"Failed to delete the class."}},
+  "teacherLibrary": {"heading":"Lesson bank","intro":"The lesson bank is where you write content to reuse; you give it to a class from inside that class.","open":"Open →","tests":{"title":"Tests","description":"Write and edit tests, and create QR codes for students to join.","count_one":"{{count}} test","count_other":"{{count}} tests"},"flashcards":{"title":"Flashcards","description":"Write flashcard sets for students to study and practise.","count_one":"{{count}} set","count_other":"{{count}} sets"},"grammar":{"title":"Grammar","description":"Write the theory and practice exercises for each grammar topic.","count_one":"{{count}} topic","count_other":"{{count}} topics"},"curriculum":{"title":"Curriculum","description":"Manage the Units and semesters used to organise content.","count_one":"{{count}} Unit","count_other":"{{count}} Units"}},
   "classAnnouncements": {
     "heading": "Class announcements",
     "intro": "Post a message for the whole class. Students see it right on their home page.",
@@ -943,43 +607,7 @@
       "showLess": "Show less"
     }
   },
-  "classStudents": {
-    "heading": "Students",
-    "count_one": "{{count}} student",
-    "count_other": "{{count}} students",
-    "searchLabel": "Find a student",
-    "searchPlaceholder": "Type a name or email",
-    "columns": {
-      "name": "Name",
-      "email": "Email",
-      "submitted": "Assignments submitted",
-      "average": "Average score"
-    },
-    "empty": "This class has no students yet",
-    "emptyHint": "Click \"Add students\" to create accounts, or let students pick this class when they register.",
-    "noMatch": "No student matches \"{{query}}\".",
-    "adminHint": "Need to remove a student? Ask an Admin to do it.",
-    "scoreNote": "Assignments submitted and average score only count the tests given in the current semester; each test uses the student's highest score.",
-    "noSemesterNote": "This class has no semester yet, so there are no scores to show.",
-    "viewGrades": "View gradebook",
-    "loadFailed": "Could not load the student list.",
-    "transfer": {
-      "button": "Transfer class",
-      "buttonAria": "Transfer {{name}} to another class",
-      "title": "Transfer {{name}} to another class",
-      "destinationLabel": "Move to class",
-      "onlyOneClass": "You only teach 1 class right now, so there is no other class to move this student to.",
-      "confirmText": "{{name}} will move to class {{className}} right away and will see that class's assignments instead of the old one. Their scores and completed work so far stay exactly the same.",
-      "cancel": "Cancel",
-      "confirm": "Transfer class",
-      "working": "Transferring…",
-      "success": "Moved {{name}} to class {{className}}.",
-      "failed": "Could not transfer the student right now. Please try again.",
-      "notFound": "Could not find this student or class. Please reload the page.",
-      "invalidDestination": "Please pick a class to move to.",
-      "close": "Close"
-    }
-  },
+  "classStudents": {"heading":"Students","count_one":"{{count}} student","count_other":"{{count}} students","searchLabel":"Find a student","searchPlaceholder":"Type a name or email","columns":{"name":"Name","email":"Email","submitted":"Assignments submitted","average":"Average score"},"empty":"This class has no students yet","emptyHint":"Click \"Add students\" to create accounts, or let students pick this class when they register.","noMatch":"No student matches \"{{query}}\".","adminHint":"Need to remove a student? Ask an Admin to do it.","scoreNote":"Assignments submitted and average score only count the tests given in the current semester; each test uses the student's highest score.","noSemesterNote":"This class has no semester yet, so there are no scores to show.","viewGrades":"View gradebook","loadFailed":"Could not load the student list.","transfer":{"button":"Transfer class","buttonAria":"Transfer {{name}} to another class","title":"Transfer {{name}} to another class","destinationLabel":"Move to class","onlyOneClass":"You only teach 1 class right now, so there is no other class to move this student to.","confirmText":"{{name}} will move to class {{className}} right away and will see that class's assignments instead of the old one. Their scores and completed work so far stay exactly the same.","cancel":"Cancel","confirm":"Transfer class","working":"Transferring…","success":"Moved {{name}} to class {{className}}.","failed":"Could not transfer the student right now. Please try again.","notFound":"Could not find this student or class. Please reload the page.","invalidDestination":"Please pick a class to move to.","close":"Close"}},
   "classRoster": {
     "addButton": "Add students",
     "modalTitle": "Add students to the class",
@@ -1008,13 +636,7 @@
       "chooseAnother": "Choose another file",
       "passwordGenerated": "Generated",
       "passwordSupplied": "Provided",
-      "columns": {
-        "row": "Row",
-        "name": "Full name",
-        "email": "Email",
-        "password": "Password",
-        "status": "Check"
-      },
+      "columns": { "row": "Row", "name": "Full name", "email": "Email", "password": "Password", "status": "Check" },
       "rowOk": "Ready"
     },
     "parseError": {
@@ -1040,13 +662,7 @@
       "loginHint": "Students go to the website and log in with this email and password.",
       "downloadCoversAll": "The downloaded file includes everyone you added in this window.",
       "total": "In total, {{accounts}} accounts were created in this window.",
-      "columns": {
-        "row": "Row",
-        "name": "Full name",
-        "email": "Email (login name)",
-        "status": "Result",
-        "password": "Password"
-      },
+      "columns": { "row": "Row", "name": "Full name", "email": "Email (login name)", "status": "Result", "password": "Password" },
       "created": "Created",
       "skipped": "Skipped",
       "passwordYours": "Set by you",
@@ -1058,9 +674,7 @@
     "closeConfirmTitle": "You have not downloaded the account list",
     "closeConfirmBack": "Go back to download",
     "closeConfirmClose": "Close, I have saved them",
-    "earlier": {
-      "summary": "{{accounts}} accounts created so far in this window."
-    },
+    "earlier": { "summary": "{{accounts}} accounts created so far in this window." },
     "submitFailed": "Could not create the accounts right now. Please try again.",
     "files": {
       "templateSheet": "Students",
@@ -1093,418 +707,26 @@
     "oldFileHint": "If you downloaded the account list earlier, this student's old password in that file no longer works.",
     "done": "Done"
   },
-  "classGrades": {
-    "heading": "Gradebook",
-    "semesterLabel": "Semester: {{name}}",
-    "exportButton": "Download gradebook (Excel)",
-    "exportFailed": "Could not export the Excel file.",
-    "gridAriaLabel": "Class gradebook",
-    "studentColumn": "Student",
-    "averageColumn": "Average",
-    "averageRow": "Average",
-    "unpublishedBadge": "Students cannot see the scores yet",
-    "notSubmittedTitle": "Not submitted",
-    "headerTitle": "See the results for this test",
-    "cellTitle": "{{correct}}/{{total}} correct — click to see the attempt",
-    "footnoteBest": "Shows each student's highest score.",
-    "footnoteNotSubmitted": "\"—\" means the student has not submitted.",
-    "footnoteUnpublished": "Faded scores are for tests whose scores students cannot see yet.",
-    "noSubmissions": "No student has submitted anything yet, so there are no scores.",
-    "noSemester": "This class has no semester yet, so there is no gradebook. Pick a semester in the top right.",
-    "noStudents": "This class has no students yet, so there is no gradebook.",
-    "noTests": "No tests have been given to this class in this semester.",
-    "noTestsLink": "Go to Assignments to give one",
-    "loadFailed": "Could not load the gradebook.",
-    "export": {
-      "sheetName": "Gradebook",
-      "fileName": "Gradebook - {{className}}",
-      "unpublishedSuffix": "students cannot see the scores yet"
-    },
-    "compareLink": "Compare with your other classes →"
-  },
-  "gradesOverview": {
-    "back": "← Back to Classes",
-    "heading": "Grades overview",
-    "description": "Compare the average score across the classes you teach.",
-    "loadFailed": "Could not load the grades overview.",
-    "noClasses": "You have no classes yet.",
-    "classHeader": "Class",
-    "studentsHeader": "Students",
-    "semesterHeader": "Semester",
-    "testsHeader": "Tests",
-    "averageHeader": "Average score",
-    "noSemester": "No semester selected",
-    "noData": "No data yet",
-    "highest": "Highest",
-    "lowest": "Lowest"
-  },
+  "classGrades": {"heading":"Gradebook","semesterLabel":"Semester: {{name}}","exportButton":"Download gradebook (Excel)","exportFailed":"Could not export the Excel file.","gridAriaLabel":"Class gradebook","studentColumn":"Student","averageColumn":"Average","averageRow":"Average","unpublishedBadge":"Students cannot see the scores yet","notSubmittedTitle":"Not submitted","headerTitle":"See the results for this test","cellTitle":"{{correct}}/{{total}} correct — click to see the attempt","footnoteBest":"Shows each student's highest score.","footnoteNotSubmitted":"\"—\" means the student has not submitted.","footnoteUnpublished":"Faded scores are for tests whose scores students cannot see yet.","noSubmissions":"No student has submitted anything yet, so there are no scores.","noSemester":"This class has no semester yet, so there is no gradebook. Pick a semester in the top right.","noStudents":"This class has no students yet, so there is no gradebook.","noTests":"No tests have been given to this class in this semester.","noTestsLink":"Go to Assignments to give one","loadFailed":"Could not load the gradebook.","export":{"sheetName":"Gradebook","fileName":"Gradebook - {{className}}","unpublishedSuffix":"students cannot see the scores yet"},"compareLink":"Compare with your other classes →"},
+  "gradesOverview": {"back":"← Back to Classes","heading":"Grades overview","description":"Compare the average score across the classes you teach.","loadFailed":"Could not load the grades overview.","noClasses":"You have no classes yet.","classHeader":"Class","studentsHeader":"Students","semesterHeader":"Semester","testsHeader":"Tests","averageHeader":"Average score","noSemester":"No semester selected","noData":"No data yet","highest":"Highest","lowest":"Lowest"},
   "scoring": {
-    "provisional": {
-      "chip_one": "Provisional — {{count}} written answer still to grade",
-      "chip_other": "Provisional — {{count}} written answers still to grade",
-      "short": "provisional",
-      "studentChip": "Provisional score",
-      "studentNote_one": "Your teacher has not finished grading {{count}} of your written answers, so this score may still change.",
-      "studentNote_other": "Your teacher has not finished grading {{count}} of your written answers, so this score may still change."
-    },
-    "detail": {
-      "headline": "Score: {{score}}/10"
-    },
-    "grade": {
-      "saved": "Saved the score for {{name}}: {{score}}/{{max}}.",
-      "savedIelts": "Saved the score for {{name}}: {{score}}/9 (average of the 4 criteria).",
-      "saveAndNext": "Save and grade the next one",
-      "scoreEmpty": "Please enter a score from 0 to {{max}}.",
-      "scoreInvalid": "The score must be a number, for example 4 or 4.5.",
-      "scoreRange": "The score must be between 0 and {{max}}.",
-      "ieltsCriteriaInvalid": "Please enter all 4 criteria, each a number from 0 to {{max}} in 0.5 steps (e.g. 6 or 6.5).",
-      "moreInThisAttempt_one": "Saved. This attempt still has {{count}} written answer to grade.",
-      "moreInThisAttempt_other": "Saved. This attempt still has {{count}} written answers to grade.",
-      "allDoneTitle": "You have graded every written answer in the class 🎉",
-      "allDoneHint": "No written answers are waiting to be graded.",
-      "allDoneAllClassesTitle": "You have graded every written answer in EVERY class assigned this test 🎉",
-      "allDoneAllClassesHint": "No written answers are waiting to be graded, in any class.",
-      "crossedIntoClass": "Switched to class {{className}} — it still has ungraded written answers here.",
-      "backToClass": "Back to the class",
-      "nextFailed": "The score was saved, but the next attempt could not be found. Go back to pick another one.",
-      "prevStudent": "← Previous student",
-      "nextStudent": "Next student →",
-      "studentPosition": "Student {{position}}/{{total}}"
-    },
-    "gradebook": {
-      "scaleNote": "Scores are out of 10.",
-      "legend": "* Provisional score: the written part has not been graded yet.",
-      "cellTitleProvisional": "{{correct}}/{{total}} correct · provisional, {{count}} written answer(s) still to grade — click to view the attempt"
-    },
-    "download": {
-      "done": "Downloaded \"{{fileName}}\". Open it from your browser's Downloads folder."
-    },
-    "excel": {
-      "title": "GRADEBOOK",
-      "classLine": "Class: {{className}}",
-      "semesterLine": "Semester: {{semester}}",
-      "noSemester": "not selected",
-      "exportDate": "Exported on: {{date}}",
-      "scaleLine": "Scale: out of 10",
-      "stt": "No.",
-      "student": "Full name",
-      "average": "Average score",
-      "notSubmitted": "Not submitted",
-      "note": "Note",
-      "provisionalNote": "Provisional (written answers not graded yet)",
-      "statusRow": "Score status",
-      "released": "Shown to students",
-      "notReleased": "Not shown yet",
-      "classAverage": "Class average"
-    },
-    "release": {
-      "title": "Let students see their scores",
-      "question_one": "Let {{count}} student see the scores for this test now?",
-      "question_other": "Let {{count}} students see the scores for this test now?",
-      "questionNone": "No student has handed this test in yet. Let the class see the scores for this test now?",
-      "questionGeneric": "Let the class see the scores for this test now?",
-      "ungradedWarning_one": "{{count}} written answer is still ungraded — that student's score is only provisional.",
-      "ungradedWarning_other": "{{count}} written answers are still ungraded — those students' scores are only provisional.",
-      "confirm": "Show scores",
-      "working": "Updating...",
-      "cancel": "Not yet, go back",
-      "close": "Close",
-      "checking": "Checking the submitted tests...",
-      "checkFailed": "Could not check how many written answers are still ungraded.",
-      "published": "Students can now see the scores for this test.",
-      "hidden": "Scores for this test are hidden. Students can no longer see them.",
-      "publishedNamed": "Students can now see the scores for \"{{title}}\".",
-      "hiddenNamed": "Scores for \"{{title}}\" are hidden. Students can no longer see them.",
-      "rowShow": "Let students see scores",
-      "rowHide": "Hide scores",
-      "rowShowAria": "Let students see scores: {{title}}",
-      "rowHideAria": "Hide scores: {{title}}"
-    },
-    "student": {
-      "headline": "Score: {{score}}/10",
-      "rowScoreProvisional": "Score: {{score}}/10 (provisional)"
-    }
+    "provisional": {"chip_one":"Provisional — {{count}} written answer still to grade","chip_other":"Provisional — {{count}} written answers still to grade","short":"provisional","studentChip":"Provisional score","studentNote_one":"Your teacher has not finished grading {{count}} of your written answers, so this score may still change.","studentNote_other":"Your teacher has not finished grading {{count}} of your written answers, so this score may still change."},
+    "detail": {"headline":"Score: {{score}}/10"},
+    "grade": {"saved":"Saved the score for {{name}}: {{score}}/{{max}}.","savedIelts":"Saved the score for {{name}}: {{score}}/9 (average of the 4 criteria).","saveAndNext":"Save and grade the next one","scoreEmpty":"Please enter a score from 0 to {{max}}.","scoreInvalid":"The score must be a number, for example 4 or 4.5.","scoreRange":"The score must be between 0 and {{max}}.","ieltsCriteriaInvalid":"Please enter all 4 criteria, each a number from 0 to {{max}} in 0.5 steps (e.g. 6 or 6.5).","moreInThisAttempt_one":"Saved. This attempt still has {{count}} written answer to grade.","moreInThisAttempt_other":"Saved. This attempt still has {{count}} written answers to grade.","allDoneTitle":"You have graded every written answer in the class 🎉","allDoneHint":"No written answers are waiting to be graded.","allDoneAllClassesTitle":"You have graded every written answer in EVERY class assigned this test 🎉","allDoneAllClassesHint":"No written answers are waiting to be graded, in any class.","crossedIntoClass":"Switched to class {{className}} — it still has ungraded written answers here.","backToClass":"Back to the class","nextFailed":"The score was saved, but the next attempt could not be found. Go back to pick another one.","prevStudent":"← Previous student","nextStudent":"Next student →","studentPosition":"Student {{position}}/{{total}}"},
+    "gradebook": {"scaleNote":"Scores are out of 10.","legend":"* Provisional score: the written part has not been graded yet.","cellTitleProvisional":"{{correct}}/{{total}} correct · provisional, {{count}} written answer(s) still to grade — click to view the attempt"},
+    "download": {"done":"Downloaded \"{{fileName}}\". Open it from your browser's Downloads folder."},
+    "excel": {"title":"GRADEBOOK","classLine":"Class: {{className}}","semesterLine":"Semester: {{semester}}","noSemester":"not selected","exportDate":"Exported on: {{date}}","scaleLine":"Scale: out of 10","stt":"No.","student":"Full name","average":"Average score","notSubmitted":"Not submitted","note":"Note","provisionalNote":"Provisional (written answers not graded yet)","statusRow":"Score status","released":"Shown to students","notReleased":"Not shown yet","classAverage":"Class average"},
+    "release": {"title":"Let students see their scores","question_one":"Let {{count}} student see the scores for this test now?","question_other":"Let {{count}} students see the scores for this test now?","questionNone":"No student has handed this test in yet. Let the class see the scores for this test now?","questionGeneric":"Let the class see the scores for this test now?","ungradedWarning_one":"{{count}} written answer is still ungraded — that student's score is only provisional.","ungradedWarning_other":"{{count}} written answers are still ungraded — those students' scores are only provisional.","confirm":"Show scores","working":"Updating...","cancel":"Not yet, go back","close":"Close","checking":"Checking the submitted tests...","checkFailed":"Could not check how many written answers are still ungraded.","published":"Students can now see the scores for this test.","hidden":"Scores for this test are hidden. Students can no longer see them.","publishedNamed":"Students can now see the scores for \"{{title}}\".","hiddenNamed":"Scores for \"{{title}}\" are hidden. Students can no longer see them.","rowShow":"Let students see scores","rowHide":"Hide scores","rowShowAria":"Let students see scores: {{title}}","rowHideAria":"Hide scores: {{title}}"},
+    "student": {"headline":"Score: {{score}}/10","rowScoreProvisional":"Score: {{score}}/10 (provisional)"}
   },
-  "classStats": {
-    "description": "See this class's reports by area: tests, vocabulary, grammar and speaking.",
-    "leaderboardTab": "Vocabulary ranking"
-  },
-  "classOverview": {
-    "loadFailed": "Could not load the class overview. Try reloading the page.",
-    "stats": {
-      "openLabel": "Open tests",
-      "openHint": "Students can do these right now",
-      "gradingLabel": "To grade",
-      "gradingHint": "Written answers waiting for your score",
-      "gradingHintNone": "Nothing is waiting to be graded"
-    },
-    "noSemester": {
-      "heading": "This class has no semester yet",
-      "message": "Pick a semester at the top right to start assigning work. Then the things that need your attention will show up here."
-    },
-    "remaining": {
-      "lessThanHour": "less than 1 hour left",
-      "hours_one": "{{count}} hour left",
-      "hours_other": "{{count}} hours left",
-      "days_one": "{{count}} day left",
-      "days_other": "{{count}} days left"
-    },
-    "closingSoon": {
-      "heading": "Closing soon",
-      "description": "Tests that close within the next 3 days.",
-      "empty": "No tests are closing in the next 3 days.",
-      "closesAt": "Closes {{time}} ({{remaining}})",
-      "submitted": "{{submitted}}/{{total}} students submitted"
-    },
-    "needsGrading": {
-      "heading": "To grade",
-      "description": "Written answers students have handed in that are waiting for your score.",
-      "empty": "Nothing is waiting to be graded yet.",
-      "submittedAt": "Submitted {{time}}",
-      "ungraded_one": "{{count}} answer not graded",
-      "ungraded_other": "{{count}} answers not graded",
-      "grade": "Grade",
-      "gradeAria": "Grade {{student}}'s work: {{test}}",
-      "more_one": "+{{count}} more waiting to be graded",
-      "more_other": "+{{count}} more waiting to be graded"
-    },
-    "notSubmitted": {
-      "heading": "Not submitted",
-      "description": "Students who have not handed in tests that are closed or closing soon.",
-      "empty": "No student is missing a test.",
-      "statusClosed": "Closed",
-      "statusClosing": "Closing soon",
-      "missing_one": "{{count}} student has not submitted",
-      "missing_other": "{{count}} students have not submitted",
-      "closeAt": "Closes {{time}}",
-      "moreStudents": "+{{count}} more",
-      "moreTests_one": "{{count}} more test also has students who have not submitted.",
-      "moreTests_other": "{{count}} more tests also have students who have not submitted.",
-      "viewGrades": "See the gradebook"
-    },
-    "recent": {
-      "heading": "Recent activity",
-      "description": "The tests students handed in most recently.",
-      "empty": "No student has submitted anything this semester yet.",
-      "viewAria": "View {{student}}'s work: {{test}}",
-      "scoreHidden": "Students cannot see the score yet"
-    }
-  },
-  "teacherContent": {
-    "schedulePanelHeading": "Deadline — {{className}}",
-    "closeSchedulePanel": "Close",
-    "scheduleLoadFailed": "Failed to load the schedule for this class."
-  },
-  "classAssignments": {
-    "heading": "Assignments — {{semester}}",
-    "headingPlain": "Assignments",
-    "assignNew": "Assign new work",
-    "createVocabCheck": "Create vocabulary check",
-    "loadFailed": "Could not load this class's assignments.",
-    "filtersLabel": "Filter by type",
-    "filters": {
-      "all": "All",
-      "test": "Tests",
-      "flashcardSet": "Flashcard sets",
-      "grammarTopic": "Grammar"
-    },
-    "types": {
-      "generic": "Test",
-      "unitTest": "Unit test",
-      "vocabularyCheck": "Vocabulary check",
-      "listeningTest": "Listening test",
-      "mockTest": "Mock test",
-      "flashcardSet": "Flashcard set",
-      "grammarTopic": "Grammar"
-    },
-    "status": {
-      "upcoming": "Opens: {{time}}",
-      "closesAt": "Closes {{time}}",
-      "open": "Open — closes {{time}}",
-      "openNoClose": "Open",
-      "closed": "Closed"
-    },
-    "scores": {
-      "published": "Students can see the scores",
-      "unpublished": "Students cannot see the scores yet"
-    },
-    "submitted": "{{submitted}}/{{total}} students submitted",
-    "questionCount_one": "{{count}} question",
-    "questionCount_other": "{{count}} questions",
-    "cardCount_one": "{{count}} card",
-    "cardCount_other": "{{count}} cards",
-    "exerciseCount_one": "{{count}} exercise",
-    "exerciseCount_other": "{{count}} exercises",
-    "warnings": {
-      "noVariants": "This test has no questions yet, so students can't take it. Click Edit content to add questions.",
-      "notPublished": "This Unit test isn't published yet, so students can't see it. Click Edit content to publish it."
-    },
-    "actions": {
-      "results": "Results",
-      "resultsAria": "View results: {{title}}",
-      "schedule": "Deadline",
-      "scheduleAria": "Deadline: {{title}}",
-      "liveSession": "Live session",
-      "liveSessionAria": "Live session: {{title}}",
-      "edit": "Edit content",
-      "editAria": "Edit content: {{title}}",
-      "unitLeaderboard": "Unit ranking",
-      "unitLeaderboardAria": "View Unit ranking: {{title}}",
-      "remove": "Remove from class",
-      "removing": "Removing...",
-      "removeAria": "Remove from class: {{title}}"
-    },
-    "confirmRemove": "Remove \"{{title}}\" from {{className}}? Students in this class will no longer see it. Existing scores and attempts are kept.",
-    "removed": "Removed \"{{title}}\" from the class.",
-    "removeFailed": "Could not remove \"{{title}}\": {{reason}}",
-    "assignedNotice_one": "Assigned {{count}} item to this class.",
-    "assignedNotice_other": "Assigned {{count}} items to this class.",
-    "empty": "This class has no assignments yet — click Assign new work.",
-    "emptyFiltered": "Nothing in this group yet.",
-    "noSemester": {
-      "heading": "This class has no semester yet",
-      "message": "Pick a semester in the Semester box above, then come back here to assign work."
-    },
-    "backToAssignments": "← Back to assignments",
-    "back": "← Back"
-  },
-  "assignDialog": {
-    "title": "Assign new work to {{className}}",
-    "description": "Pick items from your Lesson bank to give to this class. Items the class already has aren't listed.",
-    "tabsAriaLabel": "Type of work",
-    "tabs": {
-      "test": "Tests",
-      "flashcardSet": "Flashcard sets",
-      "grammarTopic": "Grammar"
-    },
-    "searchPlaceholder": "Search by name...",
-    "selectAllVisible_one": "Select all ({{count}})",
-    "selectAllVisible_other": "Select all ({{count}})",
-    "emptyTab": "Nothing of this type left to assign.",
-    "noSearchResults": "No items match your search.",
-    "noQuestionsYet": "no questions yet",
-    "nothingSelected": "Nothing selected",
-    "selectedCount_one": "{{count}} selected",
-    "selectedCount_other": "{{count}} selected",
-    "cancel": "Cancel",
-    "close": "Close",
-    "confirm_one": "Assign {{count}} item to class",
-    "confirm_other": "Assign {{count}} items to class",
-    "scheduleToggle": "Deadline (optional)",
-    "scheduleSet": "Deadline set",
-    "quickClose": {
-      "label": "Quick pick:",
-      "day1": "Close in 1 day",
-      "day2": "Close in 2 days",
-      "week1": "Close in 1 week",
-      "day3": "Close in 3 days"
-    },
-    "scheduleHint_one": "Applies to the {{count}} selected test. Leave blank for no time limit.",
-    "scheduleHint_other": "Applies to all {{count}} selected tests. Leave blank for no time limit.",
-    "openAtLabel": "Opens at",
-    "closeAtLabel": "Closes at",
-    "autoPublishLabel": "Let students see their scores when the deadline passes",
-    "autoPublishNeedsClose": "Set a closing time to use this option.",
-    "closeBeforeOpen": "The closing time must be after the opening time.",
-    "loadFailed": "Could not load your Lesson bank. Please try again.",
-    "retryLoad": "Try again",
-    "emptyLibraryHeading": "Your Lesson bank has nothing to assign yet",
-    "emptyLibraryMessage": "Write a test, flashcard set or grammar topic in the Lesson bank, then come back here to give it to the class.",
-    "allAssignedHeading": "Everything is already assigned",
-    "allAssignedMessage": "All your Lesson bank content is already assigned to this class. Write something new in the Lesson bank if you need more.",
-    "goToLibrary": "Go to Lesson bank",
-    "progressRunning": "Assigning — please wait and don't close this window...",
-    "progressPartial": "{{failed}} item(s) could not be assigned. You can retry the ones that failed.",
-    "progressDone": "All assigned.",
-    "itemStatus": {
-      "pending": "Waiting",
-      "working": "Assigning...",
-      "done": "Assigned",
-      "failed": "Failed"
-    },
-    "scheduleStepFailed": "The schedule couldn't be saved, so this item was not assigned: {{reason}}",
-    "assignStepFailed": "This item couldn't be assigned: {{reason}}",
-    "unknownError": "Something went wrong. Please try again.",
-    "retryFailed": "Retry failed items"
-  },
-  "teacherReports": {
-    "heading": "Reports",
-    "description": "Average score, average time taken, and attempt count across your tests, counting only submitted attempts. Choose a granularity below; optionally narrow to one test and/or one unit.",
-    "groupByOptions": {
-      "test": "Test",
-      "unit": "Unit",
-      "week": "Week (ISO, Mon–Sun)",
-      "month": "Month",
-      "quarter": "Quarter",
-      "semester": "Academic period (semester)",
-      "year": "Year"
-    },
-    "testTypeOptions": {
-      "generic": "Generic",
-      "unitTest": "Unit Test",
-      "vocabularyCheck": "Vocabulary Check",
-      "listeningTest": "Listening",
-      "mockTest": "Mock Test"
-    },
-    "groupByLabel": "Group by",
-    "testFilterLabel": "Test (optional filter)",
-    "allTests": "All tests",
-    "unitFilterLabel": "Unit (optional filter)",
-    "allUnits": "All units",
-    "testTypeFilterLabel": "Test type (optional filter)",
-    "allTestTypes": "All test types",
-    "viewDetailedReport": "View detailed report",
-    "loadFailed": "Failed to load report.",
-    "loadingReport": "Loading report...",
-    "attemptsColumn": "Attempts",
-    "averageScoreColumn": "Average score",
-    "averageTimeTakenColumn": "Average time taken",
-    "noData": "No data for this selection yet."
-  },
-  "teacherReportsHub": {
-    "heading": "Reports",
-    "description": "One place for every module's reporting. Pick a module, then a period granularity — every number below is computed by the same reporting engine used throughout the app.",
-    "navAriaLabel": "Report module",
-    "tabs": {
-      "test": "Test",
-      "unitTest": "Unit Test",
-      "vocabulary": "Vocabulary",
-      "grammar": "Grammar",
-      "speaking": "Speaking"
-    },
-    "unitTest": {
-      "heading": "Unit Test reports",
-      "description": "Average score, average time taken, and attempt count across your Unit Tests only, counting only submitted attempts. Choose a granularity below; optionally narrow to one test and/or one unit."
-    },
-    "vocabulary": {
-      "leaderboardPrompt": "Looking for all-time standings instead of one period?",
-      "leaderboardLink": "View the all-time vocabulary leaderboard"
-    }
-  },
-  "teacherSpeakingReports": {
-    "heading": "Speaking reports",
-    "description": "Average effective Speaking score (teacher override when set, else the AI/mock grade) and graded-answer count, across your Speaking questions. Choose a granularity below; optionally narrow to one test and/or one unit.",
-    "groupByOptions": {
-      "test": "Test",
-      "unit": "Unit",
-      "week": "Week (ISO, Mon–Sun)",
-      "month": "Month",
-      "quarter": "Quarter",
-      "semester": "Academic period (semester)",
-      "year": "Year"
-    },
-    "groupByLabel": "Group by",
-    "testFilterLabel": "Test (optional filter)",
-    "allTests": "All tests",
-    "unitFilterLabel": "Unit (optional filter)",
-    "allUnits": "All units",
-    "viewDetailedReport": "View detailed report",
-    "loadFailed": "Failed to load report.",
-    "loadingReport": "Loading report...",
-    "gradedAnswersColumn": "Graded answers",
-    "averageScoreColumn": "Average Speaking score",
-    "noData": "No graded Speaking answers for this selection yet."
-  },
+  "classStats": {"description":"See this class's reports by area: tests, vocabulary, grammar and speaking.","leaderboardTab":"Vocabulary ranking"},
+  "classOverview": {"loadFailed":"Could not load the class overview. Try reloading the page.","stats":{"openLabel":"Open tests","openHint":"Students can do these right now","gradingLabel":"To grade","gradingHint":"Written answers waiting for your score","gradingHintNone":"Nothing is waiting to be graded"},"noSemester":{"heading":"This class has no semester yet","message":"Pick a semester at the top right to start assigning work. Then the things that need your attention will show up here."},"remaining":{"lessThanHour":"less than 1 hour left","hours_one":"{{count}} hour left","hours_other":"{{count}} hours left","days_one":"{{count}} day left","days_other":"{{count}} days left"},"closingSoon":{"heading":"Closing soon","description":"Tests that close within the next 3 days.","empty":"No tests are closing in the next 3 days.","closesAt":"Closes {{time}} ({{remaining}})","submitted":"{{submitted}}/{{total}} students submitted"},"needsGrading":{"heading":"To grade","description":"Written answers students have handed in that are waiting for your score.","empty":"Nothing is waiting to be graded yet.","submittedAt":"Submitted {{time}}","ungraded_one":"{{count}} answer not graded","ungraded_other":"{{count}} answers not graded","grade":"Grade","gradeAria":"Grade {{student}}'s work: {{test}}","more_one":"+{{count}} more waiting to be graded","more_other":"+{{count}} more waiting to be graded"},"notSubmitted":{"heading":"Not submitted","description":"Students who have not handed in tests that are closed or closing soon.","empty":"No student is missing a test.","statusClosed":"Closed","statusClosing":"Closing soon","missing_one":"{{count}} student has not submitted","missing_other":"{{count}} students have not submitted","closeAt":"Closes {{time}}","moreStudents":"+{{count}} more","moreTests_one":"{{count}} more test also has students who have not submitted.","moreTests_other":"{{count}} more tests also have students who have not submitted.","viewGrades":"See the gradebook"},"recent":{"heading":"Recent activity","description":"The tests students handed in most recently.","empty":"No student has submitted anything this semester yet.","viewAria":"View {{student}}'s work: {{test}}","scoreHidden":"Students cannot see the score yet"}},
+  "teacherContent": { "schedulePanelHeading": "Deadline — {{className}}", "closeSchedulePanel": "Close", "scheduleLoadFailed": "Failed to load the schedule for this class." },
+  "classAssignments": {"heading":"Assignments — {{semester}}","headingPlain":"Assignments","assignNew":"Assign new work","createVocabCheck":"Create vocabulary check","loadFailed":"Could not load this class's assignments.","filtersLabel":"Filter by type","filters":{"all":"All","test":"Tests","flashcardSet":"Flashcard sets","grammarTopic":"Grammar"},"types":{"generic":"Test","unitTest":"Unit test","vocabularyCheck":"Vocabulary check","listeningTest":"Listening test","mockTest":"Mock test","flashcardSet":"Flashcard set","grammarTopic":"Grammar"},"status":{"upcoming":"Opens: {{time}}","closesAt":"Closes {{time}}","open":"Open — closes {{time}}","openNoClose":"Open","closed":"Closed"},"scores":{"published":"Students can see the scores","unpublished":"Students cannot see the scores yet"},"submitted":"{{submitted}}/{{total}} students submitted","questionCount_one":"{{count}} question","questionCount_other":"{{count}} questions","cardCount_one":"{{count}} card","cardCount_other":"{{count}} cards","exerciseCount_one":"{{count}} exercise","exerciseCount_other":"{{count}} exercises","warnings":{"noVariants":"This test has no questions yet, so students can't take it. Click Edit content to add questions.","notPublished":"This Unit test isn't published yet, so students can't see it. Click Edit content to publish it."},"actions":{"results":"Results","resultsAria":"View results: {{title}}","schedule":"Deadline","scheduleAria":"Deadline: {{title}}","liveSession":"Live session","liveSessionAria":"Live session: {{title}}","edit":"Edit content","editAria":"Edit content: {{title}}","unitLeaderboard":"Unit ranking","unitLeaderboardAria":"View Unit ranking: {{title}}","remove":"Remove from class","removing":"Removing...","removeAria":"Remove from class: {{title}}"},"confirmRemove":"Remove \"{{title}}\" from {{className}}? Students in this class will no longer see it. Existing scores and attempts are kept.","removed":"Removed \"{{title}}\" from the class.","removeFailed":"Could not remove \"{{title}}\": {{reason}}","assignedNotice_one":"Assigned {{count}} item to this class.","assignedNotice_other":"Assigned {{count}} items to this class.","empty":"This class has no assignments yet — click Assign new work.","emptyFiltered":"Nothing in this group yet.","noSemester":{"heading":"This class has no semester yet","message":"Pick a semester in the Semester box above, then come back here to assign work."},"backToAssignments":"← Back to assignments","back":"← Back"},
+  "assignDialog": {"title":"Assign new work to {{className}}","description":"Pick items from your Lesson bank to give to this class. Items the class already has aren't listed.","tabsAriaLabel":"Type of work","tabs":{"test":"Tests","flashcardSet":"Flashcard sets","grammarTopic":"Grammar"},"searchPlaceholder":"Search by name...","selectAllVisible_one":"Select all ({{count}})","selectAllVisible_other":"Select all ({{count}})","emptyTab":"Nothing of this type left to assign.","noSearchResults":"No items match your search.","noQuestionsYet":"no questions yet","nothingSelected":"Nothing selected","selectedCount_one":"{{count}} selected","selectedCount_other":"{{count}} selected","cancel":"Cancel","close":"Close","confirm_one":"Assign {{count}} item to class","confirm_other":"Assign {{count}} items to class","scheduleToggle":"Deadline (optional)","scheduleSet":"Deadline set","quickClose":{"label":"Quick pick:","day1":"Close in 1 day","day2":"Close in 2 days","week1":"Close in 1 week","day3":"Close in 3 days"},"scheduleHint_one":"Applies to the {{count}} selected test. Leave blank for no time limit.","scheduleHint_other":"Applies to all {{count}} selected tests. Leave blank for no time limit.","openAtLabel":"Opens at","closeAtLabel":"Closes at","autoPublishLabel":"Let students see their scores when the deadline passes","autoPublishNeedsClose":"Set a closing time to use this option.","closeBeforeOpen":"The closing time must be after the opening time.","loadFailed":"Could not load your Lesson bank. Please try again.","retryLoad":"Try again","emptyLibraryHeading":"Your Lesson bank has nothing to assign yet","emptyLibraryMessage":"Write a test, flashcard set or grammar topic in the Lesson bank, then come back here to give it to the class.","allAssignedHeading":"Everything is already assigned","allAssignedMessage":"All your Lesson bank content is already assigned to this class. Write something new in the Lesson bank if you need more.","goToLibrary":"Go to Lesson bank","progressRunning":"Assigning — please wait and don't close this window...","progressPartial":"{{failed}} item(s) could not be assigned. You can retry the ones that failed.","progressDone":"All assigned.","itemStatus":{"pending":"Waiting","working":"Assigning...","done":"Assigned","failed":"Failed"},"scheduleStepFailed":"The schedule couldn't be saved, so this item was not assigned: {{reason}}","assignStepFailed":"This item couldn't be assigned: {{reason}}","unknownError":"Something went wrong. Please try again.","retryFailed":"Retry failed items"},
+  "teacherReports": { "heading": "Reports", "description": "Average score, average time taken, and attempt count across your tests, counting only submitted attempts. Choose a granularity below; optionally narrow to one test and/or one unit.", "groupByOptions": { "test": "Test", "unit": "Unit", "week": "Week (ISO, Mon–Sun)", "month": "Month", "quarter": "Quarter", "semester": "Academic period (semester)", "year": "Year" }, "testTypeOptions": { "generic": "Generic", "unitTest": "Unit Test", "vocabularyCheck": "Vocabulary Check", "listeningTest": "Listening", "mockTest": "Mock Test" }, "groupByLabel": "Group by", "testFilterLabel": "Test (optional filter)", "allTests": "All tests", "unitFilterLabel": "Unit (optional filter)", "allUnits": "All units", "testTypeFilterLabel": "Test type (optional filter)", "allTestTypes": "All test types", "viewDetailedReport": "View detailed report", "loadFailed": "Failed to load report.", "loadingReport": "Loading report...", "attemptsColumn": "Attempts", "averageScoreColumn": "Average score", "averageTimeTakenColumn": "Average time taken", "noData": "No data for this selection yet." },
+  "teacherReportsHub": { "heading": "Reports", "description": "One place for every module's reporting. Pick a module, then a period granularity — every number below is computed by the same reporting engine used throughout the app.", "navAriaLabel": "Report module", "tabs": { "test": "Test", "unitTest": "Unit Test", "vocabulary": "Vocabulary", "grammar": "Grammar", "speaking": "Speaking" }, "unitTest": { "heading": "Unit Test reports", "description": "Average score, average time taken, and attempt count across your Unit Tests only, counting only submitted attempts. Choose a granularity below; optionally narrow to one test and/or one unit." }, "vocabulary": { "leaderboardPrompt": "Looking for all-time standings instead of one period?", "leaderboardLink": "View the all-time vocabulary leaderboard" } },
+  "teacherSpeakingReports": { "heading": "Speaking reports", "description": "Average effective Speaking score (teacher override when set, else the AI/mock grade) and graded-answer count, across your Speaking questions. Choose a granularity below; optionally narrow to one test and/or one unit.", "groupByOptions": { "test": "Test", "unit": "Unit", "week": "Week (ISO, Mon–Sun)", "month": "Month", "quarter": "Quarter", "semester": "Academic period (semester)", "year": "Year" }, "groupByLabel": "Group by", "testFilterLabel": "Test (optional filter)", "allTests": "All tests", "unitFilterLabel": "Unit (optional filter)", "allUnits": "All units", "viewDetailedReport": "View detailed report", "loadFailed": "Failed to load report.", "loadingReport": "Loading report...", "gradedAnswersColumn": "Graded answers", "averageScoreColumn": "Average Speaking score", "noData": "No graded Speaking answers for this selection yet." },
   "unitLeaderboard": {
     "heading": "Unit Test leaderboard",
     "headingWithUnit": "{{unitName}} — Unit Test leaderboard",
@@ -1722,6 +944,7 @@
     "titlePlaceholder": "e.g. Present Simple",
     "creating": "Creating...",
     "createTopic": "Create topic",
+    "generateWithAiButton": "Generate with AI",
     "loadFailed": "Failed to load Grammar topics.",
     "createFailed": "Failed to create Grammar topic.",
     "defaultTheoryContent": "Write the theory content for this topic here.",
@@ -1729,6 +952,27 @@
     "exerciseCount_one": "{{count}} exercise",
     "exerciseCount_other": "{{count}} exercises",
     "openEditor": "Open editor →"
+  },
+  "teacherGrammarGenerator": {
+    "heading": "Generate a grammar lesson with AI",
+    "subtitle": "Enter a grammar topic — the AI will draft the form, usage, and notes plus practice exercises for you to review and edit before saving it as a new Grammar topic.",
+    "topicLabel": "Grammar topic",
+    "topicPlaceholder": "e.g. Present Perfect, Second Conditional...",
+    "generateButton": "Generate with AI",
+    "generating": "Generating...",
+    "generateError": "Failed to generate the grammar lesson.",
+    "titleLabel": "Topic title",
+    "theoryContentLabel": "Theory content (Markdown)",
+    "exercisesHeading": "Practice exercises",
+    "explanationLabel": "AI explanation",
+    "addExerciseButton": "Add exercise",
+    "saveButton": "Save as a new topic",
+    "saving": "Saving...",
+    "saveError": "Failed to save the grammar lesson.",
+    "resultCreated_one": "Topic created with {{count}} exercise.",
+    "resultCreated_other": "Topic created with {{count}} exercises.",
+    "rowError": "Exercise {{number}}: {{reason}}",
+    "openTopicButton": "Open the new topic →"
   },
   "teacherGrammarTopicEditor": {
     "loadFailed": "Failed to load Grammar topic.",
@@ -1858,22 +1102,10 @@
   },
   "studentVocabExercise": {
     "types": {
-      "fillBlank": {
-        "title": "Fill in the blank",
-        "instructions": "Type the missing word to complete the sentence."
-      },
-      "unscramble": {
-        "title": "Unscramble the word",
-        "instructions": "Reorder the letters below to spell the correct word."
-      },
-      "listenAndType": {
-        "title": "Listen and type",
-        "instructions": "Press play and type the word you hear."
-      },
-      "ipaToWord": {
-        "title": "IPA to word",
-        "instructions": "Read the phonetic transcription and type the word it represents."
-      }
+      "fillBlank": { "title": "Fill in the blank", "instructions": "Type the missing word to complete the sentence." },
+      "unscramble": { "title": "Unscramble the word", "instructions": "Reorder the letters below to spell the correct word." },
+      "listenAndType": { "title": "Listen and type", "instructions": "Press play and type the word you hear." },
+      "ipaToWord": { "title": "IPA to word", "instructions": "Read the phonetic transcription and type the word it represents." }
     },
     "unknownType": "Unknown exercise type.",
     "loadFailed": "Failed to load exercise.",
@@ -1915,22 +1147,10 @@
   },
   "studentVocabMatching": {
     "modes": {
-      "meaning": {
-        "label": "Word to meaning",
-        "tabLabel": "Meaning"
-      },
-      "image": {
-        "label": "Word to image",
-        "tabLabel": "Image"
-      },
-      "synonym": {
-        "label": "Word to synonym",
-        "tabLabel": "Synonym"
-      },
-      "antonym": {
-        "label": "Word to antonym",
-        "tabLabel": "Antonym"
-      }
+      "meaning": { "label": "Word to meaning", "tabLabel": "Meaning" },
+      "image": { "label": "Word to image", "tabLabel": "Image" },
+      "synonym": { "label": "Word to synonym", "tabLabel": "Synonym" },
+      "antonym": { "label": "Word to antonym", "tabLabel": "Antonym" }
     },
     "loadFailed": "Failed to load matching round.",
     "saveFailed": "Failed to save your progress.",
@@ -2066,6 +1286,8 @@
     "exampleSentencePlaceholder": "She ate an ___ for breakfast.",
     "synonymsLabel": "Synonyms (comma-separated, optional)",
     "antonymsLabel": "Antonyms (comma-separated, optional)",
+    "cefrLevelLabel": "CEFR level",
+    "cefrLevelNone": "Unlabeled",
     "saveError": "Failed to save card."
   },
   "teacherFlashcardImport": {
@@ -2100,6 +1322,33 @@
     "resultCreated_one": "{{count}} card imported.",
     "resultCreated_other": "{{count}} cards imported.",
     "resultErrorsHeading": "The server rejected the following rows:",
+    "dismissResult": "Done"
+  },
+  "aiVocabGenerator": {
+    "heading": "Generate vocabulary with AI",
+    "description": "Enter a topic and pick one or more CEFR levels — the AI will draft a vocabulary list for you to review and edit before saving it into this set.",
+    "topicLabel": "Topic",
+    "topicPlaceholder": "e.g. Animals, Travel, Technology...",
+    "countLabel": "Word count",
+    "levelsLabel": "CEFR levels",
+    "generateButton": "Generate with AI",
+    "generating": "Generating...",
+    "generateError": "Failed to generate a vocabulary list.",
+    "previewCount_one": "{{count}} word generated — review and edit before saving",
+    "previewCount_other": "{{count}} words generated — review and edit before saving",
+    "rowTermPlaceholder": "Term",
+    "rowMeaningPlaceholder": "Meaning",
+    "rowIpaPlaceholder": "IPA",
+    "rowExamplePlaceholder": "Example sentence",
+    "removeRowButton": "Remove",
+    "saveButton_one": "Save {{count}} word to this set",
+    "saveButton_other": "Save {{count}} words to this set",
+    "saving": "Saving...",
+    "cancelButton": "Cancel",
+    "saveError": "Failed to save the generated cards.",
+    "resultCreated_one": "{{count}} card saved.",
+    "resultCreated_other": "{{count}} cards saved.",
+    "rowError": "Row {{row}}: {{reason}}",
     "dismissResult": "Done"
   },
   "studentFlashcards": {
@@ -2240,18 +1489,9 @@
     "monthWord": "Month",
     "yearWord": "Year",
     "months": {
-      "january": "January",
-      "february": "February",
-      "march": "March",
-      "april": "April",
-      "may": "May",
-      "june": "June",
-      "july": "July",
-      "august": "August",
-      "september": "September",
-      "october": "October",
-      "november": "November",
-      "december": "December"
+      "january": "January", "february": "February", "march": "March", "april": "April",
+      "may": "May", "june": "June", "july": "July", "august": "August",
+      "september": "September", "october": "October", "november": "November", "december": "December"
     },
     "loadError": "Failed to load ranking.",
     "periodWindow": "Period window (Vietnam time): {{start}} – {{end}} (exclusive)",
@@ -2398,6 +1638,7 @@
     "newTestTitlePlaceholder": "e.g. Unit 3 Grammar Quiz",
     "creating": "Creating...",
     "createButton": "Create test",
+    "importFromImagesButton": "Import from images (AI)",
     "loadFailed": "Failed to load tests.",
     "createFailed": "Failed to create test.",
     "emptyState": "No tests yet — create your first one above.",
@@ -2418,6 +1659,46 @@
     "duplicating": "Duplicating...",
     "duplicateAriaLabel": "Duplicate test: {{title}}",
     "duplicateFailed": "Failed to duplicate test."
+  },
+  "teacherExamImport": {
+    "heading": "Import an exam from images with AI",
+    "subtitle": "Upload a photo/scan of each page of an exam (up to {{max}} pages, in order) — the AI will read them and build a structured test for you to review and edit before saving.",
+    "fileInputLabel": "Choose exam page images",
+    "tooManyImages": "Cannot exceed {{max}} pages per import.",
+    "resizeFailed": "Failed to process one or more of the selected images.",
+    "pageLabel": "Page {{number}}",
+    "removeImageButton": "Remove",
+    "generateButton": "Analyze with AI",
+    "generating": "Analyzing images — this can take a moment...",
+    "generateError": "Failed to analyze the exam images.",
+    "titleLabel": "Test title",
+    "passageTextLabel": "Passage / instructions (if any)",
+    "removeSectionButton": "Remove section",
+    "addSectionButton": "Add section",
+    "questionLabel": "Question {{number}}",
+    "removeQuestionButton": "Remove question",
+    "addQuestionButton": "Add question",
+    "needsReviewBadge": "Needs review",
+    "promptLabel": "Prompt",
+    "acceptedAnswersLabel": "Accepted answers (comma-separated)",
+    "removeChoiceButton": "Remove",
+    "addChoiceButton": "Add choice",
+    "essaySpeakingHint": "Essay/Speaking question — finish configuring details (score, duration...) after saving, in the full test editor.",
+    "saveButton": "Save as a new test",
+    "saving": "Saving...",
+    "saveError": "Failed to save the test.",
+    "resultCreated_one": "Test created with {{count}} question.",
+    "resultCreated_other": "Test created with {{count}} questions.",
+    "rowError": "Section {{section}}, question {{question}}: {{reason}}",
+    "openTestButton": "Open the new test →",
+    "typeLabel": {
+      "multipleChoice": "Multiple choice",
+      "trueFalse": "True/False",
+      "fillBlank": "Fill in the blank",
+      "matching": "Matching",
+      "essay": "Essay",
+      "speaking": "Speaking"
+    }
   },
   "teacherTestReport": {
     "backToTests": "← Back to my tests",

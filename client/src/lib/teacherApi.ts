@@ -24,14 +24,20 @@ import type {
   ClassStudentResetPasswordResponseDTO,
   ClassStudentTransferResponseDTO,
   ClassesAttentionResponseDTO,
+  CommitImportedTestRequest,
+  CommitImportedTestResponse,
   ContentClassAssignmentDTO,
   CreateAcademicPeriodRequest,
   CreateClassAnnouncementRequest,
   CreateClassRequest,
   CreateFlashcardCardRequest,
   CreateFlashcardSetRequest,
+  CommitGeneratedGrammarLessonRequest,
+  CommitGeneratedGrammarLessonResponse,
   CreateGrammarExerciseRequest,
   CreateGrammarTopicRequest,
+  GenerateGrammarLessonRequest,
+  GenerateGrammarLessonResponse,
   CreateQuestionRequest,
   CreateSectionRequest,
   CreateSessionRequest,
@@ -42,6 +48,8 @@ import type {
   FlashcardSetSummaryDTO,
   GenerateVariantsRequest,
   GenerateVocabularyCheckRequest,
+  GenerateVocabularyRequest,
+  GenerateVocabularyResponse,
   GradeEssayAnswerRequest,
   GradeEssayAnswerResponse,
   NextUngradedAttemptDTO,
@@ -49,11 +57,16 @@ import type {
   GrammarReportResponseDTO,
   GrammarTopicDetailDTO,
   GrammarTopicSummaryDTO,
+  ImportTestFromImagesRequest,
+  ImportTestFromImagesResponse,
+  ListTeacherChatMessagesResponse,
   ReorderQuestionsRequest,
   RegenerateVariantsResponse,
   ReorderSectionsRequest,
   ReportGroupBy,
   ReportResponseDTO,
+  SendTeacherChatMessageRequest,
+  SendTeacherChatMessageResponse,
   SentenceSubmissionDTO,
   SpeakingReportGroupBy,
   SpeakingReportResponseDTO,
@@ -93,11 +106,25 @@ const base = '/api/teacher/tests';
 const teacherBase = '/api/teacher';
 const flashcardBase = '/api/teacher/flashcard-sets';
 const grammarBase = '/api/teacher/grammar-topics';
+const chatBase = '/api/teacher/chat';
 
 export const teacherApi = {
   listTests: () => apiRequest<TestSummaryDTO[]>(base),
   createTest: (body: CreateTestRequest) =>
     apiRequest<TestDetailDTO>(base, { method: 'POST', body: JSON.stringify(body) }),
+  // 2026-10: AI exam-image import (feature 3) — `importTestFromImages` returns a DRAFT
+  // only (nothing persisted); `commitImportedTest` saves the (possibly teacher-edited)
+  // draft as a brand-new Test.
+  importTestFromImages: (body: ImportTestFromImagesRequest) =>
+    apiRequest<ImportTestFromImagesResponse>(`${base}/import-from-images`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  commitImportedTest: (body: CommitImportedTestRequest) =>
+    apiRequest<CommitImportedTestResponse>(`${base}/import-from-images/commit`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   getTest: (testId: string) => apiRequest<TestDetailDTO>(`${base}/${testId}`),
   updateTest: (testId: string, body: UpdateTestRequest) =>
     apiRequest<TestDetailDTO>(`${base}/${testId}`, { method: 'PATCH', body: JSON.stringify(body) }),
@@ -269,6 +296,15 @@ export const teacherApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  // 2026-10: AI vocabulary generation (feature 1) — returns a DRAFT only (nothing
+  // persisted); the teacher reviews/edits it, then saves via `bulkAddFlashcardCards` above
+  // into whichever set they pick. Not scoped to a `:setId`, so it's under `teacherBase`
+  // rather than `flashcardBase`.
+  generateVocabulary: (body: GenerateVocabularyRequest) =>
+    apiRequest<GenerateVocabularyResponse>(`${teacherBase}/flashcards/generate`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   updateFlashcardCard: (setId: string, cardId: string, body: UpdateFlashcardCardRequest) =>
     apiRequest<FlashcardSetDetailDTO>(`${flashcardBase}/${setId}/cards/${cardId}`, {
       method: 'PATCH',
@@ -361,6 +397,20 @@ export const teacherApi = {
   deleteGrammarExercise: (topicId: string, exerciseId: string) =>
     apiRequest<GrammarTopicDetailDTO>(`${grammarBase}/${topicId}/exercises/${exerciseId}`, {
       method: 'DELETE',
+    }),
+
+  // 2026-10: AI grammar lesson generation (feature 2) — `generate` returns a DRAFT only
+  // (nothing persisted); `commitGeneratedGrammarLesson` saves the (possibly teacher-edited)
+  // draft as a real topic + exercises in one call.
+  generateGrammarLesson: (body: GenerateGrammarLessonRequest) =>
+    apiRequest<GenerateGrammarLessonResponse>(`${grammarBase}/generate`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  commitGeneratedGrammarLesson: (body: CommitGeneratedGrammarLessonRequest) =>
+    apiRequest<CommitGeneratedGrammarLessonResponse>(`${grammarBase}/generate/commit`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 
   // --- Grammar reports (T-050) --------------------------------------------------------
@@ -503,4 +553,13 @@ export const teacherApi = {
       `${teacherBase}/classes/${encodeURIComponent(classId)}/announcements/${encodeURIComponent(id)}`,
       { method: 'DELETE' },
     ),
+
+  // --- Teacher AI chat assistant (2026-10, feature 4 of the "AI Content Tools" set) ---
+  listChatMessages: () => apiRequest<ListTeacherChatMessagesResponse>(`${chatBase}/messages`),
+  sendChatMessage: (body: SendTeacherChatMessageRequest) =>
+    apiRequest<SendTeacherChatMessageResponse>(`${chatBase}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  clearChatMessages: () => apiRequest<void>(`${chatBase}/messages`, { method: 'DELETE' }),
 };

@@ -53,8 +53,11 @@ import TeacherFlashcardsPage from './pages/TeacherFlashcardsPage';
 import TeacherFlashcardSetEditorPage from './pages/TeacherFlashcardSetEditorPage';
 import TeacherFlashcardSetProgressPage from './pages/TeacherFlashcardSetProgressPage';
 import TeacherGradesOverviewPage from './pages/TeacherGradesOverviewPage';
+import TeacherGrammarGeneratorPage from './pages/TeacherGrammarGeneratorPage';
 import TeacherGrammarPage from './pages/TeacherGrammarPage';
 import TeacherGrammarTopicEditorPage from './pages/TeacherGrammarTopicEditorPage';
+import TeacherChatPage from './pages/TeacherChatPage';
+import TeacherExamImportPage from './pages/TeacherExamImportPage';
 import TeacherLiveSessionPage from './pages/TeacherLiveSessionPage';
 import TeacherSessionAttemptsPage from './pages/TeacherSessionAttemptsPage';
 import TeacherTestAttemptsReportPage from './pages/TeacherTestAttemptsReportPage';
@@ -128,6 +131,10 @@ function App() {
                 {/* "Thư viện" landing (T-102): four cards leading into the authoring pages. */}
                 <Route path="/teacher/library" element={<TeacherLibraryPage />} />
                 <Route path="/teacher/tests" element={<TeacherTestsPage />} />
+                {/* AI exam-image import (2026-10, feature 3 of the "AI Content Tools"
+                  set) — a static path, matched ahead of the `:testId` route below
+                  regardless of declaration order. */}
+                <Route path="/teacher/tests/import-from-images" element={<TeacherExamImportPage />} />
                 <Route path="/teacher/tests/:testId" element={<TeacherTestEditorPage />} />
                 {/* Per-test attempt report (T-087): ranked list of every submitted
                   attempt of one test, across all sessions AND self-practice. Drills
@@ -195,9 +202,16 @@ function App() {
                 {/* Teacher-level score comparison across classes (Phase 17, T-118B), reached
                   from the "Điểm số" tab's "Xem so sánh với các lớp khác →" link. */}
                 <Route path="/teacher/grades-overview" element={<TeacherGradesOverviewPage />} />
+                {/* Teacher AI chat assistant (2026-10, feature 4 of the "AI Content
+                  Tools" set). */}
+                <Route path="/teacher/chat" element={<TeacherChatPage />} />
                 {/* Grammar topic authoring: theory content (T-047) + practice exercises
                   (T-048). */}
                 <Route path="/teacher/grammar-topics" element={<TeacherGrammarPage />} />
+                {/* AI grammar lesson generation (2026-10, feature 2 of the "AI Content
+                  Tools" set) — a static path, so it's matched ahead of the
+                  `:topicId` route below regardless of declaration order. */}
+                <Route path="/teacher/grammar-topics/generate" element={<TeacherGrammarGeneratorPage />} />
                 <Route
                   path="/teacher/grammar-topics/:topicId"
                   element={<TeacherGrammarTopicEditorPage />}

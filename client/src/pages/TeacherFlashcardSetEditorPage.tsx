@@ -12,6 +12,7 @@ import { ApiError } from '../lib/apiClient';
 import { useAuth } from '../context/useAuth';
 import FlashcardCardEditor from '../components/FlashcardCardEditor';
 import FlashcardExcelImportPanel from '../components/FlashcardExcelImportPanel';
+import AiVocabGeneratorPanel from '../components/AiVocabGeneratorPanel';
 import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 
 /** Default new-card shape — a sensible, editable placeholder, same convention as
@@ -221,6 +222,7 @@ function TeacherFlashcardSetEditorPage() {
 
       {/* Import Excel Panel */}
       <FlashcardExcelImportPanel setId={setId} onImported={setSet} />
+      <AiVocabGeneratorPanel setId={setId} onImported={setSet} />
 
       {/* Cards List Section */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">

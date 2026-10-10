@@ -17,10 +17,12 @@ import type {
   AdminTestSummaryDTO,
   AdminUserDTO,
   AiGradingSettingsDTO,
+  AiToolsSettingsDTO,
   CreateUserRequest,
   ResetPasswordRequest,
   SettingsDTO,
   UpdateAiGradingSettingsRequest,
+  UpdateAiToolsSettingsRequest,
   UpdateSettingsRequest,
   UpdateUserRequest,
   UserRole,
@@ -85,4 +87,11 @@ export const adminApi = {
   getAiGradingSettings: () => apiRequest<AiGradingSettingsDTO>(`${base}/settings/ai-grading`),
   updateAiGradingSettings: (body: UpdateAiGradingSettingsRequest) =>
     apiRequest<AiGradingSettingsDTO>(`${base}/settings/ai-grading`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // --- AI Content Tools config (2026-10) ----------------------------------------------
+  // Separate connection + toggles from AI Grading above — backs 4 newer teacher-authoring
+  // features (vocab/grammar generation, exam-image import, teacher chat assistant).
+  getAiToolsSettings: () => apiRequest<AiToolsSettingsDTO>(`${base}/settings/ai-tools`),
+  updateAiToolsSettings: (body: UpdateAiToolsSettingsRequest) =>
+    apiRequest<AiToolsSettingsDTO>(`${base}/settings/ai-tools`, { method: 'PATCH', body: JSON.stringify(body) }),
 };

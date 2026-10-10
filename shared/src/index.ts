@@ -386,6 +386,82 @@ export interface ReorderQuestionsRequest {
   orderedQuestionIds: string[];
 }
 
+// --- AI exam-image import (2026-10, feature 3 of the "AI Content Tools" set) --------
+// `POST /api/teacher/tests/import-from-images` returns a DRAFT only — nothing is
+// persisted. The teacher reviews/edits it client-side, then saves it via
+// `POST /api/teacher/tests/import-from-images/commit`, which creates a brand-new
+// `Test` + its `Section`/`Question`/`Choice` rows, re-validating every question and
+// section with the EXACT SAME `validateQuestionBody`/`validateSectionContentFields` manual
+// authoring uses (`teacherTests.routes.ts`) — partial success per question, same
+// convention as `BulkCreateFlashcardCardsResponse`/`CommitGeneratedGrammarLessonResponse`.
+
+/** Max exam page images accepted by one import request — client enforces this BEFORE
+ * uploading (same "shared constant, not two independently-drifting limits" convention as
+ * `FLASHCARD_BULK_IMPORT_MAX_ROWS`), server re-enforces it independently. Capped low
+ * (unlike the 500-row flashcard limit) because each entry is a full base64-encoded photo,
+ * not a short text row — see the route's own doc comment in `teacherTests.routes.ts` for
+ * the body-size reasoning. */
+export const EXAM_IMPORT_MAX_IMAGES = 8;
+
+/** Body for `POST /api/teacher/tests/import-from-images`. Each entry is a
+ * `data:image/...;base64,...` URL for one exam page, in reading order — same "resize
+ * client-side, send as plain JSON, no object storage" convention as every other image/
+ * audio upload in this app (`AvatarUpload.tsx`, `Section.passageImageUrl`/`audioUrl`). */
+export interface ImportTestFromImagesRequest {
+  images: string[];
+}
+
+export interface GeneratedImportChoiceDTO {
+  text: string;
+  isCorrect: boolean;
+}
+
+/** One AI-drafted question. `needsManualReview`/`reviewNote` are draft-only context for the
+ * teacher (no such columns on `Question`) — shown while reviewing, dropped at commit time. */
+export interface GeneratedImportQuestionDTO {
+  type: QuestionType;
+  prompt: string;
+  choices: GeneratedImportChoiceDTO[];
+  acceptedAnswers: string[];
+  needsManualReview: boolean;
+  reviewNote: string;
+}
+
+/** One AI-drafted section. `title` is a generator-assigned placeholder (e.g. "Phần 1") the
+ * teacher is expected to rename, since the source exam images rarely label sections the way
+ * this app's `Section.title` requires. `passageText` already folds in any instructions the
+ * AI read alongside the passage — `Section` has no separate "instructions" column (same
+ * "just a string, rendered as-is" convention as `GrammarTopic.theoryContent`). */
+export interface GeneratedImportSectionDTO {
+  title: string;
+  passageText: string;
+  questions: GeneratedImportQuestionDTO[];
+}
+
+export interface ImportTestFromImagesResponse {
+  title: string;
+  sections: GeneratedImportSectionDTO[];
+}
+
+/** Body for `POST /api/teacher/tests/import-from-images/commit` — the (possibly
+ * teacher-edited) draft, ready to persist as a brand-new `Test`. */
+export interface CommitImportedTestRequest {
+  title: string;
+  sections: GeneratedImportSectionDTO[];
+}
+
+export interface CommitImportedTestRowError {
+  sectionIndex: number;
+  questionIndex: number;
+  message: string;
+}
+
+export interface CommitImportedTestResponse {
+  test: TestDetailDTO;
+  createdQuestionCount: number;
+  errors: CommitImportedTestRowError[];
+}
+
 // --- Test variants / "mã đề" (T-009) ----------------------------------------------
 
 /** One shuffled question-order + choice-order layout, generated from an authored test.
@@ -975,6 +1051,17 @@ export type FlashcardProgressStatus = 'new' | 'learning' | 'known';
 /** A vocabulary card as the OWNING teacher sees it (T-022) — every field, including
  * ones an exercise must never leak to a student ahead of time (there's nothing secret
  * here; `term` itself is the "answer" for T-025/T-026/T-027). */
+
+/** Matches the Prisma `CefrLevel` enum (2026-10, AI vocabulary generation) — kept as a
+ * literal union here since Prisma enums can't be imported into client code, same pattern
+ * as `QuestionType`/`FlashcardProgressStatus` above. */
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+
+/** All 6 CEFR levels in standard ascending order — shared so the teacher-facing
+ * multi-select (AI vocabulary generation) and any other CEFR picker iterate the same fixed
+ * list instead of hardcoding it a second time. */
+export const CEFR_LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
 export interface FlashcardCardDTO {
   id: string;
   term: string;
@@ -984,6 +1071,11 @@ export interface FlashcardCardDTO {
   audioUrl: string | null;
   /** Optional sentence with `___` marking the blank (T-024). */
   exampleSentence: string | null;
+  /** CEFR proficiency level (2026-10, AI vocabulary generation) — `null` for every card
+   * authored before this feature existed, and for any card a teacher adds manually without
+   * picking one. See `CefrLevel`'s doc comment in schema.prisma for why this lives on the
+   * CARD, not the `FlashcardSet` (a teacher may generate several levels into one set). */
+  cefrLevel: CefrLevel | null;
   synonyms: string[];
   antonyms: string[];
   order: number;
@@ -1033,6 +1125,9 @@ export interface FlashcardCardInput {
   exampleSentence?: string | null;
   synonyms?: string[];
   antonyms?: string[];
+  /** CEFR level tag (2026-10) — omitted/undefined leaves it untagged (`null`); see
+   * `FlashcardCardDTO.cefrLevel`'s doc comment. */
+  cefrLevel?: CefrLevel | null;
 }
 export type CreateFlashcardCardRequest = FlashcardCardInput;
 export type UpdateFlashcardCardRequest = FlashcardCardInput;
@@ -1079,6 +1174,39 @@ export interface BulkCreateFlashcardCardsResponse {
   created: number;
   errors: BulkCreateFlashcardCardsRowError[];
   set: FlashcardSetDetailDTO;
+}
+
+// --- AI vocabulary generation (2026-10, feature 1 of the "AI Content Tools" set) -----
+// `POST /api/teacher/flashcards/generate` returns a DRAFT only — nothing is persisted.
+// The teacher reviews/edits the draft client-side, then saves it by sending the (possibly
+// edited) rows through the EXISTING `POST .../cards/bulk` endpoint above (now accepting an
+// optional `cefrLevel` per row) — there is deliberately no separate "commit" endpoint for
+// this feature, see `vocabGenerator.ts`'s doc comment.
+
+/** Body for `POST /api/teacher/flashcards/generate`. `levels` may contain 1 or more CEFR
+ * levels — the generator distributes `count` words across all of them in one single list,
+ * each word tagged with its own `cefrLevel` (not one list per level). */
+export interface GenerateVocabularyRequest {
+  topic: string;
+  levels: CefrLevel[];
+  count: number;
+}
+
+/** One AI-drafted row — same shape as `CreateFlashcardCardRequest` minus `imageUrl`/
+ * `audioUrl`/`synonyms`/`antonyms` (the generator never invents those) plus a REQUIRED
+ * `cefrLevel` (always one of the requested `levels`). The teacher may freely edit any field
+ * client-side before saving; the save step re-validates everything server-side exactly like
+ * any other bulk-import row. */
+export interface GeneratedVocabCardDTO {
+  term: string;
+  meaning: string;
+  ipa: string;
+  exampleSentence: string;
+  cefrLevel: CefrLevel;
+}
+
+export interface GenerateVocabularyResponse {
+  cards: GeneratedVocabCardDTO[];
 }
 
 // --- Student flashcard study mode (T-023) -------------------------------------------
@@ -1687,6 +1815,58 @@ export interface CreateGrammarExerciseRequest {
 }
 export type UpdateGrammarExerciseRequest = CreateGrammarExerciseRequest;
 
+// --- AI grammar lesson generation (2026-10, feature 2 of the "AI Content Tools" set) --
+// `POST /api/teacher/grammar-topics/generate` returns a DRAFT only — nothing is
+// persisted. The teacher reviews/edits it client-side, then saves it via
+// `POST /api/teacher/grammar-topics/generate/commit`, which creates the `GrammarTopic`
+// plus its `GrammarExercise`/`GrammarChoice` rows, re-validating every exercise with the
+// EXACT SAME rules as manual authoring (`validateExerciseBody` in
+// `teacherGrammar.routes.ts`) — partial success, same convention as
+// `BulkCreateFlashcardCardsResponse` (a bad row is skipped and reported, not a reason to
+// reject the whole lesson).
+
+export interface GenerateGrammarLessonRequest {
+  topic: string;
+}
+
+/** One AI-drafted practice exercise — same shape as `CreateGrammarExerciseRequest` plus an
+ * `explanation` shown to the teacher while reviewing the draft (not a `GrammarExercise`
+ * column — it never gets persisted, it only helps the teacher judge the draft). */
+export interface GeneratedGrammarExerciseDTO {
+  type: QuestionType;
+  prompt: string;
+  choices: GrammarChoiceInput[];
+  acceptedAnswers: string[];
+  explanation: string;
+}
+
+export interface GenerateGrammarLessonResponse {
+  title: string;
+  theoryContentMarkdown: string;
+  exercises: GeneratedGrammarExerciseDTO[];
+}
+
+/** Body for `POST /api/teacher/grammar-topics/generate/commit` — the (possibly
+ * teacher-edited) draft, ready to persist. `exercises` are re-validated independently; see
+ * `CommitGeneratedGrammarLessonResponse` for the partial-success result shape. */
+export interface CommitGeneratedGrammarLessonRequest {
+  title: string;
+  theoryContent: string;
+  unitId?: string | null;
+  exercises: GeneratedGrammarExerciseDTO[];
+}
+
+export interface CommitGrammarExerciseRowError {
+  index: number;
+  message: string;
+}
+
+export interface CommitGeneratedGrammarLessonResponse {
+  topic: GrammarTopicDetailDTO;
+  createdExerciseCount: number;
+  errors: CommitGrammarExerciseRowError[];
+}
+
 // --- Student-facing Grammar browsing + theory reading (T-047) -----------------------
 // Every topic is visible to every student — same "no enrollment concept" convention as
 // `StudentFlashcardSetSummaryDTO`.
@@ -2277,6 +2457,102 @@ export interface UpdateAiGradingSettingsRequest {
   systemPrompt?: string;
   speakingGradingEnabled?: boolean;
   speakingSystemPrompt?: string;
+}
+
+// --- AI Content Tools config (2026-10) ----------------------------------------------
+// Mirrors `server/prisma/schema.prisma`'s `Settings.aiTools*`/`vocabGen*`/`grammarGen*`/
+// `examImport*`/`teacherChat*` columns — a SEPARATE connection + 4 independent feature
+// toggles from `AiGradingSettingsDTO` above (that one backs the already-live Essay/Speaking
+// grading feature; this one backs 4 newer teacher-authoring features: AI vocabulary
+// generation, AI grammar lesson generation, AI exam-image import, and the teacher AI chat
+// assistant). Admin-only, read/written via `GET`/`PATCH /api/admin/settings/ai-tools`.
+
+/** Response for `GET /api/admin/settings/ai-tools` (admin-only). `hasApiKey` never returns
+ * the stored key itself, same convention as `AiGradingSettingsDTO.hasApiKey`. Each
+ * `defaultXxxSystemPrompt` is the built-in prompt so the UI can offer a "reset to default"
+ * action per feature without duplicating that text in the client bundle. */
+export interface AiToolsSettingsDTO {
+  apiBaseUrl: string | null;
+  hasApiKey: boolean;
+  model: string | null;
+
+  vocabGenEnabled: boolean;
+  vocabGenSystemPrompt: string;
+  defaultVocabGenSystemPrompt: string;
+
+  grammarGenEnabled: boolean;
+  grammarGenSystemPrompt: string;
+  defaultGrammarGenSystemPrompt: string;
+
+  examImportEnabled: boolean;
+  examImportSystemPrompt: string;
+  defaultExamImportSystemPrompt: string;
+
+  teacherChatEnabled: boolean;
+  teacherChatSystemPrompt: string;
+  defaultTeacherChatSystemPrompt: string;
+}
+
+/** Body for `PATCH /api/admin/settings/ai-tools` (admin-only). Any subset of fields may be
+ * sent (a partial update). `apiKey`, if present, REPLACES the stored key (encrypted
+ * server-side) — send `clearApiKey: true` instead to remove it; omit both to leave the
+ * currently-stored key untouched. Turning any of the 4 `*Enabled` flags on requires
+ * `apiBaseUrl`, `model`, and a configured API key (existing or sent in the same request) to
+ * already be present, or the server rejects the request — each flag is checked
+ * independently, so any subset can be on while the rest are off. */
+export interface UpdateAiToolsSettingsRequest {
+  apiBaseUrl?: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  model?: string;
+
+  vocabGenEnabled?: boolean;
+  vocabGenSystemPrompt?: string;
+
+  grammarGenEnabled?: boolean;
+  grammarGenSystemPrompt?: string;
+
+  examImportEnabled?: boolean;
+  examImportSystemPrompt?: string;
+
+  teacherChatEnabled?: boolean;
+  teacherChatSystemPrompt?: string;
+}
+
+// --- Teacher AI chat assistant (2026-10, feature 4 of the "AI Content Tools" set) ----
+// Mirrors `server/prisma/schema.prisma`'s `TeacherChatMessage` model — a simple,
+// per-teacher, append-only conversation log. See `server/src/aiTools/teacherChatTools.ts`'s
+// doc comment for the hard per-teacher scoping every reader of this feature's data follows
+// (no admin bypass, unlike every other owned-content type in this app).
+
+export interface TeacherChatMessageDTO {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+/** Body for `POST /api/teacher/chat/messages` — sends one new user message and gets the
+ * assistant's reply back in the same response (request/response, not streamed — matches
+ * every other AI call in this app). */
+export interface SendTeacherChatMessageRequest {
+  content: string;
+}
+
+/** `toolsUsed` lists which of `teacherChatTools.ts`'s registered tools the assistant
+ * actually called while answering (empty in "data digest" fallback mode, or when the
+ * assistant answered without needing any tool) — surfaced in the UI so a teacher can see
+ * what the answer is actually based on. */
+export interface SendTeacherChatMessageResponse {
+  userMessage: TeacherChatMessageDTO;
+  assistantMessage: TeacherChatMessageDTO;
+  toolsUsed: string[];
+}
+
+/** Response for `GET /api/teacher/chat/messages` — the calling teacher's own conversation
+ * history, oldest first. */
+export interface ListTeacherChatMessagesResponse {
+  messages: TeacherChatMessageDTO[];
 }
 
 // --- Class-based organization (T-074, Phase 12) -------------------------------------
