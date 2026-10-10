@@ -5,9 +5,7 @@ import { APP_NAME } from '@platform/shared';
 import { useAuth } from '../context/useAuth';
 import { useAttemptLock } from '../context/useAttemptLock';
 import { dashboardPathForRole } from '../lib/roles';
-import NotificationBell from './NotificationBell';
-import TextSizeButton from './TextSizeButton';
-import { AvatarUpload, SettingsIcon } from './ui';
+import { SettingsIcon } from './ui';
 
 interface NavItem {
   labelKey: string;
@@ -187,9 +185,24 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { labelKey: 'header.nav.admin.users', to: '/admin/users', icon: UsersIcon },
-  { labelKey: 'header.nav.admin.tests', to: '/admin/tests', icon: TestsIcon },
-  { labelKey: 'header.nav.admin.flashcardSets', to: '/admin/flashcard-sets', icon: FlashcardsIcon },
-  { labelKey: 'header.nav.admin.grammarTopics', to: '/admin/grammar-topics', icon: GrammarIcon },
+  {
+    labelKey: 'header.nav.admin.tests',
+    to: '/admin/tests',
+    icon: TestsIcon,
+    activePrefixes: ['/admin/tests', '/teacher/tests'],
+  },
+  {
+    labelKey: 'header.nav.admin.flashcardSets',
+    to: '/admin/flashcard-sets',
+    icon: FlashcardsIcon,
+    activePrefixes: ['/admin/flashcard-sets', '/teacher/flashcard-sets'],
+  },
+  {
+    labelKey: 'header.nav.admin.grammarTopics',
+    to: '/admin/grammar-topics',
+    icon: GrammarIcon,
+    activePrefixes: ['/admin/grammar-topics', '/teacher/grammar-topics'],
+  },
   // 2026-10: Settings was reachable only via the Dashboard's "Truy cập nhanh" quick-links list,
   // never from the sidebar itself like every other admin section — easy to lose track of,
   // especially now that it also holds the new UI-style picker. Added here so it's a direct,
@@ -198,9 +211,9 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 ];
 
 const NAV_LINK_BASE =
-  'group flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors';
-const NAV_LINK_INACTIVE = 'text-slate-300 hover:bg-white/10 hover:text-base-white';
-const NAV_LINK_ACTIVE = 'bg-primary-500 text-base-white shadow-glow';
+  'group flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-150';
+const NAV_LINK_INACTIVE = 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900';
+const NAV_LINK_ACTIVE = 'bg-primary-50 text-primary-700 font-semibold shadow-sm ring-1 ring-primary-200/50';
 
 interface SidebarProps {
   /** Whether the mobile off-canvas drawer is open (state lives in `AppShell` so its own
@@ -262,9 +275,9 @@ function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           to={item.to}
           aria-current={active ? 'page' : undefined}
           title={collapsed ? t(item.labelKey) : undefined}
-          className={`${NAV_LINK_BASE} ${active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE} ${collapsed ? 'md:justify-center' : ''}`}
+          className={`${NAV_LINK_BASE} ${active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE} ${collapsed ? 'md:justify-center md:px-0' : ''}`}
         >
-          <item.icon className={`${iconBase} ${active ? 'text-base-white' : 'text-slate-400 group-hover:text-base-white'}`} />
+          <item.icon className={`${iconBase} ${active ? 'text-primary-600' : 'text-slate-400 group-hover:text-slate-700'}`} />
           <span className={collapsed ? 'md:hidden' : ''}>{t(item.labelKey)}</span>
         </Link>
       </li>
@@ -277,117 +290,79 @@ function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         <div
           aria-hidden="true"
           onClick={onCloseMobile}
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs md:hidden"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-full w-72 flex-col bg-slate-900 text-base-white shadow-sidebar transition-transform duration-200 ease-in-out print-hidden ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-full w-72 flex-col border-r border-slate-200/80 bg-white text-slate-800 shadow-sm transition-transform duration-200 ease-in-out print-hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:transition-[width] ${
+        } md:sticky md:top-0 md:z-30 md:h-screen md:translate-x-0 md:transition-[width] ${
           collapsed ? 'md:w-20' : 'md:w-64'
         }`}
       >
-        <div className={`flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 ${collapsed ? 'md:justify-center md:px-0' : ''}`}>
-          <Link to="/" className="flex min-w-0 items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 text-sm font-extrabold text-base-white shadow-glow">
+        {/* Brand Header */}
+        <div className={`relative flex h-16 shrink-0 items-center border-b border-slate-100 px-4 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+          <Link to="/" className={`flex min-w-0 items-center gap-2.5 ${collapsed ? 'justify-center' : 'flex-1 justify-center'}`}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-indigo-600 text-base font-black text-white shadow-sm">
               E
             </span>
-            <span className={`truncate text-base font-bold text-base-white ${collapsed ? 'md:hidden' : ''}`}>{APP_NAME}</span>
+            <span className={`truncate text-sm font-bold text-slate-900 tracking-tight text-center ${collapsed ? 'hidden' : 'block'}`}>
+              {APP_NAME}
+            </span>
           </Link>
           <button
             type="button"
             onClick={onCloseMobile}
             aria-label={t('sidebar.close')}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md text-slate-300 hover:bg-white/10 md:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
+        {/* Navigation list */}
         <nav
           aria-label={t('header.mainNavAriaLabel')}
           className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4"
         >
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-1.5">
             {showGenericDashboardLink &&
               renderLink(
                 { labelKey: 'header.dashboard', to: dashboardPath, icon: HomeIcon },
                 location.pathname === dashboardPath,
               )}
             {navItems.map((item) => renderLink(item, isNavItemActive(item, location.pathname)))}
-            {adminNavItems.map((item) => renderLink(item, location.pathname.startsWith(item.to)))}
+            {adminNavItems.map((item) => renderLink(item, isNavItemActive(item, location.pathname)))}
             {!isLocked &&
               renderLink({ labelKey: 'header.help', to: HELP_PATH, icon: HelpIcon }, location.pathname === HELP_PATH)}
           </ul>
         </nav>
 
-        <div className="shrink-0 border-t border-white/10 p-3">
-          {isLocked ? (
-            <p role="status" className="rounded-md border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-100">
-              {t('header.attemptLockNotice')}
-            </p>
-          ) : user ? (
-            <div className="flex flex-col gap-2">
-              <div className={`flex items-center gap-2 ${collapsed ? 'md:justify-center' : ''}`}>
-                {user.role === 'student' && <NotificationBell key={user.id} />}
-                <div className={`flex min-w-0 flex-1 items-center gap-2 ${collapsed ? 'md:hidden' : ''}`}>
-                  <AvatarUpload size="sm" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-base-white">{user.name}</p>
-                    <p className="truncate text-xs font-medium uppercase text-primary-300">
-                      {user.role === 'teacher' || user.role === 'student' ? t(`roles.${user.role}`) : user.role}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className={`flex items-center gap-2 ${collapsed ? 'md:flex-col' : ''}`}>
-                <TextSizeButton compact={collapsed} />
-                {/* Collapsed rail only: a visible gap between the frequently-used text-size
-                  toggle and Logout — stacked flush with no separation, the two same-size squares
-                  were an easy mis-tap into an accidental logout (2026-09 mobile/phone review). */}
-                {collapsed && <div aria-hidden="true" className="hidden h-px w-8 shrink-0 bg-white/10 md:block" />}
-                <button
-                  type="button"
-                  onClick={logout}
-                  title={collapsed ? t('header.logOut') : undefined}
-                  className={`inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-primary-500 px-3 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 ${collapsed ? 'md:flex-none md:w-10 md:px-0' : ''}`}
-                >
-                  <span className={collapsed ? 'md:hidden' : ''}>{t('header.logOut')}</span>
-                  <span className={collapsed ? 'hidden md:inline' : 'hidden'} aria-hidden="true">
-                    ⏻
-                  </span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className={`flex flex-col gap-2 ${collapsed ? 'md:items-center' : ''}`}>
-              <TextSizeButton compact={collapsed} />
-              <Link
-                to="/login"
-                className="inline-flex min-h-10 items-center justify-center rounded-md bg-primary-500 px-3 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
-              >
-                <span className={collapsed ? 'md:hidden' : ''}>{t('header.logIn')}</span>
-              </Link>
-              <Link
-                to="/register"
-                className={`inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 px-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/10 ${collapsed ? 'md:hidden' : ''}`}
-              >
-                {t('header.register')}
-              </Link>
-            </div>
-          )}
+        {/* Bottom Sidebar Docked Toggle Button: Dính liền thanh menu, tinh gọn & hiện đại */}
+        <div className="shrink-0 border-t border-slate-100 p-3 hidden md:block">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+            title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+            className={`flex w-full items-center gap-3 rounded-xl py-2.5 px-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 ${
+              collapsed ? 'justify-center px-0' : ''
+            }`}
+          >
+            <svg
+              className={`h-5 w-5 shrink-0 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+            <span className={`truncate ${collapsed ? 'hidden' : 'block'}`}>
+              {collapsed ? '' : t('sidebar.collapse')}
+            </span>
+          </button>
         </div>
-
-        {/* Desktop-only collapse toggle, pinned to the edge so it's easy to find again once
-          collapsed. Hidden on the mobile drawer (there, closing IS the "collapse"). */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-          className="absolute top-16 -right-3 hidden h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-base-white text-slate-500 shadow-card hover:text-primary-600 md:flex"
-        >
-          <ChevronLeftIcon className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
-        </button>
       </aside>
     </>
   );

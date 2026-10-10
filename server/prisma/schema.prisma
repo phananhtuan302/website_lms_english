@@ -63,6 +63,13 @@ model User {
   // a few KB, not a blob column or external file storage). `null` means "no photo uploaded",
   // and every UI that renders it falls back to an initials avatar in that case.
   avatarUrl    String?
+  firstName    String?
+  lastName     String?
+  birthday     DateTime?
+  sex          String?
+  isActive     Boolean  @default(true)
+  phoneNumber  String?
+  note         String?
   /// 2026-10: `true` for a throwaway account auto-created by the "join a QR session with
   /// no account, just a name" flow (`TestSession.allowGuests`) — always `role: student`,
   /// `classId: null`, an unusable random `passwordHash` (never intended to be logged

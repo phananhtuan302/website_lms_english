@@ -9,21 +9,33 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, UpdateAvatarRequest } from '@platform/shared';
-import { apiRequest, setStoredToken, getStoredToken } from '../lib/apiClient';
+import {
+  apiRequest,
+  setStoredToken,
+  getStoredToken,
+  getStoredUser,
+  setStoredUser,
+  isRememberLoginEnabled,
+} from '../lib/apiClient';
 import { AuthContext, type AuthContextValue } from './authContextInstance';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  // Lazy initializer (not a setState call inside the effect below) so the "no stored
-  // token" case never needs a render just to flip this back to false.
-  const [isLoading, setIsLoading] = useState<boolean>(() => getStoredToken() !== null);
+  // Initialize user immediately from cached profile if present, preventing UI flicker/redirect
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser<AuthUser>());
+  // If we already have token and cached user, don't block render with loading spinner
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    const token = getStoredToken();
+    const cachedUser = getStoredUser<AuthUser>();
+    return Boolean(token && !cachedUser);
+  });
 
-  // On mount, re-validate any stored token against the server (rather than trusting a
-  // locally-decoded, possibly-expired payload) so a stale/expired token doesn't render
-  // protected content and then fail on the first real API call.
+  // On mount, re-validate any stored token in the background against the server
   useEffect(() => {
     const token = getStoredToken();
     if (!token) {
+      setUser(null);
+      setStoredUser(null);
+      setIsLoading(false);
       return;
     }
 
@@ -33,11 +45,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((fetchedUser) => {
         if (!cancelled) {
           setUser(fetchedUser);
+          setStoredUser(fetchedUser);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        // If 401/403 or network error: only clear if token is genuinely invalid
         if (!cancelled) {
-          setStoredToken(null);
+          // If the token is rejected by the server, clear session
+          const status = (err as { status?: number })?.status;
+          if (status === 401 || status === 403) {
+            setStoredToken(null);
+            setStoredUser(null);
+            setUser(null);
+          }
         }
       })
       .finally(() => {
@@ -51,12 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (credentials: LoginRequest) => {
+  const login = useCallback(async (credentials: LoginRequest, remember = isRememberLoginEnabled()) => {
     const response = await apiRequest<AuthResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
-    setStoredToken(response.token);
+    setStoredToken(response.token, remember);
+    setStoredUser(response.user, remember);
     setUser(response.user);
     return response.user;
   }, []);
@@ -66,18 +87,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    setStoredToken(response.token);
+    setStoredToken(response.token, true);
+    setStoredUser(response.user, true);
     setUser(response.user);
     return response.user;
   }, []);
 
   const adoptSession = useCallback((token: string, nextUser: AuthUser) => {
-    setStoredToken(token);
+    setStoredToken(token, true);
+    setStoredUser(nextUser, true);
     setUser(nextUser);
   }, []);
 
   const logout = useCallback(() => {
     setStoredToken(null);
+    setStoredUser(null);
     setUser(null);
   }, []);
 
@@ -88,13 +112,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify(body),
     });
     setUser(updated);
+    setStoredUser(updated);
     return updated;
   }, []);
 
-  const value = useMemo<AuthContextValue>(
-    () => ({ user, isLoading, login, register, adoptSession, logout, updateAvatar }),
-    [user, isLoading, login, register, adoptSession, logout, updateAvatar],
+  const updateProfile = useCallback(
+    async (data: {
+      name?: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      birthday?: string | null;
+      sex?: string | null;
+      phoneNumber?: string | null;
+      currentPassword?: string;
+      newPassword?: string;
+    }) => {
+      const updated = await apiRequest<AuthUser>('/api/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+      setUser(updated);
+      setStoredUser(updated);
+      return updated;
+    },
+    [],
   );
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, isLoading, login, register, adoptSession, logout, updateAvatar, updateProfile }),
+    [user, isLoading, login, register, adoptSession, logout, updateAvatar, updateProfile],
+  );
+
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

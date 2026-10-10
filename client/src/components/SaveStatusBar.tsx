@@ -19,7 +19,7 @@ function formatClock(date: Date): string {
 function SaveStatusBar({ status }: SaveStatusBarProps) {
   const { t } = useTranslation();
 
-  let tone = 'border-primary-100 bg-base-white text-base-black/70';
+  let tone = 'border-slate-200 bg-slate-50 text-slate-600';
   let icon = '✓';
   let text = t('editorSave.idle');
   if (status.phase === 'saving') {
@@ -27,10 +27,10 @@ function SaveStatusBar({ status }: SaveStatusBarProps) {
     icon = '…';
     text = t('editorSave.saving');
   } else if (status.phase === 'saved' && status.lastSavedAt) {
-    tone = 'border-green-200 bg-green-50 text-green-800';
+    tone = 'border-emerald-200 bg-emerald-50 text-emerald-800';
     text = t('editorSave.savedAt', { time: formatClock(status.lastSavedAt) });
   } else if (status.phase === 'held') {
-    tone = 'border-amber-300 bg-amber-50 text-amber-900';
+    tone = 'border-amber-200 bg-amber-50 text-amber-900';
     icon = '✎';
     text = status.message ?? t('editorSave.held');
   }
@@ -41,20 +41,20 @@ function SaveStatusBar({ status }: SaveStatusBarProps) {
       aria-live="polite"
       data-testid="editor-save-status"
       data-phase={status.phase}
-      className="sticky top-0 z-30 -mx-4 bg-base-white/95 px-4 py-1.5 backdrop-blur-sm sm:-mx-6 sm:px-6"
+      className="flex items-center"
     >
       {status.phase === 'failed' ? (
         <button
           type="button"
           onClick={status.retry}
           title={status.detail}
-          className="flex w-full flex-col items-start gap-0.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-left text-sm font-semibold text-red-800 shadow-sm hover:bg-red-100 sm:flex-row sm:items-center sm:gap-3"
+          className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-800 shadow-2xs hover:bg-red-100"
         >
           <span>⚠ {t('editorSave.failed')}</span>
-          {status.message && <span className="text-xs font-normal">{status.message}</span>}
+          {status.message && <span className="text-[11px] font-normal">{status.message}</span>}
         </button>
       ) : (
-        <p className={`inline-flex max-w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-sm shadow-sm ${tone}`}>
+        <p className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold shadow-2xs ${tone}`}>
           <span aria-hidden="true">{icon}</span>
           <span>{text}</span>
         </p>

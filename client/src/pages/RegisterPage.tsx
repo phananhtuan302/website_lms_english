@@ -6,7 +6,6 @@ import { useAuth } from '../context/useAuth';
 import { ApiError } from '../lib/apiClient';
 import { classesApi } from '../lib/classesApi';
 import { postLoginPath } from '../lib/roles';
-import AuthLayout from '../components/AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -51,7 +50,9 @@ function RegisterPage() {
       .listPublicClasses()
       .then(setClasses)
       .catch((err) =>
-        setClassesLoadError(err instanceof ApiError ? err.message : t('auth.register.loadClassesFailed')),
+        setClassesLoadError(
+          err instanceof ApiError ? err.message : t('auth.register.loadClassesFailed'),
+        ),
       );
     // Same "`t` is stable in practice" reasoning as every other one-shot load effect in
     // this codebase (see `TeacherCurriculumPage.tsx`) — omitted from deps on purpose.
@@ -92,10 +93,12 @@ function RegisterPage() {
   }
 
   return (
-    <AuthLayout>
-      <h1 className="mb-6 text-2xl font-bold text-primary-700">{t('auth.register.heading')}</h1>
+    <>
+      <h1 className="mb-7 text-3xl font-semibold tracking-tight text-base-black sm:text-4xl">
+        {t('auth.register.heading')}
+      </h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+        <label className="flex flex-col gap-2 text-sm font-semibold text-base-black">
           {t('auth.register.name')}
           <input
             type="text"
@@ -103,10 +106,10 @@ function RegisterPage() {
             autoComplete="name"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="min-h-12 w-full rounded-xl border border-primary-200 bg-base-white px-4 py-3 text-base font-normal text-base-black transition-colors focus:border-primary-400 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+        <label className="flex flex-col gap-2 text-sm font-semibold text-base-black">
           {t('auth.email')}
           <input
             type="email"
@@ -114,37 +117,52 @@ function RegisterPage() {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="min-h-12 w-full rounded-xl border border-primary-200 bg-base-white px-4 py-3 text-base font-normal text-base-black transition-colors focus:border-primary-400 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+        <label className="flex flex-col gap-2 text-sm font-semibold text-base-black">
           {t('auth.password')}
           <input
             type="password"
             required
             minLength={MIN_PASSWORD_LENGTH}
             autoComplete="new-password"
+            aria-invalid={password.length > 0 && password.length < MIN_PASSWORD_LENGTH}
+            aria-describedby={
+              password.length > 0 && password.length < MIN_PASSWORD_LENGTH
+                ? 'register-password-warning'
+                : undefined
+            }
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="min-h-12 w-full rounded-xl border border-primary-200 bg-base-white px-4 py-3 text-base font-normal text-base-black transition-colors focus:border-primary-400 focus:outline-none"
           />
-          <span className="text-xs font-normal text-base-black/50">
-            {t('auth.register.passwordHint', { count: MIN_PASSWORD_LENGTH })}
-          </span>
+          {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
+            <span
+              id="register-password-warning"
+              role="status"
+              className="text-xs font-normal text-red-700"
+            >
+              {t('auth.register.passwordHint', { count: MIN_PASSWORD_LENGTH })}
+            </span>
+          )}
         </label>
-        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+        <label className="flex flex-col gap-2 text-sm font-semibold text-base-black">
           {t('auth.register.selectClassLabel')}
           <select
             required
             value={classId}
             onChange={(event) => setClassId(event.target.value)}
             disabled={classes === null || classes.length === 0}
-            className="rounded-md border border-primary-200 bg-base-white px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 w-full rounded-xl border border-primary-200 bg-base-white px-4 py-3 text-base font-normal text-base-black transition-colors focus:border-primary-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">{t('auth.register.selectClassPlaceholder')}</option>
             {classes?.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                {t('auth.register.classOption', { className: cls.name, teacherName: cls.teacherName })}
+                {t('auth.register.classOption', {
+                  className: cls.name,
+                  teacherName: cls.teacherName,
+                })}
               </option>
             ))}
           </select>
@@ -170,20 +188,24 @@ function RegisterPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-12 w-full rounded-xl bg-primary-700 px-4 py-3 text-sm font-semibold text-base-white transition-colors hover:bg-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? t('auth.register.submitting') : t('auth.register.submit')}
         </button>
       </form>
 
-      <p className="mt-4 text-sm text-base-black/70">
+      <p className="mt-6 border-t border-primary-100 pt-6 text-center text-sm leading-6 text-base-black/70">
         {t('auth.register.alreadyHaveAccount')}{' '}
-        <Link to="/login" className="font-medium text-primary-600 hover:underline">
+        <Link
+          to="/login"
+          state={location.state}
+          className="inline-flex min-h-11 items-center rounded font-semibold text-primary-700 underline decoration-primary-200 underline-offset-4 hover:decoration-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700"
+        >
           {t('auth.register.logInLink')}
         </Link>
       </p>
       <p className="mt-2 text-xs text-base-black/50">{t('auth.register.teacherNote')}</p>
-    </AuthLayout>
+    </>
   );
 }
 

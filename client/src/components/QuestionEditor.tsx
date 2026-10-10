@@ -159,7 +159,7 @@ function initialDraft(question: QuestionDTO): Draft {
 }
 
 const inputClass =
-  'rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200';
+  'rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 shadow-2xs transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 /**
  * Editor for a single question of any type. It keeps its own draft and saves it by itself — no
@@ -348,18 +348,23 @@ function QuestionEditor({
   const flush = () => void saver.flush();
 
   return (
-    <div ref={rootRef} className="rounded-lg border border-primary-100 bg-base-white p-4" data-testid="question-editor">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-        <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+    <div
+      ref={rootRef}
+      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition-shadow hover:shadow-sm"
+      data-testid="question-editor"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 pb-3">
+        <span className="inline-flex items-center gap-1.5 rounded-xl bg-primary-50 px-3 py-1 text-xs font-bold text-primary-700">
+          <span className="h-2 w-2 rounded-full bg-primary-500" />
           {t('questionEditor.questionHeading', { number: index + 1, type: typeLabel[type] })}
         </span>
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => onMove('up')}
             disabled={index === 0}
             aria-label={t('questionEditor.moveUpAriaLabel')}
-            className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-2xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↑
           </button>
@@ -368,14 +373,14 @@ function QuestionEditor({
             onClick={() => onMove('down')}
             disabled={index === count - 1}
             aria-label={t('questionEditor.moveDownAriaLabel')}
-            className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-2xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↓
           </button>
           <select
             value={type}
             onChange={(event) => handleTypeChange(event.target.value as QuestionType)}
-            className="ml-2 rounded-md border border-primary-200 px-2 py-1 text-xs"
+            className="ml-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs focus:border-primary-500 focus:outline-none"
             aria-label={t('questionEditor.questionTypeAriaLabel')}
           >
             <option value="multipleChoice">{t('questionEditor.types.multipleChoice')}</option>
@@ -388,7 +393,7 @@ function QuestionEditor({
           <button
             type="button"
             onClick={handleDelete}
-            className="ml-2 whitespace-nowrap rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            className="ml-1 whitespace-nowrap rounded-xl border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-600 shadow-2xs hover:bg-rose-50 transition-colors"
           >
             {t('questionEditor.deleteButton')}
           </button>
@@ -399,13 +404,13 @@ function QuestionEditor({
         <p
           role="status"
           data-testid="fresh-default-banner"
-          className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900"
+          className="mt-3.5 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2 text-xs font-medium text-amber-900"
         >
           {t('questionEditor.freshDefaultBanner')}
         </p>
       )}
 
-      <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-base-black">
+      <label className="mt-4 flex flex-col gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
         {t('questionEditor.promptLabel')}
         <textarea
           ref={promptRef}
@@ -413,7 +418,7 @@ function QuestionEditor({
           onChange={(event) => update({ prompt: event.target.value })}
           onBlur={flush}
           rows={2}
-          className={inputClass}
+          className={`${inputClass} font-normal normal-case text-slate-900 resize-y`}
         />
       </label>
 

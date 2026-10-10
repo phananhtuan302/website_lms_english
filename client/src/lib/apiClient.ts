@@ -19,16 +19,78 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 const TOKEN_STORAGE_KEY = 'auth_token';
+const USER_STORAGE_KEY = 'auth_user';
+const REMEMBER_LOGIN_KEY = 'webeng.rememberLogin';
 
-export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+export function isRememberLoginEnabled(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_LOGIN_KEY) === 'true';
+  } catch {
+    return true;
+  }
 }
 
-export function setStoredToken(token: string | null): void {
-  if (token) {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  } else {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+export function setRememberLoginEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(REMEMBER_LOGIN_KEY, enabled ? 'true' : 'false');
+  } catch {
+    /* Ignore storage error */
+  }
+}
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY) || sessionStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string | null, remember = isRememberLoginEnabled()): void {
+  try {
+    if (token) {
+      if (remember) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      } else {
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      }
+    } else {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    /* Ignore storage error */
+  }
+}
+
+export function getStoredUser<T>(): T | null {
+  try {
+    const raw = localStorage.getItem(USER_STORAGE_KEY) || sessionStorage.getItem(USER_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredUser<T>(user: T | null, remember = isRememberLoginEnabled()): void {
+  try {
+    if (user) {
+      const raw = JSON.stringify(user);
+      if (remember) {
+        localStorage.setItem(USER_STORAGE_KEY, raw);
+        sessionStorage.removeItem(USER_STORAGE_KEY);
+      } else {
+        sessionStorage.setItem(USER_STORAGE_KEY, raw);
+        localStorage.removeItem(USER_STORAGE_KEY);
+      }
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+      sessionStorage.removeItem(USER_STORAGE_KEY);
+    }
+  } catch {
+    /* Ignore storage error */
   }
 }
 

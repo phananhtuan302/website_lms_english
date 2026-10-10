@@ -1,5 +1,4 @@
 import { useState, type ChangeEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { AcademicPeriodDTO, ClassDTO } from '@platform/shared';
 import { teacherApi } from '../lib/teacherApi';
@@ -15,16 +14,7 @@ interface ClassSemesterSelectProps {
 }
 
 /**
- * The class's current-semester dropdown (T-102) — used by the workspace header and the Cài đặt
- * tab, so both behave identically (the "no semester yet" banner just points at the header one). Picking a
- * different semester asks `window.confirm` (naming the target semester — same convention as
- * every other consequential action in this codebase) and only then calls T-099's
- * `PATCH /api/teacher/classes/:classId/current-period`, because the switch immediately
- * changes what this class's students see. The `<select>` is controlled, so cancelling the
- * confirm leaves it on the current semester.
- *
- * The semester list is owned by the layout (loaded once) and passed in — this component
- * never fetches it, it only writes.
+ * Modern Compact ClassSemesterSelect
  */
 function ClassSemesterSelect({ cls, periods, periodsError, onChanged }: ClassSemesterSelectProps) {
   const { t } = useTranslation();
@@ -59,43 +49,32 @@ function ClassSemesterSelect({ cls, periods, periodsError, onChanged }: ClassSem
   const noPeriods = periods !== null && periods.length === 0;
 
   return (
-    <div className="flex flex-col gap-1">
-      <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-base-black/60">
-        {t('classWorkspace.semesterLabel')}
-        <select
-          value={cls.currentPeriodId ?? ''}
-          onChange={handleChange}
-          disabled={periods === null || noPeriods || saving}
-          className="w-40 rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-56"
-        >
-          {periods === null && <option value="">{t('classWorkspace.semesterLoading')}</option>}
-          {periods !== null && !cls.currentPeriodId && (
-            <option value="">{t('classWorkspace.semesterPlaceholder')}</option>
-          )}
-          {periods?.map((period) => (
-            <option key={period.id} value={period.id}>
-              {period.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {saving && (
-        <p role="status" className="text-xs text-base-black/60">
-          {t('classWorkspace.switchingPeriod')}
-        </p>
+    <div className="relative inline-flex flex-col">
+      <select
+        value={cls.currentPeriodId ?? ''}
+        onChange={handleChange}
+        disabled={periods === null || noPeriods || saving}
+        aria-label={t('classWorkspace.semesterLabel')}
+        className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 shadow-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <option value="" disabled>
+          {t('classWorkspace.noSemesterSelected')}
+        </option>
+        {periods?.map((period) => (
+          <option key={period.id} value={period.id}>
+            {period.name}
+          </option>
+        ))}
+      </select>
+      {saveError && (
+        <span role="alert" className="absolute top-10 right-0 z-20 whitespace-nowrap rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 shadow">
+          {saveError}
+        </span>
       )}
-      {noPeriods && !periodsError && (
-        <p className="text-xs text-base-black/60">
-          {t('classWorkspace.noPeriods')}{' '}
-          <Link to="/teacher/curriculum" className="font-medium text-primary-600 hover:underline">
-            {t('classWorkspace.noPeriodsLink')}
-          </Link>
-        </p>
-      )}
-      {(periodsError || saveError) && (
-        <p role="alert" className="text-xs text-red-700">
-          {saveError ?? periodsError}
-        </p>
+      {periodsError && (
+        <span role="alert" className="absolute top-10 right-0 z-20 whitespace-nowrap rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 shadow">
+          {periodsError}
+        </span>
       )}
     </div>
   );

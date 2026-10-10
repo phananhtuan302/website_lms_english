@@ -13,22 +13,8 @@ import {
 import { teacherApi } from '../../lib/teacherApi';
 
 /**
- * Layout route for `/teacher/classes/:classId` (T-102, Phase 13) — the persistent "class
- * workspace" every class-scoped screen renders INSIDE, Google Classroom / Canvas style:
- * a header (class name, semester dropdown, back link, quick class-switcher), a "no
- * semester yet" banner when the class has none (it points at the header's dropdown — there is
- * only ever one), a tab bar, and the active tab via
- * `<Outlet/>`.
- *
- * The class list and semester list are each fetched ONCE here and shared with the tabs
- * through outlet context (see `useClassWorkspace`), so tabs never refetch the class and a
- * semester switch in the header shows up everywhere immediately. The class is looked up in
- * the teacher's OWN class list (`GET /api/teacher/classes` is already owner-scoped), so an
- * unknown or foreign `:classId` simply isn't found and gets a clean "not found" state —
- * never a crash and never a peek at someone else's class.
- *
- * Adding a tab: add it to `CLASS_TABS` (lib/classWorkspace.ts), add a child `<Route>` in
- * `App.tsx`, add its label under `classWorkspace.tabs` in both i18n files.
+ * Redesigned Layout for `/teacher/classes/:classId`
+ * Clean SaaS standard, unified typography, visually balanced controls.
  */
 function ClassWorkspaceLayout() {
   const { classId = '' } = useParams<{ classId: string }>();
@@ -75,9 +61,12 @@ function ClassWorkspaceLayout() {
   const backLink = (
     <Link
       to={CLASSES_HOME_PATH}
-      className="inline-block py-2.5 text-sm font-medium text-primary-600 hover:underline sm:py-0"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900"
     >
-      {t('classWorkspace.backToClasses')}
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+      </svg>
+      <span>Tất cả lớp</span>
     </Link>
   );
 
@@ -87,7 +76,7 @@ function ClassWorkspaceLayout() {
         {backLink}
         <p
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {t('classWorkspace.loadFailed')}
         </p>
@@ -96,20 +85,25 @@ function ClassWorkspaceLayout() {
   }
 
   if (classes === null) {
-    return <p className="text-sm text-base-black/60">{t('common.loading')}</p>;
+    return (
+      <div className="flex items-center gap-2 py-8 text-sm text-slate-500">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+        <span>{t('common.loading')}</span>
+      </div>
+    );
   }
 
   if (!cls || !outletContext) {
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 p-6">
-        <h1 className="text-2xl font-bold text-primary-700">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-xs">
+        <h1 className="text-xl font-bold text-slate-800">
           {t('classWorkspace.notFoundHeading')}
         </h1>
-        <p className="text-sm text-base-black/70">{t('classWorkspace.notFoundMessage')}</p>
-        <div>
+        <p className="max-w-md text-sm text-slate-500">{t('classWorkspace.notFoundMessage')}</p>
+        <div className="pt-2">
           <Link
             to={CLASSES_HOME_PATH}
-            className="inline-block rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="inline-flex items-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700"
           >
             {t('classWorkspace.notFoundBack')}
           </Link>
@@ -122,27 +116,28 @@ function ClassWorkspaceLayout() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-3 rounded-2xl border border-primary-100 bg-primary-50 p-4 sm:gap-4 sm:p-5">
-        <div>{backLink}</div>
-        <div className="flex flex-wrap items-end justify-between gap-3 sm:gap-4">
-          <div className="min-w-0">
-            <h1 className="break-words text-xl font-bold text-primary-700 sm:text-3xl">
-              {cls.name}
-            </h1>
-            <p className="mt-0.5 text-sm text-base-black/60 sm:mt-1">
-              {t('classWorkspace.studentCount', { count: cls.studentCount })}
-            </p>
+      {/* 1. Header Toolbar - Tinh gọn, bỏ tiêu đề lớn trùng lặp */}
+      <header className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs sm:p-4.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {backLink}
+            <div className="h-4 w-px bg-slate-200" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+              <span>👥 {t('classWorkspace.studentCount', { count: cls.studentCount })}</span>
+            </div>
           </div>
-          <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+
+          {/* Quick Switcher dropdowns góc phải */}
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {classes.length > 1 && (
-              <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-base-black/60">
-                {t('classWorkspace.classSwitcherLabel')}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-slate-500">Lớp:</span>
                 <select
                   value={cls.id}
                   onChange={(event) =>
                     navigate(classTabPath(event.target.value, activeTab.segment))
                   }
-                  className="w-40 rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:w-56"
+                  className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 shadow-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 >
                   {classes.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
@@ -150,9 +145,11 @@ function ClassWorkspaceLayout() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             )}
-            <div className="flex max-w-full flex-col gap-1">
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-slate-500">Học kỳ:</span>
               <ClassSemesterSelect
                 key={cls.id}
                 cls={cls}
@@ -160,27 +157,28 @@ function ClassWorkspaceLayout() {
                 periodsError={periodsError}
                 onChanged={setClass}
               />
-              {/* Phase 15: says what the semester choice means for students. Hidden on a phone
-                width — the class workspace header was eating close to half the screen height
-                there before any real content showed (2026-09 mobile review); the dropdown's own
-                label already says what it does. */}
-              <p className="hidden max-w-xs text-xs text-base-black/60 sm:block">{t('classWorkspace.semesterHelper')}</p>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Cảnh báo chưa chọn học kỳ */}
       {!cls.currentPeriodId && (
         <div
           role="status"
-          className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900"
+          className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-xs"
         >
-          <p className="font-semibold">{t('classWorkspace.noSemesterBanner')}</p>
+          <span className="text-lg">⚠️</span>
+          <div>
+            <p className="text-sm font-semibold">{t('classWorkspace.noSemesterBanner')}</p>
+            <p className="text-xs text-amber-700">Vui lòng chọn học kỳ ở menu góc trên bên phải để học sinh thấy đúng các bài kiểm tra.</p>
+          </div>
         </div>
       )}
 
-      <nav aria-label={t('classWorkspace.tabsAriaLabel')}>
-        <ul className="flex flex-wrap gap-x-1 border-b border-primary-100">
+      {/* 2. Modern Segmented Underline Tabs Bar */}
+      <nav aria-label={t('classWorkspace.tabsAriaLabel')} className="border-b border-slate-200 bg-transparent">
+        <ul className="flex flex-wrap gap-1 sm:gap-2">
           {CLASS_TABS.map((tab) => {
             const isActive = tab === activeTab;
             return (
@@ -188,7 +186,11 @@ function ClassWorkspaceLayout() {
                 <Link
                   to={classTabPath(cls.id, tab.segment)}
                   aria-current={isActive ? 'page' : undefined}
-                  className="-mb-px inline-block border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-base-black/60 transition-colors hover:border-primary-200 hover:text-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 aria-[current=page]:border-primary-500 aria-[current=page]:font-semibold aria-[current=page]:text-primary-700"
+                  className={`inline-flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-all ${
+                    isActive
+                      ? 'border-primary-600 text-primary-700 bg-primary-50/60 rounded-t-lg'
+                      : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  }`}
                 >
                   {t(tab.labelKey)}
                 </Link>
@@ -198,8 +200,7 @@ function ClassWorkspaceLayout() {
         </ul>
       </nav>
 
-      {/* Keyed by class so switching class (quick-switcher) remounts the tab: per-tab local
-        state — e.g. the Cài đặt rename input — can never leak from one class to another. */}
+      {/* Tab Content */}
       <Outlet key={cls.id} context={outletContext} />
     </div>
   );

@@ -1,94 +1,108 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { cn } from '../../lib/cn';
 
 export interface BarChartDatum {
-  /** Short x-axis label (e.g. a weekday abbreviation). */
   label: string;
   value: number;
-  /** Fuller description shown in the tooltip only (e.g. the full date). Falls back to `label`. */
   tooltipLabel?: string;
+  subtitle?: string;
 }
 
 interface BarChartProps {
   data: BarChartDatum[];
   className?: string;
+  height?: number;
 }
 
-/** Rounds a max value up to a "clean" tick (1/2/5 × a power of ten) so axis labels read as
- * round numbers instead of an arbitrary max like 17. */
 function niceMax(value: number): number {
-  if (value <= 0) return 1;
+  if (value <= 0) return 5;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const normalized = value / magnitude;
   const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-  return step * magnitude;
+  return Math.max(step * magnitude, 5);
 }
 
-/**
- * Single-series bar chart (dataviz skill: one hue for one series, 4px rounded data-end, hairline
- * gridlines, per-bar hover tooltip, no legend needed for a single series). Built for a small
- * embedded trend — e.g. "attempts per day" on the admin dashboard — from data the page already
- * has, not a generic charting dependency.
- */
-function BarChart({ data, className }: BarChartProps) {
+function BarChart({ data, className, height }: BarChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const chartId = useId();
   const max = niceMax(Math.max(0, ...data.map((d) => d.value)));
-  const ticks = [max, Math.round(max / 2), 0];
+  const ticks = [max, Math.round(max * 0.75), Math.round(max * 0.5), Math.round(max * 0.25), 0];
 
   return (
-    <div className={cn('select-none', className)}>
-      <p className="sr-only">
-        {data.map((d) => `${d.tooltipLabel ?? d.label}: ${d.value}`).join('; ')}
-      </p>
-      <div aria-hidden="true" className="flex h-36 items-stretch gap-1">
-        <div className="flex w-8 shrink-0 flex-col justify-between py-0 text-right text-[11px] leading-none text-slate-400">
-          {ticks.map((tick) => (
-            <span key={tick}>{tick}</span>
+    <div className={cn('select-none w-full h-full flex flex-col justify-between', className)}>
+      <div
+        className="relative flex items-stretch gap-2 flex-1 min-h-[180px]"
+        style={height ? { height: `${height}px` } : undefined}
+      >
+        {/* Y Axis ticks */}
+        <div className="flex w-9 shrink-0 flex-col justify-between py-1 text-right text-[11px] font-semibold tabular-nums text-slate-400">
+          {ticks.map((tick, i) => (
+            <span key={`${tick}-${i}`}>{tick}</span>
           ))}
         </div>
-        <div className="relative flex flex-1 items-end gap-2 border-l border-slate-200">
-          {/* Gridlines at 0% / 50% / 100% — hairline, recessive. */}
+
+        {/* Chart Canvas */}
+        <div className="relative flex flex-1 items-end gap-1.5 sm:gap-2 border-b border-l border-slate-200">
+          {/* Horizontal Grid lines */}
           <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-            {ticks.map((tick) => (
-              <div key={tick} className="border-t border-slate-100 first:border-t-0" />
+            {ticks.map((tick, i) => (
+              <div key={`grid-${tick}-${i}`} className="border-t border-slate-100 first:border-t-0" />
             ))}
           </div>
+
+          {/* Bars */}
           {data.map((d, index) => {
             const heightPct = max > 0 ? (d.value / max) * 100 : 0;
             const isActive = activeIndex === index;
             return (
               <div
-                key={`${d.label}-${index}`}
+                key={`${chartId}-${d.label}-${index}`}
                 className="group relative flex h-full flex-1 flex-col items-center justify-end"
                 onMouseEnter={() => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(null)}
-                onFocus={() => setActiveIndex(index)}
-                onBlur={() => setActiveIndex(null)}
                 tabIndex={0}
-                role="img"
-                aria-label={`${d.tooltipLabel ?? d.label}: ${d.value}`}
               >
+                {/* Modern Hover Tooltip */}
                 {isActive && (
-                  <div className="absolute bottom-full z-10 mb-1.5 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-base-white shadow-dropdown">
-                    <span className="font-semibold">{d.value}</span>{' '}
-                    <span className="text-slate-300">{d.tooltipLabel ?? d.label}</span>
+                  <div className="absolute bottom-full z-30 mb-2 whitespace-nowrap rounded-xl bg-slate-900/95 px-3 py-1.5 text-xs text-white shadow-xl backdrop-blur-xs pointer-events-none transition-all">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-primary-400" />
+                      <span>{d.value} lượt nộp</span>
+                    </div>
+                    <div className="text-[10px] text-slate-300 font-medium">
+                      {d.tooltipLabel ?? d.label}
+                    </div>
                   </div>
                 )}
+
+                {/* Animated Column Bar */}
                 <div
                   className={cn(
-                    'w-full max-w-[22px] rounded-t bg-primary-600 transition-colors',
-                    isActive && 'bg-primary-700',
+                    'w-full max-w-[32px] rounded-t-lg transition-all duration-200',
+                    isActive
+                      ? 'bg-gradient-to-t from-primary-600 to-indigo-500 shadow-md scale-x-105'
+                      : d.value > 0
+                        ? 'bg-gradient-to-t from-primary-500 to-primary-400 hover:from-primary-600 hover:to-primary-500'
+                        : 'bg-slate-100 hover:bg-slate-200',
                   )}
-                  style={{ height: `${heightPct}%`, minHeight: d.value > 0 ? 3 : 0 }}
+                  style={{
+                    height: `${Math.max(heightPct, d.value > 0 ? 5 : 2)}%`,
+                  }}
                 />
               </div>
             );
           })}
         </div>
       </div>
-      <div className="mt-1.5 flex gap-2 pl-9">
+
+      {/* X Axis Labels */}
+      <div className="mt-2.5 flex gap-1.5 sm:gap-2 pl-11">
         {data.map((d, index) => (
-          <div key={`${d.label}-${index}`} className="flex-1 text-center text-[11px] text-slate-400">
+          <div
+            key={`label-${chartId}-${d.label}-${index}`}
+            className="flex-1 text-center text-[11px] font-medium text-slate-500 truncate"
+            title={d.tooltipLabel ?? d.label}
+          >
             {d.label}
           </div>
         ))}

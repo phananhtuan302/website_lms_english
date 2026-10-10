@@ -55,7 +55,18 @@ const CLIENT_ORIGIN = env.CLIENT_ORIGIN;
 
 const app = express();
 
-app.use(cors({ origin: CLIENT_ORIGIN }));
+app.use(
+  cors({
+    origin: [
+      CLIENT_ORIGIN,
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'https://dash.nhatanh97.xyz',
+      'https://api-dash.nhatanh97.xyz',
+    ],
+    credentials: true,
+  }),
+);
 // Raised from Express's 100kb default (T-052–T-054): Speaking answers submit a
 // base64-encoded audio recording as part of a plain JSON body (see
 // `attempts.routes.ts`'s module doc comment for the documented "no real object storage
@@ -310,7 +321,16 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction): void =>
 // teacher-monitor rooms, student progress relay) — see realtime/sessionRealtime.ts.
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
-  cors: { origin: CLIENT_ORIGIN },
+  cors: {
+    origin: [
+      CLIENT_ORIGIN,
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'https://dash.nhatanh97.xyz',
+      'https://api-dash.nhatanh97.xyz',
+    ],
+    credentials: true,
+  },
 });
 
 attachSessionRealtime(io);

@@ -16,16 +16,18 @@
       rel="stylesheet"
     />
     <script>
-      // "Chữ to": apply the saved text size before the first paint (see src/lib/textSize.ts).
+      // Apply saved font size scale before first paint
       try {
         var textSize = window.localStorage.getItem('textSize');
-        var textSizePercent = textSize === 'large' ? '112.5%' : textSize === 'xlarge' ? '125%' : '';
-        if (textSizePercent) {
-          document.documentElement.style.fontSize = textSizePercent;
-          document.documentElement.setAttribute('data-text-size', textSize);
+        var scale = 100;
+        if (textSize === 'large') scale = 112;
+        else if (textSize === 'xlarge') scale = 125;
+        else if (textSize) scale = parseInt(textSize, 10);
+        if (scale && scale !== 100) {
+          document.documentElement.style.fontSize = scale + '%';
         }
       } catch (e) {
-        /* storage unavailable: keep the normal size */
+        /* storage unavailable: keep normal size */
       }
     </script>
   </head>

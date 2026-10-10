@@ -8,7 +8,7 @@
  */
 
 import { Router } from 'express';
-import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, UpdateAvatarRequest } from '@platform/shared';
+import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, UpdateAvatarRequest, UpdateProfileRequest } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { hashPassword, verifyPassword } from '../lib/password';
 import { signToken } from '../lib/jwt';
@@ -31,6 +31,11 @@ export function toAuthUser(user: {
   classId: string | null;
   class?: { name: string } | null;
   avatarUrl: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  birthday?: Date | null;
+  sex?: string | null;
+  phoneNumber?: string | null;
   isGuest: boolean;
 }): AuthUser {
   return {
@@ -41,6 +46,11 @@ export function toAuthUser(user: {
     classId: user.classId,
     className: user.class?.name ?? null,
     avatarUrl: user.avatarUrl,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    birthday: user.birthday ? user.birthday.toISOString().split('T')[0] : null,
+    sex: user.sex,
+    phoneNumber: user.phoneNumber,
     isGuest: user.isGuest,
   };
 }
@@ -149,6 +159,11 @@ authRouter.post(
       return;
     }
 
+    if (!user.isActive) {
+      res.status(403).json({ error: 'Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' });
+      return;
+    }
+
     const authUser = toAuthUser(user);
     const response: AuthResponse = { token: signToken(authUser), user: authUser };
     res.status(200).json(response);
@@ -217,3 +232,99 @@ authRouter.patch(
     res.status(200).json(toAuthUser(user));
   }),
 );
+
+/**
+ * PATCH /api/auth/me
+ * Update user's own profile (name, personal info, and optionally change password).
+ */
+authRouter.patch(
+  '/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<UpdateProfileRequest>;
+    const userId = req.user!.sub;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { class: { select: { name: true } } },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    const dataToUpdate: {
+      name?: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      birthday?: Date | null;
+      sex?: string | null;
+      phoneNumber?: string | null;
+      passwordHash?: string;
+    } = {};
+
+    if (typeof body.name === 'string') {
+      const trimmedName = body.name.trim();
+      if (!trimmedName) {
+        res.status(400).json({ error: 'Họ và tên không được để trống.' });
+        return;
+      }
+      dataToUpdate.name = trimmedName;
+    }
+
+    if (body.firstName !== undefined) {
+      dataToUpdate.firstName = body.firstName ? body.firstName.trim() : null;
+    }
+    if (body.lastName !== undefined) {
+      dataToUpdate.lastName = body.lastName ? body.lastName.trim() : null;
+    }
+    if (body.sex !== undefined) {
+      dataToUpdate.sex = body.sex ? body.sex.trim() : null;
+    }
+    if (body.phoneNumber !== undefined) {
+      dataToUpdate.phoneNumber = body.phoneNumber ? body.phoneNumber.trim() : null;
+    }
+    if (body.birthday !== undefined) {
+      if (!body.birthday) {
+        dataToUpdate.birthday = null;
+      } else {
+        const d = new Date(body.birthday);
+        if (isNaN(d.getTime())) {
+          res.status(400).json({ error: 'Ngày sinh không hợp lệ.' });
+          return;
+        }
+        dataToUpdate.birthday = d;
+      }
+    }
+
+    if (body.newPassword) {
+      if (!body.currentPassword) {
+        res.status(400).json({ error: 'Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu mới.' });
+        return;
+      }
+
+      const isCurrentValid = await verifyPassword(body.currentPassword, user.passwordHash);
+      if (!isCurrentValid) {
+        res.status(400).json({ error: 'Mật khẩu hiện tại không chính xác.' });
+        return;
+      }
+
+      if (body.newPassword.length < 6) {
+        res.status(400).json({ error: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
+        return;
+      }
+
+      dataToUpdate.passwordHash = await hashPassword(body.newPassword);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+      include: { class: { select: { name: true } } },
+    });
+
+    res.status(200).json(toAuthUser(updatedUser));
+  }),
+);
+

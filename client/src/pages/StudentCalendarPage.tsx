@@ -195,7 +195,7 @@ function StudentCalendarPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div className="rounded-xl border border-primary-100 bg-primary-50 px-6 py-5">
         <Link
           to="/student/dashboard"

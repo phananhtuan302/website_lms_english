@@ -73,8 +73,8 @@ export function loadEnv(): Env {
   }
 
   cached = {
-    PORT: Number(process.env.PORT) || 4000,
-    CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    PORT: Number(process.env.PORT) || 5000,
+    CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
     DATABASE_URL: process.env.DATABASE_URL as string,
     JWT_SECRET: process.env.JWT_SECRET as string,
   };

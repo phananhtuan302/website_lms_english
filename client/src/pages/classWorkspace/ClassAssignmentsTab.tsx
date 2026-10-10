@@ -335,6 +335,7 @@ function ClassAssignmentsTab() {
           )}
           <Link
             to={contentEditorPath(row.kind, row.item.id)}
+            state={{ returnTo: `/teacher/classes/${cls.id}/assignments` }}
             aria-label={t('classAssignments.actions.editAria', { title: row.title })}
             className={actionClass}
           >

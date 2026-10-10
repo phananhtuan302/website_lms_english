@@ -1,61 +1,51 @@
 /**
- * "Chữ to" (Phase 15): a per-browser text-size choice for readers who enlarge the page.
- *
- * The size is applied by setting the ROOT font size (`<html style="font-size: …%">`); every
- * Tailwind size in the app is rem-based, so the whole interface scales with it. The choice is
- * remembered in `localStorage` under `TEXT_SIZE_STORAGE_KEY`, and `index.html` applies it with a
- * tiny inline script before the first paint (so there is no flash of small text) — keep that
- * script and `TEXT_SIZE_ROOT_PERCENT` in step. Storage can be unavailable (private window, blocked
- * site data): every access is wrapped so the app simply falls back to the normal size.
+ * Dynamic font-size scaling per browser.
+ * Supports smooth percentage slider scaling (e.g. 80% to 140%).
  */
-export type TextSize = 'normal' | 'large' | 'xlarge';
-
 export const TEXT_SIZE_STORAGE_KEY = 'textSize';
+export const DEFAULT_TEXT_SCALE = 100;
+export const MIN_TEXT_SCALE = 80;
+export const MAX_TEXT_SCALE = 140;
 
-/** The order the header button cycles through. */
-export const TEXT_SIZE_ORDER: readonly TextSize[] = ['normal', 'large', 'xlarge'];
-
-export const TEXT_SIZE_ROOT_PERCENT: Record<TextSize, string> = {
-  normal: '100%',
-  large: '112.5%',
-  xlarge: '125%',
-};
-
-function isTextSize(value: unknown): value is TextSize {
-  return value === 'normal' || value === 'large' || value === 'xlarge';
-}
-
-/** The size currently applied to the page (from the saved choice); `normal` when none. */
-export function readTextSize(): TextSize {
+/** Reads the percentage scale (e.g. 100) from localStorage */
+export function readTextScale(): number {
   try {
     const stored = window.localStorage.getItem(TEXT_SIZE_STORAGE_KEY);
-    return isTextSize(stored) ? stored : 'normal';
+    if (!stored) return DEFAULT_TEXT_SCALE;
+    // Backward compatibility with 'normal' | 'large' | 'xlarge'
+    if (stored === 'normal') return 100;
+    if (stored === 'large') return 112;
+    if (stored === 'xlarge') return 125;
+    const parsed = parseInt(stored, 10);
+    if (!isNaN(parsed) && parsed >= MIN_TEXT_SCALE && parsed <= MAX_TEXT_SCALE) {
+      return parsed;
+    }
+    return DEFAULT_TEXT_SCALE;
   } catch {
-    return 'normal';
+    return DEFAULT_TEXT_SCALE;
   }
 }
 
-/** Sets the root font size (and a `data-text-size` hook) without saving anything. */
-export function applyTextSize(size: TextSize): void {
+/** Applies percentage scale directly to html element */
+export function applyTextScale(percent: number): void {
   const root = document.documentElement;
-  if (size === 'normal') {
+  if (percent === 100) {
     root.style.removeProperty('font-size');
-    root.removeAttribute('data-text-size');
+    root.removeAttribute('data-text-scale');
   } else {
-    root.style.fontSize = TEXT_SIZE_ROOT_PERCENT[size];
-    root.setAttribute('data-text-size', size);
+    root.style.fontSize = `${percent}%`;
+    root.setAttribute('data-text-scale', `${percent}%`);
   }
 }
 
-export function saveTextSize(size: TextSize): void {
+export function saveTextScale(percent: number): void {
   try {
-    if (size === 'normal') window.localStorage.removeItem(TEXT_SIZE_STORAGE_KEY);
-    else window.localStorage.setItem(TEXT_SIZE_STORAGE_KEY, size);
+    if (percent === 100) {
+      window.localStorage.removeItem(TEXT_SIZE_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(TEXT_SIZE_STORAGE_KEY, percent.toString());
+    }
   } catch {
-    // Degrade silently: the size still applies for this visit, it just is not remembered.
+    // Ignore storage issues
   }
-}
-
-export function nextTextSize(size: TextSize): TextSize {
-  return TEXT_SIZE_ORDER[(TEXT_SIZE_ORDER.indexOf(size) + 1) % TEXT_SIZE_ORDER.length];
 }

@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type {
@@ -17,6 +17,7 @@ import { EditorSaveContext, useEditorSaveStore, useSerialSaver } from '../lib/ed
 import { friendlyEditorError, rawErrorText } from '../lib/editorErrors';
 import { HoldSave } from '../lib/serialSaver';
 import { sendKeepalive } from '../lib/keepaliveRequest';
+import { useAuth } from '../context/useAuth';
 import TestSectionEditor from '../components/TestSectionEditor';
 import LibraryBreadcrumb from '../components/LibraryBreadcrumb';
 import SaveStatusBar from '../components/SaveStatusBar';
@@ -141,7 +142,7 @@ interface MetaDraft {
 const NUMBER_DEBOUNCE_MS = 300;
 
 const selectClass =
-  'rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200';
+  'rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-2xs transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 /**
  * Full test-authoring editor (T-008): edit the test title, manage question groups ("nhóm câu")
@@ -193,6 +194,8 @@ function TestEditorBody({
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const location = useLocation();
   const tracker = useContext(EditorSaveContext);
   const [test, setTest] = useState<TestDetailDTO | null>(null);
   const [meta, setMeta] = useState<MetaDraft | null>(null);
@@ -491,10 +494,40 @@ function TestEditorBody({
     setShowAssign(true);
   }
 
+  const defaultBackLink = user?.role === 'admin' ? '/admin/tests' : '/teacher/tests';
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+
+  const handleBack = () => {
+    if (returnTo) {
+      navigate(returnTo);
+    } else if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      navigate(defaultBackLink);
+    }
+  };
+
+  const backButtonElement = (
+    <button
+      type="button"
+      onClick={handleBack}
+      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+    >
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      {returnTo ? 'Quay lại' : 'Danh sách bài kiểm tra'}
+    </button>
+  );
+
   if (!test || !meta) {
     return (
       <div>
-        <LibraryBreadcrumb section="tests" linkSection />
+        <div className="flex items-center gap-3">
+          {backButtonElement}
+          <span className="text-slate-300">|</span>
+          <LibraryBreadcrumb section="tests" linkSection />
+        </div>
         {loadFailed ? (
           <p
             role="alert"
@@ -512,151 +545,197 @@ function TestEditorBody({
   const questionCount = test.sections.reduce((sum, section) => sum + section.questions.length, 0);
 
   return (
-    <div className="flex flex-col">
-      <LibraryBreadcrumb section="tests" linkSection />
-      <SaveStatusBar status={status} />
+    <div className="flex flex-col space-y-6">
+      {/* Top Header Card */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-3">
+            {backButtonElement}
+            <span className="text-slate-300">|</span>
+            <LibraryBreadcrumb section="tests" linkSection />
+          </div>
+          <SaveStatusBar status={status} />
+        </div>
 
-      <div className="mt-4">
-        <input
-          type="text"
-          value={meta.title}
-          onChange={(event) => updateMeta({ title: event.target.value })}
-          onBlur={() => void metaSaver.flush()}
-          aria-label={t('teacherTestEditor.titleAriaLabel')}
-          className="w-full rounded-md border border-primary-200 px-3 py-2 text-2xl font-bold text-primary-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-        />
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            {t('teacherTestEditor.settings.timeLimitLabel')}
-            <input
-              type="number"
-              min={1}
-              value={meta.timeLimitText}
-              onChange={(event) => updateMeta({ timeLimitText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })}
-              onBlur={() => void metaSaver.flush()}
-              placeholder={t('teacherTestEditor.settings.timeLimitPlaceholder')}
-              className="w-32 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
+        <div className="mt-4">
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">
+            Tên bài kiểm tra
           </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            {t('teacherTestEditor.settings.unitLabel')}
-            <select
-              value={meta.unitId ?? ''}
-              onChange={(event) =>
-                updateMeta({ unitId: event.target.value === '' ? null : event.target.value }, { immediate: true })
-              }
-              className={selectClass}
-            >
-              <option value="">{t('teacherTestEditor.settings.noUnit')}</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium text-base-black">
-            {t('teacherTestEditor.settings.testTypeLabel')}
-            <select
-              value={meta.testType}
-              onChange={(event) => updateMeta({ testType: event.target.value as TestType }, { immediate: true })}
-              className={selectClass}
-            >
-              {TEST_TYPE_VALUES.map((value) => (
-                <option key={value} value={value}>
-                  {t(`teacherTestEditor.testTypes.${value}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {meta.testType === 'unitTest' && (
-            <label className="flex items-center gap-2 text-sm font-medium text-base-black">
+          <input
+            type="text"
+            value={meta.title}
+            onChange={(event) => updateMeta({ title: event.target.value })}
+            onBlur={() => void metaSaver.flush()}
+            placeholder="Nhập tên bài kiểm tra..."
+            aria-label={t('teacherTestEditor.titleAriaLabel')}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-lg font-bold text-slate-900 shadow-2xs transition-colors focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-600">
+                {t('teacherTestEditor.settings.timeLimitLabel')}
+              </span>
               <input
-                type="checkbox"
-                checked={meta.published}
-                onChange={(event) => updateMeta({ published: event.target.checked }, { immediate: true })}
-                className="h-4 w-4 rounded border-primary-300 text-primary-600 focus:ring-primary-200"
+                type="number"
+                min={1}
+                value={meta.timeLimitText}
+                onChange={(event) => updateMeta({ timeLimitText: event.target.value }, { delayMs: NUMBER_DEBOUNCE_MS })}
+                onBlur={() => void metaSaver.flush()}
+                placeholder={t('teacherTestEditor.settings.timeLimitPlaceholder')}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-normal text-slate-800 shadow-2xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               />
-              {t('teacherTestEditor.settings.publishedLabel')}
-            </label>
-          )}
-          {meta.testType === 'unitTest' && meta.unitId && (
-            <Link
-              to={`/units/${meta.unitId}/leaderboard`}
-              className="text-sm font-medium text-primary-600 hover:underline"
-            >
-              {t('teacherTestEditor.settings.viewUnitLeaderboard')}
-            </Link>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-600">
+                {t('teacherTestEditor.settings.unitLabel')}
+              </span>
+              <select
+                value={meta.unitId ?? ''}
+                onChange={(event) =>
+                  updateMeta({ unitId: event.target.value === '' ? null : event.target.value }, { immediate: true })
+                }
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-normal text-slate-800 shadow-2xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                <option value="">{t('teacherTestEditor.settings.noUnit')}</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-600">
+                {t('teacherTestEditor.settings.testTypeLabel')}
+              </span>
+              <select
+                value={meta.testType}
+                onChange={(event) => updateMeta({ testType: event.target.value as TestType }, { immediate: true })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-normal text-slate-800 shadow-2xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                {TEST_TYPE_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`teacherTestEditor.testTypes.${value}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            {meta.testType === 'unitTest' && (
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={meta.published}
+                  onChange={(event) => updateMeta({ published: event.target.checked }, { immediate: true })}
+                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-200"
+                />
+                {t('teacherTestEditor.settings.publishedLabel')}
+              </label>
+            )}
+
+            {meta.testType === 'unitTest' && meta.unitId && (
+              <Link
+                to={`/units/${meta.unitId}/leaderboard`}
+                className="text-xs font-semibold text-primary-600 hover:underline ml-auto"
+              >
+                {t('teacherTestEditor.settings.viewUnitLeaderboard')}
+              </Link>
+            )}
+          </div>
+
+          {actionError && (
+            <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700">
+              {actionError}
+            </p>
           )}
         </div>
-        {actionError && (
-          <p role="alert" className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {actionError}
-          </p>
-        )}
+
+        {/* Quick action bar */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="font-semibold text-slate-800">{questionCount}</span> câu hỏi
+            <span>·</span>
+            <span className="font-semibold text-slate-800">{test.sections.length}</span> nhóm câu
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void openPreview()}
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+            >
+              {t('teacherTestEditor.nextStep.preview')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDuplicateTest()}
+              disabled={isDuplicating}
+              aria-label={t('teacherTests.duplicateAriaLabel', { title: meta.title })}
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isDuplicating ? t('teacherTests.duplicating') : t('teacherTestEditor.nextStep.duplicate')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void openAssign()}
+              className="rounded-xl bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-primary-700"
+            >
+              {t('teacherTestEditor.nextStep.assign')}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <section
-        aria-labelledby="next-step-heading"
-        className="mt-6 flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4 sm:flex-row sm:flex-wrap sm:items-center"
-      >
-        <h2 id="next-step-heading" className="text-base font-bold text-primary-700">
-          {t('teacherTestEditor.nextStep.heading')}
-        </h2>
-        <span className="text-sm text-base-black/80">{t('teacherTestEditor.nextStep.question')}</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <span aria-hidden="true" className="hidden text-primary-700 sm:inline">
-            →
+      {/* Live session panel - thiết kế collapsible / card tinh gọn */}
+      <section>
+        <details className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer items-center justify-between font-semibold text-slate-800">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </span>
+              <div>
+                <span className="text-sm font-bold text-slate-900">Cho cả lớp vào làm bằng mã QR</span>
+                <span className="ml-2 text-xs font-normal text-slate-500">(Tùy chọn)</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-400 group-open:hidden">Mở cài đặt & mã QR</span>
+              <span className="text-xs font-medium text-slate-400 hidden group-open:inline">Thu gọn</span>
+              <svg className="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </summary>
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <LiveSessionManager
+              testId={testId}
+              testTitle={test.title}
+              beforeStart={() => tracker.flushAll()}
+              afterStart={refreshVariants}
+            />
+          </div>
+        </details>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900">{t('teacherTestEditor.sections.heading')}</h2>
+          <span className="text-xs text-slate-500 font-medium">
+            {test.sections.length} nhóm câu
           </span>
-          <button
-            type="button"
-            onClick={() => void openPreview()}
-            className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {t('teacherTestEditor.nextStep.preview')}
-          </button>
-          <span aria-hidden="true" className="text-primary-700">
-            →
-          </span>
-          <button
-            type="button"
-            onClick={() => void openAssign()}
-            className="rounded-md bg-primary-500 px-4 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
-          >
-            {t('teacherTestEditor.nextStep.assign')}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleDuplicateTest()}
-            disabled={isDuplicating}
-            aria-label={t('teacherTests.duplicateAriaLabel', { title: meta.title })}
-            className="rounded-md border border-primary-300 bg-base-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isDuplicating ? t('teacherTests.duplicating') : t('teacherTestEditor.nextStep.duplicate')}
-          </button>
         </div>
-      </section>
-
-      {/* 2026-10: moved up from the bottom of the page (after Variants) to right after the
-          "next step" quick-action bar — this is a frequently-used, time-sensitive action
-          (started right before/during class) that previously required scrolling past the
-          entire Sections/Questions editor and Variants list to reach, per direct teacher
-          feedback that its old position was impractical for how often it's used. Also
-          reachable directly from the class "Bài tập" row without opening this editor at
-          all — see `LiveSessionManager`'s doc comment. */}
-      <section className="mt-8">
-        <LiveSessionManager
-          testId={testId}
-          testTitle={test.title}
-          beforeStart={() => tracker.flushAll()}
-          afterStart={refreshVariants}
-        />
-      </section>
-
-      <section className="mt-8 flex flex-col gap-4">
-        <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.sections.heading')}</h2>
         {test.sections.length === 0 && (
-          <p className="text-sm text-base-black/60">{t('teacherTestEditor.sections.empty')}</p>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-xs text-slate-400">
+            {t('teacherTestEditor.sections.empty')}
+          </div>
         )}
         {test.sections.map((section, sectionIndex) => (
           <TestSectionEditor
@@ -679,73 +758,77 @@ function TestEditorBody({
         ))}
 
         {meta.testType === 'mockTest' && test.sections.length === 0 && (
-          <div className="rounded-md border border-primary-200 bg-primary-50 p-4">
-            <p className="text-sm text-base-black/70">{t('teacherTestEditor.mockScaffold.hint')}</p>
+          <div className="rounded-2xl border border-primary-200 bg-primary-50/50 p-4">
+            <p className="text-xs text-slate-700">{t('teacherTestEditor.mockScaffold.hint')}</p>
             <button
               type="button"
               onClick={handleScaffoldMockTest}
-              className="mt-2 rounded-md border border-primary-300 bg-base-white px-4 py-2.5 sm:py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
+              className="mt-2.5 rounded-xl border border-primary-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-primary-700 shadow-2xs hover:bg-primary-50"
             >
               {t('teacherTestEditor.mockScaffold.button')}
             </button>
           </div>
         )}
 
-        <form onSubmit={handleAddSection} className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-            {t('teacherTestEditor.sections.newSectionTitleLabel')}
-            <input
-              type="text"
-              value={newSectionTitle}
-              onChange={(event) => setNewSectionTitle(event.target.value)}
-              placeholder={t('teacherTestEditor.sections.newSectionTitlePlaceholder')}
-              className="w-64 max-w-full rounded-md border border-primary-200 px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={!newSectionTitle.trim()}
-            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('teacherTestEditor.sections.addSection')}
-          </button>
-        </form>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+          <form onSubmit={handleAddSection} className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700">
+              {t('teacherTestEditor.sections.newSectionTitleLabel')}
+              <input
+                type="text"
+                value={newSectionTitle}
+                onChange={(event) => setNewSectionTitle(event.target.value)}
+                placeholder={t('teacherTestEditor.sections.newSectionTitlePlaceholder')}
+                className="w-72 max-w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-normal text-slate-800 shadow-2xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={!newSectionTitle.trim()}
+              className="rounded-xl bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t('teacherTestEditor.sections.addSection')}
+            </button>
+          </form>
+        </div>
       </section>
 
-      <section className="mt-8 rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">{t('teacherTestEditor.variants.heading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">{t('teacherTestEditor.variants.description')}</p>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <h2 className="text-base font-bold text-slate-900">{t('teacherTestEditor.variants.heading')}</h2>
+        <p className="mt-0.5 text-xs text-slate-500">{t('teacherTestEditor.variants.description')}</p>
         <ul className="mt-3 flex flex-wrap gap-2">
           {variants.map((variant) => (
             <li
               key={variant.id}
-              className="rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-700"
+              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
             >
               {t('teacherTestEditor.variants.code', { code: variant.code })}
             </li>
           ))}
         </ul>
         {variants.length === 0 && (
-          <p className="mt-3 text-sm text-base-black/60">{t('teacherTestEditor.variants.empty')}</p>
+          <p className="mt-3 text-xs text-slate-400">{t('teacherTestEditor.variants.empty')}</p>
         )}
-        <button
-          type="button"
-          onClick={() => void handleRegenerateVariants()}
-          disabled={isRegeneratingVariants || questionCount === 0}
-          className="mt-3 rounded-md border border-primary-300 bg-base-white px-3 py-2.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60 sm:py-1.5"
-        >
-          {isRegeneratingVariants
-            ? t('teacherTestEditor.variants.regenerating')
-            : t('teacherTestEditor.variants.regenerate')}
-        </button>
-        {variantNote && (
-          <p
-            role={variantNote.tone === 'error' ? 'alert' : 'status'}
-            className={`mt-2 text-sm ${variantNote.tone === 'error' ? 'text-red-700' : 'text-green-800'}`}
+        <div className="mt-3.5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void handleRegenerateVariants()}
+            disabled={isRegeneratingVariants || questionCount === 0}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {variantNote.text}
-          </p>
-        )}
+            {isRegeneratingVariants
+              ? t('teacherTestEditor.variants.regenerating')
+              : t('teacherTestEditor.variants.regenerate')}
+          </button>
+          {variantNote && (
+            <p
+              role={variantNote.tone === 'error' ? 'alert' : 'status'}
+              className={`text-xs font-medium ${variantNote.tone === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}
+            >
+              {variantNote.text}
+            </p>
+          )}
+        </div>
       </section>
 
       {showPreview && <TestPreviewModal testId={testId} onClose={() => setShowPreview(false)} />}

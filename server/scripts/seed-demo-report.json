@@ -1,0 +1,249 @@
+{
+  "target": {
+    "host": "localhost",
+    "database": "english_platform_dev"
+  },
+  "reference": "2026-10-10T05:00:00.000Z",
+  "before": {
+    "user": {
+      "total": 489,
+      "demo": 489
+    },
+    "academicPeriod": {
+      "total": 4,
+      "demo": 3
+    },
+    "class": {
+      "total": 24,
+      "demo": 24
+    },
+    "unit": {
+      "total": 24,
+      "demo": 24
+    },
+    "test": {
+      "total": 72,
+      "demo": 72
+    },
+    "section": {
+      "total": 72,
+      "demo": 72
+    },
+    "question": {
+      "total": 720,
+      "demo": 720
+    },
+    "choice": {
+      "total": 1600,
+      "demo": 1600
+    },
+    "testVariant": {
+      "total": 144,
+      "demo": 144
+    },
+    "testSession": {
+      "total": 72,
+      "demo": 72
+    },
+    "testClassPeriodAssignment": {
+      "total": 216,
+      "demo": 216
+    },
+    "testClassSchedule": {
+      "total": 216,
+      "demo": 216
+    },
+    "flashcardSet": {
+      "total": 36,
+      "demo": 36
+    },
+    "flashcardCard": {
+      "total": 540,
+      "demo": 540
+    },
+    "flashcardSetClassPeriodAssignment": {
+      "total": 108,
+      "demo": 108
+    },
+    "grammarTopic": {
+      "total": 24,
+      "demo": 24
+    },
+    "grammarExercise": {
+      "total": 96,
+      "demo": 96
+    },
+    "grammarChoice": {
+      "total": 192,
+      "demo": 192
+    },
+    "grammarTopicClassPeriodAssignment": {
+      "total": 72,
+      "demo": 72
+    },
+    "attempt": {
+      "total": 3840,
+      "demo": 3840
+    },
+    "answer": {
+      "total": 38304,
+      "demo": 38304
+    },
+    "flashcardProgress": {
+      "total": 27000,
+      "demo": 27000
+    },
+    "flashcardExerciseAttempt": {
+      "total": 54000,
+      "demo": 54000
+    },
+    "vocabSentenceSubmission": {
+      "total": 1800,
+      "demo": 1800
+    },
+    "grammarExerciseAttempt": {
+      "total": 5760,
+      "demo": 5760
+    },
+    "classAnnouncement": {
+      "total": 72,
+      "demo": 72
+    }
+  },
+  "created": {
+    "user": 0,
+    "academicPeriod": 0,
+    "class": 0,
+    "unit": 0,
+    "test": 0,
+    "section": 0,
+    "question": 0,
+    "choice": 0,
+    "testVariant": 0,
+    "testSession": 0,
+    "testClassPeriodAssignment": 0,
+    "testClassSchedule": 0,
+    "flashcardSet": 0,
+    "flashcardCard": 0,
+    "flashcardSetClassPeriodAssignment": 0,
+    "grammarTopic": 0,
+    "grammarExercise": 0,
+    "grammarChoice": 0,
+    "grammarTopicClassPeriodAssignment": 0,
+    "attempt": 0,
+    "answer": 0,
+    "flashcardProgress": 0,
+    "flashcardExerciseAttempt": 0,
+    "vocabSentenceSubmission": 0,
+    "grammarExerciseAttempt": 0,
+    "classAnnouncement": 0
+  },
+  "after": {
+    "user": {
+      "total": 489,
+      "demo": 489
+    },
+    "academicPeriod": {
+      "total": 4,
+      "demo": 3
+    },
+    "class": {
+      "total": 24,
+      "demo": 24
+    },
+    "unit": {
+      "total": 24,
+      "demo": 24
+    },
+    "test": {
+      "total": 72,
+      "demo": 72
+    },
+    "section": {
+      "total": 72,
+      "demo": 72
+    },
+    "question": {
+      "total": 720,
+      "demo": 720
+    },
+    "choice": {
+      "total": 1600,
+      "demo": 1600
+    },
+    "testVariant": {
+      "total": 144,
+      "demo": 144
+    },
+    "testSession": {
+      "total": 72,
+      "demo": 72
+    },
+    "testClassPeriodAssignment": {
+      "total": 216,
+      "demo": 216
+    },
+    "testClassSchedule": {
+      "total": 216,
+      "demo": 216
+    },
+    "flashcardSet": {
+      "total": 36,
+      "demo": 36
+    },
+    "flashcardCard": {
+      "total": 540,
+      "demo": 540
+    },
+    "flashcardSetClassPeriodAssignment": {
+      "total": 108,
+      "demo": 108
+    },
+    "grammarTopic": {
+      "total": 24,
+      "demo": 24
+    },
+    "grammarExercise": {
+      "total": 96,
+      "demo": 96
+    },
+    "grammarChoice": {
+      "total": 192,
+      "demo": 192
+    },
+    "grammarTopicClassPeriodAssignment": {
+      "total": 72,
+      "demo": 72
+    },
+    "attempt": {
+      "total": 3840,
+      "demo": 3840
+    },
+    "answer": {
+      "total": 38304,
+      "demo": 38304
+    },
+    "flashcardProgress": {
+      "total": 27000,
+      "demo": 27000
+    },
+    "flashcardExerciseAttempt": {
+      "total": 54000,
+      "demo": 54000
+    },
+    "vocabSentenceSubmission": {
+      "total": 1800,
+      "demo": 1800
+    },
+    "grammarExerciseAttempt": {
+      "total": 5760,
+      "demo": 5760
+    },
+    "classAnnouncement": {
+      "total": 72,
+      "demo": 72
+    }
+  },
+  "pendingEssays": 380,
+  "note": "Existing rows preserved; reruns insert missing stable IDs only."
+}

@@ -8,6 +8,7 @@ import { CameraIcon } from './icons';
 interface AvatarUploadProps {
   size?: 'sm' | 'md';
   className?: string;
+  triggerRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 const TARGET_SIZE = 160;
@@ -48,12 +49,18 @@ function resizeToSquareJpeg(file: File): Promise<string> {
  * — there's no way for one account to set another's). Resizes client-side (see
  * `resizeToSquareJpeg`) before calling `updateAvatar` (`AuthContext`), so every page already
  * showing this user's `Avatar` updates at once. */
-function AvatarUpload({ size = 'md', className }: AvatarUploadProps) {
+function AvatarUpload({ size = 'md', className, triggerRef }: AvatarUploadProps) {
   const { user, updateAvatar } = useAuth();
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (triggerRef) {
+    triggerRef.current = () => {
+      inputRef.current?.click();
+    };
+  }
 
   if (!user) return null;
 

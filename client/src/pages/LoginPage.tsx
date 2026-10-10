@@ -1,10 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
-import { ApiError } from '../lib/apiClient';
+import { ApiError, isRememberLoginEnabled, setRememberLoginEnabled } from '../lib/apiClient';
 import { postLoginPath } from '../lib/roles';
-import AuthLayout from '../components/AuthLayout';
 
 interface LocationState {
   from?: { pathname: string };
@@ -21,9 +20,29 @@ function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    try {
+      return localStorage.getItem('webeng.rememberedEmail') ?? '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [rememberLogin, setRememberLogin] = useState(() => isRememberLoginEnabled());
+
+  useEffect(() => {
+    try {
+      if (rememberLogin) {
+        localStorage.setItem('webeng.rememberedEmail', email);
+      } else {
+        localStorage.removeItem('webeng.rememberedEmail');
+      }
+    } catch {
+      /* Storage may be disabled; authentication must remain available. */
+    }
+  }, [rememberLogin, email]);
+
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,7 +66,8 @@ function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const loggedInUser = await login({ email, password });
+      setRememberLoginEnabled(rememberLogin);
+      const loggedInUser = await login({ email, password }, rememberLogin);
       const from = (location.state as LocationState | null)?.from?.pathname;
       navigate(postLoginPath(from, loggedInUser.role), { replace: true });
     } catch (err) {
@@ -58,47 +78,63 @@ function LoginPage() {
   }
 
   return (
-    <AuthLayout>
-      <h1 className="mb-6 text-2xl font-bold text-primary-700">{t('auth.login.heading')}</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+    <>
+      <header className="mb-7">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
+          {t('auth.login.welcomeEyebrow')}
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-base-black sm:text-4xl">
+          {t('auth.login.heading')}
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-base-black/60">{t('auth.login.subtitle')}</p>
+      </header>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <label className="flex flex-col gap-2 text-sm font-semibold text-base-black">
           {t('auth.email')}
           <input
-            type="email"
+            id="login-email"
+            aria-describedby="login-email-hint"
+            type="text"
             required
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="min-h-12 w-full rounded-xl border border-primary-200 bg-base-white px-4 py-3 text-base font-normal text-base-black transition-colors focus:border-primary-400 focus:outline-none"
           />
-          <span className="text-xs font-normal text-base-black/60">{t('auth.emailHint')}</span>
+          <span id="login-email-hint" className="text-xs font-normal leading-5 text-base-black/60">
+            {t('auth.emailHint')}
+          </span>
         </label>
-        <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
+        <label className="flex flex-col gap-2 text-sm font-semibold text-base-black">
           {t('auth.password')}
           <input
-            type={showPassword ? 'text' : 'password'}
+            id="login-password"
+            type="password"
             required
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="min-h-12 w-full rounded-xl border border-primary-200 bg-base-white px-4 py-3 text-base font-normal text-base-black transition-colors focus:border-primary-400 focus:outline-none"
           />
         </label>
-        {/* T-113: lets a young student check what they typed. */}
-        <label className="-mt-2 flex min-h-10 w-fit items-center gap-2 text-sm text-base-black/80">
+        {/* Option to keep session and remember login */}
+        <label className="-mt-2 flex min-h-11 w-fit items-center gap-2 text-sm text-base-black/80 cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={showPassword}
-            onChange={(event) => setShowPassword(event.target.checked)}
-            className="h-4 w-4 accent-primary-500"
+            checked={rememberLogin}
+            onChange={(event) => {
+              setRememberLogin(event.target.checked);
+              setRememberLoginEnabled(event.target.checked);
+            }}
+            className="h-4 w-4 rounded accent-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700 cursor-pointer"
           />
-          {t('auth.login.showPassword')}
+          <span>Duy trì đăng nhập trên thiết bị này</span>
         </label>
 
         {error && (
           <p
             role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            className="rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-sm text-primary-900"
           >
             {error}
           </p>
@@ -107,19 +143,23 @@ function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-12 w-full rounded-xl bg-primary-700 px-4 py-3 text-sm font-semibold text-base-white transition-colors hover:bg-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? t('auth.login.submitting') : t('auth.login.submit')}
         </button>
       </form>
 
-      <p className="mt-4 text-sm text-base-black/70">
+      <p className="mt-6 border-t border-primary-100 pt-6 text-center text-sm leading-6 text-base-black/70">
         {t('auth.login.newStudentPrompt')}{' '}
-        <Link to="/register" className="font-medium text-primary-600 hover:underline">
+        <Link
+          to="/register"
+          state={location.state}
+          className="inline-flex min-h-11 items-center rounded font-semibold text-primary-700 underline decoration-primary-200 underline-offset-4 hover:decoration-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-700"
+        >
           {t('auth.login.createAccountLink')}
         </Link>
       </p>
-    </AuthLayout>
+    </>
   );
 }
 

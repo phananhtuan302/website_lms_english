@@ -15,7 +15,7 @@ export interface AuthContextValue {
    * guards must wait for this before deciding to redirect, or a logged-in user would
    * flash through the login redirect on every full page reload. */
   isLoading: boolean;
-  login: (credentials: LoginRequest) => Promise<AuthUser>;
+  login: (credentials: LoginRequest, remember?: boolean) => Promise<AuthUser>;
   register: (data: RegisterRequest) => Promise<AuthUser>;
   /** 2026-10: adopts an already-issued token/user pair as the current session — used by
    * the no-account guest QR-session join (`JoinPage.tsx`), whose own API call
@@ -26,6 +26,17 @@ export interface AuthContextValue {
   /** Sets or clears (`null`) the current user's own profile photo and updates local session
    * state so the UI reflects it immediately. */
   updateAvatar: (avatarUrl: string | null) => Promise<AuthUser>;
+  /** Updates the current user's own profile (name, personal details, and optionally password). */
+  updateProfile: (data: {
+    name?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    birthday?: string | null;
+    sex?: string | null;
+    phoneNumber?: string | null;
+    currentPassword?: string;
+    newPassword?: string;
+  }) => Promise<AuthUser>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);

@@ -1,8 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
+import AuthLayout from './AuthLayout';
 import Sidebar, { MenuIcon } from './Sidebar';
+import UserMenu from './UserMenu';
+import TextSizeButton from './TextSizeButton';
 import { useAuth } from '../context/useAuth';
-import { AvatarUpload, Badge } from './ui';
 import { APP_NAME } from '@platform/shared';
 
 interface AppShellProps {
@@ -28,6 +31,12 @@ function AppShell({ children }: AppShellProps) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  // Only these two real routes bypass the application's navigation chrome.
+  if (pathname === '/login' || pathname === '/register') {
+    return <AuthLayout>{children}</AuthLayout>;
+  }
 
   const today = new Date().toLocaleDateString(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
     weekday: 'long',
@@ -37,10 +46,10 @@ function AppShell({ children }: AppShellProps) {
   });
 
   return (
-    <div className="flex min-h-screen bg-app-canvas text-base-black">
+    <div className="flex h-screen w-screen overflow-hidden bg-app-canvas text-base-black">
       <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
         {/* Mobile top bar (hamburger + app name) — unchanged from the 2026-09 shell. */}
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-primary-100/70 bg-base-white/80 px-4 shadow-card backdrop-blur print-hidden md:hidden">
           <button
@@ -54,36 +63,36 @@ function AppShell({ children }: AppShellProps) {
           <span className="text-base font-bold text-primary-600">{APP_NAME}</span>
         </div>
 
-        {/* Desktop header strip (2026-10) — a persistent greeting/date/role context bar above
-          every page's own content, instead of the old bare canvas. Sticky so it stays in view
-          while a long page (e.g. the attempts table) scrolls underneath it. */}
-        <div className="sticky top-0 z-10 hidden h-16 shrink-0 items-center justify-between gap-4 border-b border-primary-100/70 bg-base-white/80 px-6 shadow-card backdrop-blur print-hidden md:flex">
-          <div className="flex min-w-0 items-center gap-3">
-            {user && <AvatarUpload size="sm" />}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-base-black">
-                {user ? t('header.greeting', { name: user.name }) : APP_NAME}
-              </p>
-              <p className="truncate text-xs capitalize text-base-black/50">{today}</p>
-            </div>
+        {/* Desktop header strip — clean modern context & user action bar */}
+        <header className="sticky top-0 z-10 hidden h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 shadow-[0_1px_2px_rgba(0,0,0,0.03)] print-hidden md:flex">
+          <div className="flex min-w-0 items-center text-slate-500 text-sm">
+            <span className="font-medium text-slate-600 capitalize">{today}</span>
           </div>
-          {user && <Badge tone={ROLE_BADGE_TONE[user.role]}>{t(`roles.${user.role}`)}</Badge>}
-        </div>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 sm:py-10">{children}</main>
-
-        <footer className="print-hidden border-t border-primary-100/70 bg-base-white/50 px-4 py-6 sm:px-6">
-          <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 text-xs font-extrabold text-base-white">
-                E
-              </span>
-              <span className="text-sm font-semibold text-base-black">{APP_NAME}</span>
-            </div>
-            <p className="text-xs text-base-black/50">
-              {t('appShell.footer')} · © {new Date().getFullYear()}
-            </p>
+          <div className="flex items-center gap-3">
+            <TextSizeButton />
+            <UserMenu />
           </div>
+        </header>
+
+        {/* Cuộn nội dung bên trong, footer luôn cố định dính ở đáy không bao giờ bị đẩy mất */}
+        <main className="flex flex-1 flex-col w-full overflow-y-auto px-8 py-5">
+          {children}
+        </main>
+
+        <footer
+          className="shrink-0 border-t border-slate-200 bg-white px-6 py-2.5 text-center text-xs font-medium text-slate-500 print-hidden z-10"
+          data-auth-footer
+        >
+          Powered by{' '}
+          <a
+            href="https://techvn.top/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-slate-800 hover:text-primary-600 transition-colors"
+          >
+            TechVN.top
+          </a>
         </footer>
       </div>
     </div>

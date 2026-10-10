@@ -164,6 +164,7 @@ function TeacherClassesPage() {
   const { user } = useAuth();
   const [classes, setClasses] = useState<ClassDTO[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [creating, setCreating] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -230,6 +231,11 @@ function TeacherClassesPage() {
     }
   }
 
+  // Filter classes by name
+  const filteredClasses = classes
+    ? classes.filter((cls) => cls.name.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    : null;
+
   return (
     <div className="flex flex-col gap-6">
       <PageBanner
@@ -238,89 +244,162 @@ function TeacherClassesPage() {
         subtitle={t('teacherHome.description')}
       />
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Action & Filter Bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary-700">{t('teacherHome.heading')}</h1>
+          <p className="text-xs text-base-black/60">Quản lý và theo dõi tiến độ các lớp học của bạn</p>
         </div>
-        {!creating && (
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Ô tìm kiếm lớp học */}
+          <div className="relative min-w-[240px] sm:w-64">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm kiếm theo tên lớp..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm text-slate-800 placeholder-slate-400 shadow-xs transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={openCreateForm}
-            className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-95"
           >
-            {t('teacherHome.createButton')}
+            <span className="text-base font-bold">+</span>
+            <span>{t('teacherHome.createButton')}</span>
           </button>
-        )}
+        </div>
       </div>
 
+      {/* Modal Popup Tạo Lớp Học */}
       {creating && (
-        <form
-          onSubmit={handleCreateClass}
-          className="flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 p-4"
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-              {t('teacherHome.nameLabel')}
-              <input
-                type="text"
-                value={newClassName}
-                onChange={(event) => setNewClassName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') closeCreateForm();
-                }}
-                placeholder={t('teacherHome.namePlaceholder')}
-                autoFocus
-                className="w-72 max-w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-              />
-            </label>
-            {periods !== null && periods.length > 0 && (
-              <label className="flex flex-col gap-1 text-sm font-medium text-base-black">
-                {t('teacherHome.semesterLabel')}
-                <select
-                  value={newPeriodId}
-                  onChange={(event) => setPickedPeriodId(event.target.value)}
-                  className="w-56 max-w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            onClick={closeCreateForm}
+          />
+
+          {/* Modal Dialog */}
+          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl transition-all sm:p-7">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Tạo lớp học mới</h3>
+                <p className="text-xs text-slate-500">Nhập tên lớp và chọn học kỳ áp dụng để bắt đầu</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCreateForm}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateClass} className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  {t('teacherHome.nameLabel')} <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClassName}
+                  onChange={(event) => setNewClassName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') closeCreateForm();
+                  }}
+                  placeholder={t('teacherHome.namePlaceholder')}
+                  autoFocus
+                  required
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                />
+              </div>
+
+              {periods !== null && periods.length > 0 && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    {t('teacherHome.semesterLabel')}
+                  </label>
+                  <select
+                    value={newPeriodId}
+                    onChange={(event) => setPickedPeriodId(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  >
+                    {periods.map((period) => (
+                      <option key={period.id} value={period.id}>
+                        {period.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">{t('teacherHome.semesterHint')}</p>
+                </div>
+              )}
+
+              {periods !== null && periods.length === 0 && (
+                <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+                  {t('teacherHome.noPeriods')}{' '}
+                  <Link to="/teacher/curriculum" className="font-semibold text-primary-700 underline">
+                    {t('teacherHome.noPeriodsLink')}
+                  </Link>
+                </p>
+              )}
+
+              {createError && (
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+                  {createError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={closeCreateForm}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                 >
-                  {periods.map((period) => (
-                    <option key={period.id} value={period.id}>
-                      {period.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-md bg-primary-500 px-4 py-2.5 sm:py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? t('teacherHome.creating') : t('teacherHome.createSubmit')}
-            </button>
-            <button
-              type="button"
-              onClick={closeCreateForm}
-              className="rounded-md px-4 py-2 text-sm font-medium text-base-black/70 transition-colors hover:bg-primary-100"
-            >
-              {t('teacherHome.cancel')}
-            </button>
+                  {t('teacherHome.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>{t('teacherHome.creating')}</span>
+                    </>
+                  ) : (
+                    t('teacherHome.createSubmit')
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
-          {periods !== null && periods.length > 0 && (
-            <p className="text-xs text-base-black/60">{t('teacherHome.semesterHint')}</p>
-          )}
-          {periods !== null && periods.length === 0 && (
-            <p className="text-xs text-base-black/60">
-              {t('teacherHome.noPeriods')}{' '}
-              <Link to="/teacher/curriculum" className="font-medium text-primary-600 hover:underline">
-                {t('teacherHome.noPeriodsLink')}
-              </Link>
-            </p>
-          )}
-          {createError && (
-            <p role="alert" className="text-sm text-red-700">
-              {createError}
-            </p>
-          )}
-        </form>
+        </div>
       )}
 
       {loadFailed && (
@@ -353,9 +432,31 @@ function TeacherClassesPage() {
         </div>
       )}
 
-      {classes && classes.length > 0 && (
+      {/* Hiển thị kết quả tìm kiếm rỗng */}
+      {classes && classes.length > 0 && filteredClasses?.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-12 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <p className="mt-3 text-base font-semibold text-slate-800">Không tìm thấy lớp học nào</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Không có lớp nào khớp với từ khóa "{searchTerm}". Vui lòng thử tìm từ khóa khác.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="mt-3 text-xs font-semibold text-primary-600 hover:underline"
+          >
+            Xóa bộ lọc
+          </button>
+        </div>
+      )}
+
+      {filteredClasses && filteredClasses.length > 0 && (
         <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {classes.map((cls) => {
+          {filteredClasses.map((cls) => {
             const band = cardBandForClass(cls.id);
             return (
               <li key={cls.id} className="flex">

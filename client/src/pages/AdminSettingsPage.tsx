@@ -205,7 +205,7 @@ function AdminSettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8">
+    <div className="flex w-full flex-col gap-8">
       <PageHeader title={t('adminSettings.pageHeading')} icon={<SettingsIcon className="h-5 w-5" />} />
 
       {error && <Alert>{error}</Alert>}

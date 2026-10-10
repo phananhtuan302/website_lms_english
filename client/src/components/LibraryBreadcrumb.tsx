@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/useAuth';
 
 type LibrarySection = 'tests' | 'flashcards' | 'grammar' | 'curriculum';
 
@@ -24,26 +25,33 @@ interface LibraryBreadcrumbProps {
  */
 function LibraryBreadcrumb({ section, linkSection = false }: LibraryBreadcrumbProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { to, labelKey } = SECTIONS[section];
-  const linkClass = 'text-primary-600 hover:underline';
+  const adminToList = section === 'tests' ? '/admin/tests' : section === 'flashcards' ? '/admin/flashcard-sets' : '/admin/grammar-topics';
+  const linkClass = 'text-primary-600 hover:underline font-medium';
 
   return (
-    <nav aria-label={t('libraryBreadcrumb.ariaLabel')} className="text-sm">
-      <ol className="flex flex-wrap items-center gap-1.5 text-base-black/60">
-        <li>
-          <Link to="/teacher/library" className={linkClass}>
-            {t('teacherLibrary.heading')}
-          </Link>
-        </li>
-        <li aria-hidden="true">›</li>
+    <nav aria-label={t('libraryBreadcrumb.ariaLabel')} className="text-xs">
+      <ol className="flex flex-wrap items-center gap-1.5 text-slate-500">
+        {!isAdmin && (
+          <>
+            <li>
+              <Link to="/teacher/library" className={linkClass}>
+                {t('teacherLibrary.heading')}
+              </Link>
+            </li>
+            <li aria-hidden="true" className="text-slate-300">/</li>
+          </>
+        )}
         <li>
           {linkSection ? (
-            <Link to={to} className={linkClass}>
-              {t(labelKey)}
+            <Link to={isAdmin ? adminToList : to} className={linkClass}>
+              {isAdmin && section === 'tests' ? 'Bài kiểm tra' : t(labelKey)}
             </Link>
           ) : (
-            <span aria-current="page" className="font-medium text-base-black/80">
-              {t(labelKey)}
+            <span aria-current="page" className="font-semibold text-slate-800">
+              {isAdmin && section === 'tests' ? 'Bài kiểm tra' : t(labelKey)}
             </span>
           )}
         </li>

@@ -142,7 +142,7 @@ function TeacherLiveSessionPage() {
   const rows = Object.values(students).sort((a, b) => a.studentName.localeCompare(b.studentName));
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           to={`/teacher/sessions/${sessionId}/attempts`}

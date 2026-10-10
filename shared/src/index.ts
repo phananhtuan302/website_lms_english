@@ -46,20 +46,38 @@ export interface AuthUser {
   classId: string | null;
   className: string | null;
   /** A self-uploaded profile photo as a `data:image/...` URL, or `null` if this user hasn't
-   * set one — every UI that renders it falls back to an initials avatar in that case. */
+   * set one - every UI that renders it falls back to an initials avatar in that case. */
   avatarUrl: string | null;
-  /** 2026-10 — see `User.isGuest`'s doc comment in schema.prisma. Always `false` for a
+  firstName?: string | null;
+  lastName?: string | null;
+  birthday?: string | null;
+  sex?: string | null;
+  phoneNumber?: string | null;
+  /** 2026-10 - see `User.isGuest`'s doc comment in schema.prisma. Always `false` for a
    * real registered/logged-in account; `true` only for the throwaway identity a
    * no-account QR-session join creates. */
   isGuest: boolean;
 }
 
-/** Body for `PATCH /api/auth/me/avatar` — self-service only (there is no admin-sets-someone-
+/** Body for `PATCH /api/auth/me/avatar` - self-service only (there is no admin-sets-someone-
  * else's-photo endpoint). `avatarUrl` is either a `data:image/...` URL (client-resized/
  * compressed before upload, see `AvatarUpload.tsx`) or `null` to remove the current photo. */
 export interface UpdateAvatarRequest {
   avatarUrl: string | null;
 }
+
+/** Body for `PATCH /api/auth/me` - update user profile (name, and optionally change password) */
+export interface UpdateProfileRequest {
+  name?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  birthday?: string | null;
+  sex?: string | null;
+  phoneNumber?: string | null;
+  currentPassword?: string;
+  newPassword?: string;
+}
+
 
 /** Body for `POST /api/auth/register`. `role` is intentionally omitted — the public
  * registration endpoint always creates a `student` account (see PROJECT_PLAN
@@ -2052,6 +2070,13 @@ export interface AdminUserDTO {
   role: UserRole;
   createdAt: string;
   avatarUrl: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  birthday?: string | null;
+  sex?: string | null;
+  isActive: boolean;
+  phoneNumber?: string | null;
+  note?: string | null;
 }
 
 /** Body for `GET /api/admin/users` query params (not a request body, but shared here for
@@ -2071,15 +2096,31 @@ export interface CreateUserRequest {
   password: string;
   name: string;
   role: UserRole;
+  avatarUrl?: string | null;
+  firstName?: string;
+  lastName?: string;
+  birthday?: string;
+  sex?: string;
+  isActive?: boolean;
+  phoneNumber?: string;
+  note?: string;
 }
 
 /** Body for `PATCH /api/admin/users/:userId` — name/email/role only; password changes go
  * through the dedicated reset-password endpoint below instead, so a plain profile edit
  * can never accidentally clear/change a password. */
 export interface UpdateUserRequest {
-  email: string;
-  name: string;
-  role: UserRole;
+  email?: string;
+  name?: string;
+  role?: UserRole;
+  avatarUrl?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  birthday?: string | null;
+  sex?: string | null;
+  isActive?: boolean;
+  phoneNumber?: string | null;
+  note?: string | null;
 }
 
 /** Body for `POST /api/admin/users/:userId/reset-password` — sets a new password

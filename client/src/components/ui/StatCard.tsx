@@ -15,35 +15,79 @@ interface StatCardProps {
   className?: string;
 }
 
-const TONE_ICON_CLASSES: Record<StatCardTone, string> = {
-  primary: 'bg-primary-500/15 text-primary-700',
-  green: 'bg-emerald-500/15 text-emerald-700',
-  amber: 'bg-amber-500/15 text-amber-700',
-  sky: 'bg-sky-500/15 text-sky-700',
-  violet: 'bg-violet-500/15 text-violet-700',
-  rose: 'bg-rose-500/15 text-rose-700',
+const TONE_CONFIG: Record<
+  StatCardTone,
+  { bg: string; text: string; border: string; iconBg: string }
+> = {
+  primary: {
+    bg: 'bg-blue-50/50',
+    text: 'text-blue-600',
+    border: 'border-blue-100',
+    iconBg: 'bg-blue-600 text-white',
+  },
+  sky: {
+    bg: 'bg-sky-50/50',
+    text: 'text-sky-600',
+    border: 'border-sky-100',
+    iconBg: 'bg-sky-500 text-white',
+  },
+  violet: {
+    bg: 'bg-purple-50/50',
+    text: 'text-purple-600',
+    border: 'border-purple-100',
+    iconBg: 'bg-purple-600 text-white',
+  },
+  amber: {
+    bg: 'bg-amber-50/50',
+    text: 'text-amber-600',
+    border: 'border-amber-100',
+    iconBg: 'bg-amber-500 text-white',
+  },
+  rose: {
+    bg: 'bg-rose-50/50',
+    text: 'text-rose-600',
+    border: 'border-rose-100',
+    iconBg: 'bg-rose-500 text-white',
+  },
+  green: {
+    bg: 'bg-emerald-50/50',
+    text: 'text-emerald-600',
+    border: 'border-emerald-100',
+    iconBg: 'bg-emerald-500 text-white',
+  },
 };
 
-/** A single glanceable number for a dashboard's top strip — icon chip + the count + label, on a
- * frosted-glass surface ("glassmorphism" pass, 2026-10) so `.bg-app-canvas`'s color mesh shows
- * through. Each tile's icon chip carries its own `tone` instead of one repeated color, so the
- * row reads as a set of distinct metrics rather than a flat strip. */
+/** A single glanceable number for a dashboard's top strip — modern SaaS card */
 function StatCard({ icon, label, value, tone = 'primary', className }: StatCardProps) {
+  const conf = TONE_CONFIG[tone];
   return (
-    <div className={cn('flex items-center gap-3 rounded-xl border border-white/60 bg-glass-panel p-4 shadow-card', className)}>
-      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', TONE_ICON_CLASSES[tone])}>
-        {icon}
-      </span>
-      <div className="min-w-0">
+    <div
+      className={cn(
+        'group relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        conf.border,
+        className,
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-500" title={typeof label === 'string' ? label : undefined}>
+          {label}
+        </p>
         {value === null ? (
-          <div className="h-7 w-10 animate-pulse rounded bg-slate-200/70" />
+          <div className="mt-1 h-7 w-14 animate-pulse rounded bg-slate-100" />
         ) : (
-          <p className="text-xl font-semibold tracking-tight text-base-black">
+          <p className="mt-0.5 text-2xl font-black tracking-tight text-slate-900">
             {value === 'error' ? '—' : value.toLocaleString()}
           </p>
         )}
-        <p className="truncate text-xs text-base-black/60">{label}</p>
       </div>
+      <span
+        className={cn(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105',
+          conf.iconBg,
+        )}
+      >
+        {icon}
+      </span>
     </div>
   );
 }

@@ -40,6 +40,13 @@ function toAdminUserDTO(user: {
   role: string;
   createdAt: Date;
   avatarUrl: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  birthday?: Date | null;
+  sex?: string | null;
+  isActive: boolean;
+  phoneNumber?: string | null;
+  note?: string | null;
 }): AdminUserDTO {
   return {
     id: user.id,
@@ -48,6 +55,13 @@ function toAdminUserDTO(user: {
     role: user.role as UserRole,
     createdAt: user.createdAt.toISOString(),
     avatarUrl: user.avatarUrl,
+    firstName: user.firstName ?? null,
+    lastName: user.lastName ?? null,
+    birthday: user.birthday ? user.birthday.toISOString().slice(0, 10) : null,
+    sex: user.sex ?? null,
+    isActive: user.isActive ?? true,
+    phoneNumber: user.phoneNumber ?? null,
+    note: user.note ?? null,
   };
 }
 
@@ -127,7 +141,20 @@ adminUsersRouter.post(
 
     const passwordHash = await hashPassword(password);
     const user = await prisma.user.create({
-      data: { email, passwordHash, name, role: body.role as UserRole },
+      data: {
+        email,
+        passwordHash,
+        name,
+        role: body.role as UserRole,
+        avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : null,
+        firstName: body.firstName?.trim() || null,
+        lastName: body.lastName?.trim() || null,
+        birthday: body.birthday ? new Date(body.birthday) : null,
+        sex: body.sex || null,
+        isActive: body.isActive ?? true,
+        phoneNumber: body.phoneNumber?.trim() || null,
+        note: body.note?.trim() || null,
+      },
     });
 
     res.status(201).json(toAdminUserDTO(user));
@@ -146,8 +173,9 @@ adminUsersRouter.patch(
     }
 
     const body = req.body as Partial<UpdateUserRequest>;
-    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : target.email;
+    const name = typeof body.name === 'string' ? body.name.trim() : target.name;
+    const role = (typeof body.role === 'string' ? body.role : target.role) as UserRole;
 
     if (!EMAIL_RE.test(email)) {
       res.status(400).json({ error: 'A valid email address is required.' });
@@ -157,7 +185,7 @@ adminUsersRouter.patch(
       res.status(400).json({ error: 'Name is required.' });
       return;
     }
-    const roleError = validateRole(body.role);
+    const roleError = validateRole(role);
     if (roleError) {
       res.status(400).json({ error: roleError });
       return;
@@ -171,12 +199,8 @@ adminUsersRouter.patch(
       }
     }
 
-    // Documented choice (genuine ambiguity, resolved rather than blocked on the
-    // customer): demoting the LAST remaining admin (including oneself) would lock every
-    // admin out of this panel with no way back in short of a direct DB edit — a strictly
-    // worse failure mode than the analogous "can't delete the last admin" guard on the
-    // delete route below, so the same guard applies here too.
-    if (target.role === 'admin' && body.role !== 'admin') {
+    // Guard demoting last admin
+    if (target.role === 'admin' && role !== 'admin') {
       const adminCount = await prisma.user.count({ where: { role: 'admin' } });
       if (adminCount <= 1) {
         res.status(409).json({ error: 'Cannot change the role of the last remaining admin account.' });
@@ -184,9 +208,31 @@ adminUsersRouter.patch(
       }
     }
 
+    // Guard deactivating oneself or last admin
+    if (body.isActive === false && target.id === req.user?.sub) {
+      res.status(400).json({ error: 'Không thể vô hiệu hóa tài khoản của chính mình.' });
+      return;
+    }
+
     const updated = await prisma.user.update({
       where: { id: target.id },
-      data: { email, name, role: body.role as UserRole },
+      data: {
+        email,
+        name,
+        role,
+        ...(body.avatarUrl !== undefined ? { avatarUrl: body.avatarUrl || null } : {}),
+        ...(body.firstName !== undefined ? { firstName: body.firstName?.trim() || null } : {}),
+        ...(body.lastName !== undefined ? { lastName: body.lastName?.trim() || null } : {}),
+        ...(body.birthday !== undefined
+          ? { birthday: body.birthday ? new Date(body.birthday) : null }
+          : {}),
+        ...(body.sex !== undefined ? { sex: body.sex || null } : {}),
+        ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+        ...(body.phoneNumber !== undefined
+          ? { phoneNumber: body.phoneNumber?.trim() || null }
+          : {}),
+        ...(body.note !== undefined ? { note: body.note?.trim() || null } : {}),
+      },
     });
 
     res.status(200).json(toAdminUserDTO(updated));

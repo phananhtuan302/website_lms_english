@@ -43,51 +43,57 @@ function StudentAnnouncementsCard() {
   return (
     <section
       aria-labelledby={`${listId}-heading`}
-      className="rounded-xl border border-primary-200 bg-base-white px-4 py-4"
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
     >
-      <h2 id={`${listId}-heading`} className="text-lg font-bold text-base-black">
-        {t('classAnnouncements.student.heading')}
-      </h2>
-      <ul id={listId} className="mt-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 id={`${listId}-heading`} className="text-base font-bold text-slate-900">
+          {t('classAnnouncements.student.heading')}
+        </h2>
+        <span className="text-xs font-semibold text-slate-400">{items.length} tin</span>
+      </div>
+      <ul id={listId} className="mt-3.5 flex flex-col gap-3">
         {visible.map((item) => {
           const time = formatAnnouncementTime(item.createdAt, t, i18n.language);
           return (
             <li
               key={item.id}
-              className={`rounded-lg border px-3 py-2 ${
-                item.pinned ? 'border-amber-300 bg-amber-50' : 'border-primary-100 bg-primary-50'
+              className={`rounded-2xl border p-3.5 transition-shadow hover:shadow-2xs ${
+                item.pinned ? 'border-amber-300/90 bg-amber-50/60' : 'border-slate-200/90 bg-slate-50/50'
               }`}
             >
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-black/60">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
                 {item.pinned && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
-                    {t('classAnnouncements.pinnedBadge')}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                    <span>📌 Ghim</span>
                   </span>
                 )}
-                <span className="font-medium text-base-black/80">{item.authorName}</span>
-                <span aria-hidden="true">·</span>
-                <time dateTime={item.createdAt} title={time.full}>
+                <span className="font-bold text-slate-800">{item.authorName}</span>
+                <span aria-hidden="true" className="text-slate-300">·</span>
+                <time dateTime={item.createdAt} title={time.full} className="italic text-slate-500">
                   {time.label}
                 </time>
-                {item.edited && <span className="italic">({t('classAnnouncements.editedMark')})</span>}
               </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm text-base-black">{item.body}</p>
+              <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700">
+                {item.body}
+              </p>
             </li>
           );
         })}
       </ul>
       {hasMore && (
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
-          aria-controls={listId}
-          className="mt-3 inline-flex min-h-10 items-center rounded-md px-1 text-sm font-medium text-primary-600 hover:underline"
-        >
-          {expanded
-            ? t('classAnnouncements.student.showLess')
-            : t('classAnnouncements.student.viewAll', { count: items.length })}
-        </button>
+        <div className="mt-3.5 pt-2 text-center border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            aria-controls={listId}
+            className="inline-flex items-center text-xs font-bold text-primary-600 hover:underline"
+          >
+            {expanded
+              ? t('classAnnouncements.student.showLess')
+              : `Xem thêm ${items.length - PREVIEW_COUNT} thông báo`}
+          </button>
+        </div>
       )}
     </section>
   );

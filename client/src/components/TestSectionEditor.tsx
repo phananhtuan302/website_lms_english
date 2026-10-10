@@ -194,7 +194,7 @@ function TestSectionEditor({
   }
 
   return (
-    <div className="rounded-xl border border-primary-200 bg-primary-50 p-4" data-testid="section-editor">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs" data-testid="section-editor">
       <div className="flex items-center justify-between gap-3">
         <input
           type="text"
@@ -202,15 +202,15 @@ function TestSectionEditor({
           onChange={(event) => update({ title: event.target.value })}
           onBlur={flush}
           aria-label={t('teacherTestEditor.sections.titleAriaLabel')}
-          className="min-w-0 flex-1 rounded-md border border-primary-200 bg-base-white px-3 py-1.5 text-base font-semibold text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-bold text-slate-900 shadow-2xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
         />
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={() => onMove('up')}
             disabled={index === 0}
             aria-label={t('teacherTestEditor.sections.moveUp')}
-            className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-2xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↑
           </button>
@@ -219,26 +219,26 @@ function TestSectionEditor({
             onClick={() => onMove('down')}
             disabled={index === count - 1}
             aria-label={t('teacherTestEditor.sections.moveDown')}
-            className="rounded px-2 py-3 sm:py-1 text-xs text-base-black/60 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 shadow-2xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
           >
             ↓
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            className="ml-2 whitespace-nowrap rounded px-2 py-3 sm:py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            className="ml-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-2xs hover:bg-rose-50 transition-colors"
           >
             {t('teacherTestEditor.sections.delete')}
           </button>
         </div>
       </div>
 
-      <details className="mt-3 rounded-lg border border-primary-100 bg-base-white p-3">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-primary-600">
-          {t('teacherTestEditor.sections.contentSummary')}
+      <details className="mt-3.5 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+        <summary className="cursor-pointer text-xs font-bold text-primary-600 hover:text-primary-700">
+          ▶ {t('teacherTestEditor.sections.contentSummary')}
         </summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm font-medium text-base-black sm:col-span-2">
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700 sm:col-span-2">
             {t('teacherTestEditor.sections.passageTextLabel')}
             <textarea
               value={draft.passageText}
@@ -246,7 +246,7 @@ function TestSectionEditor({
               onBlur={flush}
               rows={3}
               placeholder={t('teacherTestEditor.sections.passageTextPlaceholder')}
-              className={inputClass}
+              className="rounded-xl border border-slate-200 bg-white p-3 text-xs font-normal text-slate-800 shadow-2xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
           <div className="flex flex-col gap-1 text-sm font-medium text-base-black">

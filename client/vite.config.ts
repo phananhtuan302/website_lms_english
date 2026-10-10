@@ -13,20 +13,27 @@ export default defineConfig({
     preserveSymlinks: true,
   },
   server: {
-    port: 5173,
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: [
+      'dash.nhatanh97.xyz',
+      '.nhatanh97.xyz',
+      'localhost',
+      '127.0.0.1',
+    ],
     // Proxies API/socket calls through this SAME port instead of the browser hitting
-    // `localhost:4000` directly. Fixes a real bug found 2026-09-15: in a remote/sandboxed
+    // `localhost:5000` directly. Fixes a real bug found 2026-09-15: in a remote/sandboxed
     // dev environment where only the client's port gets forwarded to the user's actual
-    // browser, a hardcoded `http://localhost:4000` in client JS resolves to the wrong
-    // machine's port 4000 (nothing listening there), producing a bare `TypeError: Failed
+    // browser, a hardcoded `http://localhost:5000` in client JS resolves to the wrong
+    // machine's port 5000 (nothing listening there), producing a bare `TypeError: Failed
     // to fetch` with no CORS message (never even reaches CORS negotiation). Proxying
     // means the browser only ever needs to reach the one port it already proved
     // reachable; Vite forwards `/api` and `/socket.io` to the API server itself
     // (server-to-server, unaffected by browser-side port forwarding). Also sidesteps
     // CORS entirely in dev, since the browser now sees everything as same-origin.
     proxy: {
-      '/api': { target: 'http://localhost:4000', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:4000', changeOrigin: true, ws: true },
+      '/api': { target: 'http://localhost:5000', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:5000', changeOrigin: true, ws: true },
     },
   },
 });

@@ -1,0 +1,73 @@
+.auth-viewport {
+  min-height: 100svh;
+}
+.auth-card {
+  box-shadow:
+    0 28px 65px -16px rgb(var(--color-primary-950) / 0.32),
+    0 12px 24px -12px rgb(var(--color-primary-900) / 0.24);
+}
+.auth-form-transition {
+  animation: auth-form-enter 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.auth-form-transition[data-auth-form='login'] {
+  --auth-enter-x: -110%;
+}
+.auth-form-transition[data-auth-form='register'] {
+  --auth-enter-x: 110%;
+}
+.auth-form-transition h1:focus {
+  outline: none;
+}
+/* Frozen inert visual snapshot only. Never a second accessible/interactive form. */
+.auth-form-outgoing {
+  position: absolute;
+  inset-inline: 1.5rem;
+  top: 1.75rem;
+  pointer-events: none;
+  animation: auth-form-exit 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (min-width: 640px) {
+  .auth-form-outgoing {
+    inset-inline: 2.5rem;
+    top: 2.5rem;
+  }
+}
+@media (min-width: 768px) {
+  .auth-form-outgoing {
+    inset-inline: 2.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .auth-form-outgoing {
+    inset-inline: 3rem;
+  }
+}
+@keyframes auth-form-enter {
+  from {
+    opacity: 0;
+    transform: translateX(var(--auth-enter-x));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes auth-form-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(var(--auth-exit-x));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-form-transition {
+    animation: none;
+  }
+  .auth-form-outgoing {
+    display: none;
+    animation: none;
+  }
+}
