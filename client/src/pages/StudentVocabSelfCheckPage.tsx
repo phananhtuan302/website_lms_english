@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { SelfCheckAnswerResponse, SelfCheckPromptDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
+import VocabConfetti from '../components/VocabConfetti';
 
 /**
  * "Tự kiểm tra" (self-check) quiz runtime (T-089) — a completely different,
@@ -53,28 +54,34 @@ function StudentVocabSelfCheckPage() {
 
   if (prompts.length === 0) {
     return (
-      <div className="mx-auto max-w-xl">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+      <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col gap-4 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabSelfCheck.backToSet')}
         </Link>
-        <p className="mt-4 text-sm text-base-black/60">{t('studentVocabSelfCheck.noEligibleCards')}</p>
+        <p className="text-sm text-base-black/60">{t('studentVocabSelfCheck.noEligibleCards')}</p>
       </div>
     );
   }
 
   if (index >= prompts.length) {
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabSelfCheck.doneHeading')}</h1>
+      <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col items-center gap-4 rounded-3xl p-6 text-center sm:-mt-6 sm:-mb-6 sm:p-10">
+        <div className="relative">
+          {netPoints >= 0 && <VocabConfetti />}
+          <span className="text-5xl">{netPoints >= 0 ? '🏆' : '💪'}</span>
+        </div>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{t('studentVocabSelfCheck.doneHeading')}</h1>
         <p className="text-base-black/70">
           {t('studentVocabSelfCheck.resultLine', { correct: correctCount, total: attemptedCount })}
         </p>
-        <p className={`text-lg font-semibold ${netPoints < 0 ? 'text-red-700' : 'text-green-700'}`}>
+        <p
+          className={`vocab-display text-2xl font-bold ${netPoints < 0 ? 'text-red-600' : 'text-green-600'}`}
+        >
           {t('studentVocabSelfCheck.netPointsLine', { points: netPoints })}
         </p>
         <Link
           to={`/student/flashcard-sets/${setId}`}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          className="vocab-btn-primary inline-flex min-h-12 items-center bg-primary-500 px-6 py-2.5 text-sm text-base-white"
         >
           {t('studentVocabSelfCheck.backToSetButton')}
         </Link>
@@ -110,38 +117,38 @@ function StudentVocabSelfCheckPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col gap-6 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
       <div className="flex items-center justify-between">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabSelfCheck.backToSet')}
         </Link>
-        <span className="text-sm text-base-black/60">
+        <span className="rounded-full bg-base-white px-3 py-1 text-xs font-bold text-primary-700 shadow-sm">
           {t('studentVocabSelfCheck.progress', { current: index + 1, total: prompts.length })}
         </span>
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabSelfCheck.heading')}</h1>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{t('studentVocabSelfCheck.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('studentVocabSelfCheck.instructions')}</p>
       </div>
 
-      <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
-        <p className="text-3xl font-bold text-base-black">{prompt.term}</p>
+      <div className="rounded-3xl border-2 border-primary-200 bg-base-white p-6 text-center shadow-[0_8px_0_0_rgb(var(--color-primary-100))] sm:p-8">
+        <p className="vocab-display text-4xl font-bold text-primary-800">{prompt.term}</p>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {prompt.choices.map((choice) => {
           const isSelected = selectedChoice === choice;
           const isCorrectChoice = result && choice === result.correctMeaning;
           let choiceClass =
-            'rounded-md border border-primary-200 bg-base-white px-4 py-3 text-left text-base-black transition-colors hover:border-primary-400';
+            'vocab-tile border-2 border-primary-200 bg-base-white px-4 py-3.5 text-left font-semibold text-base-black hover:border-primary-400';
           if (result) {
             if (isCorrectChoice) {
-              choiceClass = 'rounded-md border border-green-400 bg-green-50 px-4 py-3 text-left text-green-800';
+              choiceClass = 'vocab-tile vocab-anim-pop border-2 border-green-400 bg-green-50 px-4 py-3.5 text-left font-semibold text-green-800';
             } else if (isSelected) {
-              choiceClass = 'rounded-md border border-red-400 bg-red-50 px-4 py-3 text-left text-red-700';
+              choiceClass = 'vocab-tile vocab-anim-shake border-2 border-red-400 bg-red-50 px-4 py-3.5 text-left font-semibold text-red-700';
             } else {
-              choiceClass = 'rounded-md border border-primary-100 bg-base-white px-4 py-3 text-left text-base-black/50';
+              choiceClass = 'vocab-tile border-2 border-primary-100 bg-base-white px-4 py-3.5 text-left font-semibold text-base-black/40';
             }
           }
           return (
@@ -161,16 +168,17 @@ function StudentVocabSelfCheckPage() {
       {result && (
         <div
           role="alert"
-          className={`rounded-md border px-4 py-3 text-sm ${
+          className={`vocab-anim-pop relative overflow-hidden rounded-2xl border-2 px-4 py-4 text-sm ${
             result.correct
-              ? 'border-green-200 bg-green-50 text-green-800'
-              : 'border-red-200 bg-red-50 text-red-700'
+              ? 'border-green-300 bg-green-50 text-green-800'
+              : 'border-red-300 bg-red-50 text-red-700'
           }`}
         >
-          <p className="font-semibold">
+          {result.correct && <VocabConfetti />}
+          <p className="text-base font-bold">
             {result.correct
-              ? t('studentVocabSelfCheck.correct', { points: result.pointsDelta })
-              : t('studentVocabSelfCheck.notQuite', { points: result.pointsDelta })}
+              ? `✅ ${t('studentVocabSelfCheck.correct', { points: result.pointsDelta })}`
+              : `✗ ${t('studentVocabSelfCheck.notQuite', { points: result.pointsDelta })}`}
           </p>
           {!result.correct && (
             <p className="mt-1">{t('studentVocabSelfCheck.correctMeaningWas', { meaning: result.correctMeaning })}</p>
@@ -178,7 +186,9 @@ function StudentVocabSelfCheckPage() {
           <button
             type="button"
             onClick={handleNext}
-            className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className={`vocab-btn-primary mt-3 px-4 py-2 text-sm text-base-white ${
+              result.correct ? 'vocab-btn-green bg-green-500' : 'bg-primary-500'
+            }`}
           >
             {index + 1 < prompts.length ? t('studentVocabSelfCheck.next') : t('studentVocabSelfCheck.finish')}
           </button>

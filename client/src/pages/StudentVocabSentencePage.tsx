@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { SentencePromptDTO, SubmitSentenceResponse } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
+import VocabConfetti from '../components/VocabConfetti';
 
 /**
  * Use-word-in-a-sentence exercise (T-029): the student is shown a word (and its
@@ -54,25 +55,29 @@ function StudentVocabSentencePage() {
 
   if (prompts.length === 0) {
     return (
-      <div className="mx-auto max-w-xl">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+      <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col gap-4 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabSentence.backToSet')}
         </Link>
-        <p className="mt-4 text-sm text-base-black/60">{t('studentVocabSentence.noWords')}</p>
+        <p className="text-sm text-base-black/60">{t('studentVocabSentence.noWords')}</p>
       </div>
     );
   }
 
   if (index >= prompts.length) {
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabSentence.allDoneHeading')}</h1>
+      <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col items-center gap-4 rounded-3xl p-6 text-center sm:-mt-6 sm:-mb-6 sm:p-10">
+        <div className="relative">
+          <VocabConfetti />
+          <span className="text-5xl">🎉</span>
+        </div>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{t('studentVocabSentence.allDoneHeading')}</h1>
         <p className="text-base-black/70">
           {t('studentVocabSentence.allDoneMessage', { count: prompts.length })}
         </p>
         <Link
           to={`/student/flashcard-sets/${setId}`}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          className="vocab-btn-primary inline-flex min-h-12 items-center bg-primary-500 px-6 py-2.5 text-sm text-base-white"
         >
           {t('studentVocabSentence.backToSetButton')}
         </Link>
@@ -103,23 +108,23 @@ function StudentVocabSentencePage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col gap-6 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
       <div className="flex items-center justify-between">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabSentence.backToSet')}
         </Link>
-        <span className="text-sm text-base-black/60">
+        <span className="rounded-full bg-base-white px-3 py-1 text-xs font-bold text-primary-700 shadow-sm">
           {t('studentVocabSentence.progress', { current: index + 1, total: prompts.length })}
         </span>
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabSentence.heading')}</h1>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{t('studentVocabSentence.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('studentVocabSentence.instructions')}</p>
       </div>
 
-      <div className="rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
-        <p className="text-3xl font-bold text-base-black">{prompt.term}</p>
+      <div className="rounded-3xl border-2 border-primary-200 bg-base-white p-6 text-center shadow-[0_8px_0_0_rgb(var(--color-primary-100))] sm:p-8">
+        <p className="vocab-display text-4xl font-bold text-primary-800">{prompt.term}</p>
         <p className="mt-2 text-sm text-base-black/60">{prompt.meaning}</p>
       </div>
 
@@ -137,12 +142,12 @@ function StudentVocabSentencePage() {
             placeholder={t('studentVocabSentence.placeholder', { term: prompt.term })}
             autoFocus
             rows={3}
-            className="rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="rounded-2xl border-2 border-primary-200 bg-base-white px-4 py-3 text-base text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
           <button
             type="submit"
             disabled={!sentence.trim() || isSubmitting}
-            className="self-end rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="vocab-btn-primary self-end bg-primary-500 px-5 py-2.5 text-sm text-base-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? t('studentVocabSentence.submitting') : t('studentVocabSentence.submit')}
           </button>
@@ -150,21 +155,24 @@ function StudentVocabSentencePage() {
       ) : (
         <div
           role="status"
-          className={`rounded-md border px-4 py-3 text-sm ${
+          className={`vocab-anim-pop relative overflow-hidden rounded-2xl border-2 px-4 py-4 text-sm ${
             result.containsWord
-              ? 'border-green-200 bg-green-50 text-green-800'
+              ? 'border-green-300 bg-green-50 text-green-800'
               : 'border-primary-200 bg-primary-50 text-base-black/80'
           }`}
         >
-          <p className="font-semibold">
+          {result.containsWord && <VocabConfetti />}
+          <p className="text-base font-bold">
             {result.containsWord
-              ? t('studentVocabSentence.feedbackCorrect', { term: prompt.term })
+              ? `✅ ${t('studentVocabSentence.feedbackCorrect', { term: prompt.term })}`
               : t('studentVocabSentence.feedbackSaved', { term: prompt.term })}
           </p>
           <button
             type="button"
             onClick={handleNext}
-            className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className={`vocab-btn-primary mt-3 px-4 py-2 text-sm text-base-white ${
+              result.containsWord ? 'vocab-btn-green bg-green-500' : 'bg-primary-500'
+            }`}
           >
             {index + 1 < prompts.length ? t('studentVocabSentence.next') : t('studentVocabSentence.finish')}
           </button>

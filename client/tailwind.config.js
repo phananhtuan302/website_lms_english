@@ -22,11 +22,17 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
-      // 2026-10 "Modern SaaS" redesign — Inter (loaded in index.html) as the display/body
-      // typeface everywhere `font-sans` applies (Tailwind's default stack stays as the
-      // fallback chain, so a slow/blocked font request never leaves blank text).
+      // `font-sans`/`font-display` read CSS custom properties (`--font-body`/`--font-display`,
+      // defaults in `index.css`'s `:root`) instead of a literal family name — same "CSS var
+      // indirection" convention as `colors.primary` below — so each of the 5 admin-selectable
+      // design systems (`client/src/lib/designSystems.ts`, `index.css`'s `[data-ui-style]`
+      // blocks) can repoint typography without a rebuild or any per-component change. The
+      // literal fallback chains after the var() are Tailwind's own safety net, used only if a
+      // var is somehow unset. `font-display` is reserved for the one or two biggest headings
+      // per page (`PageHeader`, `PageBanner`), never body text/controls/nav.
       fontFamily: {
         sans: [
+          'var(--font-body)',
           'Inter',
           'ui-sans-serif',
           'system-ui',
@@ -37,17 +43,16 @@ export default {
           'Arial',
           'sans-serif',
         ],
-        // "Luxury" pass — a serif reserved for the one or two biggest headings per page
-        // (`PageHeader`, `PageBanner`), never body text/controls/nav, so it reads as a
-        // deliberate accent rather than a wholesale font swap.
-        display: ['"Playfair Display"', 'Georgia', 'Cambria', 'serif'],
+        display: ['var(--font-display)', '"Playfair Display"', 'Georgia', 'Cambria', 'serif'],
       },
-      // Rounder corners than Tailwind's defaults (xl 12px→16px, 2xl 16px→24px) — the softer
-      // "Modern SaaS" card/modal/button look. Every existing `rounded-xl`/`rounded-2xl` class
-      // picks this up automatically; nothing needed a rename.
+      // `xl`/`2xl` read CSS vars (`--radius-xl`/`--radius-2xl`, defaults in `index.css`) for
+      // the same per-design-system reason as `fontFamily` above — e.g. "Minimal Academic"/
+      // "Editorial Learning" want sharp, near-zero corners; "Contemporary Creative" wants
+      // bold, pronounced ones. Every existing `rounded-xl`/`rounded-2xl` class already picks
+      // this up, nothing needed a rename.
       borderRadius: {
-        xl: '1rem',
-        '2xl': '1.5rem',
+        xl: 'var(--radius-xl, 1rem)',
+        '2xl': 'var(--radius-2xl, 1.5rem)',
       },
       colors: {
         primary: {
@@ -85,10 +90,16 @@ export default {
       // enough lift to separate a surface from the page without competing with its border;
       // `card-hover` stays a clear step up so hover/lift interactions still read.
       boxShadow: {
+        // "Clarity" pass (2026-10) — `xs`/`2xs` aren't part of Tailwind 3's default scale, but
+        // ~40 existing page files already write `shadow-xs`/`shadow-2xs` expecting a subtle
+        // lift (a pre-existing mismatch — those classes were previously inert everywhere).
+        // Defining them here gives every one of those existing call sites a real, consistent
+        // shadow for free instead of hunting down and renaming 260+ scattered usages.
+        '2xs': '0 1px 1px 0 rgb(0 0 0 / 0.03)',
+        xs: '0 1px 2px 0 rgb(0 0 0 / 0.04)',
         card: '0 1px 2px 0 rgb(0 0 0 / 0.04)',
         'card-hover': '0 4px 10px -2px rgb(0 0 0 / 0.10)',
         panel: '0 16px 40px -12px rgb(0 0 0 / 0.22)',
-        sidebar: '1px 0 0 0 rgb(0 0 0 / 0.06), 4px 0 16px -4px rgb(0 0 0 / 0.16)',
         // A softer, deeper shadow for floating surfaces (popovers, dropdown menus) that sit
         // above cards, between `card-hover` and `panel`.
         dropdown: '0 12px 28px -8px rgb(0 0 0 / 0.18), 0 4px 10px -4px rgb(0 0 0 / 0.10)',
@@ -98,6 +109,12 @@ export default {
         // Repaints with the admin's chosen theme preset automatically, like every other
         // `primary-*` class already does.
         glow: '0 10px 24px -6px rgb(var(--color-primary-500) / 0.45), 0 3px 8px -2px rgb(var(--color-primary-600) / 0.3)',
+      },
+      // Same reasoning as the `boxShadow.xs`/`2xs` tokens above — `backdrop-blur-xs` already
+      // appears in a few existing files expecting a light blur; Tailwind 3's default scale has
+      // no `xs` step, so this makes those a real (small) blur instead of a no-op.
+      backdropBlur: {
+        xs: '2px',
       },
     },
   },

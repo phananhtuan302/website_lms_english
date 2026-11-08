@@ -11,12 +11,16 @@
 import type { FlashcardProgressStatus, VocabActivityType } from '@prisma/client';
 import type { VocabActivityStatDTO } from '@platform/shared';
 
-/** Every activity type the `FlashcardExerciseAttempt` log can contain — used to seed a
- * zero-row for every type so a student/teacher can see "0 attempted" for an exercise
- * type nobody has tried yet, rather than that type being silently absent from the list.
- * Mirrors the Prisma `VocabActivityType` enum's values exactly (kept as a plain literal
- * array, not imported from `@prisma/client`'s enum object, since this needs to be a
- * TS-iterable array in a fixed display order, not just a type). */
+/** Every CURRENT activity type to seed a zero-row for, so a student/teacher can see "0
+ * attempted" for an exercise type nobody has tried yet, rather than that type being
+ * silently absent from the list. Deliberately excludes the Prisma enum's two retired
+ * values (`spaceShooter`/`runner`, replaced 2026-10 by `whackAMole`/`climber`/
+ * `balloonPop` — see `schema.prisma`'s `VocabActivityType` doc comment): any
+ * `FlashcardExerciseAttempt` row still carrying one of those is harmlessly skipped by
+ * `summarizeActivityStats` below (its `if (!acc) continue` guard), which only ever
+ * applied to throwaway QA-account test rows, not real student data. Kept as a plain
+ * literal array, not imported from `@prisma/client`'s enum object, since this needs to
+ * be a TS-iterable array in a fixed display order, not just a type. */
 export const ALL_VOCAB_ACTIVITY_TYPES: VocabActivityType[] = [
   'fillBlank',
   'unscramble',
@@ -24,8 +28,9 @@ export const ALL_VOCAB_ACTIVITY_TYPES: VocabActivityType[] = [
   'ipaToWord',
   'matching',
   'sentence',
-  'spaceShooter',
-  'runner',
+  'whackAMole',
+  'climber',
+  'balloonPop',
 ];
 
 /** Builds one `VocabActivityStatDTO` row per activity type (all 8, even ones with zero

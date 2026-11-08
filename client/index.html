@@ -4,15 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>English Test Platform</title>
-    <!-- 2026-10 "Modern SaaS" redesign — site-wide body typeface (tailwind.config.js's
-         `fontFamily.sans`), loaded once here instead of self-hosted so there's no build-time
-         font pipeline to maintain. Extended for the "luxury" pass with Playfair Display
-         (`fontFamily.display`) — a serif reserved for the one or two largest headings per page
-         (`PageHeader`'s `<h1>`, `PageBanner`'s title), never body text or controls. -->
+    <!-- Site-wide typefaces, loaded once here instead of self-hosted so there's no
+         build-time font pipeline to maintain. `Inter` is the default body/display face
+         (tailwind.config.js's `fontFamily.sans`/`.display`, both read CSS vars so each of
+         the 10 admin-selectable design systems — `client/src/lib/designSystems.ts` — can
+         repoint them without a second font load). The rest of this list is the 2026-10
+         "font picker" request (`client/src/lib/fonts.ts`'s `FONT_DEFINITIONS`) — 20
+         curated fonts an admin can pick as a site-wide override, spanning sans/serif/mono,
+         loaded upfront (not lazily) so the picker's own live previews render immediately.
+         `Baloo 2` is a one-off addition (2026-10 "Vocab Studio" upgrade) for just the
+         student vocabulary flashcard/game pages' display headings — a rounded,
+         kid-friendly display face, not part of the 20-font site-wide picker. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;600;700&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Work+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Lora:wght@400;600;700&family=Playfair+Display:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Baloo+2:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <script>

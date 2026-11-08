@@ -126,16 +126,28 @@ export default function StudentDashboardPage() {
     grammarApi
       .listTopics()
       .then((topics) => {
-        if (topics && topics.length > 0) {
-          setGrammarTopicTitle(topics[0].title);
-          setGrammarProgressPct(35);
-        } else {
-          setGrammarTopicTitle('Present simple');
-          setGrammarProgressPct(35);
-        }
+        setGrammarTopicTitle(topics && topics.length > 0 ? topics[0].title : 'Present simple');
       })
       .catch(() => {
         setGrammarTopicTitle('Present simple');
+      });
+
+    // QA 2026-10 fix: this used to be hardcoded to 35% regardless of real practice —
+    // confirmed via live retest (did real practice, revisited dashboard, still 35%).
+    // `studentApi.getGrades()` (same call `StudentGradesPage` uses) carries the real
+    // `progress.grammar.{correct,attempted}` for the current semester; only fall back to
+    // the design-mockup placeholder when there's genuinely no attempt data yet.
+    studentApi
+      .getGrades()
+      .then((res) => {
+        const grammar = res.progress?.grammar;
+        setGrammarProgressPct(
+          grammar && grammar.attempted > 0
+            ? Math.min(100, Math.round((grammar.correct / grammar.attempted) * 100))
+            : 35,
+        );
+      })
+      .catch(() => {
         setGrammarProgressPct(35);
       });
   }, []);

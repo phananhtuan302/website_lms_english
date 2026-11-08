@@ -95,7 +95,7 @@ function AuthLayout({ children }: AuthLayoutProps) {
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-primary-100">
                 {t('auth.login.storyEyebrow')}
               </p>
-              <h2 className="max-w-sm text-4xl font-semibold leading-tight tracking-tight lg:text-[2.75rem]">
+              <h2 className="font-display max-w-sm text-4xl font-semibold leading-tight tracking-tight lg:text-[2.75rem]">
                 {t('auth.login.storyHeading')}
               </h2>
               <p className="mt-5 max-w-sm text-sm leading-7 text-primary-100">

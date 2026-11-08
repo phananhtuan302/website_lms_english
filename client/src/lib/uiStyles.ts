@@ -6,18 +6,46 @@ interface UiStyleDefinition {
   nameKey: string;
 }
 
-/** The 4 selectable site-wide UI styles (2026-10, admin request). `glass` needs no entry
- * in `index.css`'s `[data-ui-style="…"]` overrides — it IS the base CSS everything else
- * overrides — so this list exists only for the picker UI and for `applyUiStyle` to
- * validate against. */
-export const UI_STYLE_DEFINITIONS: UiStyleDefinition[] = [
+/** The 4 original site-wide UI styles (kept for `applyUiStyle` to still recognize/apply
+ * them on a site that hasn't switched to one of the 5 current design systems yet — see
+ * `designSystems.ts`'s own "5 Design Systems" doc comment for why those 5 are listed
+ * separately, as plain string literals, rather than imported from here). `glass` needs no
+ * entry in `index.css`'s `[data-ui-style="…"]` overrides — it IS the base CSS everything
+ * else overrides. */
+const LEGACY_UI_STYLE_DEFINITIONS: UiStyleDefinition[] = [
   { id: 'glass', nameKey: 'glass' },
   { id: 'brutalist', nameKey: 'brutalist' },
   { id: 'vivid', nameKey: 'vivid' },
   { id: 'dark', nameKey: 'dark' },
 ];
+export const UI_STYLE_DEFINITIONS = LEGACY_UI_STYLE_DEFINITIONS;
 
-const VALID_IDS = new Set(UI_STYLE_DEFINITIONS.map((d) => d.id));
+/** The 5 current design systems, as plain literals (not imported as a value from
+ * `@platform/shared` — see `designSystems.ts`'s doc comment for the Vite dev-cache reason
+ * this specific file also avoids it) — `applyUiStyle` below needs to recognize these as
+ * valid too, or it would silently clear the attribute instead of setting it. */
+const CURRENT_DESIGN_SYSTEM_IDS = [
+  'minimalAcademic',
+  'modernSaas',
+  'editorialLearning',
+  'focusExam',
+  'contemporaryCreative',
+  'minimalism',
+  'flatDesign',
+  'glassmorphism',
+  'neumorphism',
+  'swissDesign',
+  'neoBrutalism',
+  'materialDesign',
+  'cyberpunkNeon',
+  'playfulRetro',
+  'claymorphism',
+] as const;
+
+const VALID_IDS = new Set<string>([
+  ...LEGACY_UI_STYLE_DEFINITIONS.map((d) => d.id),
+  ...CURRENT_DESIGN_SYSTEM_IDS,
+]);
 
 /** Sets (or clears, for the default `glass`) the `data-ui-style` attribute on the root
  * element — `index.css`'s `[data-ui-style="…"]` blocks key off this to override the same

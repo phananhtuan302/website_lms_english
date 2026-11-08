@@ -28,7 +28,7 @@ function IconButton({ label, size = 'md', tone = 'default', className, type = 'b
       type={type}
       aria-label={label}
       className={cn(
-        'inline-flex items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-60',
         SIZE_CLASSES[size],
         TONE_CLASSES[tone],
         className,

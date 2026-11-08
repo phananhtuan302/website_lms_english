@@ -76,11 +76,11 @@ export default function StudentFlashcardsPage() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="vocab-zone vocab-canvas -m-4 flex w-full flex-col gap-6 rounded-3xl p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
       {/* 1. Header Banner */}
       <div>
-        <h1 className="text-2xl font-black tracking-tight text-slate-900">{t('studentFlashcards.heading')}</h1>
-        <p className="mt-1 text-xs font-medium text-slate-500">{t('studentFlashcards.subtitle')}</p>
+        <h1 className="vocab-display text-3xl font-bold text-primary-900">{t('studentFlashcards.heading')}</h1>
+        <p className="mt-1 text-sm font-medium text-primary-900/60">{t('studentFlashcards.subtitle')}</p>
       </div>
 
       {error && (
@@ -89,209 +89,186 @@ export default function StudentFlashcardsPage() {
         </div>
       )}
 
-      {/* 2. Khung Bảng Phẳng Duy Nhất (Flat Table Card) */}
-      <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs">
-        {/* Toolbar Tìm Kiếm & Số lượng */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-100">
-          <div className="relative w-full sm:w-80">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo tên bộ thẻ, unit..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs text-slate-900 shadow-2xs placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            />
-            <svg
-              className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+      {/* Toolbar Tìm Kiếm & Số lượng */}
+      <div className="flex flex-col gap-3 rounded-3xl border-2 border-primary-100 bg-base-white/80 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:w-80">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm theo tên bộ thẻ, unit..."
+            className="w-full rounded-2xl border-2 border-primary-200 bg-base-white py-2.5 pl-9 pr-8 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+          <svg
+            className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2.5 text-sm text-slate-400 hover:text-slate-600"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>
-              Tổng cộng: <strong className="font-semibold text-slate-800">{totalItems}</strong> bộ thẻ
-            </span>
-          </div>
+              ✕
+            </button>
+          )}
         </div>
 
-        {/* Loading / Trống */}
-        {sets === null && !error && (
-          <div className="py-12 text-center text-xs text-slate-400">{t('common.loading')}</div>
-        )}
-
-        {sets && sets.length === 0 && (
-          <div className="py-12 text-center text-xs text-slate-400">{t('studentFlashcards.emptyState')}</div>
-        )}
-
-        {sets && sets.length > 0 && paginatedSets.length === 0 && (
-          <div className="py-12 text-center text-xs text-slate-400">
-            Không tìm thấy bộ từ vựng nào phù hợp với &ldquo;{searchQuery}&rdquo;
-          </div>
-        )}
-
-        {/* Bảng Dữ Liệu Phẳng */}
-        {paginatedSets.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400">
-                  <th className="py-3.5 font-medium">Bộ thẻ từ vựng</th>
-                  <th className="py-3.5 font-medium">Số lượng thẻ</th>
-                  <th className="py-3.5 font-medium">Điểm tự kiểm tra</th>
-                  <th className="py-3.5 font-medium text-right pr-2">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedSets.map((set) => (
-                  <tr key={set.id} className="group hover:bg-slate-50/50">
-                    {/* Cột 1: Tên bộ thẻ */}
-                    <td className="py-4 pr-4">
-                      <Link
-                        to={`/student/flashcard-sets/${set.id}`}
-                        className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors"
-                      >
-                        {set.name}
-                      </Link>
-                      {set.unitName && (
-                        <p className="mt-0.5 text-xs text-slate-400">{set.unitName}</p>
-                      )}
-                    </td>
-
-                    {/* Cột 2: Số lượng thẻ */}
-                    <td className="py-4 pr-4 text-slate-600 whitespace-nowrap">
-                      <span className="font-bold text-blue-600">{set.cardCount}</span> thẻ từ vựng
-                    </td>
-
-                    {/* Cột 3: Điểm tự kiểm tra */}
-                    <td className="py-4 pr-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold border ${
-                          set.selfCheckScore === 0
-                            ? 'bg-slate-50 text-slate-600 border-slate-200/70'
-                            : set.selfCheckScore < 0
-                              ? 'bg-rose-50 text-rose-700 border-rose-200/70'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200/70'
-                        }`}
-                      >
-                        {set.selfCheckScore === 0
-                          ? t('studentFlashcards.selfCheckNone')
-                          : t('studentFlashcards.selfCheckScore', { score: set.selfCheckScore })}
-                      </span>
-                    </td>
-
-                    {/* Cột 4: Thao tác */}
-                    <td className="py-4 pl-2 text-right whitespace-nowrap">
-                      <Link
-                        to={`/student/flashcard-sets/${set.id}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 border border-blue-200/70 hover:bg-blue-100 transition-colors"
-                      >
-                        <span>{t('studentFlashcards.studyLink')}</span>
-                        <span>›</span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Chân trang bảng: Phân trang & Tùy chọn dòng */}
-            <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-3.5 text-xs text-slate-500 sm:flex-row">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-[11px] font-semibold text-slate-400">
-                  Hiển thị <strong className="font-bold text-slate-700">{startItem} - {endItem}</strong> trong số <strong className="font-bold text-slate-700">{totalItems}</strong> bộ thẻ
-                </span>
-
-                <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
-                  <span className="text-[11px] text-slate-400">Số dòng/trang:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                    className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 shadow-2xs hover:border-slate-300 focus:outline-none"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Bộ điều hướng trang */}
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={validCurrentPage === 1}
-                    aria-label="Trang trước"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ‹
-                  </button>
-
-                  <div className="flex items-center gap-1 px-1">
-                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => {
-                      if (
-                        pageNum === 1 ||
-                        pageNum === totalPages ||
-                        (pageNum >= validCurrentPage - 1 && pageNum <= validCurrentPage + 1)
-                      ) {
-                        return (
-                          <button
-                            key={pageNum}
-                            type="button"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg px-1.5 text-xs font-bold transition ${
-                              pageNum === validCurrentPage
-                                ? 'bg-blue-600 text-white shadow-2xs'
-                                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      }
-                      if (pageNum === validCurrentPage - 2 || pageNum === validCurrentPage + 2) {
-                        return (
-                          <span key={pageNum} className="px-1 text-slate-300">
-                            …
-                          </span>
-                        );
-                      }
-                      return null;
-                    })}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={validCurrentPage === totalPages}
-                    aria-label="Trang sau"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ›
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-2 text-sm text-primary-900/60">
+          <span>
+            Tổng cộng: <strong className="font-bold text-primary-900">{totalItems}</strong> bộ thẻ
+          </span>
+        </div>
       </div>
+
+      {/* Loading / Trống */}
+      {sets === null && !error && (
+        <div className="py-16 text-center text-sm text-primary-900/40">{t('common.loading')}</div>
+      )}
+
+      {sets && sets.length === 0 && (
+        <div className="py-16 text-center text-sm text-primary-900/40">{t('studentFlashcards.emptyState')}</div>
+      )}
+
+      {sets && sets.length > 0 && paginatedSets.length === 0 && (
+        <div className="py-16 text-center text-sm text-primary-900/40">
+          Không tìm thấy bộ từ vựng nào phù hợp với &ldquo;{searchQuery}&rdquo;
+        </div>
+      )}
+
+      {/* Lưới thẻ bộ từ vựng — mỗi bộ là một "thẻ game" bắt mắt thay vì một hàng bảng. */}
+      {paginatedSets.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {paginatedSets.map((set) => (
+              <Link
+                key={set.id}
+                to={`/student/flashcard-sets/${set.id}`}
+                className="vocab-tile group flex flex-col gap-3 border-2 border-primary-200 bg-base-white p-5 shadow-[0_6px_0_0_rgb(var(--color-primary-200))]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-100 text-xl">
+                    📚
+                  </span>
+                  <span
+                    className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                      set.selfCheckScore === 0
+                        ? 'bg-slate-100 text-slate-600'
+                        : set.selfCheckScore < 0
+                          ? 'bg-rose-100 text-rose-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {set.selfCheckScore === 0
+                      ? t('studentFlashcards.selfCheckNone')
+                      : t('studentFlashcards.selfCheckScore', { score: set.selfCheckScore })}
+                  </span>
+                </div>
+                <div>
+                  <p className="vocab-display text-lg font-bold text-primary-900 group-hover:text-primary-700">
+                    {set.name}
+                  </p>
+                  {set.unitName && <p className="mt-0.5 text-xs text-primary-900/50">{set.unitName}</p>}
+                </div>
+                <div className="mt-auto flex items-center justify-between pt-2">
+                  <span className="text-sm font-bold text-primary-700">{set.cardCount} thẻ từ vựng</span>
+                  <span className="inline-flex items-center gap-1 text-sm font-bold text-primary-600 group-hover:gap-1.5">
+                    {t('studentFlashcards.studyLink')} <span aria-hidden="true">→</span>
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Chân trang: Phân trang & Tùy chọn số thẻ/trang */}
+          <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border-2 border-primary-100 bg-base-white/80 px-4 py-3 text-xs text-primary-900/60 sm:flex-row">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-semibold">
+                Hiển thị <strong className="font-bold text-primary-900">{startItem} - {endItem}</strong> trong số{' '}
+                <strong className="font-bold text-primary-900">{totalItems}</strong> bộ thẻ
+              </span>
+
+              <div className="flex items-center gap-1.5 border-l border-primary-100 pl-3">
+                <span>Số thẻ/trang:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="h-7 rounded-lg border border-primary-200 bg-base-white px-2 text-xs font-bold text-primary-700 hover:border-primary-300 focus:outline-none"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Bộ điều hướng trang */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={validCurrentPage === 1}
+                  aria-label="Trang trước"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-primary-200 bg-base-white text-xs font-bold text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹
+                </button>
+
+                <div className="flex items-center gap-1 px-1">
+                  {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => {
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= validCurrentPage - 1 && pageNum <= validCurrentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg px-1.5 text-xs font-bold transition ${
+                            pageNum === validCurrentPage
+                              ? 'bg-primary-600 text-base-white'
+                              : 'border border-primary-200 bg-base-white text-primary-700 hover:bg-primary-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    if (pageNum === validCurrentPage - 2 || pageNum === validCurrentPage + 2) {
+                      return (
+                        <span key={pageNum} className="px-1 text-primary-200">
+                          …
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={validCurrentPage === totalPages}
+                  aria-label="Trang sau"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-primary-200 bg-base-white text-xs font-bold text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

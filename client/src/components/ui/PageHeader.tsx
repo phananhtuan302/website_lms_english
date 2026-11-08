@@ -27,7 +27,7 @@ function PageHeader({ title, subtitle, actions, icon, className }: PageHeaderPro
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-semibold tracking-tight text-base-black">{title}</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-base-black">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-base-black/60">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

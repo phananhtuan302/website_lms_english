@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { CheckVocabExerciseResponse, VocabExercisePromptDTO, VocabExerciseType } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
+import VocabConfetti from '../components/VocabConfetti';
 
 const EXERCISE_TYPES: VocabExerciseType[] = ['fillBlank', 'unscramble', 'listenAndType', 'ipaToWord'];
 
@@ -87,11 +88,11 @@ function StudentVocabExercisePage() {
 
   if (prompts.length === 0) {
     return (
-      <div className="mx-auto max-w-xl">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+      <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col gap-4 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabExercise.backToSet')}
         </Link>
-        <p className="mt-4 text-sm text-base-black/60">
+        <p className="text-sm text-base-black/60">
           {t('studentVocabExercise.noEligibleCards', { title: meta.title })}
         </p>
       </div>
@@ -99,17 +100,23 @@ function StudentVocabExercisePage() {
   }
 
   if (index >= prompts.length) {
+    const accuracy = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-bold text-primary-700">
+      <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col items-center gap-4 rounded-3xl p-6 text-center sm:-mt-6 sm:-mb-6 sm:p-10">
+        <div className="relative">
+          <VocabConfetti />
+          <span className="text-5xl">{accuracy >= 70 ? '🏆' : '🎉'}</span>
+        </div>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">
           {t('studentVocabExercise.doneHeading', { title: meta.title })}
         </h1>
+        <p className="vocab-display text-4xl font-bold text-primary-700">{accuracy}%</p>
         <p className="text-base-black/70">
           {t('studentVocabExercise.resultLine', { correct: correctCount, total: attemptedCount })}
         </p>
         <Link
           to={`/student/flashcard-sets/${setId}`}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+          className="vocab-btn-primary inline-flex min-h-12 items-center bg-primary-500 px-6 py-2.5 text-sm text-base-white"
         >
           {t('studentVocabExercise.backToSetButton')}
         </Link>
@@ -144,27 +151,27 @@ function StudentVocabExercisePage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-xl flex-col gap-6 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
       <div className="flex items-center justify-between">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabExercise.backToSet')}
         </Link>
-        <span className="text-sm text-base-black/60">
+        <span className="rounded-full bg-base-white px-3 py-1 text-xs font-bold text-primary-700 shadow-sm">
           {t('studentVocabExercise.progress', { current: index + 1, total: prompts.length })}
         </span>
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-primary-700">{meta.title}</h1>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{meta.title}</h1>
         <p className="mt-1 text-sm text-base-black/60">{meta.instructions}</p>
       </div>
 
-      <div className="rounded-xl border border-primary-200 bg-primary-50 p-6">
+      <div className="rounded-3xl border-2 border-primary-200 bg-base-white p-6 shadow-[0_8px_0_0_rgb(var(--color-primary-100))] sm:p-8">
         {exerciseType === 'fillBlank' && (
-          <p className="text-lg font-medium text-base-black">{prompt.sentence}</p>
+          <p className="text-center text-xl font-medium text-base-black">{prompt.sentence}</p>
         )}
         {exerciseType === 'unscramble' && (
-          <p className="text-center text-3xl font-bold uppercase tracking-widest text-base-black">
+          <p className="vocab-display text-center text-4xl font-bold uppercase tracking-widest text-primary-800">
             {prompt.scrambled}
           </p>
         )}
@@ -174,15 +181,16 @@ function StudentVocabExercisePage() {
             <button
               type="button"
               onClick={() => audioRef.current?.play().catch(() => undefined)}
-              className="rounded-full bg-primary-500 px-6 py-3 text-lg font-semibold text-base-white transition-colors hover:bg-primary-600"
+              className="vocab-btn-primary flex h-20 w-20 items-center justify-center rounded-full bg-primary-500 text-3xl text-base-white"
               aria-label={t('studentVocabExercise.playAudio')}
             >
-              {t('studentVocabExercise.playButton')}
+              🔊
             </button>
+            <p className="text-xs font-semibold text-primary-900/50">{t('studentVocabExercise.playButton')}</p>
           </div>
         )}
         {exerciseType === 'ipaToWord' && (
-          <p className="text-center text-3xl font-semibold text-base-black">{prompt.ipa}</p>
+          <p className="vocab-display text-center text-4xl font-semibold text-primary-800">{prompt.ipa}</p>
         )}
       </div>
 
@@ -200,12 +208,12 @@ function StudentVocabExercisePage() {
             onChange={(event) => setAnswer(event.target.value)}
             placeholder={t('studentVocabExercise.typeYourAnswer')}
             autoFocus
-            className="flex-1 rounded-md border border-primary-200 px-3 py-2 text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            className="flex-1 rounded-2xl border-2 border-primary-200 bg-base-white px-4 py-3 text-base text-base-black focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
           />
           <button
             type="submit"
             disabled={!answer.trim() || isChecking}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="vocab-btn-primary bg-primary-500 px-5 py-2 text-sm text-base-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isChecking ? t('studentVocabExercise.checking') : t('studentVocabExercise.check')}
           </button>
@@ -213,14 +221,15 @@ function StudentVocabExercisePage() {
       ) : (
         <div
           role="alert"
-          className={`rounded-md border px-4 py-3 text-sm ${
+          className={`vocab-anim-pop relative overflow-hidden rounded-2xl border-2 px-4 py-4 text-sm ${
             result.correct
-              ? 'border-green-200 bg-green-50 text-green-800'
-              : 'border-red-200 bg-red-50 text-red-700'
+              ? 'border-green-300 bg-green-50 text-green-800'
+              : 'vocab-anim-shake border-red-300 bg-red-50 text-red-700'
           }`}
         >
-          <p className="font-semibold">
-            {result.correct ? t('studentVocabExercise.correct') : t('studentVocabExercise.notQuite')}
+          {result.correct && <VocabConfetti />}
+          <p className="text-base font-bold">
+            {result.correct ? `✅ ${t('studentVocabExercise.correct')}` : `✗ ${t('studentVocabExercise.notQuite')}`}
           </p>
           {!result.correct && (
             <p className="mt-1">
@@ -230,7 +239,9 @@ function StudentVocabExercisePage() {
           <button
             type="button"
             onClick={handleNext}
-            className="mt-3 rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+            className={`vocab-btn-primary mt-3 px-4 py-2 text-sm text-base-white ${
+              result.correct ? 'vocab-btn-green bg-green-500' : 'bg-primary-500'
+            }`}
           >
             {index + 1 < prompts.length ? t('studentVocabExercise.next') : t('studentVocabExercise.finish')}
           </button>

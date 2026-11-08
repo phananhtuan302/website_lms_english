@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { MatchingMode, MatchingPairDTO } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
+import VocabConfetti from '../components/VocabConfetti';
 
 const MODES: MatchingMode[] = ['meaning', 'image', 'synonym', 'antonym'];
 
@@ -156,15 +157,15 @@ function StudentVocabMatchingPage() {
   const correctCount = pairs ? pairs.filter((p) => !wrongAttempts.has(p.cardId)).length : 0;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+    <div className="vocab-zone vocab-canvas mx-auto -mt-4 -mb-4 flex w-full max-w-2xl flex-col gap-6 rounded-3xl p-4 sm:-mt-6 sm:-mb-6 sm:p-6">
       <div className="flex items-center justify-between">
-        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm text-primary-600 hover:underline">
+        <Link to={`/student/flashcard-sets/${setId}`} className="text-sm font-semibold text-primary-700 hover:text-primary-800">
           {t('studentVocabMatching.backToSet')}
         </Link>
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-primary-700">{t('studentVocabMatching.heading')}</h1>
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{t('studentVocabMatching.heading')}</h1>
         <p className="mt-1 text-sm text-base-black/60">{t('studentVocabMatching.instructions')}</p>
       </div>
 
@@ -180,10 +181,10 @@ function StudentVocabMatchingPage() {
             role="tab"
             aria-selected={mode === m}
             onClick={() => setMode(m)}
-            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
               mode === m
-                ? 'bg-primary-500 text-base-white'
-                : 'border border-primary-300 bg-base-white text-primary-700 hover:bg-primary-100'
+                ? 'scale-105 bg-primary-600 text-base-white shadow-[0_3px_0_0_rgb(var(--color-primary-800))]'
+                : 'border-2 border-primary-200 bg-base-white text-primary-700 hover:border-primary-400'
             }`}
           >
             {MODE_META[m].tabLabel}
@@ -207,63 +208,65 @@ function StudentVocabMatchingPage() {
         pairs !== null && (
           <>
             {completed ? (
-              <div className="flex flex-col items-center gap-4 rounded-xl border border-primary-200 bg-primary-50 p-6 text-center">
-                <h2 className="text-lg font-bold text-primary-700">{t('studentVocabMatching.roundComplete')}</h2>
-                <p className="text-base-black/70">
+              <div className="vocab-anim-pop relative overflow-hidden rounded-3xl border-2 border-primary-200 bg-base-white p-6 text-center shadow-[0_8px_0_0_rgb(var(--color-primary-100))]">
+                <VocabConfetti />
+                <span className="text-4xl">🎉</span>
+                <h2 className="vocab-display mt-2 text-xl font-bold text-primary-800">{t('studentVocabMatching.roundComplete')}</h2>
+                <p className="mt-1 text-base-black/70">
                   {t('studentVocabMatching.resultLine', { correct: correctCount, total: pairs.length })}
                 </p>
-                <div className="flex gap-3">
+                <div className="mt-4 flex justify-center gap-3">
                   <button
                     type="button"
                     onClick={restart}
-                    className="rounded-md bg-primary-500 px-4 py-2 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600"
+                    className="vocab-btn-primary bg-primary-500 px-5 py-2.5 text-sm text-base-white"
                   >
                     {t('studentVocabMatching.playAgain')}
                   </button>
                   <Link
                     to={`/student/flashcard-sets/${setId}`}
-                    className="rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
+                    className="vocab-btn-secondary border-2 border-primary-200 bg-base-white px-5 py-2.5 text-sm text-primary-700"
                   >
                     {t('studentVocabMatching.backToSetButton')}
                   </Link>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="flex flex-col gap-2.5">
                   {leftOrder.map((p) => (
                     <button
                       key={p.cardId}
                       type="button"
                       disabled={matched.has(p.cardId)}
                       onClick={() => handleLeftClick(p.cardId)}
-                      className={`rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                      className={`vocab-tile border-2 px-3 py-2.5 text-left text-sm font-bold ${
                         matched.has(p.cardId)
-                          ? 'border-green-300 bg-green-50 text-green-800 opacity-70'
+                          ? 'vocab-anim-pop border-green-300 bg-green-50 text-green-800 opacity-70'
                           : flashWrong.left === p.cardId
-                            ? 'border-red-400 bg-red-50 text-red-700'
+                            ? 'vocab-anim-shake border-red-400 bg-red-50 text-red-700'
                             : selectedLeft === p.cardId
-                              ? 'border-primary-500 bg-primary-100 text-primary-800'
-                              : 'border-primary-200 bg-base-white text-base-black hover:bg-primary-50'
+                              ? 'scale-[1.02] border-primary-500 bg-primary-100 text-primary-800'
+                              : 'border-primary-200 bg-base-white text-base-black hover:border-primary-400'
                       }`}
                     >
                       {p.term}
                     </button>
                   ))}
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2.5">
                   {rightOrder.map((p) => (
                     <button
                       key={p.cardId}
                       type="button"
                       disabled={matched.has(p.cardId)}
                       onClick={() => handleRightClick(p.cardId)}
-                      className={`rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                      className={`vocab-tile border-2 px-3 py-2.5 text-left text-sm font-bold ${
                         matched.has(p.cardId)
-                          ? 'border-green-300 bg-green-50 text-green-800 opacity-70'
+                          ? 'vocab-anim-pop border-green-300 bg-green-50 text-green-800 opacity-70'
                           : flashWrong.right === p.cardId
-                            ? 'border-red-400 bg-red-50 text-red-700'
-                            : 'border-primary-200 bg-base-white text-base-black hover:bg-primary-50'
+                            ? 'vocab-anim-shake border-red-400 bg-red-50 text-red-700'
+                            : 'border-primary-200 bg-base-white text-base-black hover:border-primary-400'
                       }`}
                     >
                       {mode === 'image' ? (

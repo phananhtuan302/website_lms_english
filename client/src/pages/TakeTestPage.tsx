@@ -7,6 +7,7 @@ import { studentApi } from '../lib/studentApi';
 import { ApiError } from '../lib/apiClient';
 import { createSessionSocket } from '../lib/socket';
 import { useAttemptLock } from '../context/useAttemptLock';
+import { useActiveDesignSystem } from '../lib/designSystems';
 
 /** Reading (T-039) / Listening (T-040/T-041) content, denormalized from the enclosing
  * section onto every question in it — same "carry the section field down" pattern
@@ -59,6 +60,77 @@ function isFreeTextType(type: AttemptQuestionDTO['type']): boolean {
   return type === 'fillBlank' || type === 'essay';
 }
 
+/** Delays (ms) between each recovery poll in `submitAttemptWithRecovery` below — first
+ * check after 6s, then every 4s, ~18s of polling total before giving up and just waiting
+ * on the original request indefinitely (the pre-fix behavior). */
+const SUBMIT_RECOVERY_POLL_DELAYS_MS = [6000, 4000, 4000, 4000];
+
+/**
+ * Wraps `studentApi.submitAttempt` with a slow-request recovery path (QA 2026-10 fix for
+ * a reported bug: on a long test, the "Nộp bài" button could get stuck on "Đang nộp
+ * bài..." indefinitely even though the server had already processed the submission —
+ * root cause was the periodic autosave flush flooding the browser's per-origin
+ * connection queue, which this file's own autosave effect now also fixes directly; this
+ * is a second, independent safety net in case the submit request is ever slow for some
+ * other reason).
+ *
+ * If the request itself hasn't settled after a few seconds, starts polling `GET
+ * /api/attempts/:id` — if the server already shows the attempt as `submitted`, the
+ * original request is just stuck/slow, not actually failed, so this resolves as success
+ * right away instead of leaving the student staring at an unexplained spinner. If the
+ * original request settles (success or failure) on its own first, its own outcome wins
+ * — this never overrides a real failure with a false success.
+ */
+async function submitAttemptWithRecovery(attemptId: string): Promise<void> {
+  // A mutable object field rather than a bare `let` — TypeScript's control-flow narrowing
+  // otherwise forgets that the `.then` callbacks below (which run asynchronously, outside
+  // this function's own straight-line flow) can reassign `outcome` to `'failure'`, and
+  // incorrectly narrows later comparisons down to just `'pending'`.
+  const state: { outcome: 'pending' | 'success' | 'failure'; error: unknown } = {
+    outcome: 'pending',
+    error: undefined,
+  };
+
+  const originalRequest = studentApi.submitAttempt(attemptId).then(
+    () => {
+      if (state.outcome === 'pending') state.outcome = 'success';
+    },
+    (err: unknown) => {
+      if (state.outcome === 'pending') {
+        state.outcome = 'failure';
+        state.error = err;
+      }
+    },
+  );
+
+  for (const delay of SUBMIT_RECOVERY_POLL_DELAYS_MS) {
+    if (state.outcome !== 'pending') break;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    if (state.outcome !== 'pending') break;
+    try {
+      const latest = await studentApi.getAttempt(attemptId);
+      if (latest.status === 'submitted') {
+        state.outcome = 'success';
+        break;
+      }
+    } catch {
+      // A transient read failure here shouldn't change the outcome — keep polling.
+    }
+  }
+
+  if (state.outcome === 'success') return;
+  if (state.outcome === 'failure') throw state.error;
+  // Still genuinely pending after every poll attempt — fall back to simply waiting on
+  // the original request, exactly like before this recovery path existed.
+  await originalRequest;
+  // By this point TypeScript's control flow analysis has (incorrectly) narrowed
+  // `state.outcome` down to the single literal `'pending'` from the checks above, and
+  // won't account for the `.then` callbacks above having mutated it while
+  // `originalRequest` was pending — the `as` cast below is purely a type-level
+  // correction (back to the field's own declared type), not a behavioral change.
+  if ((state.outcome as 'pending' | 'success' | 'failure') === 'failure') throw state.error;
+}
+
 /**
  * Take-test runtime (T-012): question-by-question navigation over the student's
  * assigned variant, a visible countdown when the test has a time limit (auto-submits at
@@ -80,6 +152,14 @@ function TakeTestPage() {
   // itself rather than letting `AttemptLockContext`'s route-change re-check catch up —
   // see `handleSubmit` below for the race condition this avoids.
   const { clearLock } = useAttemptLock();
+  // 2026-10 "5 Design Systems" rebuild — "Focus Exam" is the style the customer
+  // specifically called out as needing the strongest exam-taking optimization: a more
+  // prominent, always-high-contrast timer and a clearer question-navigator grid (used
+  // further down). Purely visual (class selection only); called here, before this
+  // component's early-return guards, so it's never a conditionally-called hook. Every bit
+  // of the timing/answer/submit logic elsewhere in this file is completely untouched and
+  // identical for every design system.
+  const isFocusExam = useActiveDesignSystem() === 'focusExam';
 
   const [attempt, setAttempt] = useState<AttemptDetailDTO | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -158,6 +238,15 @@ function TakeTestPage() {
   }, [answers]);
   const textDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const hasSubmittedRef = useRef(false);
+  // Tracks the last value of each question successfully persisted to the server (QA
+  // 2026-10 fix: the periodic autosave flush below used to unconditionally re-send EVERY
+  // answered question every `AUTOSAVE_INTERVAL_MS`, not just the ones that changed —  on a
+  // long test this fired dozens of concurrent `saveAnswer` requests every 15s, competing
+  // with the browser's per-origin connection limit against the final `submitAttempt` call
+  // and leaving the "Đang nộp bài..." button stuck with no response for a long time even
+  // though the server had already processed the submit. Comparing against this ref lets
+  // the periodic flush skip anything already confirmed saved.
+  const lastSavedRef = useRef<Record<string, string | null>>({});
 
   const loadAttempt = useCallback(() => {
     if (!attemptId) return;
@@ -475,15 +564,23 @@ function TakeTestPage() {
   const persistAnswer = useCallback(
     (questionId: string, question: FlatQuestion, local: LocalAnswer) => {
       if (!attemptId) return;
+      const signature = isFreeTextType(question.type) ? local.textAnswer : local.selectedChoiceId;
       const body = isFreeTextType(question.type)
         ? { textAnswer: local.textAnswer }
         : { selectedChoiceId: local.selectedChoiceId };
-      studentApi.saveAnswer(attemptId, questionId, body).catch(() => {
-        // Autosave failures are surfaced to the student via the periodic flush /
-        // explicit submit instead of a disruptive per-keystroke error banner — a
-        // transient network blip shouldn't interrupt typing. If the attempt was
-        // submitted from elsewhere (409), the periodic flush below will notice.
-      });
+      studentApi
+        .saveAnswer(attemptId, questionId, body)
+        .then(() => {
+          lastSavedRef.current[questionId] = signature;
+        })
+        .catch(() => {
+          // Autosave failures are surfaced to the student via the periodic flush /
+          // explicit submit instead of a disruptive per-keystroke error banner — a
+          // transient network blip shouldn't interrupt typing. If the attempt was
+          // submitted from elsewhere (409), the periodic flush below will notice.
+          // Deliberately NOT updated into `lastSavedRef` on failure, so the next
+          // periodic flush retries this exact question instead of treating it as saved.
+        });
     },
     [attemptId],
   );
@@ -506,7 +603,10 @@ function TakeTestPage() {
 
   // Periodic flush (T-012 "autosave... on change OR interval"): a safety net alongside
   // the on-change saves above, in case a debounced save never fired (e.g. tab closed
-  // mid-debounce) or a network blip swallowed one.
+  // mid-debounce) or a network blip swallowed one. Only re-sends a question whose current
+  // value doesn't match `lastSavedRef` (not yet confirmed saved) — see that ref's own
+  // comment for why: resending every answered question unconditionally every interval
+  // could flood the connection queue on a long test.
   useEffect(() => {
     if (!attempt) return;
     const id = setInterval(() => {
@@ -514,7 +614,10 @@ function TakeTestPage() {
         const local = answersRef.current[question.id];
         if (!local) continue;
         const hasValue = isFreeTextType(question.type) ? local.textAnswer.trim() !== '' : local.selectedChoiceId !== null;
-        if (hasValue) persistAnswer(question.id, question, local);
+        if (!hasValue) continue;
+        const signature = isFreeTextType(question.type) ? local.textAnswer : local.selectedChoiceId;
+        if (lastSavedRef.current[question.id] === signature) continue;
+        persistAnswer(question.id, question, local);
       }
     }, AUTOSAVE_INTERVAL_MS);
     return () => clearInterval(id);
@@ -696,7 +799,7 @@ function TakeTestPage() {
       setSubmitError(null);
       try {
         await flushPendingSaves();
-        await studentApi.submitAttempt(attemptId);
+        await submitAttemptWithRecovery(attemptId);
         // T-091 critical race condition: clear the lock SYNCHRONOUSLY, immediately on
         // submit success, before navigating to the result page. If this instead relied
         // solely on `AttemptLockContext`'s route-change-triggered `listMyAttempts()`
@@ -765,8 +868,12 @@ function TakeTestPage() {
         {remainingMs !== null && (
           <div
             role="timer"
-            className={`rounded-md px-4 py-2 text-lg font-bold ${
-              remainingMs < 60_000 ? 'bg-red-100 text-red-700' : 'bg-primary-100 text-primary-700'
+            className={`rounded-md font-bold tabular-nums ${isFocusExam ? 'px-5 py-2.5 text-2xl' : 'px-4 py-2 text-lg'} ${
+              remainingMs < 60_000
+                ? 'bg-red-100 text-red-700'
+                : isFocusExam
+                  ? 'border-2 border-primary-300 bg-primary-50 text-primary-800'
+                  : 'bg-primary-100 text-primary-700'
             }`}
           >
             {formatRemaining(remainingMs)}
@@ -790,12 +897,14 @@ function TakeTestPage() {
                   isAnswered ? 'takeTest.goToQuestionAnswered' : 'takeTest.goToQuestionUnanswered',
                   { number: index + 1 },
                 )}
-                className={`h-10 w-10 rounded-md text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`${isFocusExam ? 'h-11 w-11' : 'h-10 w-10'} rounded-md text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   index === currentIndex
                     ? 'bg-primary-700 text-base-white ring-2 ring-primary-300 ring-offset-1'
                     : isAnswered
                       ? 'bg-primary-500 text-base-white hover:bg-primary-600'
-                      : 'border border-primary-200 bg-base-white text-base-black/70 hover:bg-primary-50'
+                      : isFocusExam
+                        ? 'border-2 border-slate-300 bg-base-white text-base-black/80 hover:bg-primary-50'
+                        : 'border border-primary-200 bg-base-white text-base-black/70 hover:bg-primary-50'
                 }`}
               >
                 {index + 1}

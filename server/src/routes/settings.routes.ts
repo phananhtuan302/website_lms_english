@@ -38,7 +38,11 @@ settingsRouter.get(
     const body: SettingsDTO = {
       language: settings?.language ?? 'en',
       themeId: settings?.themeId ?? 'sunset',
-      uiStyle: settings?.uiStyle ?? 'glass',
+      // `Settings.uiStyle` is a free-text column as of 2026-10 (see its schema.prisma doc
+      // comment) — this cast is safe because the app only ever WRITES values from
+      // `UI_STYLE_IDS` (`adminSettings.routes.ts`'s PATCH handler validates against it).
+      uiStyle: (settings?.uiStyle ?? 'glass') as SettingsDTO['uiStyle'],
+      fontFamily: (settings?.fontFamily ?? null) as SettingsDTO['fontFamily'],
     };
     res.status(200).json(body);
   }),

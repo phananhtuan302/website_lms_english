@@ -9,7 +9,7 @@ const SIZE_CLASSES: Record<FieldSize, string> = {
 };
 
 const BASE =
-  'w-full rounded-md border border-primary-200 bg-base-white text-base-black font-normal transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-60';
+  'w-full rounded-lg border border-slate-300 bg-base-white text-base-black font-normal transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60';
 
 interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
   size?: FieldSize;

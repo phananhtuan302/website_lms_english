@@ -1412,10 +1412,19 @@ export interface SentenceSubmissionDTO {
 
 /** Every vocabulary "activity" type that can produce a correct/incorrect verdict on one
  * card: the four single-answer exercises (T-024-027), matching (T-028), the
- * use-in-a-sentence exercise (T-029, verdict = `containsWord`), the two vocab games
- * (T-034/T-035), and the "Tự kiểm tra" self-check quiz (T-089, verdict = whether the
+ * use-in-a-sentence exercise (T-029, verdict = `containsWord`), the current vocab games
+ * (`VocabGameType`), and the "Tự kiểm tra" self-check quiz (T-089, verdict = whether the
  * submitted meaning matched `FlashcardCard.meaning`). A superset of `VocabExerciseType` —
  * every `VocabExerciseType` value is also a valid `VocabActivityType`.
+ *
+ * `'spaceShooter'`/`'runner'` are RETIRED game types (replaced 2026-10 by
+ * `VocabGameType`'s three — see its own doc comment) — kept here, NOT in `VocabGameType`,
+ * so this DTO-facing type can still represent a pre-existing `FlashcardExerciseAttempt`
+ * row stored with one of them (the Postgres enum itself keeps these values for the same
+ * reason — `schema.prisma`'s `VocabActivityType` doc comment), while nothing new ever
+ * writes them (only `VocabGameType`'s values are accepted by `POST .../games/:gameType/
+ * complete`). Same "legacy value kept in the broad type, dropped from the narrow
+ * writable one" precedent as `UiStyleId`/`DesignSystemId`.
  *
  * `'selfCheck'` rows are special: they double as a permanent point ledger (+10 correct /
  * -20 incorrect per row, see `SelfCheckAnswerResponse.pointsDelta` and
@@ -1426,6 +1435,8 @@ export type VocabActivityType =
   | 'matching'
   | 'sentence'
   | VocabGameType
+  | 'spaceShooter'
+  | 'runner'
   | 'selfCheck';
 
 /** Per-activity-type stats row: how many attempts, how many correct, and the resulting
@@ -1587,13 +1598,17 @@ export interface VocabPeriodLeaderboardResponseDTO {
   entries: VocabLeaderboardEntryDTO[];
 }
 
-// --- Vocabulary games: space shooter (T-034) and runner (T-035) --------------------
-// Both games use the exact same word data (term+meaning — every card qualifies, no
+// --- Vocabulary games (2026-10 "Vocab Studio" game lineup) --------------------------
+// All three games use the exact same word data (term+meaning — every card qualifies, no
 // eligibility filter) and the exact same round-completion contract
 // (`CompleteVocabActivityRequest`/`Response` above), so only one word-list DTO and one
-// `gameType` union are needed for both tasks.
-
-export type VocabGameType = 'spaceShooter' | 'runner';
+// `gameType` union are needed for all of them. Replaces the original two games
+// (`spaceShooter`/`runner`, T-034/T-035) — customer feedback: both were secretly the
+// same "pick the right lane" mechanic under a different skin and felt repetitive. Old
+// `FlashcardExerciseAttempt` rows already stored with the retired type strings are left
+// alone (the column is free text, not a DB enum — see `studentVocabProgress.activity.*`
+// i18n's `defaultValue` fallback for how an unrecognized stored type still renders).
+export type VocabGameType = 'whackAMole' | 'climber' | 'balloonPop';
 
 export interface GameWordDTO {
   cardId: string;
@@ -2378,16 +2393,104 @@ export type SiteLanguage = 'en' | 'vi';
 export const THEME_IDS = ['sunset', 'ocean', 'forest', 'violet', 'teal', 'rose', 'amber', 'indigo'] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
-/** The site-wide UI style (2026-10, admin request: 4 selectable visual languages).
- * Orthogonal to `ThemeId` — `ThemeId` is the brand HUE, `UiStyleId` is the overall look
- * applied on top of it (surface treatment, shadow, corners, light/dark). `glass` (frosted
- * gradient-mesh panels) is the default and requires no CSS override (see
- * `client/src/index.css`); the other three each override the same surface/text/shadow
- * classes under a `[data-ui-style="…"]` attribute — same "CSS var / attribute scoped
- * override" approach as `ThemeId`, so switching needs no per-component code, no reload,
- * and recolors instantly. Mirrors the Prisma `UiStyleId` enum. */
-export const UI_STYLE_IDS = ['glass', 'brutalist', 'vivid', 'dark'] as const;
+/** The site-wide UI style. Orthogonal to `ThemeId` — `ThemeId` is the brand HUE,
+ * `UiStyleId` is the overall design system applied on top of it (layout, typography,
+ * spacing, card/border/shadow treatment, navigation chrome).
+ *
+ * `Settings.uiStyle` (`schema.prisma`) is a free-text DB column as of 2026-10 (changed
+ * from a Postgres enum — see that field's own doc comment for why: adding 5 NEW systems
+ * the same day as the first 5 shipped made a schema migration per addition clearly the
+ * wrong cost model). This string-literal union stays as the one place the APPLICATION's
+ * own known vocabulary is typed/autocompleted — the DB will happily store anything, but
+ * the app only ever writes values from `UI_STYLE_IDS`.
+ *
+ * `glass`/`brutalist`/`vivid`/`dark` are the 4 ORIGINAL styles, kept only so a `uiStyle`
+ * still set to one of them keeps resolving (nothing force-migrates an existing choice).
+ * `minimalAcademic`/`modernSaas`/`editorialLearning`/`focusExam`/`contemporaryCreative`
+ * are the first "5 Design Systems" rebuild. `minimalism`/`flatDesign`/`glassmorphism`/
+ * `neumorphism`/`swissDesign` are a second batch of 5, added the same day.
+ * `neoBrutalism`/`materialDesign`/`cyberpunkNeon`/`playfulRetro`/`claymorphism` are a
+ * third batch of 5 (customer request: "làm thêm 5 giao diện mới, phải khác hoàn toàn 10
+ * giao diện kia"), added later the same day — the 10 above are UNCHANGED by this batch.
+ * See `client/src/lib/designSystems.ts` for what each one actually is — new code should
+ * never newly set a site to one of the 4 legacy ones. */
+export const UI_STYLE_IDS = [
+  'glass',
+  'brutalist',
+  'vivid',
+  'dark',
+  'minimalAcademic',
+  'modernSaas',
+  'editorialLearning',
+  'focusExam',
+  'contemporaryCreative',
+  'minimalism',
+  'flatDesign',
+  'glassmorphism',
+  'neumorphism',
+  'swissDesign',
+  'neoBrutalism',
+  'materialDesign',
+  'cyberpunkNeon',
+  'playfulRetro',
+  'claymorphism',
+] as const;
 export type UiStyleId = (typeof UI_STYLE_IDS)[number];
+
+/** The fifteen current design systems (excludes the four legacy styles above) — what the
+ * admin picker UI (`AdminSettingsPage.tsx`'s "Giao diện hệ thống" section) actually
+ * offers someone switching TO a new look today. Client-side code deliberately does NOT
+ * import this array as a runtime VALUE (only the derived type) — see
+ * `client/src/lib/designSystems.ts`'s own doc comment for the Vite dev-cache reason. */
+export const DESIGN_SYSTEM_IDS = [
+  'minimalAcademic',
+  'modernSaas',
+  'editorialLearning',
+  'focusExam',
+  'contemporaryCreative',
+  'minimalism',
+  'flatDesign',
+  'glassmorphism',
+  'neumorphism',
+  'swissDesign',
+  'neoBrutalism',
+  'materialDesign',
+  'cyberpunkNeon',
+  'playfulRetro',
+  'claymorphism',
+] as const;
+export type DesignSystemId = (typeof DESIGN_SYSTEM_IDS)[number];
+
+/** The site-wide admin-selectable font (2026-10 font picker request) — `null`/omitted
+ * means "use the active design system's own default typography" (no override).
+ * `client/src/lib/fonts.ts` holds the actual per-font metadata (display name, CSS family
+ * stack, category) and, for the same Vite dev-cache reason as `DesignSystemId`, its OWN
+ * local copy of this id list as a runtime value — this export is for the TYPE and for
+ * server-side validation (`server/src/routes/adminSettings.routes.ts`), which has no such
+ * caching concern. */
+export const FONT_FAMILY_IDS = [
+  'inter',
+  'roboto',
+  'openSans',
+  'lato',
+  'montserrat',
+  'poppins',
+  'nunito',
+  'workSans',
+  'sourceSans',
+  'ibmPlexSans',
+  'merriweather',
+  'lora',
+  'playfairDisplay',
+  'sourceSerif',
+  'sora',
+  'spaceGrotesk',
+  'dmSans',
+  'outfit',
+  'manrope',
+  'jetbrainsMono',
+] as const;
+export type FontFamilyId = (typeof FONT_FAMILY_IDS)[number];
 
 /** Response for `GET /api/settings` (T-067, PUBLIC — no auth required). This is the
  * single site-wide language/theme/style every client, logged in or not, must render in —
@@ -2397,16 +2500,20 @@ export interface SettingsDTO {
   language: SiteLanguage;
   themeId: ThemeId;
   uiStyle: UiStyleId;
+  /** `null` = no font override, use the active design system's own default. */
+  fontFamily: FontFamilyId | null;
 }
 
 /** Body for `PATCH /api/admin/settings` (T-072, admin-only) — the only way to change the
- * site-wide language/theme/style anywhere in the product; see `SettingsDTO`'s doc comment
- * above for why there's no other switcher. Any subset of fields may be sent (a partial
- * update); each is validated server-side against its fixed set of allowed values. */
+ * site-wide language/theme/style/font anywhere in the product; see `SettingsDTO`'s doc
+ * comment above for why there's no other switcher. Any subset of fields may be sent (a
+ * partial update); each is validated server-side against its fixed set of allowed values.
+ * `fontFamily: null` explicitly clears a previously-set font override. */
 export interface UpdateSettingsRequest {
   language?: SiteLanguage;
   themeId?: ThemeId;
   uiStyle?: UiStyleId;
+  fontFamily?: FontFamilyId | null;
 }
 
 // --- AI essay/writing grading config (2026-10, admin-managed prompt + endpoint) -----

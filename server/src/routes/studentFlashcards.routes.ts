@@ -646,9 +646,9 @@ studentFlashcardsRouter.post(
   }),
 );
 
-// --- Vocab games: space shooter (T-034) and runner (T-035) ------------------------------
+// --- Vocab games (2026-10 "Vocab Studio" lineup) -----------------------------------------
 
-const VOCAB_GAME_TYPES: VocabGameType[] = ['spaceShooter', 'runner'];
+const VOCAB_GAME_TYPES: VocabGameType[] = ['whackAMole', 'climber', 'balloonPop'];
 
 function isVocabGameType(value: string): value is VocabGameType {
   return (VOCAB_GAME_TYPES as string[]).includes(value);

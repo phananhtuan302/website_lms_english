@@ -41,3 +41,6 @@ playwright/.cache/
 # passwords — never committed
 class-*-credentials.csv
 server/scripts/reset-and-setup-class-*.ts
+
+# QA agent scratch output (screenshots, logs, generated reports) — never committed
+reports/

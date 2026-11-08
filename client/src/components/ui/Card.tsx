@@ -19,12 +19,12 @@ const PADDING_CLASSES: Record<CardPadding, string> = {
 
 // `tinted` is a neutral slate wash, not a pastel of the brand hue: a page full of pale-orange
 // boxes reads as "friendly SaaS", not premium. The brand color still shows up deliberately
-// elsewhere (buttons, active nav, icon chips, the page background mesh), just not as a flat fill.
+// elsewhere instead (buttons, active nav, icon chips, focus rings), never as a flat fill.
 //
-// "Glassmorphism" pass (2026-10) — `glass` (`.bg-glass-panel`, index.css) is a frosted,
-// semi-transparent panel meant to float over `.bg-app-canvas`'s color mesh (`AppShell`'s content
-// background) — a white border reads as a lit edge against that, where the other variants'
-// slate border would look muddy.
+// `glass` (`.bg-glass-panel`, index.css) is a frosted surface for the few places that
+// deliberately float over a colored background (e.g. sitting on top of a `PageBanner`) — a
+// white border reads as a lit edge against that, where the other variants' slate border would
+// look muddy.
 const VARIANT_CLASSES: Record<CardVariant, string> = {
   plain: 'border-slate-200 bg-base-white',
   tinted: 'border-slate-200 bg-slate-50',

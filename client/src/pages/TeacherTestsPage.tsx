@@ -5,9 +5,9 @@ import { TEST_TYPE_LABELS, type TestSummaryDTO, type TestType } from '@platform/
 import { teacherApi } from '../lib/teacherApi';
 import { ApiError } from '../lib/apiClient';
 import { Button, PageHeader, TestsIcon } from '../components/ui';
+import { REPORTS_ENABLED } from '../lib/featureFlags';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
-const REPORTS_ENABLED = true;
 
 function formatAverageDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -31,6 +31,7 @@ export default function TeacherTestsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,7 +41,7 @@ export default function TeacherTestsPage() {
     teacherApi
       .listTests()
       .then(setTests)
-      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherTests.errors.loadFailed')));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t('teacherTests.loadFailed')));
   }
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function TeacherTestsPage() {
       const created = await teacherApi.createTest({ title: t('teacherTests.newTestDefaultTitle') });
       navigate(`/teacher/tests/${created.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTests.errors.createFailed'));
+      setError(err instanceof ApiError ? err.message : t('teacherTests.createFailed'));
       setCreating(false);
     }
   }
@@ -66,9 +67,38 @@ export default function TeacherTestsPage() {
       await teacherApi.duplicateTest(testId);
       loadTests();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('teacherTests.errors.duplicateFailed'));
+      setError(err instanceof ApiError ? err.message : t('teacherTests.duplicateFailed'));
     } finally {
       setDuplicatingId(null);
+    }
+  }
+
+  /** Deleting a test CASCADES in the database (`schema.prisma`'s `Attempt.test` relation,
+   * `onDelete: Cascade`) — every student's attempt/answers for it are deleted right along
+   * with it, with no soft-delete or undo. The confirm message below is built dynamically
+   * (not one static i18n string) specifically so it can call that out by its real,
+   * specific number for THIS test — `test.completedAttemptCount` already comes back from
+   * `GET /api/teacher/tests` (used elsewhere on this same page for the "Thời gian TB"
+   * column), so this needed no new server-side work. */
+  async function handleDelete(test: TestSummaryDTO) {
+    const confirmMessage =
+      test.completedAttemptCount > 0
+        ? `${t('teacherTests.confirmDelete')}\n\n${t('teacherTests.confirmDeleteAttemptsWarning', {
+            count: test.completedAttemptCount,
+            title: test.title,
+          })}`
+        : t('teacherTests.confirmDelete');
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeletingId(test.id);
+    setError(null);
+    try {
+      await teacherApi.deleteTest(test.id);
+      loadTests();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('teacherTests.deleteFailed'));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -279,6 +309,15 @@ export default function TeacherTestsPage() {
                           title="Nhân bản bài kiểm tra"
                         >
                           {duplicatingId === test.id ? '...' : 'Nhân bản'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(test)}
+                          disabled={deletingId === test.id}
+                          className="inline-flex items-center rounded-lg border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          title={t('teacherTests.deleteButton')}
+                        >
+                          {deletingId === test.id ? '...' : t('teacherTests.deleteButton')}
                         </button>
                       </div>
                     </td>

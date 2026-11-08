@@ -8,6 +8,7 @@
  */
 
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import type { AuthResponse, AuthUser, LoginRequest, RegisterRequest, UpdateAvatarRequest, UpdateProfileRequest } from '@platform/shared';
 import { prisma } from '../lib/prisma';
 import { hashPassword, verifyPassword } from '../lib/password';
@@ -118,9 +119,25 @@ authRouter.post(
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: { email, passwordHash, name, role: 'student', classId: selectedClass.id },
-    });
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: { email, passwordHash, name, role: 'student', classId: selectedClass.id },
+      });
+    } catch (err) {
+      // QA 2026-10 fix: the `findUnique` check above is a non-atomic "is this email
+      // free?" read — two concurrent registrations with the same email could both pass
+      // it before either had written anything (observed via a real concurrent-request
+      // test: one got 201, the other a raw 500 instead of a clean conflict response).
+      // The loser here hits the DB's own unique constraint on `email` instead, which
+      // Prisma surfaces as P2002 — same race/same fix as the existing `@@unique`
+      // conflict handling in `lib/attemptAssignment.ts`/`teacherClassRoster.routes.ts`.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        res.status(409).json({ error: 'An account with this email already exists.' });
+        return;
+      }
+      throw err;
+    }
 
     const authUser = toAuthUser({ ...user, class: { name: selectedClass.name } });
     const response: AuthResponse = { token: signToken(authUser), user: authUser };

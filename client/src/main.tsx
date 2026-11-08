@@ -7,6 +7,7 @@ import { initI18n } from './i18n/i18n';
 import { apiRequest } from './lib/apiClient';
 import { applyTheme } from './lib/themePalettes';
 import { applyUiStyle } from './lib/uiStyles';
+import { applyFontFamily } from './lib/fonts';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -39,6 +40,7 @@ async function bootstrap() {
     // which needs an explicit fallback value to pass to `initI18n`.
     applyTheme(settings.themeId);
     applyUiStyle(settings.uiStyle);
+    applyFontFamily(settings.fontFamily);
   } catch {
     // Keep the 'en' default — see doc comment above.
   }

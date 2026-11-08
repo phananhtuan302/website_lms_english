@@ -18,7 +18,9 @@ import JoinPage from './pages/JoinPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import RegisterPage from './pages/RegisterPage';
+import StudentBalloonPopGamePage from './pages/StudentBalloonPopGamePage';
 import StudentCalendarPage from './pages/StudentCalendarPage';
+import StudentClimberGamePage from './pages/StudentClimberGamePage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import StudentFlashcardsPage from './pages/StudentFlashcardsPage';
 import StudentFlashcardSetPage from './pages/StudentFlashcardSetPage';
@@ -27,13 +29,12 @@ import StudentGrammarExercisePage from './pages/StudentGrammarExercisePage';
 import StudentGrammarPage from './pages/StudentGrammarPage';
 import StudentGrammarSpaceShooterGamePage from './pages/StudentGrammarSpaceShooterGamePage';
 import StudentGrammarTopicPage from './pages/StudentGrammarTopicPage';
-import StudentRunnerGamePage from './pages/StudentRunnerGamePage';
-import StudentSpaceShooterGamePage from './pages/StudentSpaceShooterGamePage';
 import StudentVocabExercisePage from './pages/StudentVocabExercisePage';
 import StudentVocabMatchingPage from './pages/StudentVocabMatchingPage';
 import StudentVocabProgressPage from './pages/StudentVocabProgressPage';
 import StudentVocabSelfCheckPage from './pages/StudentVocabSelfCheckPage';
 import StudentVocabSentencePage from './pages/StudentVocabSentencePage';
+import StudentWhackAMoleGamePage from './pages/StudentWhackAMoleGamePage';
 import TakeTestPage from './pages/TakeTestPage';
 import TeacherAttemptDetailPage from './pages/TeacherAttemptDetailPage';
 import TeacherClassesPage from './pages/TeacherClassesPage';
@@ -269,12 +270,16 @@ function App() {
                   element={<StudentVocabSentencePage />}
                 />
                 <Route
-                  path="/student/flashcard-sets/:setId/games/space-shooter"
-                  element={<StudentSpaceShooterGamePage />}
+                  path="/student/flashcard-sets/:setId/games/whack-a-mole"
+                  element={<StudentWhackAMoleGamePage />}
                 />
                 <Route
-                  path="/student/flashcard-sets/:setId/games/runner"
-                  element={<StudentRunnerGamePage />}
+                  path="/student/flashcard-sets/:setId/games/climber"
+                  element={<StudentClimberGamePage />}
+                />
+                <Route
+                  path="/student/flashcard-sets/:setId/games/balloon-pop"
+                  element={<StudentBalloonPopGamePage />}
                 />
                 {/* "Tự kiểm tra" self-check quiz (T-089) — a completely different,
                   student-initiated feature from the unrelated teacher-assigned "Kiểm tra

@@ -1,36 +1,111 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AiGradingSettingsDTO, AiToolsSettingsDTO, SiteLanguage, ThemeId, UiStyleId } from '@platform/shared';
+import type { AiGradingSettingsDTO, AiToolsSettingsDTO, DesignSystemId, FontFamilyId, SiteLanguage, ThemeId, UiStyleId } from '@platform/shared';
 import { adminApi } from '../lib/adminApi';
 import { ApiError } from '../lib/apiClient';
 import { applyTheme, THEME_DEFINITIONS } from '../lib/themePalettes';
-import { applyUiStyle, UI_STYLE_DEFINITIONS } from '../lib/uiStyles';
+import { applyUiStyle } from '../lib/uiStyles';
+import { DESIGN_SYSTEM_DEFINITIONS } from '../lib/designSystems';
+import { applyFontFamily, FONT_DEFINITIONS } from '../lib/fonts';
 import { Alert, Button, Card, Input, PageHeader, SectionHeading, SettingsIcon } from '../components/ui';
 
-/** A small rendered preview of each UI style's signature surface treatment, for the picker
- * grid below — same "show, don't just name it" idea as the theme picker's color swatches. */
-const UI_STYLE_PREVIEW: Record<UiStyleId, ReactNode> = {
-  glass: (
-    <div className="relative flex h-14 w-full items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-primary-300 via-primary-500 to-primary-700">
-      <div className="h-8 w-20 rounded-md border border-white/60 bg-white/40 backdrop-blur-sm" />
+/** The design system this page falls back to for "Khôi phục giao diện mặc định" — the
+ * closest of the 5 to the site's original (pre-"5 Design Systems") look, so "restore
+ * default" reads as a safe, familiar baseline rather than an arbitrary 6th choice. */
+const DEFAULT_DESIGN_SYSTEM_ID: DesignSystemId = 'modernSaas';
+
+/** A small rendered preview of each design system's signature surface treatment, for the
+ * gallery grid below — same "show, don't just name it" idea as the color-theme picker's
+ * swatches, now reflecting genuinely different layouts (not just a recolored box). */
+const DESIGN_SYSTEM_PREVIEW: Record<DesignSystemId, ReactNode> = {
+  minimalAcademic: (
+    <div className="flex h-14 w-full flex-col justify-end gap-1.5 bg-white px-1 pb-1.5">
+      <div className="h-2.5 w-16 bg-slate-800" style={{ fontFamily: 'Source Serif 4, serif' }} />
+      <div className="h-px w-full bg-slate-300" />
+      <div className="h-1.5 w-10 bg-slate-300" />
     </div>
   ),
-  brutalist: (
-    <div className="flex h-14 w-full items-center justify-center rounded-lg bg-[#fdf8f0]">
-      <div className="h-8 w-20 rounded border-2 border-black bg-primary-400 shadow-[3px_3px_0_0_#000]" />
-    </div>
-  ),
-  vivid: (
+  modernSaas: (
     <div className="flex h-14 w-full items-center justify-center rounded-lg bg-slate-50">
-      <div className="h-8 w-20 rounded-xl bg-gradient-to-br from-primary-400 to-primary-700 shadow-md" />
+      <div className="h-8 w-20 rounded-lg border border-slate-200 bg-white shadow-sm" />
     </div>
   ),
-  dark: (
-    <div className="flex h-14 w-full items-center justify-center rounded-lg bg-[#0a0a12]">
-      <div
-        className="h-8 w-20 rounded-md border border-primary-500/40 bg-[#15151f]"
-        style={{ boxShadow: '0 0 12px 1px rgb(var(--color-primary-500) / 0.45)' }}
-      />
+  editorialLearning: (
+    <div className="flex h-14 w-full flex-col justify-end gap-1 bg-[#faf6ee] px-1.5 pb-1.5">
+      <div className="h-3 w-20 bg-[#3f3a2e]" style={{ fontFamily: 'Playfair Display, serif' }} />
+      <div className="h-[2px] w-full bg-[#3f3a2e]" />
+    </div>
+  ),
+  focusExam: (
+    <div className="flex h-14 w-full items-center justify-center gap-1.5 rounded-lg bg-[#fbfbfa]">
+      <div className="h-8 w-14 rounded-md border-2 border-slate-300 bg-white" />
+      <div className="h-8 w-6 rounded-md border-2 border-primary-300 bg-primary-50" />
+    </div>
+  ),
+  contemporaryCreative: (
+    <div className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary-50">
+      <div className="h-9 w-24 rounded-2xl bg-primary-600" />
+    </div>
+  ),
+  minimalism: (
+    <div className="flex h-14 w-full flex-col justify-center gap-1.5 bg-white px-2">
+      <div className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+        <div className="h-1.5 w-20 rounded-full bg-slate-200" />
+      </div>
+      <div className="h-px w-full bg-slate-100" />
+      <div className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+        <div className="h-1.5 w-14 rounded-full bg-slate-200" />
+      </div>
+    </div>
+  ),
+  flatDesign: (
+    <div className="flex h-14 w-full items-center gap-1.5 bg-[#eef0f2] p-1.5">
+      <div className="h-full w-1.5 rounded-sm bg-primary-500" />
+      <div className="h-full flex-1 rounded-sm bg-white" />
+    </div>
+  ),
+  glassmorphism: (
+    <div className="relative flex h-14 w-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-300 via-primary-500 to-primary-700">
+      <div className="h-9 w-24 rounded-xl border border-white/60 bg-white/40 backdrop-blur-md" />
+    </div>
+  ),
+  neumorphism: (
+    <div className="flex h-14 w-full items-center justify-center rounded-2xl bg-[#e6e9ef]">
+      <div className="h-8 w-20 rounded-xl bg-[#e6e9ef] shadow-[4px_4px_8px_-1px_rgb(163,177,198,0.6),-4px_-4px_8px_-1px_rgb(255,255,255,0.9)]" />
+    </div>
+  ),
+  swissDesign: (
+    <div className="flex h-14 w-full flex-col justify-end gap-1 bg-white px-1.5 pb-1.5">
+      <div className="h-2.5 w-14 bg-black" />
+      <div className="h-[2px] w-full bg-black" />
+      <div className="h-1.5 w-8 bg-primary-600" />
+    </div>
+  ),
+  neoBrutalism: (
+    <div className="flex h-14 w-full items-center justify-center bg-[#fffdf5]">
+      <div className="h-8 w-20 border-[3px] border-black bg-white shadow-[4px_4px_0_0_#000]" />
+    </div>
+  ),
+  materialDesign: (
+    <div className="flex h-14 w-full items-center justify-center rounded-2xl bg-[#fef7ff]">
+      <div className="h-8 w-20 rounded-[1.25rem] bg-[#f3edf7] shadow-[0_1px_2px_0_rgb(0,0,0,0.3),0_1px_3px_1px_rgb(0,0,0,0.15)]" />
+    </div>
+  ),
+  cyberpunkNeon: (
+    <div className="flex h-14 w-full items-center justify-center rounded-md bg-[#05060a]">
+      <div className="h-8 w-20 rounded-md border border-cyan-400/40 bg-[#0b0e17] shadow-[0_0_14px_-2px_rgb(34,211,238,0.6)]" />
+    </div>
+  ),
+  playfulRetro: (
+    <div className="flex h-14 w-full items-center justify-center bg-[#fff6ea]">
+      <div className="h-8 w-20 rounded-2xl border-2 border-[#28243d] bg-white shadow-[4px_4px_0_0_rgb(var(--color-primary-500))]" />
+    </div>
+  ),
+  claymorphism: (
+    <div className="flex h-14 w-full items-center justify-center rounded-2xl bg-[#eef2ff]">
+      <div className="h-8 w-20 rounded-[1.25rem] bg-[linear-gradient(145deg,#ffffff,#f1eefc)] shadow-[5px_5px_10px_rgb(199,192,231,0.5),-5px_-5px_10px_rgb(255,255,255,0.95)]" />
     </div>
   ),
 };
@@ -68,10 +143,27 @@ function AdminSettingsPage() {
   const [themeError, setThemeError] = useState<string | null>(null);
   const [themeSavedMessage, setThemeSavedMessage] = useState<string | null>(null);
 
+  // `uiStyle` is the REAL, persisted site-wide value (may still be one of the 4 legacy
+  // styles if nobody has applied one of the 5 current design systems yet). `previewingId`
+  // is a CLIENT-ONLY override — set by the "Xem thử" button, applied instantly via
+  // `applyUiStyle` with no API call — so an admin can compare designs live before
+  // committing one. The DOM always reflects `previewingId ?? uiStyle`.
   const [uiStyle, setUiStyle] = useState<UiStyleId | null>(null);
-  const [uiStyleSaving, setUiStyleSaving] = useState<UiStyleId | null>(null);
-  const [uiStyleError, setUiStyleError] = useState<string | null>(null);
-  const [uiStyleSavedMessage, setUiStyleSavedMessage] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<DesignSystemId | null>(null);
+  const [applyingId, setApplyingId] = useState<DesignSystemId | null>(null);
+  const [designSystemError, setDesignSystemError] = useState<string | null>(null);
+  const [designSystemSavedMessage, setDesignSystemSavedMessage] = useState<string | null>(null);
+
+  // `fontFamily` mirrors the `uiStyle` preview/apply pattern above: `fontFamily` itself is
+  // the real persisted value (`null` = no override), `fontPreviewId` is a client-only
+  // override applied instantly via `applyFontFamily`, with `undefined` meaning "not
+  // previewing" (distinct from `null`, which would mean "previewing: no override").
+  const [fontFamily, setFontFamily] = useState<FontFamilyId | null>(null);
+  const [fontFamilyLoaded, setFontFamilyLoaded] = useState(false);
+  const [fontPreviewId, setFontPreviewId] = useState<FontFamilyId | null | undefined>(undefined);
+  const [fontApplyingId, setFontApplyingId] = useState<FontFamilyId | null | undefined>(undefined);
+  const [fontError, setFontError] = useState<string | null>(null);
+  const [fontSavedMessage, setFontSavedMessage] = useState<string | null>(null);
 
   const [aiGrading, setAiGrading] = useState<AiGradingSettingsDTO | null>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -226,6 +318,8 @@ function AdminSettingsPage() {
         setLanguage(settings.language);
         setThemeId(settings.themeId);
         setUiStyle(settings.uiStyle);
+        setFontFamily(settings.fontFamily);
+        setFontFamilyLoaded(true);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : t('adminSettings.errors.loadFailed')));
   }
@@ -266,22 +360,77 @@ function AdminSettingsPage() {
     }
   }
 
-  async function handleUiStyleSwitch(next: UiStyleId) {
-    if (next === uiStyle || uiStyleSaving !== null) return;
-    setUiStyleSaving(next);
-    setUiStyleError(null);
-    setUiStyleSavedMessage(null);
+  /** "Xem thử" — client-only, no API call, no `designSystemSavedMessage`/error touched.
+   * Instantly repaints THIS browser via `applyUiStyle`; every other visitor is unaffected
+   * until an Apply actually persists something. */
+  function handlePreview(id: DesignSystemId) {
+    setPreviewingId(id);
+    applyUiStyle(id);
+  }
+
+  /** "Dừng xem thử" — reverts this browser back to whatever is actually persisted. */
+  function handleStopPreview() {
+    setPreviewingId(null);
+    if (uiStyle) applyUiStyle(uiStyle);
+  }
+
+  async function handleApply(id: DesignSystemId) {
+    if (applyingId !== null) return;
+    setApplyingId(id);
+    setDesignSystemError(null);
+    setDesignSystemSavedMessage(null);
     try {
-      const settings = await adminApi.updateSettings({ uiStyle: next });
+      const settings = await adminApi.updateSettings({ uiStyle: id });
       setUiStyle(settings.uiStyle);
+      setPreviewingId(null);
       applyUiStyle(settings.uiStyle);
-      setUiStyleSavedMessage(
-        t('adminSettings.uiStyle.saved', { style: t(`adminSettings.uiStyle.names.${settings.uiStyle}`) }),
+      setDesignSystemSavedMessage(
+        t('adminSettings.designSystems.saved', { name: t(`adminSettings.designSystems.names.${settings.uiStyle}`) }),
       );
     } catch (err) {
-      setUiStyleError(err instanceof ApiError ? err.message : t('adminSettings.uiStyle.errors.saveFailed'));
+      setDesignSystemError(err instanceof ApiError ? err.message : t('adminSettings.designSystems.errors.saveFailed'));
     } finally {
-      setUiStyleSaving(null);
+      setApplyingId(null);
+    }
+  }
+
+  function handleRestoreDefault() {
+    void handleApply(DEFAULT_DESIGN_SYSTEM_ID);
+  }
+
+  /** "Xem thử" for a font — client-only, same pattern as `handlePreview` above.
+   * `id: null` previews "no override" (the active design system's own default font). */
+  function handleFontPreview(id: FontFamilyId | null) {
+    setFontPreviewId(id);
+    applyFontFamily(id);
+  }
+
+  function handleFontStopPreview() {
+    setFontPreviewId(undefined);
+    applyFontFamily(fontFamily);
+  }
+
+  async function handleFontApply(id: FontFamilyId | null) {
+    if (fontApplyingId !== undefined) return;
+    setFontApplyingId(id);
+    setFontError(null);
+    setFontSavedMessage(null);
+    try {
+      const settings = await adminApi.updateSettings({ fontFamily: id });
+      setFontFamily(settings.fontFamily);
+      setFontPreviewId(undefined);
+      applyFontFamily(settings.fontFamily);
+      setFontSavedMessage(
+        t('adminSettings.fonts.saved', {
+          name: settings.fontFamily
+            ? t(`adminSettings.fonts.names.${settings.fontFamily}`)
+            : t('adminSettings.fonts.useDesignSystemDefault'),
+        }),
+      );
+    } catch (err) {
+      setFontError(err instanceof ApiError ? err.message : t('adminSettings.fonts.errors.saveFailed'));
+    } finally {
+      setFontApplyingId(undefined);
     }
   }
 
@@ -391,59 +540,171 @@ function AdminSettingsPage() {
         )}
       </section>
 
-      {/* --- UI style --- */}
+      {/* --- Design system gallery (2026-10 "5 Design Systems" rebuild) --- */}
       <section>
-        <SectionHeading>{t('adminSettings.uiStyle.heading')}</SectionHeading>
-        <p className="mt-1 text-sm text-base-black/60">{t('adminSettings.uiStyle.subtitle')}</p>
+        <SectionHeading>{t('adminSettings.designSystems.galleryHeading')}</SectionHeading>
+        <p className="mt-1 text-sm text-base-black/60">{t('adminSettings.designSystems.gallerySubtitle')}</p>
 
         {uiStyle === null && !error ? (
           <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
         ) : (
           uiStyle !== null && (
             <Card variant="glass" className="mt-4">
-              <p className="text-sm font-medium text-base-black">
-                {t('adminSettings.uiStyle.currentStyle', { style: t(`adminSettings.uiStyle.names.${uiStyle}`) })}
-              </p>
+              {previewingId && previewingId !== uiStyle && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5">
+                  <p className="text-sm font-medium text-amber-900">
+                    {t('adminSettings.designSystems.previewBanner', {
+                      name: t(`adminSettings.designSystems.names.${previewingId}`),
+                    })}
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={handleStopPreview}>
+                    {t('adminSettings.designSystems.stopPreviewButton')}
+                  </Button>
+                </div>
+              )}
 
-              {uiStyleError && <Alert className="mt-3">{uiStyleError}</Alert>}
+              {designSystemError && <Alert className="mb-3">{designSystemError}</Alert>}
 
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {UI_STYLE_DEFINITIONS.map((style) => {
-                  const isActive = style.id === uiStyle;
-                  const isSaving = uiStyleSaving === style.id;
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {DESIGN_SYSTEM_DEFINITIONS.map((design) => {
+                  const isCurrent = design.id === uiStyle && previewingId === null;
+                  const isPreviewing = previewingId === design.id;
+                  const isApplying = applyingId === design.id;
                   return (
-                    <button
-                      key={style.id}
-                      type="button"
-                      onClick={() => handleUiStyleSwitch(style.id)}
-                      disabled={uiStyleSaving !== null || isActive}
-                      aria-pressed={isActive}
-                      className={`flex flex-col items-start gap-2 rounded-xl border-2 bg-base-white p-3 text-left transition-colors disabled:cursor-not-allowed ${
-                        isActive
-                          ? 'border-primary-500 shadow-card'
-                          : 'border-transparent shadow-card hover:border-primary-200'
+                    <div
+                      key={design.id}
+                      className={`flex flex-col gap-2.5 rounded-xl border-2 bg-base-white p-3.5 text-left transition-colors ${
+                        isCurrent || isPreviewing ? 'border-primary-500 shadow-card' : 'border-transparent shadow-card'
                       }`}
                     >
-                      {UI_STYLE_PREVIEW[style.id]}
-                      <span className="text-sm font-semibold text-base-black">
-                        {t(`adminSettings.uiStyle.names.${style.id}`)}
+                      <span className="overflow-hidden rounded-lg" aria-hidden="true">
+                        {DESIGN_SYSTEM_PREVIEW[design.id]}
                       </span>
-                      {isActive && (
-                        <span className="text-xs font-medium uppercase tracking-wide text-primary-600">
-                          {t('adminSettings.uiStyle.currentBadge')}
-                        </span>
-                      )}
-                      {isSaving && (
-                        <span className="text-xs font-medium text-base-black/60">
-                          {t('adminSettings.uiStyle.switching')}
-                        </span>
-                      )}
-                    </button>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-base-black">
+                            {t(`adminSettings.designSystems.names.${design.id}`)}
+                          </span>
+                          {isCurrent && (
+                            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary-700">
+                              {t('adminSettings.designSystems.currentBadge')}
+                            </span>
+                          )}
+                          {isPreviewing && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
+                              {t('adminSettings.designSystems.previewingBadge')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-base-black/60">
+                          {t(`adminSettings.designSystems.descriptions.${design.id}`)}
+                        </p>
+                        <ul className="mt-2 flex flex-col gap-0.5">
+                          {design.highlightKeys.map((key) => (
+                            <li key={key} className="flex items-center gap-1.5 text-xs text-base-black/70">
+                              <span aria-hidden="true" className="h-1 w-1 rounded-full bg-primary-400" />
+                              {t(`adminSettings.designSystems.highlights.${design.id}.${key}`)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {isPreviewing ? (
+                          <Button type="button" variant="outline" size="sm" onClick={handleStopPreview}>
+                            {t('adminSettings.designSystems.stopPreviewButton')}
+                          </Button>
+                        ) : (
+                          <Button type="button" variant="outline" size="sm" onClick={() => handlePreview(design.id)}>
+                            {t('adminSettings.designSystems.previewButton')}
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => handleApply(design.id)}
+                          disabled={applyingId !== null || isCurrent}
+                        >
+                          {isApplying
+                            ? t('adminSettings.designSystems.applyingButton')
+                            : t('adminSettings.designSystems.applyButton')}
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
 
-              {uiStyleSavedMessage && <p className="mt-4 text-sm font-medium text-primary-700">{uiStyleSavedMessage}</p>}
+              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-primary-100 pt-4">
+                <Button type="button" variant="ghost" size="sm" onClick={handleRestoreDefault} disabled={applyingId !== null}>
+                  {t('adminSettings.designSystems.restoreDefaultButton')}
+                </Button>
+                {designSystemSavedMessage && (
+                  <p className="text-sm font-medium text-primary-700">{designSystemSavedMessage}</p>
+                )}
+              </div>
+            </Card>
+          )
+        )}
+      </section>
+
+      {/* --- Font picker (2026-10 request) --- */}
+      <section>
+        <SectionHeading>{t('adminSettings.fonts.heading')}</SectionHeading>
+        <p className="mt-1 text-sm text-base-black/60">{t('adminSettings.fonts.subtitle')}</p>
+
+        {!fontFamilyLoaded && !error ? (
+          <p className="mt-4 text-sm text-base-black/60">{t('common.loading')}</p>
+        ) : (
+          fontFamilyLoaded && (
+            <Card variant="glass" className="mt-4">
+              {fontPreviewId !== undefined && fontPreviewId !== fontFamily && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5">
+                  <p className="text-sm font-medium text-amber-900">
+                    {t('adminSettings.designSystems.previewBanner', {
+                      name: fontPreviewId
+                        ? t(`adminSettings.fonts.names.${fontPreviewId}`)
+                        : t('adminSettings.fonts.useDesignSystemDefault'),
+                    })}
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={handleFontStopPreview}>
+                    {t('adminSettings.fonts.stopPreviewButton')}
+                  </Button>
+                </div>
+              )}
+
+              {fontError && <Alert className="mb-3">{fontError}</Alert>}
+
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {/* "Use design system default" — always first, represented as `null`. */}
+                <FontOptionCard
+                  label={t('adminSettings.fonts.useDesignSystemDefault')}
+                  previewStack="var(--font-body)"
+                  isCurrent={fontFamily === null && fontPreviewId === undefined}
+                  isPreviewing={fontPreviewId === null}
+                  isApplying={fontApplyingId === null}
+                  applyingAnything={fontApplyingId !== undefined}
+                  onPreview={() => handleFontPreview(null)}
+                  onStopPreview={handleFontStopPreview}
+                  onApply={() => void handleFontApply(null)}
+                />
+                {FONT_DEFINITIONS.map((font) => (
+                  <FontOptionCard
+                    key={font.id}
+                    label={t(`adminSettings.fonts.names.${font.id}`)}
+                    categoryLabel={t(`adminSettings.fonts.categories.${font.category}`)}
+                    previewStack={font.stack}
+                    isCurrent={fontFamily === font.id && fontPreviewId === undefined}
+                    isPreviewing={fontPreviewId === font.id}
+                    isApplying={fontApplyingId === font.id}
+                    applyingAnything={fontApplyingId !== undefined}
+                    onPreview={() => handleFontPreview(font.id)}
+                    onStopPreview={handleFontStopPreview}
+                    onApply={() => void handleFontApply(font.id)}
+                  />
+                ))}
+              </div>
+
+              {fontSavedMessage && <p className="mt-4 text-sm font-medium text-primary-700">{fontSavedMessage}</p>}
             </Card>
           )
         )}
@@ -756,6 +1017,64 @@ function AiToolFeatureBlock(props: {
           rows={10}
           className="mt-2 w-full rounded-md border border-primary-200 bg-base-white px-3 py-2 text-sm text-base-black transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
         />
+      </div>
+    </div>
+  );
+}
+
+/** One font option in the "Font chữ" picker grid — shows a real live preview rendered in
+ * that actual font (via an inline `fontFamily` style, the one place in this codebase an
+ * inline style is the right tool: it's literally demonstrating the font itself, not
+ * something a Tailwind/theme class could express), plus the same preview/apply controls
+ * every design-system card already has. */
+function FontOptionCard(props: {
+  label: string;
+  categoryLabel?: string;
+  previewStack: string;
+  isCurrent: boolean;
+  isPreviewing: boolean;
+  isApplying: boolean;
+  applyingAnything: boolean;
+  onPreview: () => void;
+  onStopPreview: () => void;
+  onApply: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className={`flex flex-col gap-2 rounded-xl border-2 bg-base-white p-3 text-left transition-colors ${
+        props.isCurrent || props.isPreviewing ? 'border-primary-500 shadow-card' : 'border-transparent shadow-card'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-base-black">{props.label}</span>
+        {props.categoryLabel && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+            {props.categoryLabel}
+          </span>
+        )}
+        {props.isCurrent && (
+          <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary-700">
+            {t('adminSettings.fonts.currentBadge')}
+          </span>
+        )}
+      </div>
+      <p className="truncate text-xl text-base-black" style={{ fontFamily: props.previewStack }}>
+        Aa Bb — Xin chào 123
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {props.isPreviewing ? (
+          <Button type="button" variant="outline" size="sm" onClick={props.onStopPreview}>
+            {t('adminSettings.fonts.stopPreviewButton')}
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" onClick={props.onPreview}>
+            {t('adminSettings.fonts.previewButton')}
+          </Button>
+        )}
+        <Button type="button" size="sm" onClick={props.onApply} disabled={props.applyingAnything || props.isCurrent}>
+          {props.isApplying ? t('adminSettings.fonts.applyingButton') : t('adminSettings.fonts.applyButton')}
+        </Button>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import type {
 } from '@platform/shared';
 import { flashcardApi } from '../lib/flashcardApi';
 import { ApiError } from '../lib/apiClient';
+import VocabConfetti from '../components/VocabConfetti';
 
 const STATUS_LABEL_KEY: Record<FlashcardProgressStatus, string> = {
   new: 'studentFlashcardSet.statusNew',
@@ -121,6 +122,9 @@ function StudentFlashcardSetPage() {
   const [showKnownCards, setShowKnownCards] = useState(false);
   // T-113: a short "Đã thuộc ✓" / "Vẫn đang học ✓" note next to the card after marking.
   const [markFeedback, setMarkFeedback] = useState<'known' | 'learning' | null>(null);
+  // Vocab Studio: a brief confetti burst on "known" — purely decorative, mirrors
+  // `markFeedback`'s own lifetime (cleared by the same timer below).
+  const [showConfetti, setShowConfetti] = useState(false);
   // T-113: true once the child has just marked the last card of the set (drives the "you finished" panel).
   const [markedLastCard, setMarkedLastCard] = useState(false);
   // T-113: "🔊 Nghe" state — reading aloud, or the device could not read it.
@@ -205,8 +209,12 @@ function StudentFlashcardSetPage() {
       setIndex((i) => Math.min(set!.cards.length - 1, i + 1));
       // T-113: say what was just saved, briefly (the card already moved on).
       setMarkFeedback(status === 'known' ? 'known' : 'learning');
+      setShowConfetti(status === 'known');
       window.clearTimeout(markFeedbackTimer.current);
-      markFeedbackTimer.current = window.setTimeout(() => setMarkFeedback(null), MARK_FEEDBACK_MS);
+      markFeedbackTimer.current = window.setTimeout(() => {
+        setMarkFeedback(null);
+        setShowConfetti(false);
+      }, MARK_FEEDBACK_MS);
       if (index === set!.cards.length - 1) setMarkedLastCard(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('studentFlashcardSet.saveProgressError'));
@@ -262,267 +270,335 @@ function StudentFlashcardSetPage() {
   const showDonePanel = markedLastCard || allCardsMarked;
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <Link to="/student/flashcard-sets" className="inline-block py-2.5 text-sm text-primary-600 hover:underline sm:py-0">
-          {t('studentFlashcardSet.backToVocabulary')}
-        </Link>
-        <span className="text-sm text-base-black/60">
-          {t('studentFlashcardSet.cardProgress', { current: index + 1, total: set.cards.length })}
-        </span>
-      </div>
-
-      <h1 className="text-xl font-bold text-primary-700">{set.name}</h1>
-
-      <div className="relative">
-        {/* T-113: says what was just saved ("Đã thuộc ✓" / "Vẫn đang học ✓") for a moment while the
-            card moves on. The live region is always present so screen readers announce the change. */}
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center"
-        >
-          {markFeedback && (
-            <span
-              className={`rounded-full px-4 py-1.5 text-sm font-bold text-base-white shadow-md ${
-                markFeedback === 'known' ? 'bg-green-600' : 'bg-amber-700'
-              }`}
-            >
-              {markFeedback === 'known' ? t('studentFlashcardSet.markedKnown') : t('studentFlashcardSet.markedLearning')}
-            </span>
-          )}
-        </div>
-        {/* T-113: the card looks like a card you can press (raised, bordered, with a visible hint). */}
-        <button
-          type="button"
-          onClick={() => setIsFlipped((f) => !f)}
-          aria-label={t('studentFlashcardSet.flipCardAriaLabel')}
-          className="flex min-h-[240px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-primary-300 bg-primary-50 p-6 text-center shadow-md transition hover:border-primary-400 hover:shadow-lg active:scale-[0.99] sm:p-8"
-        >
-          {!isFlipped ? (
-            <p className="break-words text-3xl font-bold text-base-black">{card.term}</p>
-          ) : (
-            <>
-              <p className="break-words text-lg font-semibold text-base-black">{card.meaning}</p>
-              {card.ipa && <p className="text-base-black/70">{card.ipa}</p>}
-              {card.synonyms.length > 0 && (
-                <p className="text-sm text-base-black/60">
-                  {t('studentFlashcardSet.synonymsLabel', { list: card.synonyms.join(', ') })}
-                </p>
-              )}
-              {card.antonyms.length > 0 && (
-                <p className="text-sm text-base-black/60">
-                  {t('studentFlashcardSet.antonymsLabel', { list: card.antonyms.join(', ') })}
-                </p>
-              )}
-              {card.imageUrl && (
-                <img src={card.imageUrl} alt={card.term} className="mt-2 max-h-32 rounded-md" />
-              )}
-            </>
-          )}
-          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-base-white px-4 py-1.5 text-sm font-semibold text-primary-700 shadow-sm">
-            <FlipIcon />
-            {isFlipped ? t('studentFlashcardSet.tapToFlipBack') : t('studentFlashcardSet.tapToReveal')}
+    <div className="vocab-zone vocab-canvas -m-4 flex flex-col gap-6 rounded-3xl p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8">
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <Link
+            to="/student/flashcard-sets"
+            className="inline-flex items-center gap-1 py-2.5 text-sm font-semibold text-primary-700 hover:text-primary-800 sm:py-0"
+          >
+            {t('studentFlashcardSet.backToVocabulary')}
+          </Link>
+          <span className="rounded-full bg-base-white px-3 py-1 text-xs font-bold text-primary-700 shadow-sm">
+            {t('studentFlashcardSet.cardProgress', { current: index + 1, total: set.cards.length })}
           </span>
-        </button>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASS[card.progressStatus ?? 'new']}`}
-        >
-          {t(STATUS_LABEL_KEY[card.progressStatus ?? 'new'])}
-        </span>
-        {canSpeakEnglish() && (
-          <button
-            type="button"
-            onClick={listen}
-            aria-label={t('studentFlashcardSet.listenAriaLabel')}
-            aria-busy={speakState === 'speaking'}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-primary-300 bg-base-white px-4 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-          >
-            {speakState === 'speaking' ? t('studentFlashcardSet.listenSpeaking') : t('studentFlashcardSet.listenButton')}
-          </button>
-        )}
-        {speakState === 'failed' && (
-          <p role="status" className="w-full rounded-md bg-amber-50 px-3 py-2 text-center text-sm text-amber-900">
-            {t('studentFlashcardSet.listenFailed')}
-          </p>
-        )}
-      </div>
-
-      {/* T-113: two equal-weight choices (same size, same border) on one row, and Trước / Tiếp theo
-          on another, so no label wraps on a phone. */}
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => void mark('learning')}
-            disabled={isSaving}
-            className="min-h-12 rounded-md border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('studentFlashcardSet.stillLearningButton')}
-          </button>
-          <button
-            type="button"
-            onClick={() => void mark('known')}
-            disabled={isSaving}
-            className="min-h-12 rounded-md border-2 border-green-300 bg-green-50 px-3 py-2 text-sm font-semibold text-green-900 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t('studentFlashcardSet.statusKnown')}
-          </button>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setIsFlipped(false);
-              setIndex((i) => Math.max(0, i - 1));
-            }}
-            disabled={index === 0}
-            className="min-h-11 rounded-md border border-primary-300 bg-base-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {t('studentFlashcardSet.previousButton')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsFlipped(false);
-              setIndex((i) => Math.min(set.cards.length - 1, i + 1));
-            }}
-            disabled={index === set.cards.length - 1}
-            className="min-h-11 rounded-md border border-primary-300 bg-base-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {t('studentFlashcardSet.nextButton')}
-          </button>
-        </div>
-      </div>
 
-      {/* T-113: the whole set has been studied — point at the practice section instead of leaving the child on the last card. */}
-      {showDonePanel && (
-        <div ref={donePanelRef} role="status" className="rounded-xl border-2 border-green-300 bg-green-50 p-4 text-center">
-          <p className="text-lg font-bold text-green-900">
-            {t('studentFlashcardSet.allCardsDoneTitle', { count: set.cards.length })}
-          </p>
-          <p className="mt-1 text-sm text-green-900/80">{t('studentFlashcardSet.allCardsDoneHint')}</p>
-          <button
-            type="button"
-            onClick={() => {
-              practiceRef.current?.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
-              practiceRef.current?.focus({ preventScroll: true });
-            }}
-            className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary-500 px-4 py-2.5 text-sm font-semibold text-base-white transition-colors hover:bg-primary-600 sm:w-auto"
-          >
-            {t('studentFlashcardSet.goToPracticeButton')}
-          </button>
-        </div>
-      )}
+        <h1 className="vocab-display text-2xl font-bold text-primary-800">{set.name}</h1>
 
-      <section ref={practiceRef} tabIndex={-1} className="rounded-xl border border-primary-200 p-4 focus:outline-none">
-        <h2 className="text-lg font-bold text-base-black">{t('studentFlashcardSet.practiceExercisesHeading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">{t('studentFlashcardSet.practiceExercisesSubtitle')}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {EXERCISE_LINKS.map((link) => (
-            <Link
-              key={link.type}
-              to={`/student/flashcard-sets/${setId}/exercises/${link.type}`}
-              className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
-            >
-              {t(link.labelKey)}
-            </Link>
+        {/* Chunky progress dots — one per card, filled as the student studies each one. */}
+        <div className="flex flex-wrap gap-1.5" aria-hidden="true">
+          {set.cards.map((c, i) => (
+            <span
+              key={c.id}
+              className={`h-2 flex-1 rounded-full transition-colors ${
+                i === index
+                  ? 'bg-primary-600'
+                  : c.progressStatus === 'known'
+                    ? 'bg-green-400'
+                    : c.progressStatus === 'learning'
+                      ? 'bg-amber-300'
+                      : 'bg-primary-100'
+              }`}
+            />
           ))}
-          <Link
-            to={`/student/flashcard-sets/${setId}/matching`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
-          >
-            {t('studentFlashcardSet.matchingLink')}
-          </Link>
-          <Link
-            to={`/student/flashcard-sets/${setId}/sentence`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
-          >
-            {t('studentFlashcardSet.sentenceLink')}
-          </Link>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">{t('studentFlashcardSet.gamesHeading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">{t('studentFlashcardSet.gamesSubtitle')}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            to={`/student/flashcard-sets/${setId}/games/space-shooter`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
-          >
-            {t('studentFlashcardSet.spaceShooterLink')}
-          </Link>
-          <Link
-            to={`/student/flashcard-sets/${setId}/games/runner`}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
-          >
-            {t('studentFlashcardSet.wordRunnerLink')}
-          </Link>
-        </div>
-      </section>
-
-      {/* T-089: "Tự kiểm tra" (self-check) — a clearly distinct, student-initiated quiz
-          over cards the student has personally marked "Đã thuộc", NOT the unrelated
-          teacher-assigned "Kiểm tra từ vựng" (Vocabulary Check) feature elsewhere in the
-          product. Same bordered-box style as the two sections above. */}
-      <section className="rounded-xl border border-primary-200 p-4">
-        <h2 className="text-lg font-bold text-base-black">{t('studentFlashcardSet.selfCheckHeading')}</h2>
-        <p className="mt-1 text-sm text-base-black/60">{t('studentFlashcardSet.selfCheckSubtitle')}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            to={`/student/flashcard-sets/${setId}/self-check`}
-            className="rounded-md bg-primary-500 px-3 py-2.5 sm:py-1.5 text-sm font-semibold text-base-white hover:bg-primary-600"
-          >
-            {t('studentFlashcardSet.selfCheckStartButton')}
-          </Link>
-          <button
-            type="button"
-            onClick={() => setShowKnownCards((v) => !v)}
-            className="rounded-md border border-primary-300 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100"
-          >
-            {showKnownCards
-              ? t('studentFlashcardSet.hideKnownCardsButton')
-              : t('studentFlashcardSet.viewKnownCardsButton')}
-          </button>
         </div>
 
-        {showKnownCards && (
-          <div className="mt-4 rounded-lg border border-primary-100 bg-primary-50 p-3">
-            {knownCards.length === 0 ? (
-              <p className="text-sm text-base-black/60">{t('studentFlashcardSet.knownCardsEmpty')}</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {knownCards.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex items-center justify-between gap-3 rounded-md bg-base-white px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <span className="font-semibold text-base-black">{c.term}</span>
-                      <span className="ml-2 text-base-black/60">{c.meaning}</span>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        c.verifiedKnown
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-base-black/10 text-base-black/70'
-                      }`}
-                    >
-                      {c.verifiedKnown
-                        ? t('studentFlashcardSet.verifiedBadge')
-                        : t('studentFlashcardSet.selfClaimedBadge')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+        <div className="relative">
+          {/* T-113: says what was just saved ("Đã thuộc ✓" / "Vẫn đang học ✓") for a moment while the
+              card moves on. The live region is always present so screen readers announce the change. */}
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute inset-x-0 -top-3 z-20 flex justify-center"
+          >
+            {markFeedback && (
+              <span
+                className={`vocab-anim-pop rounded-full px-4 py-1.5 text-sm font-bold text-base-white shadow-lg ${
+                  markFeedback === 'known' ? 'bg-green-600' : 'bg-amber-600'
+                }`}
+              >
+                {markFeedback === 'known' ? t('studentFlashcardSet.markedKnown') : t('studentFlashcardSet.markedLearning')}
+              </span>
             )}
           </div>
+          {showConfetti && <VocabConfetti />}
+          {/* T-113: the card looks like a card you can press (raised, bordered, with a visible hint).
+              Vocab Studio: a real 3D flip (`.vocab-flip-*`, index.css) — both faces are always
+              rendered so the CSS transform can rotate between them; `isFlipped` now drives a
+              className instead of swapping which JSX renders, same state, same handler. */}
+          <button
+            type="button"
+            onClick={() => setIsFlipped((f) => !f)}
+            aria-label={t('studentFlashcardSet.flipCardAriaLabel')}
+            className="vocab-flip-scene block min-h-[260px] w-full text-left"
+          >
+            <div className={`vocab-flip-card min-h-[260px] w-full ${isFlipped ? 'is-flipped' : ''}`}>
+              <div className="vocab-flip-face flex min-h-[260px] w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-primary-300 bg-base-white p-6 text-center shadow-[0_12px_0_0_rgb(var(--color-primary-200)),0_20px_30px_-12px_rgb(var(--color-primary-600)/0.35)] sm:p-8">
+                <p className="vocab-display break-words text-4xl font-bold text-primary-900">{card.term}</p>
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-4 py-1.5 text-sm font-bold text-primary-700">
+                  <FlipIcon />
+                  {t('studentFlashcardSet.tapToReveal')}
+                </span>
+              </div>
+              <div className="vocab-flip-face vocab-flip-face-back flex min-h-[260px] w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-primary-300 bg-primary-50 p-6 text-center shadow-[0_12px_0_0_rgb(var(--color-primary-200)),0_20px_30px_-12px_rgb(var(--color-primary-600)/0.35)] sm:p-8">
+                <p className="break-words text-lg font-semibold text-base-black">{card.meaning}</p>
+                {card.ipa && <p className="text-base-black/70">{card.ipa}</p>}
+                {card.synonyms.length > 0 && (
+                  <p className="text-sm text-base-black/60">
+                    {t('studentFlashcardSet.synonymsLabel', { list: card.synonyms.join(', ') })}
+                  </p>
+                )}
+                {card.antonyms.length > 0 && (
+                  <p className="text-sm text-base-black/60">
+                    {t('studentFlashcardSet.antonymsLabel', { list: card.antonyms.join(', ') })}
+                  </p>
+                )}
+                {card.imageUrl && (
+                  <img src={card.imageUrl} alt={card.term} className="mt-2 max-h-32 rounded-xl" />
+                )}
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-base-white px-4 py-1.5 text-sm font-bold text-primary-700 shadow-sm">
+                  <FlipIcon />
+                  {t('studentFlashcardSet.tapToFlipBack')}
+                </span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_BADGE_CLASS[card.progressStatus ?? 'new']}`}
+          >
+            {t(STATUS_LABEL_KEY[card.progressStatus ?? 'new'])}
+          </span>
+          {canSpeakEnglish() && (
+            <button
+              type="button"
+              onClick={listen}
+              aria-label={t('studentFlashcardSet.listenAriaLabel')}
+              aria-busy={speakState === 'speaking'}
+              className="vocab-btn-secondary inline-flex min-h-11 items-center justify-center border-2 border-primary-300 bg-base-white px-4 py-2 text-sm font-bold text-primary-700"
+            >
+              {speakState === 'speaking' ? t('studentFlashcardSet.listenSpeaking') : t('studentFlashcardSet.listenButton')}
+            </button>
+          )}
+          {speakState === 'failed' && (
+            <p role="status" className="w-full rounded-xl bg-amber-50 px-3 py-2 text-center text-sm text-amber-900">
+              {t('studentFlashcardSet.listenFailed')}
+            </p>
+          )}
+        </div>
+
+        {/* T-113: two equal-weight choices (same size, same border) on one row, and Trước / Tiếp theo
+            on another, so no label wraps on a phone. */}
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => void mark('learning')}
+              disabled={isSaving}
+              className="vocab-btn-secondary min-h-14 border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t('studentFlashcardSet.stillLearningButton')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void mark('known')}
+              disabled={isSaving}
+              className="vocab-btn-primary vocab-btn-green min-h-14 bg-green-500 px-3 py-2 text-sm text-base-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t('studentFlashcardSet.statusKnown')}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setIsFlipped(false);
+                setIndex((i) => Math.max(0, i - 1));
+              }}
+              disabled={index === 0}
+              className="vocab-btn-secondary min-h-11 border-2 border-primary-200 bg-base-white px-3 py-2 text-sm text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t('studentFlashcardSet.previousButton')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsFlipped(false);
+                setIndex((i) => Math.min(set.cards.length - 1, i + 1));
+              }}
+              disabled={index === set.cards.length - 1}
+              className="vocab-btn-secondary min-h-11 border-2 border-primary-200 bg-base-white px-3 py-2 text-sm text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t('studentFlashcardSet.nextButton')}
+            </button>
+          </div>
+        </div>
+
+        {/* T-113: the whole set has been studied — point at the practice section instead of leaving the child on the last card. */}
+        {showDonePanel && (
+          <div
+            ref={donePanelRef}
+            role="status"
+            className="vocab-anim-pop relative overflow-hidden rounded-3xl border-2 border-green-300 bg-green-50 p-5 text-center"
+          >
+            <VocabConfetti />
+            <p className="vocab-display text-xl font-bold text-green-900">
+              🎉 {t('studentFlashcardSet.allCardsDoneTitle', { count: set.cards.length })}
+            </p>
+            <p className="mt-1 text-sm text-green-900/80">{t('studentFlashcardSet.allCardsDoneHint')}</p>
+            <button
+              type="button"
+              onClick={() => {
+                practiceRef.current?.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+                practiceRef.current?.focus({ preventScroll: true });
+              }}
+              className="vocab-btn-primary mt-3 inline-flex min-h-12 w-full items-center justify-center bg-primary-500 px-4 py-2.5 text-sm text-base-white sm:w-auto"
+            >
+              {t('studentFlashcardSet.goToPracticeButton')}
+            </button>
+          </div>
         )}
-      </section>
+
+        <section
+          ref={practiceRef}
+          tabIndex={-1}
+          className="rounded-3xl border-2 border-sky-200 bg-sky-50/60 p-5 focus:outline-none"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500 text-base-white">
+              ✏️
+            </span>
+            <h2 className="vocab-display text-lg font-bold text-sky-900">
+              {t('studentFlashcardSet.practiceExercisesHeading')}
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-sky-900/70">{t('studentFlashcardSet.practiceExercisesSubtitle')}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {EXERCISE_LINKS.map((link) => (
+              <Link
+                key={link.type}
+                to={`/student/flashcard-sets/${setId}/exercises/${link.type}`}
+                className="vocab-tile border-2 border-sky-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-sky-800 hover:border-sky-400"
+              >
+                {t(link.labelKey)}
+              </Link>
+            ))}
+            <Link
+              to={`/student/flashcard-sets/${setId}/matching`}
+              className="vocab-tile border-2 border-sky-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-sky-800 hover:border-sky-400"
+            >
+              {t('studentFlashcardSet.matchingLink')}
+            </Link>
+            <Link
+              to={`/student/flashcard-sets/${setId}/sentence`}
+              className="vocab-tile border-2 border-sky-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-sky-800 hover:border-sky-400"
+            >
+              {t('studentFlashcardSet.sentenceLink')}
+            </Link>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border-2 border-violet-200 bg-violet-50/60 p-5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500 text-base-white">
+              🎮
+            </span>
+            <h2 className="vocab-display text-lg font-bold text-violet-900">
+              {t('studentFlashcardSet.gamesHeading')}
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-violet-900/70">{t('studentFlashcardSet.gamesSubtitle')}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              to={`/student/flashcard-sets/${setId}/games/whack-a-mole`}
+              className="vocab-tile border-2 border-violet-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-violet-800 hover:border-violet-400"
+            >
+              🐹 {t('studentFlashcardSet.whackAMoleLink')}
+            </Link>
+            <Link
+              to={`/student/flashcard-sets/${setId}/games/climber`}
+              className="vocab-tile border-2 border-violet-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-violet-800 hover:border-violet-400"
+            >
+              🧗 {t('studentFlashcardSet.climberLink')}
+            </Link>
+            <Link
+              to={`/student/flashcard-sets/${setId}/games/balloon-pop`}
+              className="vocab-tile border-2 border-violet-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-violet-800 hover:border-violet-400"
+            >
+              🎈 {t('studentFlashcardSet.balloonPopLink')}
+            </Link>
+          </div>
+        </section>
+
+        {/* T-089: "Tự kiểm tra" (self-check) — a clearly distinct, student-initiated quiz
+            over cards the student has personally marked "Đã thuộc", NOT the unrelated
+            teacher-assigned "Kiểm tra từ vựng" (Vocabulary Check) feature elsewhere in the
+            product. Same color-coded card style as the two sections above. */}
+        <section className="rounded-3xl border-2 border-emerald-200 bg-emerald-50/60 p-5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-base-white">
+              🏆
+            </span>
+            <h2 className="vocab-display text-lg font-bold text-emerald-900">
+              {t('studentFlashcardSet.selfCheckHeading')}
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-emerald-900/70">{t('studentFlashcardSet.selfCheckSubtitle')}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              to={`/student/flashcard-sets/${setId}/self-check`}
+              className="vocab-btn-primary vocab-btn-emerald inline-flex items-center bg-emerald-500 px-4 py-2.5 sm:py-2 text-sm text-base-white"
+            >
+              {t('studentFlashcardSet.selfCheckStartButton')}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowKnownCards((v) => !v)}
+              className="vocab-tile border-2 border-emerald-200 bg-base-white px-3 py-2.5 sm:py-1.5 text-sm font-bold text-emerald-800 hover:border-emerald-400"
+            >
+              {showKnownCards
+                ? t('studentFlashcardSet.hideKnownCardsButton')
+                : t('studentFlashcardSet.viewKnownCardsButton')}
+            </button>
+          </div>
+
+          {showKnownCards && (
+            <div className="mt-4 rounded-2xl border border-emerald-100 bg-base-white/70 p-3">
+              {knownCards.length === 0 ? (
+                <p className="text-sm text-emerald-900/60">{t('studentFlashcardSet.knownCardsEmpty')}</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {knownCards.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-base-white px-3 py-2 text-sm shadow-xs"
+                    >
+                      <div>
+                        <span className="font-semibold text-base-black">{c.term}</span>
+                        <span className="ml-2 text-base-black/60">{c.meaning}</span>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          c.verifiedKnown
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-base-black/10 text-base-black/70'
+                        }`}
+                      >
+                        {c.verifiedKnown
+                          ? t('studentFlashcardSet.verifiedBadge')
+                          : t('studentFlashcardSet.selfClaimedBadge')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

@@ -43,7 +43,7 @@ export default function TeacherGrammarPage() {
     try {
       const created = await teacherApi.createGrammarTopic({
         title: t('teacherGrammar.newTopicDefaultTitle'),
-        theoryContent: '',
+        theoryContent: t('teacherGrammar.defaultTheoryContent'),
       });
       navigate(`/teacher/grammar-topics/${created.id}`);
     } catch (err) {

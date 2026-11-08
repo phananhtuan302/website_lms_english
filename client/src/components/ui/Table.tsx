@@ -6,7 +6,7 @@ import { cn } from '../../lib/cn';
  * generic `data`/`columns` API, since some cells here mix a `Link` and a `button` together. */
 function TableRoot({ className, children, ...rest }: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-base-white shadow-xs">
       <table className={cn('w-full min-w-[720px] text-left text-sm', className)} {...rest}>
         {children}
       </table>
@@ -24,7 +24,7 @@ function TableHead({ className, children, ...rest }: HTMLAttributes<HTMLTableSec
 
 function TableRow({ className, children, ...rest }: HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={cn('border-t border-slate-100', className)} {...rest}>
+    <tr className={cn('border-t border-slate-100 transition-colors hover:bg-slate-50/70', className)} {...rest}>
       {children}
     </tr>
   );

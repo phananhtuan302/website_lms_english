@@ -31,15 +31,14 @@
 
 
 /*
- * Default brand theme (2026-09, admin "custom theme" feature) — the original T-004
- * hand-tuned orange-red scale, as `"R G B"` triplets so `tailwind.config.js`'s
- * `rgb(var(--color-primary-*) / <alpha-value>)` color tokens have a value even before
- * `main.tsx` calls `applyTheme()` (e.g. this file's own CSS load, or a no-JS edge case).
- * `main.tsx` overwrites these same properties on `documentElement.style` (inline style
- * beats this `:root` stylesheet rule) with whichever theme `GET /api/settings` returns,
- * BEFORE the first render — so in the normal case a visitor never sees this default
- * flash before their actual theme, they're just the safety-net values. Keep these
- * byte-identical to `themePalettes.ts`'s `sunset` entry.
+ * Default brand theme (admin "custom theme" feature) — the original hand-tuned orange-red
+ * scale, as `"R G B"` triplets so `tailwind.config.js`'s `rgb(var(--color-primary-*) /
+ * <alpha-value>)` color tokens have a value even before `main.tsx` calls `applyTheme()` (e.g.
+ * this file's own CSS load, or a no-JS edge case). `main.tsx` overwrites these same properties
+ * on `documentElement.style` (inline style beats this `:root` stylesheet rule) with whichever
+ * theme `GET /api/settings` returns, BEFORE the first render — so in the normal case a visitor
+ * never sees this default flash before their actual theme, they're just the safety-net values.
+ * Keep these byte-identical to `themePalettes.ts`'s `sunset` entry.
  */
 :root {
   --color-primary-50: 255 245 242;
@@ -53,23 +52,30 @@
   --color-primary-800: 143 50 32;
   --color-primary-900: 107 37 23;
   --color-primary-950: 71 23 8;
+
+  /* Typography/radius tokens `tailwind.config.js`'s `font-sans`/`font-display`/
+   * `rounded-xl`/`rounded-2xl` read — defaults match the pre-"5 Design Systems" look
+   * exactly, so a site with no `data-ui-style` set (or still on one of the 4 legacy
+   * styles) renders byte-identical to before. Each of the 5 current design systems
+   * overrides these under its own `[data-ui-style='…']` block below. */
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, Cambria, serif;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 }
 
 /*
- * Readability (Phase 15). The interface is used by teachers who read on small laptops and often
- * enlarge the page, so the faint greys are lifted site-wide here instead of in ~100 files.
- * Plain rules placed AFTER the Tailwind utilities so they win over the originals (same
- * specificity, later in the file); hover/focus/aria variants still override them as before.
+ * Readability. The interface is used by teachers who read on small laptops and often enlarge
+ * the page, so the faint greys are lifted site-wide here instead of in ~100 files.
  *
  *  - The muted greys `text-base-black/35 … /60` were 2.0–5.7:1 on white; all become 0.66 black
- *    (#575757, 7:1 on white, ≥ 6:1 on the pink primary-50/100 backgrounds). This also covers the
- *    faded "unpublished score" text in the gradebook (`text-base-black/35`).
+ *    (#575757, 7:1 on white, ≥ 6:1 on the pink primary-50/100 backgrounds).
  *  - `text-primary-600` (#da5236) was only 4.0:1 on white / 3.7:1 on primary-50; it now uses the
  *    primary-700 shade (5.6:1) — same hue, just a little deeper. Written as `rgb(var(--color-
  *    primary-700))`, NOT `theme('colors.primary.700')`: since that Tailwind color token is
- *    itself `rgb(var(--x) / <alpha-value>)` (2026-09, admin theme feature), `theme()` would
- *    paste the literal, un-substituted string `<alpha-value>` into this plain CSS rule — that
- *    placeholder is only ever resolved inside Tailwind's own class-generation pipeline.
+ *    itself `rgb(var(--x) / <alpha-value>)`, `theme()` would paste the literal, un-substituted
+ *    string `<alpha-value>` into this plain CSS rule — that placeholder is only ever resolved
+ *    inside Tailwind's own class-generation pipeline.
  *  - Tailwind's default placeholder colour (gray-400, 2.5:1) becomes a readable grey.
  *  - The smallest helper text (`text-xs`, used for hints, badges and table headers) is 13px
  *    instead of 12px. No element combines `text-xs` with a responsive font-size class, so this
@@ -107,55 +113,39 @@ textarea::placeholder {
 }
 
 /*
- * "Professional dashboard" pass (2026-09, customer request: sidebar nav + a more polished
- * look site-wide). `AppShell`'s content area uses `.bg-app-canvas` instead of flat white — a
- * two-tone wash (cool slate + the brand hue) that every existing white `bg-base-white` card
- * already "floats" on top of with no per-page changes needed.
- *
- * 2026-10 "Modern SaaS" redesign: the original wash (two blobs at 4–5% opacity) was so faint
- * it read as flat white — bumped to three visibly-colored pools (reads `--color-primary-*`
- * directly like every other token here, so it recolors with the admin's chosen theme preset).
- *
- * "Luxury" pass: that first pass ran the color pools hot (0.16/0.12/0.09) and added a dot-grid
- * texture — a very recognizable "generic AI dashboard" cliché at this point, and busy besides.
- * Dropped the dots entirely; pools turned down to a quiet ambient wash.
- *
- * "Glassmorphism" pass (2026-10, customer request: "siêu hiện đại" — gradient mesh + frosted
- * glass): a glass card only reads as glass when there's something colorful behind it to blur,
- * so this goes back to a visibly colorful wash — six overlapping pools instead of three, each a
- * different `primary-*` step (not a second hue — the 8-theme-preset system is one brand hue by
- * design, see `tailwind.config.js`'s `colors.primary` comment) so the "mesh" comes from shape
- * and position, not from breaking the theme system. Every `.bg-glass-panel` surface (`Card`'s
- * `glass` variant) is composed against this.
+ * "Clarity" design system (2026-10 full rebuild). Previous passes layered "Modern SaaS" →
+ * "Luxury" → "Glassmorphism" on top of each other without ever cleaning the last one up —
+ * decorative blobs, mismatched hero treatments, dead shadow classes. This pass is deliberately
+ * restrained instead: one quiet neutral canvas, hairline borders, and color spent only on the
+ * one brand hue (nav active state, primary buttons, focus rings) — see `AppShell`/`TopNav` and
+ * `components/ui/*` for where this is actually applied.
  */
 .bg-app-canvas {
-  background-color: #f1f5f9; /* Slate 100 - Clean, professional SaaS foundation */
+  background-color: #f8fafc; /* slate-50 — a quiet neutral, not a colored mesh */
 }
 
-/* A frosted-glass surface — clean, crisp card */
+/* A frosted surface for the few places that deliberately float over a colored background
+ * (e.g. a `Card variant="glass"` sitting on a `PageBanner`) — everywhere else just uses a plain
+ * white card, which is most of the app. */
 .bg-glass-panel {
-  background-color: #ffffff;
-  border-color: #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+  background-color: rgb(255 255 255 / 0.72);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
 }
 
 /*
  * ============================================================================
- * UI STYLE OVERRIDES (2026-10, admin request: 4 selectable site-wide styles —
- * `client/src/lib/uiStyles.ts`'s `applyUiStyle` sets `data-ui-style` on <html>;
- * `glass` — everything above this block — is the default and needs no entry
- * here. Each block below overrides the SAME classes every admin component
- * already emits (Card/StatCard/Button/Table/PageHeader/AppShell/BarChart), so
- * switching styles needs no per-component code and repaints instantly, same
- * "attribute-scoped override, same specificity trick as the readability
- * overrides above" approach as `.text-base-black\/60` etc. Attribute-selector
- * specificity (0,2,0) already beats those plain single-class overrides
- * (0,1,0), so source order here doesn't matter for that interaction, but
- * these stay below them for readability.
+ * UI STYLE OVERRIDES — `client/src/lib/uiStyles.ts`'s `applyUiStyle` sets `data-ui-style` on
+ * <html>; the default (no attribute) is everything above this block. Each style below re-skins
+ * the SAME small set of neutral classes every surface in the app is now built from
+ * (`components/ui/*`, `AppShell`/`TopNav`, and most page-level cards/tables), so switching
+ * styles needs no per-component code and repaints instantly.
  *
- * Compound selectors like `.bg-primary-500\/15.text-primary-700` target one
- * exact component (`StatCard`'s icon chip) without touching every other use
- * of `text-primary-700` (link text, etc.) elsewhere in the app.
+ * Each block targets BOTH the semantic token classes (`bg-base-white`, `shadow-card`, …) that
+ * `components/ui/*` use, AND the plain literal classes (`bg-white`, `shadow-sm`, `shadow-xl`,
+ * `border-slate-300`, …) that a number of older page-level components still use directly —
+ * covering both means the switcher repaints the whole app consistently instead of leaving
+ * scattered surfaces behind, without having to hunt down and rename every literal class.
  * ============================================================================
  */
 
@@ -166,16 +156,16 @@ textarea::placeholder {
 [data-ui-style='dark'] .bg-app-canvas {
   background-color: #0a0a12;
   background-image:
-    radial-gradient(60rem 40rem at 10% -10%, rgb(var(--color-primary-500) / 0.28), transparent 60%),
-    radial-gradient(50rem 36rem at 100% 10%, rgb(var(--color-primary-600) / 0.24), transparent 60%),
-    radial-gradient(44rem 34rem at 60% 100%, rgb(var(--color-primary-400) / 0.2), transparent 60%);
+    radial-gradient(60rem 40rem at 10% -10%, rgb(var(--color-primary-500) / 0.22), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 10%, rgb(var(--color-primary-600) / 0.18), transparent 60%),
+    radial-gradient(44rem 34rem at 60% 100%, rgb(var(--color-primary-400) / 0.14), transparent 60%);
 }
-[data-ui-style='dark'] .bg-base-white {
+[data-ui-style='dark'] .bg-base-white,
+[data-ui-style='dark'] .bg-white {
   background-color: #15151f;
 }
-/* `AppShell`'s header/footer use the opacity-modifier form (`bg-base-white/80`, `/50`) —
- * Tailwind generates those as separate atomic classes from plain `.bg-base-white`, so they
- * need their own override rather than being caught by the rule above. */
+/* Opacity-modifier forms (`bg-base-white/80`, `/50`) are separate atomic classes from plain
+ * `.bg-base-white`, so they need their own override. */
 [data-ui-style='dark'] .bg-base-white\/80 {
   background-color: rgb(21 21 31 / 0.85);
 }
@@ -223,7 +213,9 @@ textarea::placeholder {
   color: #9d9db1;
 }
 [data-ui-style='dark'] .text-slate-600,
-[data-ui-style='dark'] .text-slate-700 {
+[data-ui-style='dark'] .text-slate-700,
+[data-ui-style='dark'] .text-slate-800,
+[data-ui-style='dark'] .text-slate-900 {
   color: #c6c6d6;
 }
 [data-ui-style='dark'] .hover\:bg-slate-50:hover,
@@ -231,23 +223,30 @@ textarea::placeholder {
 [data-ui-style='dark'] .hover\:border-slate-400:hover {
   background-color: rgb(255 255 255 / 0.07);
 }
-[data-ui-style='dark'] .hover\:bg-white\/50:hover {
-  background-color: rgb(255 255 255 / 0.08);
-}
 /* Black drop shadows vanish on a near-black surface, so cards/buttons lean on a soft brand-hue
-   glow instead — reads as the "neon" accent the dark style is named for. */
-[data-ui-style='dark'] .shadow-card {
+   glow instead — reads as the "neon" accent the dark style is named for. Covers both the token
+   shadow classes and the plain Tailwind shadow scale some page-level components use directly. */
+[data-ui-style='dark'] .shadow-card,
+[data-ui-style='dark'] .shadow-xs,
+[data-ui-style='dark'] .shadow-2xs,
+[data-ui-style='dark'] .shadow-sm {
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.05),
     0 4px 20px -4px rgb(var(--color-primary-500) / 0.18);
 }
-[data-ui-style='dark'] .shadow-card-hover {
+[data-ui-style='dark'] .shadow-card-hover,
+[data-ui-style='dark'] .shadow-md,
+[data-ui-style='dark'] .shadow-lg,
+[data-ui-style='dark'] .shadow-xl,
+[data-ui-style='dark'] .shadow-2xl,
+[data-ui-style='dark'] .shadow-dropdown,
+[data-ui-style='dark'] .shadow-panel {
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.07),
     0 10px 30px -6px rgb(var(--color-primary-500) / 0.32);
 }
 [data-ui-style='dark'] .bg-slate-900 {
-  background-color: #0a0a12; /* Sidebar's dark surface, deepened to match this style's near-black */
+  background-color: #0a0a12;
 }
 
 /* ---- brutalist ("Màu khối đậm, viền dày" / neo-brutalist) ---------------- */
@@ -263,18 +262,29 @@ textarea::placeholder {
 [data-ui-style='brutalist'] .rounded-xl,
 [data-ui-style='brutalist'] .rounded-lg,
 [data-ui-style='brutalist'] .rounded-2xl,
-[data-ui-style='brutalist'] .rounded-md {
+[data-ui-style='brutalist'] .rounded-md,
+[data-ui-style='brutalist'] .rounded-3xl,
+[data-ui-style='brutalist'] .rounded-full {
   border-radius: 4px;
 }
 [data-ui-style='brutalist'] .border,
 [data-ui-style='brutalist'] .border-slate-200,
 [data-ui-style='brutalist'] .border-slate-100,
+[data-ui-style='brutalist'] .border-slate-300,
 [data-ui-style='brutalist'] .border-white\/60 {
   border-width: 2px;
   border-color: #000000;
 }
 [data-ui-style='brutalist'] .shadow-card,
-[data-ui-style='brutalist'] .shadow-card-hover {
+[data-ui-style='brutalist'] .shadow-card-hover,
+[data-ui-style='brutalist'] .shadow-xs,
+[data-ui-style='brutalist'] .shadow-2xs,
+[data-ui-style='brutalist'] .shadow-sm,
+[data-ui-style='brutalist'] .shadow-md,
+[data-ui-style='brutalist'] .shadow-lg,
+[data-ui-style='brutalist'] .shadow-xl,
+[data-ui-style='brutalist'] .shadow-2xl,
+[data-ui-style='brutalist'] .shadow-dropdown {
   box-shadow: 4px 4px 0 0 #000000;
 }
 [data-ui-style='brutalist'] .shadow-panel {
@@ -287,54 +297,33 @@ textarea::placeholder {
   -webkit-text-fill-color: #000000;
   color: #000000;
 }
-/* StatCard icon chips: solid brand color + white icon instead of a pastel 15%-opacity tint —
-   compound selectors so only the exact chip combo is hit, not every `text-primary-700` use. */
-[data-ui-style='brutalist'] .bg-primary-500\/15.text-primary-700 {
-  background-color: rgb(var(--color-primary-500));
-  color: #ffffff;
+/* StatCard-style colored icon chips: solid brand/tone color + white icon instead of a pastel
+   tint — compound selectors so only the exact chip combo is hit, not every ordinary use of
+   that text color elsewhere. */
+[data-ui-style='brutalist'] .bg-blue-50\/50,
+[data-ui-style='brutalist'] .bg-sky-50\/50,
+[data-ui-style='brutalist'] .bg-purple-50\/50,
+[data-ui-style='brutalist'] .bg-amber-50\/50,
+[data-ui-style='brutalist'] .bg-rose-50\/50,
+[data-ui-style='brutalist'] .bg-emerald-50\/50 {
+  background-color: #ffffff;
 }
-[data-ui-style='brutalist'] .bg-emerald-500\/15.text-emerald-700 {
-  background-color: #10b981;
-  color: #ffffff;
-}
-[data-ui-style='brutalist'] .bg-amber-500\/15.text-amber-700 {
-  background-color: #f59e0b;
-  color: #ffffff;
-}
-[data-ui-style='brutalist'] .bg-sky-500\/15.text-sky-700 {
-  background-color: #0ea5e9;
-  color: #ffffff;
-}
-[data-ui-style='brutalist'] .bg-violet-500\/15.text-violet-700 {
-  background-color: #8b5cf6;
-  color: #ffffff;
-}
-[data-ui-style='brutalist'] .bg-rose-500\/15.text-rose-700 {
-  background-color: #f43f5e;
-  color: #ffffff;
-}
-/* The dashboard hero (`.admin-hero`, `AdminDashboardPage.tsx`) becomes a flat color block with
-   a thick border and an offset shadow instead of a frosted panel. */
-[data-ui-style='brutalist'] .admin-hero {
+/* The hero banner (`PageBanner`) becomes a flat color block with a thick border and an offset
+   shadow instead of a soft gradient panel. */
+[data-ui-style='brutalist'] .from-primary-700.via-primary-600.to-primary-950 {
+  background-image: none;
   background-color: rgb(var(--color-primary-300));
   border: 3px solid #000000;
-  box-shadow: 6px 6px 0 0 #000000;
-}
-[data-ui-style='brutalist'] .admin-hero h1 {
-  background-image: none;
-  -webkit-text-fill-color: #000000;
-  color: #000000;
 }
 
 /* ---- vivid ("Banner gradient + icon 3D rực rỡ") -------------------------- */
 [data-ui-style='vivid'] .bg-app-canvas {
   background-image:
-    radial-gradient(48rem 34rem at 8% -5%, rgb(var(--color-primary-400) / 0.6), transparent 60%),
-    radial-gradient(42rem 30rem at 92% 8%, rgb(var(--color-primary-600) / 0.5), transparent 58%),
-    radial-gradient(50rem 36rem at 100% 65%, rgb(var(--color-primary-300) / 0.45), transparent 60%),
-    radial-gradient(38rem 30rem at 15% 60%, rgb(var(--color-primary-700) / 0.35), transparent 55%),
-    radial-gradient(44rem 34rem at 50% 105%, rgb(var(--color-primary-500) / 0.4), transparent 60%),
-    radial-gradient(36rem 26rem at 60% 35%, rgb(var(--color-primary-200) / 0.4), transparent 55%);
+    radial-gradient(48rem 34rem at 8% -5%, rgb(var(--color-primary-400) / 0.5), transparent 60%),
+    radial-gradient(42rem 30rem at 92% 8%, rgb(var(--color-primary-600) / 0.42), transparent 58%),
+    radial-gradient(50rem 36rem at 100% 65%, rgb(var(--color-primary-300) / 0.38), transparent 60%),
+    radial-gradient(38rem 30rem at 15% 60%, rgb(var(--color-primary-700) / 0.3), transparent 55%),
+    radial-gradient(44rem 34rem at 50% 105%, rgb(var(--color-primary-500) / 0.34), transparent 60%);
 }
 /* Opaque instead of frosted — this style's cards are solid, colorful surfaces, not glass. */
 [data-ui-style='vivid'] .bg-glass-panel {
@@ -352,77 +341,1044 @@ textarea::placeholder {
   border-radius: 2rem;
 }
 [data-ui-style='vivid'] .border-white\/60,
-[data-ui-style='vivid'] .border-slate-200 {
+[data-ui-style='vivid'] .border-slate-200,
+[data-ui-style='vivid'] .border-slate-300 {
   border-color: transparent;
 }
-[data-ui-style='vivid'] .shadow-card {
+[data-ui-style='vivid'] .shadow-card,
+[data-ui-style='vivid'] .shadow-xs,
+[data-ui-style='vivid'] .shadow-2xs,
+[data-ui-style='vivid'] .shadow-sm {
   box-shadow:
     0 8px 24px -6px rgb(0 0 0 / 0.12),
     0 2px 6px -2px rgb(0 0 0 / 0.08);
 }
-[data-ui-style='vivid'] .shadow-card-hover {
+[data-ui-style='vivid'] .shadow-card-hover,
+[data-ui-style='vivid'] .shadow-md,
+[data-ui-style='vivid'] .shadow-lg,
+[data-ui-style='vivid'] .shadow-xl,
+[data-ui-style='vivid'] .shadow-2xl,
+[data-ui-style='vivid'] .shadow-dropdown {
   box-shadow:
     0 16px 34px -8px rgb(0 0 0 / 0.2),
     0 4px 10px -2px rgb(0 0 0 / 0.1);
 }
-/* StatCard icon chips: a saturated gradient fill instead of a pastel tint — the "icon 3D rực
-   rỡ" cue, simulated with gradient + depth since there's no 3D icon asset pipeline here. */
-[data-ui-style='vivid'] .bg-primary-500\/15.text-primary-700 {
-  background-image: linear-gradient(135deg, rgb(var(--color-primary-400)), rgb(var(--color-primary-600)));
-  color: #ffffff;
+/* StatCard-style colored icon chips: a saturated gradient fill instead of a flat tone. */
+[data-ui-style='vivid'] .bg-blue-600 {
+  background-image: linear-gradient(135deg, #60a5fa, #2563eb);
 }
-[data-ui-style='vivid'] .bg-emerald-500\/15.text-emerald-700 {
+[data-ui-style='vivid'] .bg-emerald-500 {
   background-image: linear-gradient(135deg, #34d399, #059669);
-  color: #ffffff;
 }
-[data-ui-style='vivid'] .bg-amber-500\/15.text-amber-700 {
+[data-ui-style='vivid'] .bg-amber-500 {
   background-image: linear-gradient(135deg, #fbbf24, #d97706);
-  color: #ffffff;
 }
-[data-ui-style='vivid'] .bg-sky-500\/15.text-sky-700 {
+[data-ui-style='vivid'] .bg-sky-500 {
   background-image: linear-gradient(135deg, #38bdf8, #0284c7);
-  color: #ffffff;
 }
-[data-ui-style='vivid'] .bg-violet-500\/15.text-violet-700 {
+[data-ui-style='vivid'] .bg-purple-600 {
   background-image: linear-gradient(135deg, #a78bfa, #7c3aed);
-  color: #ffffff;
 }
-[data-ui-style='vivid'] .bg-rose-500\/15.text-rose-700 {
+[data-ui-style='vivid'] .bg-rose-500 {
   background-image: linear-gradient(135deg, #fb7185, #e11d48);
-  color: #ffffff;
-}
-/* The dashboard hero becomes an opaque, saturated gradient banner (the style's namesake)
-   instead of a frosted panel, with white text on top of it. */
-[data-ui-style='vivid'] .admin-hero {
-  background-image: linear-gradient(
-    135deg,
-    rgb(var(--color-primary-400)),
-    rgb(var(--color-primary-600)) 55%,
-    rgb(var(--color-primary-800))
-  );
-  border-color: transparent;
-}
-[data-ui-style='vivid'] .admin-hero h1 {
-  background-image: none;
-  -webkit-text-fill-color: #ffffff;
-  color: #ffffff;
-}
-[data-ui-style='vivid'] .admin-hero p {
-  color: rgb(255 255 255 / 0.92);
 }
 
-/* A thin, unobtrusive scrollbar for the sidebar's own scroll area (nav can get long once a
- * teacher's Thống kê sub-items etc. are all visible) — Firefox + WebKit, degrades silently
- * (a normal scrollbar) anywhere neither applies. */
-.sidebar-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+/*
+ * ============================================================================
+ * 5 DESIGN SYSTEMS (2026-10 rebuild — customer request: "xây dựng 5 phong cách giao diện
+ * hoàn toàn khác nhau để Admin có thể lựa chọn", replacing the 4 styles above in the admin
+ * picker UI — `client/src/lib/designSystems.ts` is the registry, `AdminSettingsPage.tsx`'s
+ * gallery is where an admin previews/applies one). Each block below is a genuinely
+ * different visual language — typography, spacing, radius, border/shadow philosophy, card
+ * treatment, canvas color — not a palette swap. The structural pieces CSS alone can't
+ * reach (e.g. `StatCard`'s whole layout, `TopNav`'s chrome) branch in the component itself
+ * via `useActiveDesignSystem()` instead of living here — see those files.
+ * ============================================================================
+ */
+
+/* ---- Minimal Academic — white canvas, near-zero borders/shadows, serif headings,
+   whitespace instead of boxes. Addresses the "box-in-box" complaint most directly. ---- */
+[data-ui-style='minimalAcademic'] {
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Source Serif 4', Georgia, Cambria, serif;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
 }
-.sidebar-scroll::-webkit-scrollbar {
+[data-ui-style='minimalAcademic'] .bg-app-canvas {
+  background-color: #fdfdfb;
+}
+[data-ui-style='minimalAcademic'] .bg-base-white,
+[data-ui-style='minimalAcademic'] .bg-white,
+[data-ui-style='minimalAcademic'] .bg-slate-50 {
+  background-color: #fdfdfb;
+}
+[data-ui-style='minimalAcademic'] .bg-glass-panel {
+  background-color: #fdfdfb;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Borders removed everywhere except hairline table/list dividers (kept deliberately —
+   "hạn chế tối đa", not "xoá toàn bộ đường kẻ", per the brief's own distinction between
+   reducing visual noise and deleting every dividing line). */
+[data-ui-style='minimalAcademic'] .border,
+[data-ui-style='minimalAcademic'] .border-slate-200,
+[data-ui-style='minimalAcademic'] .border-slate-200\/90,
+[data-ui-style='minimalAcademic'] .border-slate-200\/80,
+[data-ui-style='minimalAcademic'] .border-slate-200\/70,
+[data-ui-style='minimalAcademic'] .border-slate-200\/60,
+[data-ui-style='minimalAcademic'] .border-slate-300,
+[data-ui-style='minimalAcademic'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='minimalAcademic'] .border-slate-100 {
+  border-color: #e9e7e2;
+}
+[data-ui-style='minimalAcademic'] .shadow,
+[data-ui-style='minimalAcademic'] .shadow-card,
+[data-ui-style='minimalAcademic'] .shadow-card-hover,
+[data-ui-style='minimalAcademic'] .shadow-xs,
+[data-ui-style='minimalAcademic'] .shadow-2xs,
+[data-ui-style='minimalAcademic'] .shadow-sm,
+[data-ui-style='minimalAcademic'] .shadow-md,
+[data-ui-style='minimalAcademic'] .shadow-lg,
+[data-ui-style='minimalAcademic'] .shadow-xl,
+[data-ui-style='minimalAcademic'] .shadow-2xl,
+[data-ui-style='minimalAcademic'] .shadow-dropdown {
+  box-shadow: none;
+}
+[data-ui-style='minimalAcademic'] .shadow-panel {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+}
+[data-ui-style='minimalAcademic'] .rounded-lg,
+[data-ui-style='minimalAcademic'] .rounded-md {
+  border-radius: 0.25rem;
+}
+[data-ui-style='minimalAcademic'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='minimalAcademic'] .auth-card {
+  box-shadow: none;
+  border: 1px solid #e9e7e2;
+}
+[data-ui-style='minimalAcademic'] .bg-gradient-to-br.from-primary-900.to-primary-800 {
+  background-image: none;
+  background-color: rgb(var(--color-primary-900));
+}
+[data-ui-style='minimalAcademic'] .text-base-black {
+  color: #1c1c1a;
+}
+[data-ui-style='minimalAcademic'] thead.bg-slate-50,
+[data-ui-style='minimalAcademic'] .bg-slate-100 {
+  background-color: transparent;
+}
+[data-ui-style='minimalAcademic'] thead {
+  border-bottom: 1.5px solid #1c1c1a;
+}
+/* The one deliberate accent: PageHeader/PageBanner headings lean on the serif display
+   face set above via `font-display` — no per-rule override needed here, Tailwind's
+   `font-display` utility already reads `--font-display`. */
+
+/* ---- Modern SaaS — the "quiet utility" reference point: close to the site's existing
+   default tokens (hairline borders, a restrained shadow, Inter throughout), just a touch
+   tighter/denser for a data-management feel. Intentionally the smallest diff of the 5. ---- */
+[data-ui-style='modernSaas'] {
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+}
+[data-ui-style='modernSaas'] .bg-app-canvas {
+  background-color: #f6f7f9;
+}
+[data-ui-style='modernSaas'] thead.bg-slate-50 {
+  background-color: #f1f3f6;
+}
+
+/* ---- Editorial Learning — a magazine/course-reader feel: warm paper canvas, large
+   serif headings (reuses Playfair Display, already loaded), near-zero radius, rule lines
+   instead of boxes, generous line-height for long-form reading. ---- */
+[data-ui-style='editorialLearning'] {
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, Cambria, serif;
+  --radius-xl: 0.25rem;
+  --radius-2xl: 0.375rem;
+}
+[data-ui-style='editorialLearning'] .bg-app-canvas {
+  background-color: #faf6ee;
+}
+[data-ui-style='editorialLearning'] .bg-base-white,
+[data-ui-style='editorialLearning'] .bg-white,
+[data-ui-style='editorialLearning'] .bg-slate-50 {
+  background-color: #fffdf8;
+}
+[data-ui-style='editorialLearning'] .bg-glass-panel {
+  background-color: #fffdf8;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='editorialLearning'] .border,
+[data-ui-style='editorialLearning'] .border-slate-200,
+[data-ui-style='editorialLearning'] .border-slate-200\/90,
+[data-ui-style='editorialLearning'] .border-slate-200\/80,
+[data-ui-style='editorialLearning'] .border-slate-200\/70,
+[data-ui-style='editorialLearning'] .border-slate-200\/60,
+[data-ui-style='editorialLearning'] .border-slate-300,
+[data-ui-style='editorialLearning'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='editorialLearning'] .border-slate-100 {
+  border-color: #e8e0d0;
+}
+[data-ui-style='editorialLearning'] .shadow,
+[data-ui-style='editorialLearning'] .shadow-card,
+[data-ui-style='editorialLearning'] .shadow-card-hover,
+[data-ui-style='editorialLearning'] .shadow-xs,
+[data-ui-style='editorialLearning'] .shadow-2xs,
+[data-ui-style='editorialLearning'] .shadow-sm,
+[data-ui-style='editorialLearning'] .shadow-md,
+[data-ui-style='editorialLearning'] .shadow-lg,
+[data-ui-style='editorialLearning'] .shadow-xl,
+[data-ui-style='editorialLearning'] .shadow-2xl,
+[data-ui-style='editorialLearning'] .shadow-dropdown,
+[data-ui-style='editorialLearning'] .shadow-panel {
+  box-shadow: none;
+}
+[data-ui-style='editorialLearning'] .rounded-lg,
+[data-ui-style='editorialLearning'] .rounded-md {
+  border-radius: 0.2rem;
+}
+[data-ui-style='editorialLearning'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='editorialLearning'] .auth-card {
+  box-shadow: none;
+  border: 1px solid #e8e0d0;
+}
+[data-ui-style='editorialLearning'] .bg-gradient-to-br.from-primary-900.to-primary-800 {
+  background-image: none;
+  background-color: rgb(var(--color-primary-800));
+}
+[data-ui-style='editorialLearning'] p,
+[data-ui-style='editorialLearning'] .text-sm {
+  line-height: 1.75;
+}
+[data-ui-style='editorialLearning'] thead.bg-slate-50 {
+  background-color: transparent;
+  border-bottom: 2px solid #3f3a2e;
+}
+[data-ui-style='editorialLearning'] .bg-slate-100 {
+  background-color: #f1ead9;
+}
+
+/* ---- Focus Exam — purpose-built for test-taking: neutral near-white canvas (zero
+   decorative color wash so nothing competes with the question itself), clear/functional
+   borders kept (unlike the two styles above — a timer/answer-state needs a crisp edge,
+   not whitespace), brand color reserved for the active/selected/primary-action state
+   only. See `TakeTestPage.tsx` for exam-specific reinforcement of this. ---- */
+[data-ui-style='focusExam'] {
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
+}
+[data-ui-style='focusExam'] .bg-app-canvas {
+  background-color: #fbfbfa;
+}
+[data-ui-style='focusExam'] .border-slate-200,
+[data-ui-style='focusExam'] .border-slate-200\/90,
+[data-ui-style='focusExam'] .border-slate-200\/80,
+[data-ui-style='focusExam'] .border-slate-200\/70,
+[data-ui-style='focusExam'] .border-slate-200\/60 {
+  border-color: #d8dbe0;
+}
+[data-ui-style='focusExam'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='focusExam'] .auth-card {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+}
+[data-ui-style='focusExam'] .shadow,
+[data-ui-style='focusExam'] .shadow-card,
+[data-ui-style='focusExam'] .shadow-xs,
+[data-ui-style='focusExam'] .shadow-2xs,
+[data-ui-style='focusExam'] .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+[data-ui-style='focusExam'] .shadow-card-hover,
+[data-ui-style='focusExam'] .shadow-md,
+[data-ui-style='focusExam'] .shadow-lg,
+[data-ui-style='focusExam'] .shadow-xl,
+[data-ui-style='focusExam'] .shadow-2xl,
+[data-ui-style='focusExam'] .shadow-dropdown {
+  box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.08);
+}
+/* Tabular figures everywhere a timer/question-count renders — digits must not visually
+   jitter in width as a countdown ticks. */
+[data-ui-style='focusExam'] {
+  font-variant-numeric: tabular-nums;
+}
+[data-ui-style='focusExam'] .text-primary-600,
+[data-ui-style='focusExam'] .text-primary-700 {
+  color: rgb(var(--color-primary-700));
+}
+
+/* ---- Contemporary Creative — youthful EdTech: geometric rounded type (Sora), bold
+   radius, solid color-block surfaces instead of white-card-plus-border (the brief's own
+   "hạn chế khung card truyền thống"), a soft tinted canvas. Deliberately no gradients and
+   no glassmorphism (explicitly ruled out) — color comes from flat fills, not effects. ---- */
+[data-ui-style='contemporaryCreative'] {
+  --font-body: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+}
+[data-ui-style='contemporaryCreative'] .bg-app-canvas {
+  background-color: rgb(var(--color-primary-50) / 0.5);
+}
+[data-ui-style='contemporaryCreative'] .border,
+[data-ui-style='contemporaryCreative'] .border-slate-200,
+[data-ui-style='contemporaryCreative'] .border-slate-200\/90,
+[data-ui-style='contemporaryCreative'] .border-slate-200\/80,
+[data-ui-style='contemporaryCreative'] .border-slate-200\/70,
+[data-ui-style='contemporaryCreative'] .border-slate-200\/60,
+[data-ui-style='contemporaryCreative'] .border-slate-300,
+[data-ui-style='contemporaryCreative'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='contemporaryCreative'] .shadow,
+[data-ui-style='contemporaryCreative'] .shadow-card,
+[data-ui-style='contemporaryCreative'] .shadow-xs,
+[data-ui-style='contemporaryCreative'] .shadow-2xs {
+  box-shadow: none;
+}
+[data-ui-style='contemporaryCreative'] .shadow-card-hover,
+[data-ui-style='contemporaryCreative'] .shadow-dropdown,
+[data-ui-style='contemporaryCreative'] .shadow-panel {
+  box-shadow: 0 12px 28px -10px rgb(var(--color-primary-600) / 0.3);
+}
+[data-ui-style='contemporaryCreative'] .rounded-lg,
+[data-ui-style='contemporaryCreative'] .rounded-md {
+  border-radius: 0.875rem;
+}
+[data-ui-style='contemporaryCreative'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='contemporaryCreative'] .auth-card {
+  box-shadow: 0 20px 50px -14px rgb(var(--color-primary-600) / 0.35);
+}
+[data-ui-style='contemporaryCreative'] thead.bg-slate-50 {
+  background-color: rgb(var(--color-primary-50));
+}
+[data-ui-style='contemporaryCreative'] .bg-slate-100 {
+  background-color: rgb(var(--color-primary-100) / 0.6);
+}
+
+/*
+ * ============================================================================
+ * SECOND BATCH OF 5 DESIGN SYSTEMS (2026-10, same day as the first 5 — customer request:
+ * "5 giao diện hiện tại gần như chỉ khác nhau 1 chút, làm thêm cho tôi 5 giao diện" + 5
+ * named web-design styles). Same conventions as the first batch above.
+ * ============================================================================
+ */
+
+/* ---- Minimalism — Notion-style: pure white, hairline dividers (not zero — Notion DOES
+   use thin rules between blocks, just never a boxed card), quiet warm-gray ink, sans-only
+   typography (no serif accent anywhere, explicitly overriding the root's Playfair
+   default), small-moderate radius. The quietest of all 10. ---- */
+[data-ui-style='minimalism'] {
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+}
+[data-ui-style='minimalism'] .bg-app-canvas {
+  background-color: #ffffff;
+}
+[data-ui-style='minimalism'] .bg-base-white,
+[data-ui-style='minimalism'] .bg-white,
+[data-ui-style='minimalism'] .bg-slate-50,
+[data-ui-style='minimalism'] .bg-glass-panel {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='minimalism'] .border,
+[data-ui-style='minimalism'] .border-slate-300,
+[data-ui-style='minimalism'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='minimalism'] .border-slate-200,
+[data-ui-style='minimalism'] .border-slate-200\/90,
+[data-ui-style='minimalism'] .border-slate-200\/80,
+[data-ui-style='minimalism'] .border-slate-200\/70,
+[data-ui-style='minimalism'] .border-slate-200\/60,
+[data-ui-style='minimalism'] .border-slate-100 {
+  border-color: #e9e9e7;
+}
+[data-ui-style='minimalism'] .shadow,
+[data-ui-style='minimalism'] .shadow-card,
+[data-ui-style='minimalism'] .shadow-xs,
+[data-ui-style='minimalism'] .shadow-2xs,
+[data-ui-style='minimalism'] .shadow-sm {
+  box-shadow: none;
+}
+[data-ui-style='minimalism'] .shadow-card-hover,
+[data-ui-style='minimalism'] .shadow-md,
+[data-ui-style='minimalism'] .shadow-lg,
+[data-ui-style='minimalism'] .shadow-xl,
+[data-ui-style='minimalism'] .shadow-2xl,
+[data-ui-style='minimalism'] .shadow-dropdown,
+[data-ui-style='minimalism'] .shadow-panel {
+  box-shadow: 0 2px 8px -2px rgb(0 0 0 / 0.06);
+}
+[data-ui-style='minimalism'] .rounded-lg,
+[data-ui-style='minimalism'] .rounded-md {
+  border-radius: 0.375rem;
+}
+[data-ui-style='minimalism'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='minimalism'] .text-base-black {
+  color: #37352f;
+}
+[data-ui-style='minimalism'] thead.bg-slate-50 {
+  background-color: #fbfbfa;
+}
+
+/* ---- Flat Design — zero depth anywhere (no shadow, no gradient, no glass), solid flat
+   color fills instead of white-card-plus-border, crisp small radius, confident bold
+   labels. ---- */
+[data-ui-style='flatDesign'] {
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+}
+[data-ui-style='flatDesign'] .bg-app-canvas {
+  background-color: #eef0f2;
+}
+[data-ui-style='flatDesign'] .bg-base-white,
+[data-ui-style='flatDesign'] .bg-white,
+[data-ui-style='flatDesign'] .bg-glass-panel {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='flatDesign'] .bg-slate-50 {
+  background-color: #e4e7eb;
+}
+[data-ui-style='flatDesign'] .border,
+[data-ui-style='flatDesign'] .border-slate-200,
+[data-ui-style='flatDesign'] .border-slate-200\/90,
+[data-ui-style='flatDesign'] .border-slate-200\/80,
+[data-ui-style='flatDesign'] .border-slate-200\/70,
+[data-ui-style='flatDesign'] .border-slate-200\/60,
+[data-ui-style='flatDesign'] .border-slate-300,
+[data-ui-style='flatDesign'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='flatDesign'] .shadow,
+[data-ui-style='flatDesign'] .shadow-card,
+[data-ui-style='flatDesign'] .shadow-card-hover,
+[data-ui-style='flatDesign'] .shadow-xs,
+[data-ui-style='flatDesign'] .shadow-2xs,
+[data-ui-style='flatDesign'] .shadow-sm,
+[data-ui-style='flatDesign'] .shadow-md,
+[data-ui-style='flatDesign'] .shadow-lg,
+[data-ui-style='flatDesign'] .shadow-xl,
+[data-ui-style='flatDesign'] .shadow-2xl,
+[data-ui-style='flatDesign'] .shadow-dropdown,
+[data-ui-style='flatDesign'] .shadow-panel,
+[data-ui-style='flatDesign'] .shadow-glow {
+  box-shadow: none;
+}
+[data-ui-style='flatDesign'] .rounded-lg,
+[data-ui-style='flatDesign'] .rounded-md {
+  border-radius: 0.375rem;
+}
+[data-ui-style='flatDesign'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='flatDesign'] thead.bg-slate-50 {
+  background-color: rgb(var(--color-primary-600));
+  color: #ffffff;
+}
+
+/* ---- Glassmorphism — the one style named EXACTLY after the technique: frosted,
+   semi-transparent panels over a colorful blurred mesh, a light "edge highlight" border,
+   generous rounded corners. Distinct from the ORIGINAL unnamed default ("glass", no
+   attribute) by being far more deliberate/consistent about it — a real gradient mesh
+   canvas (the default style has none), heavier blur, and a highlight border every glass
+   surface shares. ---- */
+[data-ui-style='glassmorphism'] {
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+}
+[data-ui-style='glassmorphism'] .bg-app-canvas {
+  background-color: #eef1fb;
+  background-image:
+    radial-gradient(44rem 32rem at 10% -10%, rgb(var(--color-primary-400) / 0.35), transparent 60%),
+    radial-gradient(40rem 30rem at 100% 0%, rgb(var(--color-primary-600) / 0.3), transparent 60%),
+    radial-gradient(42rem 32rem at 50% 100%, rgb(var(--color-primary-300) / 0.3), transparent 60%);
+}
+[data-ui-style='glassmorphism'] .bg-base-white,
+[data-ui-style='glassmorphism'] .bg-white,
+[data-ui-style='glassmorphism'] .bg-glass-panel,
+[data-ui-style='glassmorphism'] .bg-slate-50 {
+  background-color: rgb(255 255 255 / 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+[data-ui-style='glassmorphism'] .border,
+[data-ui-style='glassmorphism'] .border-slate-200,
+[data-ui-style='glassmorphism'] .border-slate-200\/90,
+[data-ui-style='glassmorphism'] .border-slate-200\/80,
+[data-ui-style='glassmorphism'] .border-slate-200\/70,
+[data-ui-style='glassmorphism'] .border-slate-200\/60,
+[data-ui-style='glassmorphism'] .border-slate-300,
+[data-ui-style='glassmorphism'] .border-slate-100 {
+  border-color: rgb(255 255 255 / 0.6);
+}
+[data-ui-style='glassmorphism'] .shadow,
+[data-ui-style='glassmorphism'] .shadow-card,
+[data-ui-style='glassmorphism'] .shadow-xs,
+[data-ui-style='glassmorphism'] .shadow-2xs,
+[data-ui-style='glassmorphism'] .shadow-sm {
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.5) inset,
+    0 8px 24px -8px rgb(31 41 55 / 0.18);
+}
+[data-ui-style='glassmorphism'] .shadow-card-hover,
+[data-ui-style='glassmorphism'] .shadow-md,
+[data-ui-style='glassmorphism'] .shadow-lg,
+[data-ui-style='glassmorphism'] .shadow-xl,
+[data-ui-style='glassmorphism'] .shadow-2xl,
+[data-ui-style='glassmorphism'] .shadow-dropdown,
+[data-ui-style='glassmorphism'] .shadow-panel {
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.6) inset,
+    0 16px 36px -10px rgb(31 41 55 / 0.26);
+}
+[data-ui-style='glassmorphism'] .rounded-lg {
+  border-radius: 1rem;
+}
+[data-ui-style='glassmorphism'] thead.bg-slate-50 {
+  background-color: rgb(255 255 255 / 0.35);
+}
+
+/* ---- Neumorphism — soft UI: surfaces are the SAME tone as the canvas (near-zero
+   contrast), with a dual soft shadow (light + dark, opposite corners) standing in for
+   every border, giving a pressed/embossed "sculpted from the same material" look. No
+   borders anywhere — the shadow pair IS the edge. ---- */
+[data-ui-style='neumorphism'] {
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+}
+[data-ui-style='neumorphism'] .bg-app-canvas {
+  background-color: #e6e9ef;
+}
+[data-ui-style='neumorphism'] .bg-base-white,
+[data-ui-style='neumorphism'] .bg-white,
+[data-ui-style='neumorphism'] .bg-glass-panel,
+[data-ui-style='neumorphism'] .bg-slate-50 {
+  background-color: #e6e9ef;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='neumorphism'] .border,
+[data-ui-style='neumorphism'] .border-slate-200,
+[data-ui-style='neumorphism'] .border-slate-200\/90,
+[data-ui-style='neumorphism'] .border-slate-200\/80,
+[data-ui-style='neumorphism'] .border-slate-200\/70,
+[data-ui-style='neumorphism'] .border-slate-200\/60,
+[data-ui-style='neumorphism'] .border-slate-300,
+[data-ui-style='neumorphism'] .border-slate-100,
+[data-ui-style='neumorphism'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='neumorphism'] .shadow,
+[data-ui-style='neumorphism'] .shadow-card,
+[data-ui-style='neumorphism'] .shadow-xs,
+[data-ui-style='neumorphism'] .shadow-2xs,
+[data-ui-style='neumorphism'] .shadow-sm {
+  box-shadow:
+    6px 6px 12px -2px rgb(163 177 198 / 0.55),
+    -6px -6px 12px -2px rgb(255 255 255 / 0.85);
+}
+[data-ui-style='neumorphism'] .shadow-card-hover,
+[data-ui-style='neumorphism'] .shadow-md,
+[data-ui-style='neumorphism'] .shadow-lg,
+[data-ui-style='neumorphism'] .shadow-xl,
+[data-ui-style='neumorphism'] .shadow-2xl,
+[data-ui-style='neumorphism'] .shadow-dropdown,
+[data-ui-style='neumorphism'] .shadow-panel {
+  box-shadow:
+    9px 9px 18px -2px rgb(163 177 198 / 0.65),
+    -9px -9px 18px -2px rgb(255 255 255 / 0.9);
+}
+[data-ui-style='neumorphism'] thead.bg-slate-50 {
+  background-color: #e6e9ef;
+}
+
+/* ---- Swiss Design (International Typographic Style) — grid precision, zero radius
+   anywhere, thin rule lines instead of boxes, zero shadow, confident type. The brand hue
+   reads as the ONE deliberate accent against an otherwise black/white/gray system
+   (classic Swiss posters use red exactly this way). ---- */
+[data-ui-style='swissDesign'] {
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+}
+[data-ui-style='swissDesign'] .bg-app-canvas {
+  background-color: #ffffff;
+}
+[data-ui-style='swissDesign'] .bg-base-white,
+[data-ui-style='swissDesign'] .bg-white,
+[data-ui-style='swissDesign'] .bg-glass-panel,
+[data-ui-style='swissDesign'] .bg-slate-50 {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='swissDesign'] .border,
+[data-ui-style='swissDesign'] .border-slate-300,
+[data-ui-style='swissDesign'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='swissDesign'] .border-slate-200,
+[data-ui-style='swissDesign'] .border-slate-200\/90,
+[data-ui-style='swissDesign'] .border-slate-200\/80,
+[data-ui-style='swissDesign'] .border-slate-200\/70,
+[data-ui-style='swissDesign'] .border-slate-200\/60,
+[data-ui-style='swissDesign'] .border-slate-100 {
+  border-color: #111111;
+}
+[data-ui-style='swissDesign'] .shadow,
+[data-ui-style='swissDesign'] .shadow-card,
+[data-ui-style='swissDesign'] .shadow-card-hover,
+[data-ui-style='swissDesign'] .shadow-xs,
+[data-ui-style='swissDesign'] .shadow-2xs,
+[data-ui-style='swissDesign'] .shadow-sm,
+[data-ui-style='swissDesign'] .shadow-md,
+[data-ui-style='swissDesign'] .shadow-lg,
+[data-ui-style='swissDesign'] .shadow-xl,
+[data-ui-style='swissDesign'] .shadow-2xl,
+[data-ui-style='swissDesign'] .shadow-dropdown,
+[data-ui-style='swissDesign'] .shadow-panel,
+[data-ui-style='swissDesign'] .shadow-glow {
+  box-shadow: none;
+}
+[data-ui-style='swissDesign'] .rounded-lg,
+[data-ui-style='swissDesign'] .rounded-md,
+[data-ui-style='swissDesign'] .rounded-3xl {
+  border-radius: 0;
+}
+[data-ui-style='swissDesign'] .text-base-black {
+  color: #0a0a0a;
+}
+[data-ui-style='swissDesign'] thead {
+  border-bottom: 2px solid #111111;
+}
+[data-ui-style='swissDesign'] thead.bg-slate-50 {
+  background-color: transparent;
+}
+[data-ui-style='swissDesign'] {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * ============================================================================
+ * THIRD BATCH OF 5 DESIGN SYSTEMS (2026-10, same day — customer request: "làm thêm cho
+ * tôi 5 giao diện mới, phải khác hoàn toàn 10 giao diện kia, khác hết mọi thứ, mỗi cái
+ * là 1 phong cách khác nhau hoàn toàn"). Each is a well-known, distinct web design
+ * movement not already represented above — the 10 blocks before this one are untouched.
+ * Same conventions as the first two batches.
+ * ============================================================================
+ */
+
+/* ---- Neo-Brutalism — raw, undecorated, loud: thick solid-black borders, hard
+   zero-blur offset shadows, zero radius anywhere, a bold geometric grotesk headline
+   font. Deliberately rawer/louder than the legacy `brutalist` style (which only tweaks
+   border/shadow and keeps the default serif/Inter typography + a soft cream canvas) —
+   this one also commits the radius tokens to 0 and swaps the whole type family. ---- */
+[data-ui-style='neoBrutalism'] {
+  --font-body: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+}
+[data-ui-style='neoBrutalism'] .bg-app-canvas {
+  background-color: #fffdf5;
+  background-image: none;
+}
+[data-ui-style='neoBrutalism'] .bg-base-white,
+[data-ui-style='neoBrutalism'] .bg-white,
+[data-ui-style='neoBrutalism'] .bg-glass-panel,
+[data-ui-style='neoBrutalism'] .bg-slate-50 {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='neoBrutalism'] .border,
+[data-ui-style='neoBrutalism'] .border-slate-200,
+[data-ui-style='neoBrutalism'] .border-slate-200\/90,
+[data-ui-style='neoBrutalism'] .border-slate-200\/80,
+[data-ui-style='neoBrutalism'] .border-slate-200\/70,
+[data-ui-style='neoBrutalism'] .border-slate-200\/60,
+[data-ui-style='neoBrutalism'] .border-slate-300,
+[data-ui-style='neoBrutalism'] .border-slate-100,
+[data-ui-style='neoBrutalism'] .border-white\/60 {
+  border-width: 3px;
+  border-color: #000000;
+}
+[data-ui-style='neoBrutalism'] .shadow,
+[data-ui-style='neoBrutalism'] .shadow-card,
+[data-ui-style='neoBrutalism'] .shadow-xs,
+[data-ui-style='neoBrutalism'] .shadow-2xs,
+[data-ui-style='neoBrutalism'] .shadow-sm {
+  box-shadow: 4px 4px 0 0 #000000;
+}
+[data-ui-style='neoBrutalism'] .shadow-card-hover,
+[data-ui-style='neoBrutalism'] .shadow-md,
+[data-ui-style='neoBrutalism'] .shadow-lg,
+[data-ui-style='neoBrutalism'] .shadow-xl,
+[data-ui-style='neoBrutalism'] .shadow-2xl,
+[data-ui-style='neoBrutalism'] .shadow-dropdown,
+[data-ui-style='neoBrutalism'] .shadow-panel,
+[data-ui-style='neoBrutalism'] .shadow-glow {
+  box-shadow: 8px 8px 0 0 #000000;
+}
+[data-ui-style='neoBrutalism'] .rounded-lg,
+[data-ui-style='neoBrutalism'] .rounded-md,
+[data-ui-style='neoBrutalism'] .rounded-3xl {
+  border-radius: 0;
+}
+[data-ui-style='neoBrutalism'] .text-base-black {
+  color: #000000;
+}
+[data-ui-style='neoBrutalism'] .bg-clip-text {
+  background-image: none;
+  -webkit-text-fill-color: #000000;
+  color: #000000;
+}
+[data-ui-style='neoBrutalism'] thead {
+  border-bottom: 3px solid #000000;
+}
+[data-ui-style='neoBrutalism'] thead.bg-slate-50 {
+  background-color: rgb(var(--color-primary-400));
+}
+
+/* ---- Material Design 3 — Google's current system: tonal "surface" containers instead
+   of borders, layered soft elevation shadows, generous pill-leaning radius, Roboto
+   throughout. No hairline borders anywhere — elevation alone separates surfaces. ---- */
+[data-ui-style='materialDesign'] {
+  --font-body: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 1.75rem;
+}
+[data-ui-style='materialDesign'] .bg-app-canvas {
+  background-color: #fef7ff;
+}
+[data-ui-style='materialDesign'] .bg-base-white,
+[data-ui-style='materialDesign'] .bg-white {
+  background-color: #fffbfe;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='materialDesign'] .bg-slate-50,
+[data-ui-style='materialDesign'] .bg-glass-panel {
+  background-color: #f3edf7;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='materialDesign'] .border,
+[data-ui-style='materialDesign'] .border-slate-200,
+[data-ui-style='materialDesign'] .border-slate-200\/90,
+[data-ui-style='materialDesign'] .border-slate-200\/80,
+[data-ui-style='materialDesign'] .border-slate-200\/70,
+[data-ui-style='materialDesign'] .border-slate-200\/60,
+[data-ui-style='materialDesign'] .border-slate-300,
+[data-ui-style='materialDesign'] .border-slate-100,
+[data-ui-style='materialDesign'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='materialDesign'] .shadow,
+[data-ui-style='materialDesign'] .shadow-card,
+[data-ui-style='materialDesign'] .shadow-xs,
+[data-ui-style='materialDesign'] .shadow-2xs,
+[data-ui-style='materialDesign'] .shadow-sm {
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.3),
+    0 1px 3px 1px rgb(0 0 0 / 0.15);
+}
+[data-ui-style='materialDesign'] .shadow-card-hover,
+[data-ui-style='materialDesign'] .shadow-md,
+[data-ui-style='materialDesign'] .shadow-lg,
+[data-ui-style='materialDesign'] .shadow-xl,
+[data-ui-style='materialDesign'] .shadow-2xl,
+[data-ui-style='materialDesign'] .shadow-dropdown,
+[data-ui-style='materialDesign'] .shadow-panel {
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.3),
+    0 3px 8px 3px rgb(0 0 0 / 0.15);
+}
+[data-ui-style='materialDesign'] .rounded-lg,
+[data-ui-style='materialDesign'] .rounded-md {
+  border-radius: 1rem;
+}
+[data-ui-style='materialDesign'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='materialDesign'] thead.bg-slate-50 {
+  background-color: rgb(var(--color-primary-100));
+}
+
+/* ---- Cyberpunk Neon — near-black dark-terminal canvas, glowing cyan/magenta edges,
+   monospace headlines, a faint scanline texture. Far more extreme than the legacy
+   `dark` style (a tasteful warm-glow premium dark SaaS) — this one commits to a cold
+   duotone neon palette and swaps headings to a mono "HUD" face. ---- */
+[data-ui-style='cyberpunkNeon'] {
+  color-scheme: dark;
+  --font-body: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
+}
+[data-ui-style='cyberpunkNeon'] .bg-app-canvas {
+  background-color: #05060a;
+  background-image:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.025) 0px, transparent 1px, transparent 3px),
+    radial-gradient(50rem 36rem at 0% -10%, rgb(34 211 238 / 0.16), transparent 60%),
+    radial-gradient(44rem 34rem at 100% 10%, rgb(217 70 239 / 0.14), transparent 60%);
+}
+[data-ui-style='cyberpunkNeon'] .bg-base-white,
+[data-ui-style='cyberpunkNeon'] .bg-white,
+[data-ui-style='cyberpunkNeon'] .bg-glass-panel,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50 {
+  background-color: #0b0e17;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='cyberpunkNeon'] .bg-slate-100 {
+  background-color: #11151f;
+}
+/* Opacity-modifier forms are separate atomic classes from their plain form (same gotcha
+   the legacy `dark` style's own comment documents) — this is the one NEW theme in this
+   batch with a dark canvas, so it's the one that needs them covered: `TopNav`'s sticky
+   header (`bg-base-white/95`) and the dashboard's translucent sub-panels
+   (`bg-slate-50/30` … `/95`) would otherwise stay light and read as low-contrast
+   light-text-on-light-panel. */
+[data-ui-style='cyberpunkNeon'] .bg-base-white\/95,
+[data-ui-style='cyberpunkNeon'] .bg-base-white\/90,
+[data-ui-style='cyberpunkNeon'] .bg-base-white\/80,
+[data-ui-style='cyberpunkNeon'] .bg-base-white\/50,
+[data-ui-style='cyberpunkNeon'] .bg-base-white\/10 {
+  background-color: rgb(11 14 23 / 0.9);
+}
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/30,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/40,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/50,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/60,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/70,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/80,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/90,
+[data-ui-style='cyberpunkNeon'] .bg-slate-50\/95 {
+  background-color: rgb(17 21 31 / 0.85);
+}
+[data-ui-style='cyberpunkNeon'] .border,
+[data-ui-style='cyberpunkNeon'] .border-slate-200,
+[data-ui-style='cyberpunkNeon'] .border-slate-200\/90,
+[data-ui-style='cyberpunkNeon'] .border-slate-200\/80,
+[data-ui-style='cyberpunkNeon'] .border-slate-200\/70,
+[data-ui-style='cyberpunkNeon'] .border-slate-200\/60,
+[data-ui-style='cyberpunkNeon'] .border-slate-300,
+[data-ui-style='cyberpunkNeon'] .border-slate-100,
+[data-ui-style='cyberpunkNeon'] .border-white\/60 {
+  border-color: rgb(34 211 238 / 0.35);
+}
+[data-ui-style='cyberpunkNeon'] .text-base-black {
+  color: #e7f9ff;
+}
+[data-ui-style='cyberpunkNeon'] .text-base-black\/35,
+[data-ui-style='cyberpunkNeon'] .text-base-black\/40,
+[data-ui-style='cyberpunkNeon'] .text-base-black\/50,
+[data-ui-style='cyberpunkNeon'] .text-base-black\/60 {
+  color: rgb(231 249 255 / 0.62);
+}
+[data-ui-style='cyberpunkNeon'] .text-slate-400 {
+  color: #7fa8b8;
+}
+[data-ui-style='cyberpunkNeon'] .text-slate-500 {
+  color: #8fb4c2;
+}
+[data-ui-style='cyberpunkNeon'] .text-slate-600,
+[data-ui-style='cyberpunkNeon'] .text-slate-700,
+[data-ui-style='cyberpunkNeon'] .text-slate-800,
+[data-ui-style='cyberpunkNeon'] .text-slate-900 {
+  color: #b9e4ef;
+}
+[data-ui-style='cyberpunkNeon'] .shadow,
+[data-ui-style='cyberpunkNeon'] .shadow-card,
+[data-ui-style='cyberpunkNeon'] .shadow-xs,
+[data-ui-style='cyberpunkNeon'] .shadow-2xs,
+[data-ui-style='cyberpunkNeon'] .shadow-sm {
+  box-shadow:
+    0 0 0 1px rgb(34 211 238 / 0.25),
+    0 0 16px -4px rgb(34 211 238 / 0.35);
+}
+[data-ui-style='cyberpunkNeon'] .shadow-card-hover,
+[data-ui-style='cyberpunkNeon'] .shadow-md,
+[data-ui-style='cyberpunkNeon'] .shadow-lg,
+[data-ui-style='cyberpunkNeon'] .shadow-xl,
+[data-ui-style='cyberpunkNeon'] .shadow-2xl,
+[data-ui-style='cyberpunkNeon'] .shadow-dropdown,
+[data-ui-style='cyberpunkNeon'] .shadow-panel {
+  box-shadow:
+    0 0 0 1px rgb(217 70 239 / 0.3),
+    0 0 28px -4px rgb(236 72 153 / 0.45);
+}
+[data-ui-style='cyberpunkNeon'] thead {
+  border-bottom: 1px solid rgb(34 211 238 / 0.4);
+}
+[data-ui-style='cyberpunkNeon'] thead.bg-slate-50 {
+  background-color: #0b0e17;
+}
+[data-ui-style='cyberpunkNeon'] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Playful Retro (Memphis) — bright cream canvas, bold cartoon-outline surfaces,
+   oversized bouncy radius, a hard brand-colored sticker shadow, a soft dot-pattern
+   backdrop. Friendlier/louder than Contemporary Creative's restrained flat color
+   blocks — built for a younger-learner audience. ---- */
+[data-ui-style='playfulRetro'] {
+  --font-body: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+}
+[data-ui-style='playfulRetro'] .bg-app-canvas {
+  background-color: #fff6ea;
+  background-image: radial-gradient(rgb(var(--color-primary-400) / 0.18) 1.5px, transparent 1.5px);
+  background-size: 18px 18px;
+}
+[data-ui-style='playfulRetro'] .bg-base-white,
+[data-ui-style='playfulRetro'] .bg-white,
+[data-ui-style='playfulRetro'] .bg-glass-panel,
+[data-ui-style='playfulRetro'] .bg-slate-50 {
+  background-color: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='playfulRetro'] .border,
+[data-ui-style='playfulRetro'] .border-slate-200,
+[data-ui-style='playfulRetro'] .border-slate-200\/90,
+[data-ui-style='playfulRetro'] .border-slate-200\/80,
+[data-ui-style='playfulRetro'] .border-slate-200\/70,
+[data-ui-style='playfulRetro'] .border-slate-200\/60,
+[data-ui-style='playfulRetro'] .border-slate-300,
+[data-ui-style='playfulRetro'] .border-slate-100,
+[data-ui-style='playfulRetro'] .border-white\/60 {
+  border-width: 2px;
+  border-color: #28243d;
+}
+[data-ui-style='playfulRetro'] .shadow,
+[data-ui-style='playfulRetro'] .shadow-card,
+[data-ui-style='playfulRetro'] .shadow-xs,
+[data-ui-style='playfulRetro'] .shadow-2xs,
+[data-ui-style='playfulRetro'] .shadow-sm {
+  box-shadow: 4px 4px 0 0 rgb(var(--color-primary-500));
+}
+[data-ui-style='playfulRetro'] .shadow-card-hover,
+[data-ui-style='playfulRetro'] .shadow-md,
+[data-ui-style='playfulRetro'] .shadow-lg,
+[data-ui-style='playfulRetro'] .shadow-xl,
+[data-ui-style='playfulRetro'] .shadow-2xl,
+[data-ui-style='playfulRetro'] .shadow-dropdown,
+[data-ui-style='playfulRetro'] .shadow-panel {
+  box-shadow: 6px 6px 0 0 rgb(var(--color-primary-600));
+}
+[data-ui-style='playfulRetro'] .rounded-lg,
+[data-ui-style='playfulRetro'] .rounded-md {
+  border-radius: 1.25rem;
+}
+[data-ui-style='playfulRetro'] .rounded-3xl {
+  border-radius: var(--radius-2xl);
+}
+[data-ui-style='playfulRetro'] thead.bg-slate-50 {
+  background-color: rgb(var(--color-primary-50));
+}
+
+/* ---- Claymorphism — soft 3D "clay" UI: puffy oversized radius, pastel-lavender
+   gradient-filled surfaces, a colorful diffused dual shadow (not grayscale, unlike
+   Neumorphism) standing in for every border. No border anywhere — the colored glow
+   pair is the edge. ---- */
+[data-ui-style='claymorphism'] {
+  --font-body: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2.25rem;
+}
+[data-ui-style='claymorphism'] .bg-app-canvas {
+  background-color: #eef2ff;
+  background-image:
+    radial-gradient(40rem 30rem at 10% -10%, rgb(var(--color-primary-300) / 0.22), transparent 60%),
+    radial-gradient(36rem 28rem at 100% 10%, rgb(var(--color-primary-400) / 0.18), transparent 60%);
+}
+[data-ui-style='claymorphism'] .bg-base-white,
+[data-ui-style='claymorphism'] .bg-white,
+[data-ui-style='claymorphism'] .bg-glass-panel,
+[data-ui-style='claymorphism'] .bg-slate-50 {
+  background-color: #f6f5fd;
+  background-image: linear-gradient(145deg, #ffffff, #f1eefc);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-ui-style='claymorphism'] .border,
+[data-ui-style='claymorphism'] .border-slate-200,
+[data-ui-style='claymorphism'] .border-slate-200\/90,
+[data-ui-style='claymorphism'] .border-slate-200\/80,
+[data-ui-style='claymorphism'] .border-slate-200\/70,
+[data-ui-style='claymorphism'] .border-slate-200\/60,
+[data-ui-style='claymorphism'] .border-slate-300,
+[data-ui-style='claymorphism'] .border-slate-100,
+[data-ui-style='claymorphism'] .border-white\/60 {
+  border-color: transparent;
+}
+[data-ui-style='claymorphism'] .shadow,
+[data-ui-style='claymorphism'] .shadow-card,
+[data-ui-style='claymorphism'] .shadow-xs,
+[data-ui-style='claymorphism'] .shadow-2xs,
+[data-ui-style='claymorphism'] .shadow-sm {
+  box-shadow:
+    8px 8px 16px rgb(199 192 231 / 0.45),
+    -8px -8px 16px rgb(255 255 255 / 0.9);
+}
+[data-ui-style='claymorphism'] .shadow-card-hover,
+[data-ui-style='claymorphism'] .shadow-md,
+[data-ui-style='claymorphism'] .shadow-lg,
+[data-ui-style='claymorphism'] .shadow-xl,
+[data-ui-style='claymorphism'] .shadow-2xl,
+[data-ui-style='claymorphism'] .shadow-dropdown,
+[data-ui-style='claymorphism'] .shadow-panel {
+  box-shadow:
+    12px 12px 24px rgb(199 192 231 / 0.5),
+    -12px -12px 24px rgb(255 255 255 / 0.95);
+}
+[data-ui-style='claymorphism'] thead.bg-slate-50 {
+  background-color: #efecfb;
+}
+
+/* A thin, unobtrusive scrollbar for any internal scroll area (nav sheets, dropdown panels,
+ * long lists) — Firefox + WebKit, degrades silently (a normal scrollbar) anywhere neither
+ * applies. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
   width: 6px;
 }
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background-color: rgb(255 255 255 / 0.2);
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(0 0 0 / 0.18);
   border-radius: 9999px;
 }
 
@@ -463,5 +1419,243 @@ textarea::placeholder {
   .help-page h2,
   .help-page h3 {
     break-after: avoid;
+  }
+}
+
+/*
+ * ============================================================================
+ * VOCAB STUDIO (2026-10 "nâng cấp game/luyện tập từ vựng" request) — a dedicated,
+ * locked visual identity for the student vocabulary flashcard/exercise/game pages
+ * (every StudentFlashcard- and StudentVocab-prefixed page, plus StudentSpaceShooterGamePage
+ * and StudentRunnerGamePage),
+ * deliberately NOT reactive to the admin's 15-design-system switcher — this is
+ * immersive study-game content, not a business dashboard, and benefits from one
+ * confident, consistent, kid-friendly identity rather than reskinning across 15 very
+ * different aesthetics (a "brutalist" flip-card would be a worse experience than a
+ * brutalist admin table). It still reads the site's own `--color-primary-*` brand
+ * scale so it stays on-brand with whichever of the 8 admin colors is active — only
+ * typography, shape, shadow and motion are fixed, never a hardcoded foreign hue as
+ * the PRIMARY color. `.vocab-zone` is the wrapper every page in this group renders
+ * at its root.
+ * ============================================================================
+ */
+.vocab-zone {
+  font-family: var(--font-body);
+}
+.vocab-display {
+  font-family: 'Baloo 2', 'Nunito', ui-rounded, system-ui, sans-serif;
+}
+
+/* Soft, bright canvas distinct from the app's own neutral `.bg-app-canvas` — a gentle
+   two-tone wash using the active brand hue, never a hardcoded foreign color. */
+.vocab-canvas {
+  background-color: #fafaff;
+  background-image:
+    radial-gradient(60rem 40rem at 100% -10%, rgb(var(--color-primary-300) / 0.16), transparent 60%),
+    radial-gradient(50rem 36rem at -10% 110%, rgb(var(--color-primary-400) / 0.14), transparent 60%);
+}
+
+/* ---- Flip card (StudentFlashcardSetPage) — a real 3D flip, not an instant content
+   swap. `.vocab-flip-scene` sets the perspective, `.vocab-flip-card` is the rotating
+   element, `.vocab-flip-face`/`.vocab-flip-face-back` are the two faces (back
+   pre-rotated 180°, both hidden via backface-visibility once rotated away). ---- */
+.vocab-flip-scene {
+  perspective: 1600px;
+}
+.vocab-flip-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vocab-flip-card.is-flipped {
+  transform: rotateY(180deg);
+}
+.vocab-flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.vocab-flip-face-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vocab-flip-card {
+    transition: none;
+  }
+}
+
+/* ---- Chunky, game-like buttons: a hard offset "keycap" shadow that compresses on
+   press instead of a flat hover-darken — the single biggest "feels premium, not
+   default-Bootstrap" signal for a touch-heavy kids' UI. ---- */
+.vocab-btn-primary {
+  --vz-btn-shadow: rgb(var(--color-primary-700) / 0.9);
+  --vz-btn-glow: rgb(var(--color-primary-600) / 0.45);
+  border-radius: 1.25rem;
+  font-weight: 800;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+  box-shadow:
+    0 4px 0 0 var(--vz-btn-shadow),
+    0 10px 20px -8px var(--vz-btn-glow);
+}
+.vocab-btn-primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 0 var(--vz-btn-shadow),
+    0 4px 10px -6px var(--vz-btn-glow);
+}
+/* Color variants — same "keycap" mechanics, a fixed semantic hue instead of the brand
+   color, for actions whose MEANING is color-coded (a green "known"/success action
+   shouldn't turn brand-colored just because the brand picker changed). */
+.vocab-btn-green {
+  --vz-btn-shadow: rgb(21 128 61 / 0.9);
+  --vz-btn-glow: rgb(34 197 94 / 0.45);
+}
+.vocab-btn-emerald {
+  --vz-btn-shadow: rgb(4 120 87 / 0.9);
+  --vz-btn-glow: rgb(16 185 129 / 0.45);
+}
+.vocab-btn-secondary {
+  border-radius: 1.25rem;
+  font-weight: 700;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 3px 0 0 rgb(0 0 0 / 0.08);
+}
+.vocab-btn-secondary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 rgb(0 0 0 / 0.08);
+}
+.vocab-btn-primary:disabled,
+.vocab-btn-secondary:disabled {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---- Answer/choice tiles (self-check, matching, exercise results) — a gentle lift on
+   hover, used alongside semantic correct/wrong color states applied per-element. ---- */
+.vocab-tile {
+  border-radius: 1.25rem;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.vocab-tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -8px rgb(0 0 0 / 0.16);
+}
+.vocab-tile:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* ---- Feedback motion: a correct answer pops in, a wrong one shakes — motion that
+   confirms the verdict instead of a static color swap alone. ---- */
+@keyframes vocab-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.vocab-anim-pop {
+  animation: vocab-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes vocab-shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+.vocab-anim-shake {
+  animation: vocab-shake 0.45s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vocab-anim-pop,
+  .vocab-anim-shake {
+    animation: none;
+  }
+}
+
+/* ---- Streak / live badges — a soft pulsing glow (never a jarring blink). ---- */
+@keyframes vocab-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--color-primary-400) / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgb(var(--color-primary-400) / 0);
+  }
+}
+.vocab-streak-badge {
+  animation: vocab-glow 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vocab-streak-badge {
+    animation: none;
+  }
+}
+
+/* ---- Confetti burst (CSS-only, no canvas/library — see `components/VocabConfetti.tsx`,
+   which renders the `span` children this animates). ---- */
+.vocab-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.vocab-confetti span {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 12px;
+  border-radius: 2px;
+  animation: vocab-confetti-fall 1.15s ease-in forwards;
+}
+/* Fixed-px fall distance, NOT a percentage — `transform`'s percentage values resolve
+   against the animated element's OWN box (here a 7×12px speck), not its container, so a
+   percentage-based distance here would only ever travel a few px regardless of how tall
+   the container actually is (the bug this replaced: confetti appeared to not fall at
+   all). 140px comfortably crosses every container this is used in (the ~260px flip
+   card down to the smaller ~120px result panels — `overflow: hidden` on `.vocab-confetti`
+   just clips the tail end on a short container, which reads as "fell past the bottom",
+   not as "never appeared"). */
+@keyframes vocab-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(140px) rotate(var(--vz-confetti-spin, 540deg));
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vocab-confetti {
+    display: none;
   }
 }

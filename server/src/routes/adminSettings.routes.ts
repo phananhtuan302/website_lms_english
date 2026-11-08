@@ -9,6 +9,7 @@
 
 import { Router } from 'express';
 import {
+  FONT_FAMILY_IDS,
   THEME_IDS,
   UI_STYLE_IDS,
   type AiGradingSettingsDTO,
@@ -36,12 +37,21 @@ export const adminSettingsRouter = Router();
 
 adminSettingsRouter.use(requireAuth, requireRole('admin'));
 
-/** PATCH /api/admin/settings — accepts `language` and/or `themeId` (either may be sent
- * alone, a partial update) and upserts the `Settings` singleton row exactly as
+/** PATCH /api/admin/settings — accepts `language`/`themeId`/`uiStyle`/`fontFamily` (any
+ * subset, a partial update) and upserts the `Settings` singleton row exactly as
  * `settings.routes.ts`'s doc comment specified (`upsert`, not a plain `update`, so this
  * also works against a brand-new DB where `prisma/seed.ts` hasn't run yet). A field left
  * out of `create` falls back to the Prisma model's own `@default`, so a partial update
- * against a not-yet-existing row still ends up fully valid. */
+ * against a not-yet-existing row still ends up fully valid.
+ *
+ * `uiStyle` is validated against `UI_STYLE_IDS` here and stored as free text (not a
+ * Postgres enum — see `Settings.uiStyle`'s schema.prisma doc comment for why) — this is
+ * the ONLY gate keeping the column to the app's own known vocabulary, so it's load-bearing,
+ * not just a nice error message. Since `UI_STYLE_IDS` is read generically (no hardcoded
+ * list duplicated here), a new design system batch (e.g. the 2026-10 third batch — see
+ * `@platform/shared`'s own doc comment) needs no route change, only a `shared` rebuild.
+ * `fontFamily` similarly validated against `FONT_FAMILY_IDS`, `null` explicitly clears a
+ * previously-set font override (falls back to the active design system's own default). */
 adminSettingsRouter.patch(
   '/settings',
   asyncHandler(async (req, res) => {
@@ -49,9 +59,10 @@ adminSettingsRouter.patch(
     const hasLanguage = body.language !== undefined;
     const hasTheme = body.themeId !== undefined;
     const hasUiStyle = body.uiStyle !== undefined;
+    const hasFontFamily = body.fontFamily !== undefined;
 
-    if (!hasLanguage && !hasTheme && !hasUiStyle) {
-      res.status(400).json({ error: 'Provide language, themeId, and/or uiStyle.' });
+    if (!hasLanguage && !hasTheme && !hasUiStyle && !hasFontFamily) {
+      res.status(400).json({ error: 'Provide language, themeId, uiStyle, and/or fontFamily.' });
       return;
     }
     if (hasLanguage && body.language !== 'en' && body.language !== 'vi') {
@@ -66,6 +77,12 @@ adminSettingsRouter.patch(
       res.status(400).json({ error: `uiStyle must be one of: ${UI_STYLE_IDS.join(', ')}.` });
       return;
     }
+    if (hasFontFamily && body.fontFamily !== null && !FONT_FAMILY_IDS.includes(body.fontFamily!)) {
+      res.status(400).json({
+        error: `fontFamily must be null or one of: ${FONT_FAMILY_IDS.join(', ')}.`,
+      });
+      return;
+    }
 
     const settings = await prisma.settings.upsert({
       where: { id: SETTINGS_ID },
@@ -73,19 +90,24 @@ adminSettingsRouter.patch(
         ...(hasLanguage ? { language: body.language } : {}),
         ...(hasTheme ? { themeId: body.themeId } : {}),
         ...(hasUiStyle ? { uiStyle: body.uiStyle } : {}),
+        ...(hasFontFamily ? { fontFamily: body.fontFamily } : {}),
       },
       create: {
         id: SETTINGS_ID,
         ...(hasLanguage ? { language: body.language } : {}),
         ...(hasTheme ? { themeId: body.themeId } : {}),
         ...(hasUiStyle ? { uiStyle: body.uiStyle } : {}),
+        ...(hasFontFamily ? { fontFamily: body.fontFamily } : {}),
       },
     });
 
     const response: SettingsDTO = {
       language: settings.language,
       themeId: settings.themeId,
-      uiStyle: settings.uiStyle,
+      fontFamily: settings.fontFamily as SettingsDTO['fontFamily'],
+      // Safe: this is always exactly what was just validated against `UI_STYLE_IDS` above
+      // (or the pre-existing stored value, which was written by this same validated path).
+      uiStyle: settings.uiStyle as SettingsDTO['uiStyle'],
     };
     res.status(200).json(response);
   }),

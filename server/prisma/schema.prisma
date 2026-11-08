@@ -1176,9 +1176,17 @@ enum VocabActivityType {
   ipaToWord
   matching
   sentence
+  /// RETIRED 2026-10 ("Vocab Studio" game lineup replaced both — see `whackAMole`/
+  /// `climber`/`balloonPop` below) — kept in the enum only so pre-existing
+  /// `FlashcardExerciseAttempt` rows with these types keep resolving; nothing writes
+  /// these values anymore (`client/src/lib/vocabGameHelpers.ts`'s `VocabGameType`
+  /// union no longer includes them, same precedent as `UiStyleId`'s legacy values).
   spaceShooter
   runner
   selfCheck
+  whackAMole
+  climber
+  balloonPop
 }
 
 /// Per-attempt vocabulary exercise/activity log (T-030), added specifically because
@@ -1438,16 +1446,27 @@ enum ThemeId {
   indigo
 }
 
-/// The site-wide UI style (2026-10, admin request: "cho admin tự chọn" between 4 distinct
-/// visual languages). Orthogonal to `ThemeId` — `ThemeId` picks the brand HUE, `UiStyleId`
-/// picks the overall look applied on top of it (surface treatment, shadows, corners,
-/// light/dark). Mirrors the `UiStyleId` string union in `@platform/shared`, same convention
-/// as `ThemeId` above.
+/// UNUSED as of 2026-10 — `Settings.uiStyle` was changed to a free `String` (see its own
+/// doc comment) so new design systems never need a migration again. Left defined,
+/// deliberately not dropped: removing a Postgres enum TYPE that existing rows' historical
+/// values could still be read as is an unnecessary risk for zero benefit, and dropping it
+/// outright would need its own migration anyway.
 enum UiStyleId {
   glass
   brutalist
   vivid
   dark
+  // 2026-10 "5 Design Systems" rebuild — these five replace the four above in the admin
+  // picker UI and are the only ones a theme can newly be set to from now on. The four
+  // above are kept in the enum (never removed) purely so a database whose `Settings.uiStyle`
+  // is still one of them (nothing force-migrates an admin's existing live choice) keeps
+  // resolving to a valid value — Postgres enum values can't be safely dropped while a row
+  // might still reference one. `client/src/lib/designSystems.ts` is the real registry.
+  minimalAcademic
+  modernSaas
+  editorialLearning
+  focusExam
+  contemporaryCreative
 }
 
 /// Singleton settings row (T-067). `id` is always the fixed string `"singleton"` — there
@@ -1468,7 +1487,22 @@ model Settings {
   id       String       @id @default("singleton")
   language SiteLanguage @default(en)
   themeId  ThemeId      @default(sunset)
-  uiStyle  UiStyleId    @default(glass)
+  /// 2026-10: was the `UiStyleId` enum below — changed to a free `String` (validated only
+  /// in application code, `UI_STYLE_IDS`/`client/src/lib/designSystems.ts`) so adding a
+  /// NEW design system never again needs a migration: the first "5 Design Systems" rebuild
+  /// needed one to add those 5 enum labels, then a follow-up request for 5 MORE the very
+  /// same day made the cost of that rigidity obvious. The `UiStyleId` enum type itself is
+  /// deliberately left defined below, unused — dropping a Postgres type some rows may still
+  /// reference is unnecessary risk for zero benefit; existing values keep reading back
+  /// identically either way (every enum label is valid text).
+  uiStyle String @default("glass")
+  /// 2026-10 "font picker" — the admin-selected site-wide font family id (one of
+  /// `client/src/lib/fonts.ts`'s `FONT_DEFINITIONS`), or `null` to use whatever the active
+  /// design system's own default font is (no override). Applied the same "inline style on
+  /// `<html>` beats any stylesheet rule" way `applyTheme`'s brand-color CSS vars already
+  /// are, so a chosen font always wins over a design system's own `--font-body`/
+  /// `--font-display`, and clearing it cleanly falls back to the design system's choice.
+  fontFamily String?
 
   /// Admin-editable AI essay/writing grading config (2026-10), written only via
   /// `PATCH /api/admin/settings/ai-grading` — never exposed on the public

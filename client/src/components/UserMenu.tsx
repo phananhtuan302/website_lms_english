@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/useAuth';
@@ -252,9 +253,13 @@ export default function UserMenu() {
       </div>
 
       {/* Modal Popup Cập nhật thông tin tài khoản (2 Tabs) */}
-      {showProfileModal && (
+      {showProfileModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl transition-all animate-in zoom-in-95 duration-150">
+          {/* QA 2026-10 fix: no `max-h`/`overflow-y-auto` here meant this panel's content
+             (header + avatar card + 4 fields + footer, or the password tab's 3 fields)
+             could be taller than the viewport at 1440x900/1366x768 with nothing to scroll
+             it — the footer save button (and the whole password tab) was unreachable. */}
+          <div className="flex w-full max-w-lg max-h-[90vh] flex-col overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl transition-all animate-in zoom-in-95 duration-150">
             {/* Header Modal */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
@@ -537,7 +542,8 @@ export default function UserMenu() {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

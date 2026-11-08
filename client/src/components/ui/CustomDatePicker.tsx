@@ -117,7 +117,7 @@ export default function CustomDatePicker({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          'flex h-9 w-full items-center justify-between rounded-md border border-primary-200 bg-white px-3 py-1.5 text-xs text-slate-800 transition-colors hover:border-slate-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200',
+          'flex h-9 w-full items-center justify-between rounded-lg border border-slate-300 bg-base-white px-3 py-1.5 text-xs text-slate-800 transition-colors hover:border-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200',
           !formattedDisplayValue && 'text-slate-400 font-normal',
         )}
       >
@@ -139,7 +139,7 @@ export default function CustomDatePicker({
 
       {/* Calendar Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 z-50 mt-1.5 w-64 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-2xl animate-fade-in">
+        <div className="absolute top-full left-0 z-50 mt-1.5 w-64 rounded-2xl border border-slate-200 bg-base-white p-3.5 shadow-dropdown">
           {/* Header Month / Year controls */}
           <div className="flex items-center justify-between gap-1 pb-3 border-b border-slate-100">
             <button

@@ -10,7 +10,7 @@ interface SectionHeadingProps {
 }
 
 const LEVEL_CLASSES: Record<SectionHeadingLevel, string> = {
-  lg: 'text-lg font-bold text-base-black',
+  lg: 'font-display text-lg font-bold text-base-black',
   md: 'text-base font-bold text-base-black',
 };
 

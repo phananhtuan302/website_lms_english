@@ -78,6 +78,14 @@ export const attemptsRouter = Router();
 
 attemptsRouter.use(requireAuth, requireRole('student'));
 
+/** Thrown by `finalizeAttempt` when, at the very moment it tries to commit, the attempt
+ * is no longer `inProgress` — i.e. another concurrent call (a double-click on "Submit",
+ * a retried request, a second tab, or `autoFinalizeIfExpired` racing an explicit submit)
+ * already finalized it first. See `finalizeAttempt`'s own doc comment for how this is
+ * detected atomically; each of its two call sites below catches this and decides what
+ * "someone else already finished this" should mean for ITS OWN caller. */
+class AttemptAlreadyFinalizedError extends Error {}
+
 /**
  * Grades every question exactly once and marks `attempt` terminal — the shared core of
  * `POST /:attemptId/submit` below, extracted (2026-10) so `autoFinalizeIfExpired` can
@@ -86,6 +94,18 @@ attemptsRouter.use(requireAuth, requireRole('student'));
  * own doc comment for what this does and why (essay AI grading best-effort before the
  * transaction, `scorePercent` via the shared `lib/attemptScore.ts` model, `timeTakenSeconds`
  * computed once from `submittedAt - attempt.startedAt`).
+ *
+ * QA 2026-10 fix: the final status transition used to be a plain `tx.attempt.update`,
+ * with the "is it still `inProgress`?" check done separately, earlier, by each caller
+ * (non-atomically — just reading the row in JS). Two concurrent calls for the same
+ * attempt (observed via a real double-submit-request test: both got HTTP 200) could
+ * both pass that earlier check before either had written anything, then both grade and
+ * both write a `submitted` row — a lost-update race, and in the essay/speaking case,
+ * doubled AI-grading calls. The transition below is now a conditional `updateMany`
+ * (`WHERE status = 'inProgress'`), which Postgres's row locking serializes correctly: at
+ * most one concurrent caller's `updateMany` can match 1 row — note the other upserts
+ * above still fully run speculatively first and get rolled back by the transaction if
+ * the claim below loses, same cost as before, just now actually exclusive.
  */
 async function finalizeAttempt(attempt: { id: string; testId: string; startedAt: Date }) {
   const [test, existingAnswers] = await Promise.all([
@@ -194,8 +214,8 @@ async function finalizeAttempt(attempt: { id: string; testId: string; startedAt:
     const submittedAt = new Date();
     const timeTakenSeconds = Math.max(0, Math.round((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000));
 
-    return tx.attempt.update({
-      where: { id: attempt.id },
+    const claim = await tx.attempt.updateMany({
+      where: { id: attempt.id, status: 'inProgress' },
       data: {
         status: 'submitted',
         submittedAt,
@@ -205,6 +225,13 @@ async function finalizeAttempt(attempt: { id: string; testId: string; startedAt:
         timeTakenSeconds,
       },
     });
+    if (claim.count === 0) {
+      // Someone else's finalize committed between our initial read and this update —
+      // throwing here rolls back every `answer.upsert` above too, so this attempt is
+      // left exactly as the WINNING call left it, not a mix of both.
+      throw new AttemptAlreadyFinalizedError();
+    }
+    return tx.attempt.findUniqueOrThrow({ where: { id: attempt.id } });
   });
 }
 
@@ -228,8 +255,19 @@ async function autoFinalizeIfExpired<T extends { id: string; testId: string; sta
   if (!test || test.timeLimitMinutes == null) return attempt;
   const deadline = attempt.startedAt.getTime() + test.timeLimitMinutes * 60_000;
   if (Date.now() < deadline) return attempt;
-  const finalized = await finalizeAttempt(attempt);
-  return { ...attempt, ...finalized };
+  try {
+    const finalized = await finalizeAttempt(attempt);
+    return { ...attempt, ...finalized };
+  } catch (err) {
+    if (!(err instanceof AttemptAlreadyFinalizedError)) throw err;
+    // Lost the race to an explicit submit (or another lazy auto-finalize) that got there
+    // first — that's a legitimate, already-handled outcome from THIS function's "make
+    // sure it's finalized" point of view, not an error: just read back whatever the
+    // winner committed instead of re-throwing into every route that calls this via
+    // `loadOwnAttempt`.
+    const current = await prisma.attempt.findUniqueOrThrow({ where: { id: attempt.id } });
+    return { ...attempt, ...current };
+  }
 }
 
 /** Loads an attempt owned by the calling student, or writes a 404 and returns `null`.
@@ -455,7 +493,16 @@ attemptsRouter.post(
       return;
     }
 
-    const result = await finalizeAttempt(attempt);
+    let result;
+    try {
+      result = await finalizeAttempt(attempt);
+    } catch (err) {
+      if (err instanceof AttemptAlreadyFinalizedError) {
+        res.status(409).json({ error: 'This attempt has already been submitted.' });
+        return;
+      }
+      throw err;
+    }
 
     const response: SubmitAttemptResponse = {
       attemptId: result.id,

@@ -32,8 +32,8 @@ export default defineConfig({
     // (server-to-server, unaffected by browser-side port forwarding). Also sidesteps
     // CORS entirely in dev, since the browser now sees everything as same-origin.
     proxy: {
-      '/api': { target: 'http://localhost:5000', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:5000', changeOrigin: true, ws: true },
+      '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:4000', changeOrigin: true, ws: true },
     },
   },
 });
